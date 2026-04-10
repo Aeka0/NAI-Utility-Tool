@@ -1,0 +1,47 @@
+name: Bug Report
+description: 报告一个可复现的问题
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 问题描述
+      description: 简要说明你遇到了什么问题
+      placeholder: 描述实际发生了什么
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请尽量提供稳定复现的方法
+      placeholder: |
+        1. 打开...
+        2. 点击...
+        3. 看到...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+      placeholder: 描述你原本期望发生什么
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志或截图
+      description: 可以粘贴日志、报错信息或截图。请不要包含 API Token、账户信息或其他敏感数据。
+
+  - type: input
+    id: env
+    attributes:
+      label: 环境信息
+      description: 例如 Windows 版本、.NET SDK 版本、显卡型号
+      placeholder: Windows 11 23H2 / .NET SDK 9.0.301 / RTX 4060

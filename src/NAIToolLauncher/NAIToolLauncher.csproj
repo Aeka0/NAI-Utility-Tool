@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>..\..\assets\icon\NAIT.ico</ApplicationIcon>
+    <AssemblyName>NAITool</AssemblyName>
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <!-- 启动器输出到 build/{Config}/ 根目录 -->
+    <OutputPath>$(BuildRoot)</OutputPath>
+  </PropertyGroup>
+
+</Project>

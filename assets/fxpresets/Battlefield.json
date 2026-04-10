@@ -1,0 +1,72 @@
+{
+  "Name": "Battlefield",
+  "SavedAt": "2026-03-25T11:53:46.4316929+08:00",
+  "Effects": [
+    {
+      "Id": "35b46665-b9bb-46d8-a468-d88f718671ca",
+      "Type": 8,
+      "Value1": 0.75,
+      "Value2": 0,
+      "Value3": 0,
+      "Value4": 0,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "2d5dfd64-da38-4022-9bc4-8a2c3734449a",
+      "Type": 3,
+      "Value1": 120,
+      "Value2": 45,
+      "Value3": 91,
+      "Value4": 1,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "41341e57-83db-4b73-876a-46a901885f82",
+      "Type": 2,
+      "Value1": -32,
+      "Value2": -5,
+      "Value3": 0,
+      "Value4": 0,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "671a666f-0feb-43a2-9626-cad3aef8b350",
+      "Type": 1,
+      "Value1": -8,
+      "Value2": -18,
+      "Value3": 0,
+      "Value4": 0,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "08d09426-896f-44ab-baf9-653ccdf35200",
+      "Type": 6,
+      "Value1": 3,
+      "Value2": 0,
+      "Value3": 0,
+      "Value4": 0,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "c637f00f-f136-4f81-a800-a5b3522e1175",
+      "Type": 5,
+      "Value1": 35,
+      "Value2": 55,
+      "Value3": 0,
+      "Value4": 0,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    }
+  ]
+}

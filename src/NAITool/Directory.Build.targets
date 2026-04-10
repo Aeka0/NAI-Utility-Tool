@@ -1,0 +1,3 @@
+<Project>
+  <!-- 旧 MrtCore PRI 管线已通过 EnableCoreMrtTooling=false 禁用，无需覆盖 target -->
+</Project>

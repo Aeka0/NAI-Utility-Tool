@@ -1,0 +1,1086 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using NAITool.Controls;
+using NAITool.Models;
+using NAITool.Services;
+
+namespace NAITool;
+
+public sealed partial class MainWindow
+{
+    private readonly AutomationPresetService _automationPresetService = new(AppRootDir);
+    private AutomationSettings? _activeAutomationSettings;
+    private AutomationRunContext? _automationRunContext;
+
+    private sealed class AutomationRunContext
+    {
+        public required AutomationSettings SettingsSnapshot { get; init; }
+        public required List<PromptShortcutEntry> PromptPool { get; init; }
+        public required List<VibeTransferEntry> VibePool { get; init; }
+        public string? CurrentPromptOverride { get; set; }
+        public (int W, int H)? CurrentSizeOverride { get; set; }
+        public List<VibeTransferInfo>? CurrentVibeOverride { get; set; }
+        public string LastSummary { get; set; } = "";
+        public bool MissingPromptPoolNotified { get; set; }
+        public bool MissingVibePoolNotified { get; set; }
+    }
+
+    private sealed class AutomationPostProcessResult
+    {
+        public required byte[] Bytes { get; init; }
+        public string Summary { get; init; } = "";
+    }
+
+    private AutomationSettings GetAutomationSettings()
+    {
+        _settings.Settings.Automation ??= new AutomationSettings();
+        _settings.Settings.Automation.Normalize();
+        return _settings.Settings.Automation;
+    }
+
+    private async Task ShowAutomationDialogAsync()
+    {
+        var workingSettings = GetAutomationSettings().Clone();
+        workingSettings.Normalize();
+
+        var focusSink = new Button
+        {
+            Width = 1,
+            Height = 1,
+            Opacity = 0,
+            IsTabStop = true,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+
+        var txtPresetName = new TextBox
+        {
+            Header = "预设名称",
+            PlaceholderText = "输入预设名称后可保存",
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        var presetCombo = new ComboBox
+        {
+            Header = "已保存预设",
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        ApplyMenuTypography(presetCombo);
+        var presetSummary = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 12,
+            IsTextSelectionEnabled = true,
+        };
+        var presetSummaryCard = new Border
+        {
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray) { Opacity = 0.08 },
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12, 8, 12, 8),
+            Child = presetSummary,
+        };
+
+        var btnLoadPreset = new Button { Content = "读取", VerticalAlignment = VerticalAlignment.Bottom };
+        var btnSavePreset = new Button { Content = "另存为", VerticalAlignment = VerticalAlignment.Bottom };
+        var btnOverwritePreset = new Button { Content = "覆盖", VerticalAlignment = VerticalAlignment.Bottom };
+
+        var nbMinDelay = CreateAutomationDecimalBox("最小延迟 (秒)", workingSettings.Generation.MinDelaySeconds);
+        var nbMaxDelay = CreateAutomationDecimalBox("最大延迟 (秒)", workingSettings.Generation.MaxDelaySeconds);
+        var nbRequestCount = new NumberBox
+        {
+            Header = "请求次数",
+            Minimum = 0,
+            Maximum = 100000,
+            Value = workingSettings.Generation.RequestLimit,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        var nbRetryCount = new NumberBox
+        {
+            Header = "请求失败重试",
+            Minimum = 0,
+            Maximum = 100000,
+            Value = workingSettings.Generation.FailureRetryLimit,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+
+        var chkRandomSize = new CheckBox { Content = "随机预设尺寸", IsChecked = workingSettings.Randomization.RandomizeSize };
+        var chkRandomVibe = new CheckBox { Content = "随机使用 Vibe 文件", IsChecked = workingSettings.Randomization.RandomizeVibeFiles };
+        var chkRandomStyle = new CheckBox { Content = "随机风格词", IsChecked = workingSettings.Randomization.RandomizeStyleTags };
+        var chkRandomPrompt = new CheckBox { Content = "随机 Prompt", IsChecked = workingSettings.Randomization.RandomizePrompt };
+        var sizePresetChecks = new Dictionary<string, CheckBox>(StringComparer.OrdinalIgnoreCase);
+        var sizeGrid = new Grid { ColumnSpacing = 8, RowSpacing = 0 };
+        sizeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        sizeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        int sizeIdx = 0;
+        foreach (var preset in MaskCanvasControl.CanvasPresets)
+        {
+            string key = FormatAutomationSizePreset(preset.W, preset.H);
+            var box = new CheckBox
+            {
+                Content = preset.Label,
+                Tag = key,
+                IsChecked = workingSettings.Randomization.SizePresets.Contains(key, StringComparer.OrdinalIgnoreCase),
+                Padding = new Thickness(4, 0, 0, 0),
+                MinHeight = 32,
+            };
+            sizePresetChecks[key] = box;
+            int row = sizeIdx / 2;
+            int col = sizeIdx % 2;
+            while (sizeGrid.RowDefinitions.Count <= row)
+                sizeGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            Grid.SetRow(box, row);
+            Grid.SetColumn(box, col);
+            sizeGrid.Children.Add(box);
+            sizeIdx++;
+        }
+
+        var btnSelectSizes = new Button { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
+
+        void UpdateSizeButtonText()
+        {
+            int selected = sizePresetChecks.Count(x => x.Value.IsChecked == true);
+            btnSelectSizes.Content = $"选择尺寸池 ({selected}/{sizePresetChecks.Count} 已选)";
+        }
+
+        foreach (var chk in sizePresetChecks.Values)
+            chk.Click += (_, _) => UpdateSizeButtonText();
+        UpdateSizeButtonText();
+
+        btnSelectSizes.Flyout = new Flyout
+        {
+            Content = new ScrollViewer
+            {
+                MaxHeight = 380,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = new StackPanel
+                {
+                    Padding = new Thickness(4),
+                    Children = { sizeGrid }
+                }
+            },
+        };
+
+        var chkEnableUpscale = new CheckBox { Content = "启用自动超分", IsChecked = workingSettings.PostProcess.UpscaleEnabled };
+        var chkEnablePostFx = new CheckBox { Content = "启用后期滤镜预设", IsChecked = workingSettings.PostProcess.PostFxEnabled };
+        var cboUpscaleModel = new ComboBox { Header = "超分模型", HorizontalAlignment = HorizontalAlignment.Stretch };
+        var upscaleModels = UpscaleService.ScanModels(Path.Combine(ModelsDir, "upscaler"));
+        foreach (var model in upscaleModels)
+            cboUpscaleModel.Items.Add(CreateTextComboBoxItem(model.DisplayName));
+        ApplyMenuTypography(cboUpscaleModel);
+
+        var cboUpscaleScale = new ComboBox { Header = "超分倍率", HorizontalAlignment = HorizontalAlignment.Stretch };
+        cboUpscaleScale.Items.Add(new ComboBoxItem { Content = "2x", Tag = 2 });
+        cboUpscaleScale.Items.Add(new ComboBoxItem { Content = "3x", Tag = 3 });
+        cboUpscaleScale.Items.Add(new ComboBoxItem { Content = "4x", Tag = 4 });
+        ApplyMenuTypography(cboUpscaleScale);
+
+        var cboPostPreset = new ComboBox { Header = "后期滤镜预设", HorizontalAlignment = HorizontalAlignment.Stretch };
+        PopulateAutomationPostPresetCombo(cboPostPreset);
+        ApplyMenuTypography(cboPostPreset);
+
+        void ApplySettingsToControls(AutomationSettings settings)
+        {
+            settings.Normalize();
+            workingSettings = settings.Clone();
+
+            txtPresetName.Text = settings.SelectedPresetName ?? "";
+            SetComboNumberBoxValue(nbMinDelay, settings.Generation.MinDelaySeconds);
+            SetComboNumberBoxValue(nbMaxDelay, settings.Generation.MaxDelaySeconds);
+            nbRequestCount.Value = settings.Generation.RequestLimit;
+            nbRetryCount.Value = settings.Generation.FailureRetryLimit;
+
+            chkRandomSize.IsChecked = settings.Randomization.RandomizeSize;
+            chkRandomVibe.IsChecked = settings.Randomization.RandomizeVibeFiles;
+            chkRandomStyle.IsChecked = settings.Randomization.RandomizeStyleTags;
+            chkRandomPrompt.IsChecked = settings.Randomization.RandomizePrompt;
+            foreach (var pair in sizePresetChecks)
+                pair.Value.IsChecked = settings.Randomization.SizePresets.Contains(pair.Key, StringComparer.OrdinalIgnoreCase);
+
+            chkEnableUpscale.IsChecked = settings.PostProcess.UpscaleEnabled;
+            chkEnablePostFx.IsChecked = settings.PostProcess.PostFxEnabled;
+            SelectComboText(cboUpscaleModel, settings.PostProcess.UpscaleModel);
+            SelectComboTag(cboUpscaleScale, settings.PostProcess.UpscaleScale);
+            SelectComboText(cboPostPreset, settings.PostProcess.PostFxPresetName);
+
+            RefreshPresetSummary();
+            UpdateRandomSizePanelState();
+            UpdatePostPanelState();
+        }
+
+        AutomationSettings CollectSettingsFromControls()
+        {
+            var sizePresets = sizePresetChecks
+                .Where(x => x.Value.IsChecked == true && x.Value.Tag is string)
+                .Select(x => (string)x.Value.Tag)
+                .ToList();
+
+            if (chkRandomSize.IsChecked == true && sizePresets.Count == 0)
+            {
+                var (w, h) = GetSelectedSize();
+                sizePresets.Add(FormatAutomationSizePreset(w, h));
+            }
+
+            var collected = new AutomationSettings
+            {
+                SelectedPresetName = GetSelectedComboText(presetCombo) ?? "",
+                Generation = new AutomationGenerationOptions
+                {
+                    MinDelaySeconds = Math.Max(0.5, nbMinDelay.Value),
+                    MaxDelaySeconds = Math.Max(nbMaxDelay.Value, nbMinDelay.Value),
+                    RequestLimit = Math.Max(0, (int)nbRequestCount.Value),
+                    FailureRetryLimit = Math.Max(0, (int)nbRetryCount.Value),
+                },
+                Randomization = new AutomationRandomizationOptions
+                {
+                    RandomizeSize = chkRandomSize.IsChecked == true,
+                    SizePresets = sizePresets,
+                    RandomizeVibeFiles = chkRandomVibe.IsChecked == true,
+                    RandomizeStyleTags = chkRandomStyle.IsChecked == true,
+                    RandomizePrompt = chkRandomPrompt.IsChecked == true,
+                },
+                PostProcess = new AutomationPostProcessOptions
+                {
+                    UpscaleEnabled = chkEnableUpscale.IsEnabled &&
+                                     chkEnableUpscale.IsChecked == true &&
+                                     !string.IsNullOrWhiteSpace(GetSelectedComboText(cboUpscaleModel)),
+                    UpscaleModel = GetSelectedComboText(cboUpscaleModel) ?? "",
+                    UpscaleScale = GetSelectedComboTagInt(cboUpscaleScale, workingSettings.PostProcess.UpscaleScale),
+                    PostFxEnabled = chkEnablePostFx.IsChecked == true,
+                    PostFxPresetName = GetSelectedComboText(cboPostPreset) ?? "",
+                },
+            };
+            collected.Normalize();
+            return collected;
+        }
+
+        void RefreshPresetSummary()
+        {
+            presetSummary.Text = GetAutomationPresetSummary(CollectSettingsFromControls());
+        }
+
+        void RefreshPresetCombo(string? targetName = null)
+        {
+            string? currentName = targetName ?? GetSelectedComboText(presetCombo) ?? workingSettings.SelectedPresetName;
+            presetCombo.Items.Clear();
+            foreach (var preset in _automationPresetService.ListPresets())
+                presetCombo.Items.Add(CreateTextComboBoxItem(preset.Name));
+
+            if (!string.IsNullOrWhiteSpace(currentName))
+                SelectComboText(presetCombo, currentName);
+
+            if (presetCombo.SelectedIndex < 0 && presetCombo.Items.Count > 0)
+                presetCombo.SelectedIndex = 0;
+        }
+
+        void UpdateRandomSizePanelState()
+        {
+            btnSelectSizes.IsEnabled = chkRandomSize.IsChecked == true;
+        }
+
+        void UpdatePostPanelState()
+        {
+            bool hasUpscaleModels = upscaleModels.Count > 0;
+            chkEnableUpscale.IsEnabled = hasUpscaleModels;
+            if (!hasUpscaleModels)
+                chkEnableUpscale.IsChecked = false;
+            bool upscaleOn = chkEnableUpscale.IsChecked == true;
+            cboUpscaleModel.IsEnabled = upscaleOn && hasUpscaleModels;
+            cboUpscaleScale.IsEnabled = upscaleOn;
+
+            cboPostPreset.IsEnabled = chkEnablePostFx.IsChecked == true;
+        }
+
+        async Task LoadSelectedPresetAsync()
+        {
+            string? name = GetSelectedComboText(presetCombo);
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                TxtStatus.Text = "没有可读取的自动化预设";
+                return;
+            }
+
+            try
+            {
+                var preset = await _automationPresetService.LoadPresetAsync(name);
+                if (preset?.Settings == null)
+                {
+                    TxtStatus.Text = "读取自动化预设失败";
+                    return;
+                }
+
+                preset.Settings.SelectedPresetName = preset.Name;
+                ApplySettingsToControls(preset.Settings);
+                SelectComboText(presetCombo, preset.Name);
+                txtPresetName.Text = preset.Name;
+                TxtStatus.Text = $"已读取自动化预设：{preset.Name}";
+            }
+            catch (Exception ex)
+            {
+                TxtStatus.Text = $"读取自动化预设失败: {ex.Message}";
+            }
+        }
+
+        async Task SaveNewPresetAsync()
+        {
+            string presetName = (txtPresetName.Text ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(presetName))
+            {
+                TxtStatus.Text = "预设名称不能为空";
+                return;
+            }
+
+            try
+            {
+                var snapshot = CollectSettingsFromControls();
+                snapshot.SelectedPresetName = presetName;
+                await _automationPresetService.SavePresetAsync(presetName, snapshot);
+                RefreshPresetCombo(presetName);
+                SelectComboText(presetCombo, presetName);
+                RefreshPresetSummary();
+                TxtStatus.Text = $"已保存自动化预设：{presetName}";
+            }
+            catch (Exception ex)
+            {
+                TxtStatus.Text = $"保存自动化预设失败: {ex.Message}";
+            }
+        }
+
+        async Task OverwritePresetAsync()
+        {
+            string? selectedName = GetSelectedComboText(presetCombo);
+            if (string.IsNullOrWhiteSpace(selectedName))
+            {
+                TxtStatus.Text = "请先选择要覆盖的自动化预设";
+                return;
+            }
+
+            try
+            {
+                var snapshot = CollectSettingsFromControls();
+                snapshot.SelectedPresetName = selectedName;
+                await _automationPresetService.SavePresetAsync(selectedName, snapshot);
+                txtPresetName.Text = selectedName;
+                RefreshPresetCombo(selectedName);
+                RefreshPresetSummary();
+                TxtStatus.Text = $"已覆盖自动化预设：{selectedName}";
+            }
+            catch (Exception ex)
+            {
+                TxtStatus.Text = $"覆盖自动化预设失败: {ex.Message}";
+            }
+        }
+
+        btnLoadPreset.Click += async (_, _) => await LoadSelectedPresetAsync();
+        btnSavePreset.Click += async (_, _) => await SaveNewPresetAsync();
+        btnOverwritePreset.Click += async (_, _) => await OverwritePresetAsync();
+        presetCombo.SelectionChanged += (_, _) =>
+        {
+            if (GetSelectedComboText(presetCombo) is string selected && !string.IsNullOrWhiteSpace(selected))
+                txtPresetName.Text = selected;
+        };
+
+        chkRandomSize.Click += (_, _) => UpdateRandomSizePanelState();
+        chkEnableUpscale.Click += (_, _) => UpdatePostPanelState();
+        chkEnablePostFx.Click += (_, _) => UpdatePostPanelState();
+
+        var presetPage = new StackPanel
+        {
+            Spacing = 10,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Children =
+            {
+                focusSink,
+                new Grid
+                {
+                    ColumnSpacing = 6,
+                    ColumnDefinitions =
+                    {
+                        new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                        new ColumnDefinition { Width = GridLength.Auto },
+                        new ColumnDefinition { Width = GridLength.Auto },
+                    },
+                    Children =
+                    {
+                        SetGridColumn(txtPresetName, 0),
+                        SetGridColumn(btnSavePreset, 1),
+                        SetGridColumn(btnOverwritePreset, 2),
+                    }
+                },
+                new Grid
+                {
+                    ColumnSpacing = 6,
+                    ColumnDefinitions =
+                    {
+                        new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                        new ColumnDefinition { Width = GridLength.Auto },
+                    },
+                    Children =
+                    {
+                        SetGridColumn(presetCombo, 0),
+                        SetGridColumn(btnLoadPreset, 1),
+                    }
+                },
+                presetSummaryCard,
+                new TextBlock { Text = "预设保存全部自动化配置（生成处理、随机化、后期处理）。", TextWrapping = TextWrapping.Wrap, Opacity = 0.6, FontSize = 12 }
+            }
+        };
+
+        var generationPage = new StackPanel
+        {
+            Spacing = 10,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Children =
+            {
+                CreateAutomationSection(
+                    "请求节奏",
+                    "控制每次请求之间的等待时间。",
+                    CreateAutomationTwoColumnRow(nbMinDelay, nbMaxDelay)),
+                CreateAutomationSection(
+                    "执行次数",
+                    "设置为 0 表示不限制。失败重试为连续失败达到指定次数后自动停止。",
+                    CreateAutomationTwoColumnRow(nbRequestCount, nbRetryCount)),
+            }
+        };
+
+        var randomizationPage = new StackPanel
+        {
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Children =
+            {
+                CreateAutomationSettingRow(
+                    "随机预设尺寸",
+                    "从尺寸池中随机抽取。未选任何尺寸时回退到当前尺寸。",
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 6,
+                        Children = { chkRandomSize, btnSelectSizes }
+                    }),
+                CreateAutomationSettingRow(
+                    "随机使用 Vibe 文件",
+                    "从当前氛围参考中抽取 1 个，不改写界面参考池。",
+                    chkRandomVibe),
+                CreateAutomationSettingRow(
+                    "随机风格词",
+                    "每次请求前附加随机风格前缀。",
+                    chkRandomStyle),
+                CreateAutomationSettingRow(
+                    "随机 Prompt",
+                    "从快捷提示词中抽取一条作为正向 Prompt。",
+                    chkRandomPrompt),
+            }
+        };
+
+        cboPostPreset.HorizontalAlignment = HorizontalAlignment.Stretch;
+
+        var postProcessPage = new StackPanel
+        {
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Children =
+            {
+                CreateAutomationSettingRow(
+                    "自动超分",
+                    "启用后在生成完成后自动执行超分。",
+                    chkEnableUpscale),
+                CreateAutomationSection(
+                    "超分设置",
+                    "选择超分模型与倍率。",
+                    CreateAutomationTwoColumnRow(cboUpscaleModel, cboUpscaleScale)),
+                new Border
+                {
+                    Height = 1,
+                    Margin = new Thickness(0, 6, 0, 6),
+                    Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
+                    Opacity = 0.25,
+                },
+                CreateAutomationSettingRow(
+                    "后期滤镜预设",
+                    "启用后在超分之后应用所选滤镜预设。",
+                    chkEnablePostFx),
+                CreateAutomationSection(
+                    "滤镜预设",
+                    "选择生成后要自动应用的后期滤镜预设。",
+                    cboPostPreset),
+            }
+        };
+
+        var contentHost = new ContentControl
+        {
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Stretch
+        };
+        FrameworkElement WrapPage(FrameworkElement content)
+        {
+            content.HorizontalAlignment = HorizontalAlignment.Stretch;
+            content.Margin = new Thickness(0);
+            return new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Content = new Grid
+                {
+                    Padding = new Thickness(16, 14, 12, 12),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Children = { content }
+                }
+            };
+        }
+
+        var pages = new Dictionary<string, FrameworkElement>(StringComparer.Ordinal)
+        {
+            ["preset"] = WrapPage(presetPage),
+            ["generation"] = WrapPage(generationPage),
+            ["randomization"] = WrapPage(randomizationPage),
+            ["post"] = WrapPage(postProcessPage),
+        };
+
+        void ShowPage(string key)
+        {
+            if (pages.TryGetValue(key, out var page))
+                contentHost.Content = page;
+        }
+
+        var nav = new NavigationView
+        {
+            PaneDisplayMode = NavigationViewPaneDisplayMode.Top,
+            IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed,
+            IsPaneToggleButtonVisible = false,
+            IsBackEnabled = false,
+            IsSettingsVisible = false,
+            AlwaysShowHeader = false,
+            SelectionFollowsFocus = NavigationViewSelectionFollowsFocus.Enabled,
+            CompactModeThresholdWidth = 0,
+            ExpandedModeThresholdWidth = 0,
+            Content = contentHost,
+            Width = 540,
+            Height = 430,
+        };
+        nav.MenuItems.Add(new NavigationViewItem { Content = "预设", Tag = "preset" });
+        nav.MenuItems.Add(new NavigationViewItem { Content = "生成处理", Tag = "generation" });
+        nav.MenuItems.Add(new NavigationViewItem { Content = "随机化", Tag = "randomization" });
+        nav.MenuItems.Add(new NavigationViewItem { Content = "后期处理", Tag = "post" });
+        nav.SelectionChanged += (_, args) =>
+        {
+            if (args.SelectedItemContainer?.Tag is string key)
+                ShowPage(key);
+        };
+        if (nav.MenuItems[0] is NavigationViewItem firstItem)
+            nav.SelectedItem = firstItem;
+        ShowPage("preset");
+
+        RefreshPresetCombo(workingSettings.SelectedPresetName);
+        ApplySettingsToControls(workingSettings);
+
+        var dialog = new ContentDialog
+        {
+            Title = "自动化",
+            Content = nav,
+            PrimaryButtonText = "执行",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.Content.XamlRoot,
+            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
+        };
+        dialog.Resources["ContentDialogMaxWidth"] = (double)620;
+
+        dialog.Opened += (_, _) =>
+        {
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                focusSink.Focus(FocusState.Programmatic);
+                SuppressNumberBoxInitialSelection(nbMinDelay);
+                SuppressNumberBoxInitialSelection(nbMaxDelay);
+                SuppressNumberBoxInitialSelection(nbRequestCount);
+                SuppressNumberBoxInitialSelection(nbRetryCount);
+            });
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
+        var collected = CollectSettingsFromControls();
+        _settings.Settings.Automation = collected;
+        _settings.Settings.AutoGenRandomStylePrefix = collected.Randomization.RandomizeStyleTags;
+        _settings.Save();
+        _ = RunAutoGenerationAsync();
+    }
+
+    private static NumberBox CreateAutomationDecimalBox(string header, double value) => new()
+    {
+        Header = header,
+        Minimum = 0.5,
+        Maximum = 3600,
+        Value = value,
+        SmallChange = 0.5,
+        LargeChange = 5,
+        SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        NumberFormatter = new Windows.Globalization.NumberFormatting.DecimalFormatter
+        {
+            FractionDigits = 1,
+            IntegerDigits = 1,
+        },
+    };
+
+    private static Grid CreateAutomationTwoColumnRow(FrameworkElement left, FrameworkElement right)
+    {
+        left.HorizontalAlignment = HorizontalAlignment.Stretch;
+        right.HorizontalAlignment = HorizontalAlignment.Stretch;
+        var grid = new Grid { ColumnSpacing = 12, HorizontalAlignment = HorizontalAlignment.Stretch };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(left, 0);
+        Grid.SetColumn(right, 1);
+        grid.Children.Add(left);
+        grid.Children.Add(right);
+        return grid;
+    }
+
+    private static Border CreateAutomationSection(string title, string description, FrameworkElement content)
+    {
+        content.HorizontalAlignment = HorizontalAlignment.Stretch;
+        var stack = new StackPanel
+        {
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = title,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                },
+                new TextBlock
+                {
+                    Text = description,
+                    TextWrapping = TextWrapping.Wrap,
+                    Opacity = 0.6,
+                    FontSize = 12,
+                },
+                content
+            }
+        };
+
+        return new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray) { Opacity = 0.06 },
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12, 10, 12, 10),
+            Child = stack,
+        };
+    }
+
+    private static Border CreateAutomationSettingRow(string title, string description, FrameworkElement control)
+    {
+        control.VerticalAlignment = VerticalAlignment.Center;
+
+        var textPanel = new StackPanel
+        {
+            Spacing = 2,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = title,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                },
+                new TextBlock
+                {
+                    Text = description,
+                    TextWrapping = TextWrapping.Wrap,
+                    Opacity = 0.6,
+                    FontSize = 12,
+                }
+            }
+        };
+
+        var grid = new Grid
+        {
+            ColumnSpacing = 12,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(textPanel, 0);
+        Grid.SetColumn(control, 1);
+        grid.Children.Add(textPanel);
+        grid.Children.Add(control);
+
+        return new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray) { Opacity = 0.04 },
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12, 10, 12, 10),
+            Child = grid,
+        };
+    }
+
+    private static T SetGridColumn<T>(T element, int column) where T : FrameworkElement
+    {
+        Grid.SetColumn(element, column);
+        return element;
+    }
+
+    private static void SetComboNumberBoxValue(NumberBox box, double value)
+    {
+        box.Value = value;
+    }
+
+    private void SelectComboText(ComboBox combo, string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is ComboBoxItem item &&
+                string.Equals(item.Content?.ToString(), text, StringComparison.OrdinalIgnoreCase))
+            {
+                combo.SelectedIndex = i;
+                return;
+            }
+        }
+    }
+
+    private static void SelectComboTag(ComboBox combo, int tagValue)
+    {
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is ComboBoxItem item &&
+                item.Tag is int value &&
+                value == tagValue)
+            {
+                combo.SelectedIndex = i;
+                return;
+            }
+        }
+    }
+
+    private static int GetSelectedComboTagInt(ComboBox combo, int fallback)
+    {
+        if (combo.SelectedItem is ComboBoxItem item)
+        {
+            if (item.Tag is int intValue)
+                return intValue;
+            if (item.Tag is string strValue && int.TryParse(strValue, out int parsed))
+                return parsed;
+        }
+        return fallback;
+    }
+
+    private static string FormatAutomationSizePreset(int width, int height) => $"{width}x{height}";
+
+    private static bool TryParseAutomationSizePreset(string? value, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        string normalized = value.Replace("×", "x", StringComparison.OrdinalIgnoreCase)
+            .Replace(" ", "", StringComparison.Ordinal);
+        string[] parts = normalized.Split('x', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length != 2)
+            return false;
+
+        return int.TryParse(parts[0], out width) && int.TryParse(parts[1], out height)
+            && width > 0 && height > 0;
+    }
+
+    private string GetAutomationPresetSummary(AutomationSettings settings)
+    {
+        settings.Normalize();
+        var gen = settings.Generation;
+        var rand = settings.Randomization;
+        var post = settings.PostProcess;
+
+        string reqLabel = gen.RequestLimit > 0 ? $"{gen.RequestLimit}" : "\u221e";
+        string retryLabel = gen.FailureRetryLimit > 0 ? $"{gen.FailureRetryLimit}" : "\u221e";
+
+        string sizeLabel = rand.RandomizeSize ? $"{rand.SizePresets.Count} \u4e2a\u5c3a\u5bf8" : "\u5173";
+        string vibeLabel = rand.RandomizeVibeFiles ? "\u5f00" : "\u5173";
+        string styleLabel = rand.RandomizeStyleTags ? "\u5f00" : "\u5173";
+        string promptLabel = rand.RandomizePrompt ? "\u5f00" : "\u5173";
+
+        string upscaleLabel = post.UpscaleEnabled && !string.IsNullOrWhiteSpace(post.UpscaleModel)
+            ? $"{post.UpscaleModel} {post.UpscaleScale}x"
+            : "\u5173";
+        string fxLabel = post.PostFxEnabled && !string.IsNullOrWhiteSpace(post.PostFxPresetName)
+            ? post.PostFxPresetName
+            : "\u5173";
+
+        return $"\u5ef6\u8fdf {gen.MinDelaySeconds:F1}-{gen.MaxDelaySeconds:F1}s \u00b7 \u8bf7\u6c42 {reqLabel} \u00b7 \u91cd\u8bd5 {retryLabel}\n" +
+               $"\u5c3a\u5bf8 {sizeLabel} \u00b7 Vibe {vibeLabel} \u00b7 \u98ce\u683c\u8bcd {styleLabel} \u00b7 Prompt {promptLabel}\n" +
+               $"\u8d85\u5206 {upscaleLabel} \u00b7 \u6ee4\u955c {fxLabel}";
+    }
+
+    private AutomationRunContext CreateAutomationRunContext(AutomationSettings settingsSnapshot)
+    {
+        return new AutomationRunContext
+        {
+            SettingsSnapshot = settingsSnapshot.Clone(),
+            PromptPool = _promptShortcuts
+                .Where(x => !string.IsNullOrWhiteSpace(x.Prompt))
+                .Select(x => new PromptShortcutEntry
+                {
+                    Shortcut = x.Shortcut,
+                    Prompt = x.Prompt,
+                })
+                .ToList(),
+            VibePool = _genVibeTransfers
+                .Select(CloneVibeTransferEntry)
+                .ToList(),
+        };
+    }
+
+    private void PrepareAutomationIteration(AutomationRunContext context)
+    {
+        context.CurrentPromptOverride = null;
+        context.CurrentSizeOverride = null;
+        context.CurrentVibeOverride = null;
+
+        var notes = new List<string>();
+        var randomization = context.SettingsSnapshot.Randomization;
+
+        if (randomization.RandomizeSize)
+        {
+            var sizeCandidates = randomization.SizePresets
+                .Select(x => TryParseAutomationSizePreset(x, out int w, out int h) ? (Valid: true, W: w, H: h) : default)
+                .Where(x => x.Valid)
+                .ToList();
+            if (sizeCandidates.Count > 0)
+            {
+                var selected = sizeCandidates[Random.Shared.Next(sizeCandidates.Count)];
+                context.CurrentSizeOverride = (selected.W, selected.H);
+                notes.Add($"尺寸 {selected.W}×{selected.H}");
+            }
+        }
+
+        if (randomization.RandomizePrompt)
+        {
+            if (context.PromptPool.Count > 0)
+            {
+                var selected = context.PromptPool[Random.Shared.Next(context.PromptPool.Count)];
+                context.CurrentPromptOverride = selected.Prompt;
+                string label = string.IsNullOrWhiteSpace(selected.Shortcut)
+                    ? "快捷提示词"
+                    : selected.Shortcut;
+                notes.Add($"Prompt {label}");
+            }
+            else if (!context.MissingPromptPoolNotified)
+            {
+                TxtStatus.Text = "自动化随机 Prompt 已开启，但当前没有可用的快捷提示词，已沿用当前 Prompt";
+                context.MissingPromptPoolNotified = true;
+            }
+        }
+
+        if (randomization.RandomizeVibeFiles)
+        {
+            if (context.VibePool.Count > 0)
+            {
+                var selected = context.VibePool[Random.Shared.Next(context.VibePool.Count)];
+                context.CurrentVibeOverride =
+                [
+                    new VibeTransferInfo
+                    {
+                        FileName = selected.FileName,
+                        ImageBase64 = selected.ImageBase64,
+                        Strength = Math.Clamp(selected.Strength, 0, 1),
+                        InformationExtracted = Math.Clamp(selected.InformationExtracted, 0, 1),
+                    }
+                ];
+                notes.Add($"Vibe {selected.FileName}");
+            }
+            else if (!context.MissingVibePoolNotified)
+            {
+                TxtStatus.Text = "自动化随机 Vibe 已开启，但当前没有可用的氛围参考，已跳过";
+                context.MissingVibePoolNotified = true;
+            }
+        }
+
+        context.LastSummary = notes.Count > 0
+            ? $"本轮自动化参数: {string.Join(" | ", notes)}"
+            : "自动化准备中...";
+        TxtStatus.Text = context.LastSummary;
+    }
+
+    private static VibeTransferEntry CloneVibeTransferEntry(VibeTransferEntry x) => new()
+    {
+        FileName = x.FileName,
+        ImageBase64 = x.ImageBase64,
+        Strength = x.Strength,
+        InformationExtracted = x.InformationExtracted,
+        IsEncodedFile = x.IsEncodedFile,
+        IsCollapsed = x.IsCollapsed,
+    };
+
+    private void PopulateAutomationPostPresetCombo(ComboBox combo)
+    {
+        combo.Items.Clear();
+        foreach (string preset in GetAvailablePostFxPresetNames())
+            combo.Items.Add(CreateTextComboBoxItem(preset));
+        if (combo.SelectedIndex < 0 && combo.Items.Count > 0)
+            combo.SelectedIndex = 0;
+    }
+
+    private IReadOnlyList<string> GetAvailablePostFxPresetNames()
+    {
+        EnsureDefaultFxPresets();
+        if (!Directory.Exists(FxPresetsDir))
+            return [];
+
+        var names = new List<string>();
+        foreach (string file in Directory.EnumerateFiles(FxPresetsDir, "*.json")
+                     .OrderByDescending(File.GetLastWriteTime))
+        {
+            string label = Path.GetFileNameWithoutExtension(file);
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<PostFxPresetFile>(File.ReadAllText(file));
+                if (!string.IsNullOrWhiteSpace(parsed?.Name))
+                    label = parsed.Name;
+            }
+            catch
+            {
+                // 忽略损坏的预设文件，沿用文件名。
+            }
+
+            if (!names.Contains(label, StringComparer.OrdinalIgnoreCase))
+                names.Add(label);
+        }
+
+        return names;
+    }
+
+    private string? TryResolvePostFxPresetPath(string? presetName)
+    {
+        if (string.IsNullOrWhiteSpace(presetName) || !Directory.Exists(FxPresetsDir))
+            return null;
+
+        foreach (string file in Directory.EnumerateFiles(FxPresetsDir, "*.json"))
+        {
+            if (string.Equals(Path.GetFileNameWithoutExtension(file), presetName, StringComparison.OrdinalIgnoreCase))
+                return file;
+
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<PostFxPresetFile>(File.ReadAllText(file));
+                if (string.Equals(parsed?.Name, presetName, StringComparison.OrdinalIgnoreCase))
+                    return file;
+            }
+            catch
+            {
+                // 忽略损坏的预设文件。
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<List<PostEffectEntry>> LoadPostEffectsFromPresetByNameAsync(string presetName)
+    {
+        string? path = TryResolvePostFxPresetPath(presetName);
+        if (path == null)
+            return [];
+
+        var parsed = JsonSerializer.Deserialize<PostFxPresetFile>(await File.ReadAllTextAsync(path));
+        if (parsed?.Effects == null)
+            return [];
+
+        return parsed.Effects
+            .Select(RehydratePresetEffect)
+            .ToList();
+    }
+
+    private async Task<AutomationPostProcessResult> RunAutomationPostProcessAsync(
+        byte[] sourceBytes,
+        AutomationPostProcessOptions options,
+        CancellationToken ct)
+    {
+        options.Normalize();
+        byte[] currentBytes = sourceBytes;
+        var notes = new List<string>();
+
+        if (options.UpscaleEnabled && !string.IsNullOrWhiteSpace(options.UpscaleModel))
+        {
+            try
+            {
+                currentBytes = await RunAutomationUpscaleAsync(currentBytes, options, ct);
+                notes.Add($"超分 {options.UpscaleModel} {options.UpscaleScale}x");
+            }
+            catch (InvalidOperationException)
+            {
+                notes.Add($"超分模型缺失，已跳过 {options.UpscaleModel}");
+            }
+        }
+
+        if (options.PostFxEnabled && !string.IsNullOrWhiteSpace(options.PostFxPresetName))
+        {
+            var effects = await LoadPostEffectsFromPresetByNameAsync(options.PostFxPresetName);
+            if (effects.Count > 0)
+            {
+                currentBytes = await Task.Run(() => RenderPostEffects(currentBytes, effects), ct);
+                notes.Add($"滤镜 {options.PostFxPresetName}");
+            }
+        }
+
+        return new AutomationPostProcessResult
+        {
+            Bytes = currentBytes,
+            Summary = notes.Count > 0 ? string.Join(" -> ", notes) : "",
+        };
+    }
+
+    private async Task<byte[]> RunAutomationUpscaleAsync(
+        byte[] sourceBytes,
+        AutomationPostProcessOptions options,
+        CancellationToken ct)
+    {
+        var modelInfo = _upscaleModelInfos
+            .FirstOrDefault(x => string.Equals(x.DisplayName, options.UpscaleModel, StringComparison.OrdinalIgnoreCase));
+        if (modelInfo == null)
+        {
+            _upscaleModelInfos = UpscaleService.ScanModels(Path.Combine(ModelsDir, "upscaler"));
+            modelInfo = _upscaleModelInfos
+                .FirstOrDefault(x => string.Equals(x.DisplayName, options.UpscaleModel, StringComparison.OrdinalIgnoreCase));
+        }
+        if (modelInfo == null)
+            throw new InvalidOperationException($"未找到超分模型：{options.UpscaleModel}");
+
+        _upscaleService ??= new UpscaleService();
+        await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath), ct);
+
+        int modelScale = Math.Max(2, modelInfo.Scale);
+        int targetScale = options.UpscaleScale;
+        int passCount = 1;
+        int cumulativeScale = modelScale;
+        while (cumulativeScale < targetScale && passCount < 3)
+        {
+            passCount++;
+            cumulativeScale *= modelScale;
+        }
+
+        byte[] currentBytes = sourceBytes;
+        for (int i = 0; i < passCount; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            currentBytes = await _upscaleService.UpscaleAsync(currentBytes, null, ct);
+        }
+
+        return currentBytes;
+    }
+}

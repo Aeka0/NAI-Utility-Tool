@@ -1,0 +1,27 @@
+name: dotnet-build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore .\NAITool.sln
+
+      - name: Build
+        run: dotnet build .\NAITool.sln -c Debug -p:Platform=x64 --no-restore

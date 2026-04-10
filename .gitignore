@@ -1,0 +1,66 @@
+# IDE and local workspace files
+.vs/
+.vscode/
+.idea/
+.cursor/
+*.suo
+*.user
+*.csproj.user
+*.sln.DotSettings.user
+*.sln.docstates
+
+# .NET build outputs
+**/bin/
+**/obj/
+build/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM64/
+
+# Publish artifacts and packaged releases
+publish/
+*.7z
+*.zip
+
+# Runtime data / user-generated files
+**/logs/
+**/output/
+**/user/
+*.log
+
+# Environment files
+.env
+.env.*
+
+# User-downloaded models (upscaler is shipped, tagger is user-provided)
+models/tagger/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Test and coverage artifacts
+TestResults/
+*.coverage
+coverage*.json
+BenchmarkDotNet.Artifacts/
+
+# Reverse-engineering / generated scratch files
+decompiled_current/
+decompiled_full/
+decompiled_*.txt
+
+# OS noise
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Local design/source assets not used by builds
+/NAIT.png
+/NAITR.png
+/NAITS.ico
+/RobinBird.png
+/NaiToolSplash.psd
+/Splash.psd

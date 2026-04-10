@@ -1,0 +1,11 @@
+<UserControl
+    x:Class="NAITool.Controls.MaskCanvasControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    AllowDrop="True"
+    DragOver="OnDragOver"
+    Drop="OnDrop">
+
+    <Grid x:Name="RootGrid" Background="Transparent" />
+
+</UserControl>

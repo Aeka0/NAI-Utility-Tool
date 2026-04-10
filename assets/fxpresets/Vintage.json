@@ -1,0 +1,83 @@
+{
+  "Name": "Vintage",
+  "SavedAt": "2026-04-01T04:57:56.8756052+08:00",
+  "Effects": [
+    {
+      "Id": "172d0fc1-32ba-409c-a4d2-728ba47d4b63",
+      "Type": 4,
+      "Value1": 13,
+      "Value2": 50,
+      "Value3": 50,
+      "Value4": 2,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "94c8d421-bd52-446c-b006-ea894cee403a",
+      "Type": 6,
+      "Value1": 6,
+      "Value2": 0,
+      "Value3": 0,
+      "Value4": 0,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "0302b936-e23a-41b8-9c0e-15c76b7c878c",
+      "Type": 8,
+      "Value1": 0.8,
+      "Value2": 0,
+      "Value3": 0,
+      "Value4": 0,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "01407e1f-8d87-4f15-b80c-ae5690c9164a",
+      "Type": 3,
+      "Value1": 120,
+      "Value2": 77,
+      "Value3": 135,
+      "Value4": 4.836622703333446,
+      "Value5": -4,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "8647b395-be8f-49c8-9ce3-fe917edb0421",
+      "Type": 1,
+      "Value1": 0,
+      "Value2": -30,
+      "Value3": 0,
+      "Value4": 0,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "7e1ff8ac-88ea-40a4-afae-e4e6c55206e9",
+      "Type": 2,
+      "Value1": 36,
+      "Value2": 5,
+      "Value3": 0,
+      "Value4": 0,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    },
+    {
+      "Id": "7b4a3234-597a-481a-886b-712d452edeae",
+      "Type": 5,
+      "Value1": 70,
+      "Value2": 55,
+      "Value3": 0,
+      "Value4": 0,
+      "Value5": 0,
+      "Value6": 0,
+      "TextValue": ""
+    }
+  ]
+}

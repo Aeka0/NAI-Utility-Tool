@@ -1,0 +1,36 @@
+name: Feature Request
+description: 提交功能建议或改进想法
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 需求概述
+      description: 简要说明你希望增加什么功能
+      placeholder: 描述功能目标
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 目前的痛点
+      description: 说明现在遇到的问题，为什么现有功能不够用
+      placeholder: 描述当前限制或使用场景
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 如果你已经有想法，可以描述期望的交互或实现方向
+      placeholder: 描述你希望的解决方式
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 可以补充参考图、草图、链接或相关讨论

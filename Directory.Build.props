@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <RepoRoot>$([MSBuild]::NormalizePath($(MSBuildThisFileDirectory)))</RepoRoot>
+    <BuildRoot>$(RepoRoot)build\$(Configuration)\</BuildRoot>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+  </PropertyGroup>
+</Project>
