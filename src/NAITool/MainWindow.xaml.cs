@@ -32,7 +32,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace NAITool;
 
-public enum AppMode { ImageGeneration, Inpaint, Upscale, PostProcess, Reader }
+public enum AppMode { ImageGeneration, Inpaint, Upscale, Effects, Inspect }
 public enum PromptWeightFormat { StableDiffusion, NaiClassic, NaiNumeric }
 
 public sealed class ResizeHandle : Microsoft.UI.Xaml.Controls.Grid
@@ -134,34 +134,34 @@ public sealed partial class MainWindow : Window
     private byte[]? _currentGenImageBytes;
     private string? _currentGenImagePath;
 
-    // ═══ 读取模式 ═══
-    private ImageMetadata? _readerMetadata;
-    private byte[]? _readerImageBytes;
-    private string? _readerImagePath;
-    private bool _readerRawModified;
+    // ═══ 检视模式 ═══
+    private ImageMetadata? _inspectMetadata;
+    private byte[]? _inspectImageBytes;
+    private string? _inspectImagePath;
+    private bool _inspectRawModified;
     private MenuBarItem? _menuTools;
-    private ReaderPrimaryAction _readerPrimaryAction = ReaderPrimaryAction.SendMetadata;
+    private InspectPrimaryAction _inspectPrimaryAction = InspectPrimaryAction.SendMetadata;
 
-    // ═══ 后期模式 ═══
-    private readonly List<PostEffectEntry> _postEffects = new();
-    private byte[]? _postImageBytes;
-    private byte[]? _postPreviewImageBytes;
-    private SKBitmap? _postSourceBitmap;
-    private string? _postImagePath;
-    private readonly Stack<PostWorkspaceState> _postUndoStack = new();
-    private readonly Stack<PostWorkspaceState> _postRedoStack = new();
-    private int _postPreviewVersion;
-    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _postPreviewTimer;
-    private bool _postPreviewQueuedFit;
-    private Guid? _selectedPostEffectId;
-    private bool _postApplyingHistory;
-    private bool _postRegionDragging;
-    private bool _postRegionResizing;
-    private Point _postRegionDragStart;
-    private double _postRegionStartCenterX;
-    private double _postRegionStartCenterY;
-    private double _postRegionStartWidth;
-    private double _postRegionStartHeight;
+    // ═══ 效果模式 ═══
+    private readonly List<EffectEntry> _effects = new();
+    private byte[]? _effectsImageBytes;
+    private byte[]? _effectsPreviewImageBytes;
+    private SKBitmap? _effectsSourceBitmap;
+    private string? _effectsImagePath;
+    private readonly Stack<EffectsWorkspaceState> _effectsUndoStack = new();
+    private readonly Stack<EffectsWorkspaceState> _effectsRedoStack = new();
+    private int _effectsPreviewVersion;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _effectsPreviewTimer;
+    private bool _effectsPreviewQueuedFit;
+    private Guid? _selectedEffectId;
+    private bool _effectsApplyingHistory;
+    private bool _effectsRegionDragging;
+    private bool _effectsRegionResizing;
+    private Point _effectsRegionDragStart;
+    private double _effectsRegionStartCenterX;
+    private double _effectsRegionStartCenterY;
+    private double _effectsRegionStartWidth;
+    private double _effectsRegionStartHeight;
 
     // ═══ 超分模式 ═══
     private byte[]? _upscaleInputImageBytes;
@@ -212,7 +212,7 @@ public sealed partial class MainWindow : Window
         "native", "karras", "exponential", "polyexponential",
     ];
 
-    private enum ReaderPrimaryAction
+    private enum InspectPrimaryAction
     {
         SendMetadata,
         InferTags,
@@ -331,12 +331,12 @@ public sealed partial class MainWindow : Window
         BtnCompare.AddHandler(UIElement.PointerCaptureLostEvent,
             new PointerEventHandler(OnCompareReleased), true);
 
-        _postPreviewTimer = DispatcherQueue.CreateTimer();
-        _postPreviewTimer.IsRepeating = false;
-        _postPreviewTimer.Interval = TimeSpan.FromMilliseconds(60);
-        _postPreviewTimer.Tick += (_, _) => _ = RenderQueuedPostPreview();
+        _effectsPreviewTimer = DispatcherQueue.CreateTimer();
+        _effectsPreviewTimer.IsRepeating = false;
+        _effectsPreviewTimer.Interval = TimeSpan.FromMilliseconds(60);
+        _effectsPreviewTimer.Tick += (_, _) => _ = RenderQueuedEffectsPreview();
 
-        RefreshPostEffectsPanel();
+        RefreshEffectsPanel();
         LoadHistoryAsync();
     }
 
@@ -769,10 +769,10 @@ public sealed partial class MainWindow : Window
             target = AppMode.Inpaint;
         else if (ReferenceEquals(sender, TabUpscale) && TabUpscale.IsChecked == true)
             target = AppMode.Upscale;
-        else if (ReferenceEquals(sender, TabPost) && TabPost.IsChecked == true)
-            target = AppMode.PostProcess;
-        else if (ReferenceEquals(sender, TabReader) && TabReader.IsChecked == true)
-            target = AppMode.Reader;
+        else if (ReferenceEquals(sender, TabEffects) && TabEffects.IsChecked == true)
+            target = AppMode.Effects;
+        else if (ReferenceEquals(sender, TabInspect) && TabInspect.IsChecked == true)
+            target = AppMode.Inspect;
 
         if (target.HasValue)
             SwitchMode(target.Value);
@@ -803,14 +803,14 @@ public sealed partial class MainWindow : Window
         bool isGen = mode == AppMode.ImageGeneration;
         bool isInpaint = mode == AppMode.Inpaint;
         bool isUpscale = mode == AppMode.Upscale;
-        bool isPost = mode == AppMode.PostProcess;
-        bool isReader = mode == AppMode.Reader;
+        bool isPost = mode == AppMode.Effects;
+        bool isReader = mode == AppMode.Inspect;
 
         GenPreviewArea.Visibility = isGen ? Visibility.Visible : Visibility.Collapsed;
         MaskCanvas.Visibility = isInpaint ? Visibility.Visible : Visibility.Collapsed;
         UpscalePreviewArea.Visibility = isUpscale ? Visibility.Visible : Visibility.Collapsed;
-        PostPreviewArea.Visibility = isPost ? Visibility.Visible : Visibility.Collapsed;
-        ReaderPreviewArea.Visibility = isReader ? Visibility.Visible : Visibility.Collapsed;
+        EffectsPreviewArea.Visibility = isPost ? Visibility.Visible : Visibility.Collapsed;
+        InspectPreviewArea.Visibility = isReader ? Visibility.Visible : Visibility.Collapsed;
 
         GenResultBar.Visibility = Visibility.Collapsed;
         if (isInpaint && MaskCanvas.IsInPreviewMode)
@@ -819,9 +819,9 @@ public sealed partial class MainWindow : Window
         ResultActionBar.Visibility = Visibility.Collapsed;
 
         PanelLeftMain.Visibility = (isReader || isPost || isUpscale) ? Visibility.Collapsed : Visibility.Visible;
-        PanelLeftPost.Visibility = isPost ? Visibility.Visible : Visibility.Collapsed;
+        PanelLeftEffects.Visibility = isPost ? Visibility.Visible : Visibility.Collapsed;
         PanelLeftUpscale.Visibility = isUpscale ? Visibility.Visible : Visibility.Collapsed;
-        PanelLeftReader.Visibility = isReader ? Visibility.Visible : Visibility.Collapsed;
+        PanelLeftInspect.Visibility = isReader ? Visibility.Visible : Visibility.Collapsed;
 
         PanelHistory.Visibility = isGen ? Visibility.Visible : Visibility.Collapsed;
         PanelInpaintTools.Visibility = isInpaint ? Visibility.Visible : Visibility.Collapsed;
@@ -833,8 +833,8 @@ public sealed partial class MainWindow : Window
         TabGenerate.IsChecked = isGen;
         TabInpaint.IsChecked = isInpaint;
         TabUpscale.IsChecked = isUpscale;
-        TabPost.IsChecked = isPost;
-        TabReader.IsChecked = isReader;
+        TabEffects.IsChecked = isPost;
+        TabInspect.IsChecked = isReader;
 
         if (IsPromptMode(mode)) PopulateModelList();
         if (isUpscale) PopulateUpscaleModelList();
@@ -895,7 +895,7 @@ public sealed partial class MainWindow : Window
             panel.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x00, 0x00, 0x00, 0x00));
     }
 
-    private enum PostEffectType
+    private enum EffectType
     {
         BrightnessContrast,
         SaturationVibrance,
@@ -911,10 +911,10 @@ public sealed partial class MainWindow : Window
         Scanline,
     }
 
-    private sealed class PostEffectEntry
+    private sealed class EffectEntry
     {
         public Guid Id { get; init; } = Guid.NewGuid();
-        public PostEffectType Type { get; init; }
+        public EffectType Type { get; init; }
         public double Value1 { get; set; }
         public double Value2 { get; set; }
         public double Value3 { get; set; }
@@ -924,28 +924,28 @@ public sealed partial class MainWindow : Window
         public string TextValue { get; set; } = "";
     }
 
-    private sealed class PostWorkspaceState
+    private sealed class EffectsWorkspaceState
     {
         public byte[]? ImageBytes { get; init; }
         public string? ImagePath { get; init; }
         public Guid? SelectedEffectId { get; init; }
-        public List<PostEffectEntry> Effects { get; init; } = new();
+        public List<EffectEntry> Effects { get; init; } = new();
     }
 
-    private sealed class PostFxPresetFile
+    private sealed class EffectsPresetFile
     {
         public string Name { get; set; } = "";
         public DateTime SavedAt { get; set; }
-        public List<PostEffectEntry> Effects { get; set; } = new();
+        public List<EffectEntry> Effects { get; set; } = new();
     }
 
-    private static IconElement CreatePostProcessIcon() =>
+    private static IconElement CreateEffectsIcon() =>
         new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" };
 
-    private static bool IsRegionPostEffect(PostEffectType type) =>
-        type == PostEffectType.Pixelate || type == PostEffectType.SolidBlock;
+    private static bool IsRegionEffect(EffectType type) =>
+        type == EffectType.Pixelate || type == EffectType.SolidBlock;
 
-    private static bool IsInteractivePostCardSource(object? source)
+    private static bool IsInteractiveEffectCardSource(object? source)
     {
         DependencyObject? current = source as DependencyObject;
         while (current != null)
@@ -957,35 +957,35 @@ public sealed partial class MainWindow : Window
         return false;
     }
 
-    private void MovePostEffect(Guid effectId, int direction)
+    private void MoveEffect(Guid effectId, int direction)
     {
-        int index = _postEffects.FindIndex(x => x.Id == effectId);
+        int index = _effects.FindIndex(x => x.Id == effectId);
         if (index < 0) return;
 
-        int newIndex = Math.Clamp(index + direction, 0, _postEffects.Count - 1);
+        int newIndex = Math.Clamp(index + direction, 0, _effects.Count - 1);
         if (newIndex == index) return;
 
-        PushPostUndoState();
-        var item = _postEffects[index];
-        _postEffects.RemoveAt(index);
-        _postEffects.Insert(newIndex, item);
-        RefreshPostEffectsPanel();
-        QueuePostPreviewRefresh(immediate: true);
+        PushEffectsUndoState();
+        var item = _effects[index];
+        _effects.RemoveAt(index);
+        _effects.Insert(newIndex, item);
+        RefreshEffectsPanel();
+        QueueEffectsPreviewRefresh(immediate: true);
         UpdateDynamicMenuStates();
         TxtStatus.Text = "已调整效果顺序";
     }
 
-    private PostEffectEntry? GetSelectedPostEffect()
+    private EffectEntry? GetSelectedEffect()
     {
-        if (_selectedPostEffectId == null) return null;
-        return _postEffects.FirstOrDefault(x => x.Id == _selectedPostEffectId.Value);
+        if (_selectedEffectId == null) return null;
+        return _effects.FirstOrDefault(x => x.Id == _selectedEffectId.Value);
     }
 
-    private async void OnSendToInpaintFromPost(object sender, RoutedEventArgs e)
+    private async void OnSendToInpaintFromEffects(object sender, RoutedEventArgs e)
     {
         try
         {
-            var bytes = await GetPostSaveBytesAsync();
+            var bytes = await GetEffectsSaveBytesAsync();
             if (bytes == null || bytes.Length == 0)
             {
                 TxtStatus.Text = "没有图像可发送到重绘";
@@ -1057,10 +1057,10 @@ public sealed partial class MainWindow : Window
 
             var postItem = new MenuFlyoutItem
             {
-                Text = "发送到后期",
+                Text = "发送到效果",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" },
             };
-            postItem.Click += OnSendToPostFromGen;
+            postItem.Click += OnSendToEffectsFromGen;
             newEdit.Items.Add(postItem);
 
             var upscaleItem = new MenuFlyoutItem
@@ -1092,13 +1092,13 @@ public sealed partial class MainWindow : Window
         {
             BuildInpaintEditMenuItems(newEdit);
         }
-        else if (_currentMode == AppMode.Reader)
+        else if (_currentMode == AppMode.Inspect)
         {
             var rawItem = new MenuFlyoutItem
             {
                 Text = "编辑 Raw 元数据...",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE70F" },
-                IsEnabled = _readerImageBytes != null,
+                IsEnabled = _inspectImageBytes != null,
             };
             rawItem.Click += OnEditRawMetadata;
             newEdit.Items.Add(rawItem);
@@ -1109,20 +1109,20 @@ public sealed partial class MainWindow : Window
             {
                 Text = "图片混淆",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uF404" },
-                IsEnabled = _readerImageBytes != null,
+                IsEnabled = _inspectImageBytes != null,
             };
             var encryptItem = new MenuFlyoutItem
             {
                 Text = "混淆",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE727" },
             };
-            encryptItem.Click += (_, _) => RunReaderImageScrambleAsync(ImageScrambleService.ProcessType.Encrypt);
+            encryptItem.Click += (_, _) => RunInspectImageScrambleAsync(ImageScrambleService.ProcessType.Encrypt);
             var decryptItem = new MenuFlyoutItem
             {
                 Text = "反混淆",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8D7" },
             };
-            decryptItem.Click += (_, _) => RunReaderImageScrambleAsync(ImageScrambleService.ProcessType.Decrypt);
+            decryptItem.Click += (_, _) => RunInspectImageScrambleAsync(ImageScrambleService.ProcessType.Decrypt);
 
             scrambleMenu.Items.Add(encryptItem);
             scrambleMenu.Items.Add(decryptItem);
@@ -1140,13 +1140,13 @@ public sealed partial class MainWindow : Window
 
             var sendPostItem = new MenuFlyoutItem
             {
-                Text = "发送到后期",
+                Text = "发送到效果",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" },
             };
-            sendPostItem.Click += OnSendToPostFromUpscale;
+            sendPostItem.Click += OnSendToEffectsFromUpscale;
             newEdit.Items.Add(sendPostItem);
         }
-        else if (_currentMode == AppMode.PostProcess)
+        else if (_currentMode == AppMode.Effects)
         {
             var undoItem = new MenuFlyoutItem { Text = "撤销", Icon = new SymbolIcon(Symbol.Undo) };
             undoItem.Click += OnUndo;
@@ -1167,7 +1167,7 @@ public sealed partial class MainWindow : Window
                 Text = "发送到重绘",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" },
             };
-            sendInpaintItem.Click += OnSendToInpaintFromPost;
+            sendInpaintItem.Click += OnSendToInpaintFromEffects;
             newEdit.Items.Add(sendInpaintItem);
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
@@ -1176,7 +1176,7 @@ public sealed partial class MainWindow : Window
                 Text = "添加预设...",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE70F" },
             };
-            addPresetItem.Click += OnAddPostPreset;
+            addPresetItem.Click += OnAddEffectsPreset;
             newEdit.Items.Add(addPresetItem);
 
             var usePresetItem = new MenuFlyoutItem
@@ -1184,7 +1184,7 @@ public sealed partial class MainWindow : Window
                 Text = "使用预设...",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE790" },
             };
-            usePresetItem.Click += OnUsePostPreset;
+            usePresetItem.Click += OnUseEffectsPreset;
             newEdit.Items.Add(usePresetItem);
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
@@ -1193,7 +1193,7 @@ public sealed partial class MainWindow : Window
                 Text = "清空所有效果",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74D" },
             };
-            clearEffectsItem.Click += OnClearAllPostEffects;
+            clearEffectsItem.Click += OnClearAllEffects;
             newEdit.Items.Add(clearEffectsItem);
 
             var applyEffectsItem = new MenuFlyoutItem
@@ -1201,7 +1201,7 @@ public sealed partial class MainWindow : Window
                 Text = "应用效果",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8C7" },
             };
-            applyEffectsItem.Click += OnApplyPostEffects;
+            applyEffectsItem.Click += OnApplyEffects;
             newEdit.Items.Add(applyEffectsItem);
         }
 
@@ -1276,7 +1276,7 @@ public sealed partial class MainWindow : Window
             foreach (var baseItem in MenuEdit.Items)
             {
                 if (baseItem is MenuFlyoutItem item &&
-                    (item.Text == "发送到重绘" || item.Text == "发送到后期" || item.Text == "发送到超分"))
+                    (item.Text == "发送到重绘" || item.Text == "发送到效果" || item.Text == "发送到超分"))
                     item.IsEnabled = hasImage;
             }
         }
@@ -1286,14 +1286,14 @@ public sealed partial class MainWindow : Window
             foreach (var baseItem in MenuEdit.Items)
             {
                 if (baseItem is MenuFlyoutItem item &&
-                    (item.Text == "发送到重绘" || item.Text == "发送到后期"))
+                    (item.Text == "发送到重绘" || item.Text == "发送到效果"))
                     item.IsEnabled = hasImage;
             }
         }
-        else if (_currentMode == AppMode.PostProcess)
+        else if (_currentMode == AppMode.Effects)
         {
-            bool hasImage = _postImageBytes != null;
-            bool hasEffects = _postEffects.Count > 0;
+            bool hasImage = _effectsImageBytes != null;
+            bool hasEffects = _effects.Count > 0;
             foreach (var baseItem in MenuEdit.Items)
             {
                 if (baseItem is not MenuFlyoutItem item) continue;
@@ -1302,15 +1302,15 @@ public sealed partial class MainWindow : Window
                 else if (item.Text == "添加预设...")
                     item.IsEnabled = hasEffects;
                 else if (item.Text == "使用预设...")
-                    item.IsEnabled = HasPostFxPresets();
+                    item.IsEnabled = HasEffectsPresets();
                 else if (item.Text == "清空所有效果")
                     item.IsEnabled = hasEffects;
                 else if (item.Text == "应用效果")
                     item.IsEnabled = hasImage && hasEffects;
                 else if (item.Text == "撤销")
-                    item.IsEnabled = _postUndoStack.Count > 0;
+                    item.IsEnabled = _effectsUndoStack.Count > 0;
                 else if (item.Text == "重做")
-                    item.IsEnabled = _postRedoStack.Count > 0;
+                    item.IsEnabled = _effectsRedoStack.Count > 0;
             }
         }
         else if (_currentMode == AppMode.Inpaint)
@@ -1326,7 +1326,7 @@ public sealed partial class MainWindow : Window
                 {
                     if (item.Text == "扩展遮罩" || item.Text == "收缩遮罩")
                         item.IsEnabled = hasMaskContent;
-                    else if (item.Text == "发送到后期" || item.Text == "发送到超分")
+                    else if (item.Text == "发送到效果" || item.Text == "发送到超分")
                         item.IsEnabled = hasInpaintImage;
                 }
                 else if (baseItem is MenuFlyoutSubItem sub && sub.Text == "对齐图像")
@@ -1381,21 +1381,21 @@ public sealed partial class MainWindow : Window
         bool hasInpaintImage = MaskCanvas.Document.OriginalImage != null ||
             (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null);
         bool hasUpscaleImage = _upscaleInputImageBytes != null;
-        bool hasPostImage = _postImageBytes != null;
-        bool hasReaderImage = _readerImageBytes != null;
+        bool hasPostImage = _effectsImageBytes != null;
+        bool hasReaderImage = _inspectImageBytes != null;
 
         MenuSave.Visibility = _currentMode switch
         {
             AppMode.Inpaint => Visibility.Visible,
-            AppMode.Reader when _readerRawModified => Visibility.Visible,
-            AppMode.PostProcess when _postImageBytes != null => Visibility.Visible,
+            AppMode.Inspect when _inspectRawModified => Visibility.Visible,
+            AppMode.Effects when _effectsImageBytes != null => Visibility.Visible,
             _ => Visibility.Collapsed,
         };
         MenuSave.IsEnabled = _currentMode switch
         {
             AppMode.Inpaint => hasInpaintImage,
-            AppMode.Reader => hasReaderImage && _readerRawModified,
-            AppMode.PostProcess => hasPostImage,
+            AppMode.Inspect => hasReaderImage && _inspectRawModified,
+            AppMode.Effects => hasPostImage,
             _ => false,
         };
 
@@ -1404,17 +1404,17 @@ public sealed partial class MainWindow : Window
             AppMode.ImageGeneration => hasGenImage,
             AppMode.Inpaint => hasInpaintImage,
             AppMode.Upscale => hasUpscaleImage,
-            AppMode.PostProcess => hasPostImage,
-            AppMode.Reader => hasReaderImage,
+            AppMode.Effects => hasPostImage,
+            AppMode.Inspect => hasReaderImage,
             _ => false,
         };
 
-        MenuSaveStripped.Visibility = (_currentMode == AppMode.Reader || _currentMode == AppMode.ImageGeneration)
+        MenuSaveStripped.Visibility = (_currentMode == AppMode.Inspect || _currentMode == AppMode.ImageGeneration)
             ? Visibility.Visible
             : Visibility.Collapsed;
         MenuSaveStripped.IsEnabled = _currentMode switch
         {
-            AppMode.Reader => hasReaderImage,
+            AppMode.Inspect => hasReaderImage,
             AppMode.ImageGeneration => hasGenImage,
             _ => false,
         };
@@ -1733,10 +1733,10 @@ public sealed partial class MainWindow : Window
 
         var postItem = new MenuFlyoutItem
         {
-            Text = "发送到后期",
+            Text = "发送到效果",
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" },
         };
-        postItem.Click += OnSendToPostFromInpaint;
+        postItem.Click += OnSendToEffectsFromInpaint;
         menu.Items.Add(postItem);
 
         var upscaleItem = new MenuFlyoutItem
@@ -1855,8 +1855,8 @@ public sealed partial class MainWindow : Window
         {
             AppMode.ImageGeneration => true,
             AppMode.Inpaint => true,
-            AppMode.Reader => _readerMetadata != null &&
-                              (_readerMetadata.IsNaiParsed || _readerMetadata.IsSdFormat || _readerMetadata.IsModelInference),
+            AppMode.Inspect => _inspectMetadata != null &&
+                              (_inspectMetadata.IsNaiParsed || _inspectMetadata.IsSdFormat || _inspectMetadata.IsModelInference),
             _ => false,
         };
 
@@ -1877,7 +1877,7 @@ public sealed partial class MainWindow : Window
             {
                 AppMode.ImageGeneration => _genPositivePrompt,
                 AppMode.Inpaint => _inpaintPositivePrompt,
-                AppMode.Reader when _readerMetadata != null => _readerMetadata.PositivePrompt ?? string.Empty,
+                AppMode.Inspect when _inspectMetadata != null => _inspectMetadata.PositivePrompt ?? string.Empty,
                 _ => string.Empty,
             };
 
@@ -2653,33 +2653,33 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (_currentMode == AppMode.PostProcess)
+        if (_currentMode == AppMode.Effects)
         {
             TxtStatus.Text = "当前工作区没有可转换的提示词";
             return;
         }
 
-        if (_currentMode == AppMode.Reader)
+        if (_currentMode == AppMode.Inspect)
         {
-            if (_readerMetadata == null || (!_readerMetadata.IsNaiParsed && !_readerMetadata.IsSdFormat && !_readerMetadata.IsModelInference))
+            if (_inspectMetadata == null || (!_inspectMetadata.IsNaiParsed && !_inspectMetadata.IsSdFormat && !_inspectMetadata.IsModelInference))
             {
-                TxtStatus.Text = "读取工作区没有可转换的提示词";
+                TxtStatus.Text = "检视工作区没有可转换的提示词";
                 return;
             }
 
-            _readerMetadata.PositivePrompt = ConvertPromptWeightSyntax(_readerMetadata.PositivePrompt, source, target);
-            _readerMetadata.NegativePrompt = ConvertPromptWeightSyntax(_readerMetadata.NegativePrompt, source, target);
-            _readerMetadata.CharacterPrompts = _readerMetadata.CharacterPrompts
+            _inspectMetadata.PositivePrompt = ConvertPromptWeightSyntax(_inspectMetadata.PositivePrompt, source, target);
+            _inspectMetadata.NegativePrompt = ConvertPromptWeightSyntax(_inspectMetadata.NegativePrompt, source, target);
+            _inspectMetadata.CharacterPrompts = _inspectMetadata.CharacterPrompts
                 .Select(x => ConvertPromptWeightSyntax(x, source, target))
                 .ToList();
-            _readerMetadata.CharacterNegativePrompts = _readerMetadata.CharacterNegativePrompts
+            _inspectMetadata.CharacterNegativePrompts = _inspectMetadata.CharacterNegativePrompts
                 .Select(x => ConvertPromptWeightSyntax(x, source, target))
                 .ToList();
-            _readerMetadata.IsSdFormat = target == PromptWeightFormat.StableDiffusion;
+            _inspectMetadata.IsSdFormat = target == PromptWeightFormat.StableDiffusion;
 
-            DisplayReaderMetadata(_readerMetadata);
+            DisplayInspectMetadata(_inspectMetadata);
             UpdateDynamicMenuStates();
-            TxtStatus.Text = $"已将读取工作区提示词从 {GetPromptWeightFormatLabel(source)} 转为 {GetPromptWeightFormatLabel(target)}";
+            TxtStatus.Text = $"已将检视工作区提示词从 {GetPromptWeightFormatLabel(source)} 转为 {GetPromptWeightFormatLabel(target)}";
             return;
         }
 
@@ -2979,44 +2979,44 @@ public sealed partial class MainWindow : Window
     };
 
     // ═══════════════════════════════════════════════════════════
-    //  后期工作区
+    //  效果工作区
     // ═══════════════════════════════════════════════════════════
 
-    private static PostEffectEntry CreatePostEffect(PostEffectType type) => type switch
+    private static EffectEntry CreateEffect(EffectType type) => type switch
     {
-        PostEffectType.BrightnessContrast => new PostEffectEntry { Type = type, Value1 = 0, Value2 = 0 },
-        PostEffectType.SaturationVibrance => new PostEffectEntry { Type = type, Value1 = 0, Value2 = 0 },
-        PostEffectType.Temperature => new PostEffectEntry { Type = type, Value1 = 0, Value2 = 0 },
-        PostEffectType.Glow => new PostEffectEntry { Type = type, Value1 = 24, Value2 = 55, Value3 = 70, Value4 = 1.0, Value5 = 0, Value6 = 0 },
-        PostEffectType.RadialBlur => new PostEffectEntry { Type = type, Value1 = 18, Value2 = 50, Value3 = 50, Value4 = 0 },
-        PostEffectType.Vignette => new PostEffectEntry { Type = type, Value1 = 35, Value2 = 55 },
-        PostEffectType.ChromaticAberration => new PostEffectEntry { Type = type, Value1 = 3, Value2 = 0 },
-        PostEffectType.Noise => new PostEffectEntry { Type = type, Value1 = 0, Value2 = 0 },
-        PostEffectType.Gamma => new PostEffectEntry { Type = type, Value1 = 1.0, Value2 = 0 },
-        PostEffectType.Pixelate => new PostEffectEntry { Type = type, Value1 = 8, Value2 = 50, Value3 = 50, Value4 = 30, Value5 = 30 },
-        PostEffectType.SolidBlock => new PostEffectEntry { Type = type, Value1 = 50, Value2 = 50, Value3 = 30, Value4 = 30, TextValue = "#000000" },
-        PostEffectType.Scanline => new PostEffectEntry { Type = type, Value1 = 2, Value2 = 4, Value3 = 30, Value4 = 0, Value5 = 50 },
-        _ => new PostEffectEntry { Type = type },
+        EffectType.BrightnessContrast => new EffectEntry { Type = type, Value1 = 0, Value2 = 0 },
+        EffectType.SaturationVibrance => new EffectEntry { Type = type, Value1 = 0, Value2 = 0 },
+        EffectType.Temperature => new EffectEntry { Type = type, Value1 = 0, Value2 = 0 },
+        EffectType.Glow => new EffectEntry { Type = type, Value1 = 24, Value2 = 55, Value3 = 70, Value4 = 1.0, Value5 = 0, Value6 = 0 },
+        EffectType.RadialBlur => new EffectEntry { Type = type, Value1 = 18, Value2 = 50, Value3 = 50, Value4 = 0 },
+        EffectType.Vignette => new EffectEntry { Type = type, Value1 = 35, Value2 = 55 },
+        EffectType.ChromaticAberration => new EffectEntry { Type = type, Value1 = 3, Value2 = 0 },
+        EffectType.Noise => new EffectEntry { Type = type, Value1 = 0, Value2 = 0 },
+        EffectType.Gamma => new EffectEntry { Type = type, Value1 = 1.0, Value2 = 0 },
+        EffectType.Pixelate => new EffectEntry { Type = type, Value1 = 8, Value2 = 50, Value3 = 50, Value4 = 30, Value5 = 30 },
+        EffectType.SolidBlock => new EffectEntry { Type = type, Value1 = 50, Value2 = 50, Value3 = 30, Value4 = 30, TextValue = "#000000" },
+        EffectType.Scanline => new EffectEntry { Type = type, Value1 = 2, Value2 = 4, Value3 = 30, Value4 = 0, Value5 = 50 },
+        _ => new EffectEntry { Type = type },
     };
 
-    private static string GetPostEffectTitle(PostEffectType type) => type switch
+    private static string GetEffectTitle(EffectType type) => type switch
     {
-        PostEffectType.BrightnessContrast => "亮度 / 对比度",
-        PostEffectType.SaturationVibrance => "饱和度 / 自然饱和度",
-        PostEffectType.Temperature => "色温",
-        PostEffectType.Glow => "泛光",
-        PostEffectType.RadialBlur => "径向模糊",
-        PostEffectType.Vignette => "暗角",
-        PostEffectType.ChromaticAberration => "镜头色散",
-        PostEffectType.Noise => "杂色",
-        PostEffectType.Gamma => "Gamma",
-        PostEffectType.Pixelate => "像素化",
-        PostEffectType.SolidBlock => "实色遮挡",
-        PostEffectType.Scanline => "扫描线",
+        EffectType.BrightnessContrast => "亮度 / 对比度",
+        EffectType.SaturationVibrance => "饱和度 / 自然饱和度",
+        EffectType.Temperature => "色温",
+        EffectType.Glow => "泛光",
+        EffectType.RadialBlur => "径向模糊",
+        EffectType.Vignette => "暗角",
+        EffectType.ChromaticAberration => "镜头色散",
+        EffectType.Noise => "杂色",
+        EffectType.Gamma => "Gamma",
+        EffectType.Pixelate => "像素化",
+        EffectType.SolidBlock => "实色遮挡",
+        EffectType.Scanline => "扫描线",
         _ => "效果",
     };
 
-    private static PostEffectEntry ClonePostEffect(PostEffectEntry x) => new()
+    private static EffectEntry CloneEffect(EffectEntry x) => new()
     {
         Id = x.Id,
         Type = x.Type,
@@ -3042,7 +3042,7 @@ public sealed partial class MainWindow : Window
 
     private bool IsDarkTheme() => GetResolvedTheme() == ElementTheme.Dark;
 
-    private Brush CreatePostBrush(byte lightR, byte lightG, byte lightB, byte darkR, byte darkG, byte darkB, byte alpha = 255)
+    private Brush CreateEffectsBrush(byte lightR, byte lightG, byte lightB, byte darkR, byte darkG, byte darkB, byte alpha = 255)
     {
         bool isDark = IsDarkTheme();
         return new SolidColorBrush(Windows.UI.Color.FromArgb(alpha,
@@ -3051,95 +3051,95 @@ public sealed partial class MainWindow : Window
             isDark ? darkB : lightB));
     }
 
-    private Brush GetPostCardBackgroundBrush() => CreatePostBrush(251, 251, 251, 37, 37, 38);
-    private Brush GetPostCardBorderBrush() => CreatePostBrush(214, 214, 214, 75, 75, 78);
-    private Brush GetPostPrimaryTextBrush() => CreatePostBrush(26, 26, 26, 245, 245, 245);
-    private Brush GetPostSecondaryTextBrush() => CreatePostBrush(80, 80, 80, 210, 210, 210);
-    private Brush GetPostTertiaryTextBrush() => CreatePostBrush(120, 120, 120, 160, 160, 160);
-    private Brush GetPostButtonBackgroundBrush() => CreatePostBrush(245, 245, 245, 45, 45, 48);
-    private Brush GetPostButtonBorderBrush() => CreatePostBrush(210, 210, 210, 85, 85, 88);
-    private Brush GetPostTextBoxBackgroundBrush() => CreatePostBrush(255, 255, 255, 30, 30, 30);
-    private Brush GetPostTextBoxBorderBrush() => CreatePostBrush(196, 196, 196, 90, 90, 90);
+    private Brush GetEffectsCardBackgroundBrush() => CreateEffectsBrush(251, 251, 251, 37, 37, 38);
+    private Brush GetEffectsCardBorderBrush() => CreateEffectsBrush(214, 214, 214, 75, 75, 78);
+    private Brush GetEffectsPrimaryTextBrush() => CreateEffectsBrush(26, 26, 26, 245, 245, 245);
+    private Brush GetEffectsSecondaryTextBrush() => CreateEffectsBrush(80, 80, 80, 210, 210, 210);
+    private Brush GetEffectsTertiaryTextBrush() => CreateEffectsBrush(120, 120, 120, 160, 160, 160);
+    private Brush GetEffectsButtonBackgroundBrush() => CreateEffectsBrush(245, 245, 245, 45, 45, 48);
+    private Brush GetEffectsButtonBorderBrush() => CreateEffectsBrush(210, 210, 210, 85, 85, 88);
+    private Brush GetEffectsTextBoxBackgroundBrush() => CreateEffectsBrush(255, 255, 255, 30, 30, 30);
+    private Brush GetEffectsTextBoxBorderBrush() => CreateEffectsBrush(196, 196, 196, 90, 90, 90);
 
-    private void ApplyPostButtonTheme(Button button)
+    private void ApplyEffectsButtonTheme(Button button)
     {
         button.RequestedTheme = GetResolvedTheme();
-        button.Background = GetPostButtonBackgroundBrush();
-        button.BorderBrush = GetPostButtonBorderBrush();
-        button.Foreground = button.Foreground ?? GetPostPrimaryTextBrush();
+        button.Background = GetEffectsButtonBackgroundBrush();
+        button.BorderBrush = GetEffectsButtonBorderBrush();
+        button.Foreground = button.Foreground ?? GetEffectsPrimaryTextBrush();
         button.CornerRadius = new CornerRadius(4);
     }
 
-    private void ApplyPostTextBoxTheme(TextBox textBox)
+    private void ApplyEffectsTextBoxTheme(TextBox textBox)
     {
         textBox.RequestedTheme = GetResolvedTheme();
-        textBox.Background = GetPostTextBoxBackgroundBrush();
-        textBox.BorderBrush = GetPostTextBoxBorderBrush();
-        textBox.Foreground = GetPostPrimaryTextBrush();
+        textBox.Background = GetEffectsTextBoxBackgroundBrush();
+        textBox.BorderBrush = GetEffectsTextBoxBorderBrush();
+        textBox.Foreground = GetEffectsPrimaryTextBrush();
     }
 
-    private bool HasPostWorkspaceState() => _postImageBytes != null || _postEffects.Count > 0;
+    private bool HasEffectsWorkspaceState() => _effectsImageBytes != null || _effects.Count > 0;
 
-    private PostWorkspaceState CapturePostWorkspaceState() => new()
+    private EffectsWorkspaceState CaptureEffectsWorkspaceState() => new()
     {
-        ImageBytes = _postImageBytes?.ToArray(),
-        ImagePath = _postImagePath,
-        SelectedEffectId = _selectedPostEffectId,
-        Effects = _postEffects.Select(ClonePostEffect).ToList(),
+        ImageBytes = _effectsImageBytes?.ToArray(),
+        ImagePath = _effectsImagePath,
+        SelectedEffectId = _selectedEffectId,
+        Effects = _effects.Select(CloneEffect).ToList(),
     };
 
-    private void PushPostUndoState()
+    private void PushEffectsUndoState()
     {
-        if (_postApplyingHistory || !HasPostWorkspaceState()) return;
-        _postUndoStack.Push(CapturePostWorkspaceState());
-        while (_postUndoStack.Count > 60)
+        if (_effectsApplyingHistory || !HasEffectsWorkspaceState()) return;
+        _effectsUndoStack.Push(CaptureEffectsWorkspaceState());
+        while (_effectsUndoStack.Count > 60)
         {
-            var trimmed = _postUndoStack.Reverse().Take(60).Reverse().ToArray();
-            _postUndoStack.Clear();
-            foreach (var state in trimmed) _postUndoStack.Push(state);
+            var trimmed = _effectsUndoStack.Reverse().Take(60).Reverse().ToArray();
+            _effectsUndoStack.Clear();
+            foreach (var state in trimmed) _effectsUndoStack.Push(state);
         }
-        _postRedoStack.Clear();
+        _effectsRedoStack.Clear();
         UpdateDynamicMenuStates();
     }
 
-    private async Task RestorePostWorkspaceStateAsync(PostWorkspaceState state)
+    private async Task RestoreEffectsWorkspaceStateAsync(EffectsWorkspaceState state)
     {
-        _postApplyingHistory = true;
+        _effectsApplyingHistory = true;
         try
         {
-            _postImageBytes = state.ImageBytes?.ToArray();
-            _postPreviewImageBytes = _postImageBytes;
-            ReplacePostSourceBitmap(_postImageBytes);
-            _postImagePath = state.ImagePath;
-            _selectedPostEffectId = state.SelectedEffectId;
+            _effectsImageBytes = state.ImageBytes?.ToArray();
+            _effectsPreviewImageBytes = _effectsImageBytes;
+            ReplaceEffectsSourceBitmap(_effectsImageBytes);
+            _effectsImagePath = state.ImagePath;
+            _selectedEffectId = state.SelectedEffectId;
 
-            _postEffects.Clear();
-            _postEffects.AddRange(state.Effects.Select(ClonePostEffect));
+            _effects.Clear();
+            _effects.AddRange(state.Effects.Select(CloneEffect));
 
-            RefreshPostEffectsPanel();
-            if (_postImageBytes == null)
+            RefreshEffectsPanel();
+            if (_effectsImageBytes == null)
             {
-                PostPreviewImage.Source = null;
-                PostImagePlaceholder.Visibility = Visibility.Visible;
-                RefreshPostOverlay();
+                EffectsPreviewImage.Source = null;
+                EffectsImagePlaceholder.Visibility = Visibility.Visible;
+                RefreshEffectsOverlay();
                 UpdateDynamicMenuStates();
                 UpdateFileMenuState();
                 return;
             }
 
-            QueuePostPreviewRefresh(immediate: true);
+            QueueEffectsPreviewRefresh(immediate: true);
             await Task.Yield();
-            RefreshPostOverlay();
+            RefreshEffectsOverlay();
             UpdateDynamicMenuStates();
             UpdateFileMenuState();
         }
         finally
         {
-            _postApplyingHistory = false;
+            _effectsApplyingHistory = false;
         }
     }
 
-    private Button CreatePostCardIconButton(string glyph, Brush iconBrush, bool isEnabled, string toolTip)
+    private Button CreateEffectsCardIconButton(string glyph, Brush iconBrush, bool isEnabled, string toolTip)
     {
         var icon = new FontIcon
         {
@@ -3158,40 +3158,40 @@ public sealed partial class MainWindow : Window
             HorizontalAlignment = HorizontalAlignment.Right,
             IsEnabled = isEnabled,
             Content = icon,
-            Foreground = GetPostPrimaryTextBrush(),
+            Foreground = GetEffectsPrimaryTextBrush(),
         };
         Microsoft.UI.Xaml.Controls.ToolTipService.SetToolTip(button, toolTip);
         return button;
     }
 
-    private void RefreshPostEffectsPanel()
+    private void RefreshEffectsPanel()
     {
-        PostEffectsPanel.Children.Clear();
+        EffectsPanel.Children.Clear();
 
-        for (int i = 0; i < _postEffects.Count; i++)
+        for (int i = 0; i < _effects.Count; i++)
         {
-            var effect = _postEffects[i];
-            bool isSelectedEffect = effect.Id == _selectedPostEffectId;
+            var effect = _effects[i];
+            bool isSelectedEffect = effect.Id == _selectedEffectId;
             var card = new Border
             {
                 RequestedTheme = GetResolvedTheme(),
-                Background = GetPostCardBackgroundBrush(),
+                Background = GetEffectsCardBackgroundBrush(),
                 BorderBrush = isSelectedEffect
                     ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 215))
-                    : GetPostCardBorderBrush(),
+                    : GetEffectsCardBorderBrush(),
                 BorderThickness = new Thickness(2),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(12),
             };
             card.Tapped += (_, args) =>
             {
-                if (IsInteractivePostCardSource(args.OriginalSource)) return;
-                _selectedPostEffectId = effect.Id;
-                RefreshPostEffectsPanel();
-                RefreshPostOverlay();
-                TxtStatus.Text = IsRegionPostEffect(effect.Type)
+                if (IsInteractiveEffectCardSource(args.OriginalSource)) return;
+                _selectedEffectId = effect.Id;
+                RefreshEffectsPanel();
+                RefreshEffectsOverlay();
+                TxtStatus.Text = IsRegionEffect(effect.Type)
                     ? "已选择区域效果，可在预览区直接拖动编辑"
-                    : $"已选中特效：{GetPostEffectTitle(effect.Type)}";
+                    : $"已选中特效：{GetEffectTitle(effect.Type)}";
             };
 
             var stack = new StackPanel { Spacing = 10 };
@@ -3203,43 +3203,43 @@ public sealed partial class MainWindow : Window
 
             var title = new TextBlock
             {
-                Text = $"{i + 1}. {GetPostEffectTitle(effect.Type)}",
-                Style = (Style)((Grid)this.Content).Resources["ReaderCaptionStyle"],
+                Text = $"{i + 1}. {GetEffectTitle(effect.Type)}",
+                Style = (Style)((Grid)this.Content).Resources["InspectCaptionStyle"],
                 Foreground = isSelectedEffect
                     ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 215))
-                    : GetPostPrimaryTextBrush(),
+                    : GetEffectsPrimaryTextBrush(),
                 VerticalAlignment = VerticalAlignment.Center,
             };
             header.Children.Add(title);
 
-            var upBtn = CreatePostCardIconButton("\uE70E", GetPostSecondaryTextBrush(), i > 0, "上移");
-            ApplyPostButtonTheme(upBtn);
+            var upBtn = CreateEffectsCardIconButton("\uE70E", GetEffectsSecondaryTextBrush(), i > 0, "上移");
+            ApplyEffectsButtonTheme(upBtn);
             upBtn.Margin = new Thickness(0, 0, 4, 0);
-            upBtn.Click += (_, _) => MovePostEffect(effect.Id, -1);
+            upBtn.Click += (_, _) => MoveEffect(effect.Id, -1);
             Grid.SetColumn(upBtn, 1);
             header.Children.Add(upBtn);
 
-            var downBtn = CreatePostCardIconButton("\uE70D", GetPostSecondaryTextBrush(), i < _postEffects.Count - 1, "下移");
-            ApplyPostButtonTheme(downBtn);
+            var downBtn = CreateEffectsCardIconButton("\uE70D", GetEffectsSecondaryTextBrush(), i < _effects.Count - 1, "下移");
+            ApplyEffectsButtonTheme(downBtn);
             downBtn.Margin = new Thickness(0, 0, 4, 0);
-            downBtn.Click += (_, _) => MovePostEffect(effect.Id, 1);
+            downBtn.Click += (_, _) => MoveEffect(effect.Id, 1);
             Grid.SetColumn(downBtn, 2);
             header.Children.Add(downBtn);
 
-            var deleteBtn = CreatePostCardIconButton("\uE74D",
+            var deleteBtn = CreateEffectsCardIconButton("\uE74D",
                 new SolidColorBrush(Windows.UI.Color.FromArgb(255, 232, 72, 86)),
                 true, "删除");
-            ApplyPostButtonTheme(deleteBtn);
+            ApplyEffectsButtonTheme(deleteBtn);
             deleteBtn.Click += (_, _) =>
             {
-                PushPostUndoState();
-                _postEffects.RemoveAll(x => x.Id == effect.Id);
-                if (_selectedPostEffectId == effect.Id) _selectedPostEffectId = null;
-                RefreshPostEffectsPanel();
-                QueuePostPreviewRefresh();
+                PushEffectsUndoState();
+                _effects.RemoveAll(x => x.Id == effect.Id);
+                if (_selectedEffectId == effect.Id) _selectedEffectId = null;
+                RefreshEffectsPanel();
+                QueueEffectsPreviewRefresh();
                 UpdateDynamicMenuStates();
                 UpdateFileMenuState();
-                RefreshPostOverlay();
+                RefreshEffectsOverlay();
                 TxtStatus.Text = "已移除效果";
             };
             Grid.SetColumn(deleteBtn, 3);
@@ -3249,52 +3249,52 @@ public sealed partial class MainWindow : Window
 
             switch (effect.Type)
             {
-                case PostEffectType.BrightnessContrast:
-                    AddPostEffectSlider(stack, "亮度", -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddPostEffectSlider(stack, "对比度", -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                case EffectType.BrightnessContrast:
+                    AddEffectSlider(stack, "亮度", -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, "对比度", -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
-                case PostEffectType.SaturationVibrance:
-                    AddPostEffectSlider(stack, "饱和度", -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddPostEffectSlider(stack, "自然饱和度", -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                case EffectType.SaturationVibrance:
+                    AddEffectSlider(stack, "饱和度", -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, "自然饱和度", -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
-                case PostEffectType.Temperature:
-                    AddPostEffectSlider(stack, "色温（冷/暖）", -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddPostEffectSlider(stack, "色调（绿/紫）", -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                case EffectType.Temperature:
+                    AddEffectSlider(stack, "色温（冷/暖）", -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, "色调（绿/紫）", -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
-                case PostEffectType.Glow:
-                    AddPostEffectSlider(stack, "泛光尺寸", 1, 120, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddPostEffectSlider(stack, "泛光阈值", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
-                    AddPostEffectSlider(stack, "泛光强度", 0, 200, 1, effect.Value3, "F0", v => effect.Value3 = v);
-                    AddPostEffectCenteredLogSlider(stack, "泛光纵横比", 0.05, 1.0, 8.0, effect.Value4, "F2", v => effect.Value4 = v);
-                    AddPostEffectSlider(stack, "泛光倾斜", -90, 90, 1, effect.Value6, "F0", v => effect.Value6 = v);
-                    AddPostEffectSlider(stack, "泛光饱和度", -100, 100, 1, effect.Value5, "F0", v => effect.Value5 = v);
+                case EffectType.Glow:
+                    AddEffectSlider(stack, "泛光尺寸", 1, 120, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, "泛光阈值", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                    AddEffectSlider(stack, "泛光强度", 0, 200, 1, effect.Value3, "F0", v => effect.Value3 = v);
+                    AddEffectCenteredLogSlider(stack, "泛光纵横比", 0.05, 1.0, 8.0, effect.Value4, "F2", v => effect.Value4 = v);
+                    AddEffectSlider(stack, "泛光倾斜", -90, 90, 1, effect.Value6, "F0", v => effect.Value6 = v);
+                    AddEffectSlider(stack, "泛光饱和度", -100, 100, 1, effect.Value5, "F0", v => effect.Value5 = v);
                     break;
-                case PostEffectType.RadialBlur:
-                    AddPostEffectCombo(stack, "算法",
+                case EffectType.RadialBlur:
+                    AddEffectCombo(stack, "算法",
                         new[] { "放射", "旋转", "渐进" },
                         (int)Math.Clamp(effect.Value4, 0, 2),
                         v => effect.Value4 = v);
-                    AddPostEffectSlider(stack, "强度", 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddPostEffectSlider(stack, "中心 X", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
-                    AddPostEffectSlider(stack, "中心 Y", 0, 100, 1, effect.Value3, "F0", v => effect.Value3 = v);
+                    AddEffectSlider(stack, "强度", 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, "中心 X", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                    AddEffectSlider(stack, "中心 Y", 0, 100, 1, effect.Value3, "F0", v => effect.Value3 = v);
                     break;
-                case PostEffectType.Vignette:
-                    AddPostEffectSlider(stack, "暗角强度", 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddPostEffectSlider(stack, "羽化", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                case EffectType.Vignette:
+                    AddEffectSlider(stack, "暗角强度", 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, "羽化", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
-                case PostEffectType.ChromaticAberration:
-                    AddPostEffectSlider(stack, "色散强度", 0, 20, 0.1, effect.Value1, "F1", v => effect.Value1 = v);
+                case EffectType.ChromaticAberration:
+                    AddEffectSlider(stack, "色散强度", 0, 20, 0.1, effect.Value1, "F1", v => effect.Value1 = v);
                     break;
-                case PostEffectType.Noise:
-                    AddPostEffectSlider(stack, "单色杂色", 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddPostEffectSlider(stack, "彩色杂色", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                case EffectType.Noise:
+                    AddEffectSlider(stack, "单色杂色", 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, "彩色杂色", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
-                case PostEffectType.Gamma:
-                    AddPostEffectSlider(stack, "Gamma", 0.2, 3.0, 0.05, effect.Value1, "F2", v => effect.Value1 = v);
+                case EffectType.Gamma:
+                    AddEffectSlider(stack, "Gamma", 0.2, 3.0, 0.05, effect.Value1, "F2", v => effect.Value1 = v);
                     break;
-                case PostEffectType.Pixelate:
-                    AddPostEffectSlider(stack, "像素粒度", 1, 64, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddPostRegionSliders(stack,
+                case EffectType.Pixelate:
+                    AddEffectSlider(stack, "像素粒度", 1, 64, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectRegionSliders(stack,
                         centerX: effect.Value2,
                         centerY: effect.Value3,
                         width: effect.Value4,
@@ -3304,9 +3304,9 @@ public sealed partial class MainWindow : Window
                         widthSetter: v => effect.Value4 = v,
                         heightSetter: v => effect.Value5 = v);
                     break;
-                case PostEffectType.SolidBlock:
-                    AddPostColorTextBox(stack, "颜色 Hex", effect.TextValue, v => effect.TextValue = v);
-                    AddPostRegionSliders(stack,
+                case EffectType.SolidBlock:
+                    AddEffectColorTextBox(stack, "颜色 Hex", effect.TextValue, v => effect.TextValue = v);
+                    AddEffectRegionSliders(stack,
                         centerX: effect.Value1,
                         centerY: effect.Value2,
                         width: effect.Value3,
@@ -3316,29 +3316,29 @@ public sealed partial class MainWindow : Window
                         widthSetter: v => effect.Value3 = v,
                         heightSetter: v => effect.Value4 = v);
                     break;
-                case PostEffectType.Scanline:
-                    AddPostEffectSlider(stack, "线宽", 0.5, 10, 0.1, effect.Value1, "F1", v => effect.Value1 = v);
-                    AddPostEffectSlider(stack, "间距", 0.5, 20, 0.1, effect.Value2, "F1", v => effect.Value2 = v);
-                    AddPostEffectSlider(stack, "柔和度", 0, 100, 1, effect.Value3, "F0", v => effect.Value3 = v);
-                    AddPostEffectSlider(stack, "旋转角度", -90, 90, 1, effect.Value4, "F0", v => effect.Value4 = v);
-                    AddPostEffectSlider(stack, "透明度", 0, 100, 1, effect.Value5, "F0", v => effect.Value5 = v);
+                case EffectType.Scanline:
+                    AddEffectSlider(stack, "线宽", 0.5, 10, 0.1, effect.Value1, "F1", v => effect.Value1 = v);
+                    AddEffectSlider(stack, "间距", 0.5, 20, 0.1, effect.Value2, "F1", v => effect.Value2 = v);
+                    AddEffectSlider(stack, "柔和度", 0, 100, 1, effect.Value3, "F0", v => effect.Value3 = v);
+                    AddEffectSlider(stack, "旋转角度", -90, 90, 1, effect.Value4, "F0", v => effect.Value4 = v);
+                    AddEffectSlider(stack, "透明度", 0, 100, 1, effect.Value5, "F0", v => effect.Value5 = v);
                     break;
             }
 
             card.Child = stack;
-            PostEffectsPanel.Children.Add(card);
-            PostEffectsPanel.Children.Add(new Border
+            EffectsPanel.Children.Add(card);
+            EffectsPanel.Children.Add(new Border
             {
                 Height = 1,
-                Background = GetPostCardBorderBrush(),
+                Background = GetEffectsCardBorderBrush(),
                 Margin = new Thickness(0, 2, 0, 2),
             });
         }
 
-        PostEffectsPanel.Children.Add(CreatePostAddEffectButton());
+        EffectsPanel.Children.Add(CreateAddEffectButton());
     }
 
-    private void AddPostEffectSlider(
+    private void AddEffectSlider(
         Panel parent,
         string label,
         double min,
@@ -3356,13 +3356,13 @@ public sealed partial class MainWindow : Window
         header.Children.Add(new TextBlock
         {
             Text = label,
-            Foreground = GetPostSecondaryTextBrush(),
+            Foreground = GetEffectsSecondaryTextBrush(),
         });
 
         var valueText = new TextBlock
         {
             Text = value.ToString(format),
-            Foreground = GetPostTertiaryTextBrush(),
+            Foreground = GetEffectsTertiaryTextBrush(),
         };
         Grid.SetColumn(valueText, 1);
         header.Children.Add(valueText);
@@ -3375,24 +3375,24 @@ public sealed partial class MainWindow : Window
             Value = value,
             RequestedTheme = GetResolvedTheme(),
         };
-        slider.PointerPressed += (_, _) => PushPostUndoState();
+        slider.PointerPressed += (_, _) => PushEffectsUndoState();
         slider.ValueChanged += (_, args) =>
         {
             setValue(args.NewValue);
             valueText.Text = args.NewValue.ToString(format);
-            QueuePostPreviewRefresh();
+            QueueEffectsPreviewRefresh();
             UpdateDynamicMenuStates();
             UpdateFileMenuState();
         };
-        slider.PointerCaptureLost += (_, _) => QueuePostPreviewRefresh(immediate: true);
-        slider.PointerReleased += (_, _) => QueuePostPreviewRefresh(immediate: true);
+        slider.PointerCaptureLost += (_, _) => QueueEffectsPreviewRefresh(immediate: true);
+        slider.PointerReleased += (_, _) => QueueEffectsPreviewRefresh(immediate: true);
 
         row.Children.Add(header);
         row.Children.Add(slider);
         parent.Children.Add(row);
     }
 
-    private void AddPostEffectCenteredLogSlider(
+    private void AddEffectCenteredLogSlider(
         Panel parent,
         string label,
         double min,
@@ -3410,13 +3410,13 @@ public sealed partial class MainWindow : Window
         header.Children.Add(new TextBlock
         {
             Text = label,
-            Foreground = GetPostSecondaryTextBrush(),
+            Foreground = GetEffectsSecondaryTextBrush(),
         });
 
         var valueText = new TextBlock
         {
             Text = value.ToString(format),
-            Foreground = GetPostTertiaryTextBrush(),
+            Foreground = GetEffectsTertiaryTextBrush(),
         };
         Grid.SetColumn(valueText, 1);
         header.Children.Add(valueText);
@@ -3434,7 +3434,7 @@ public sealed partial class MainWindow : Window
             Value = normalizedValue,
             RequestedTheme = GetResolvedTheme(),
         };
-        slider.PointerPressed += (_, _) => PushPostUndoState();
+        slider.PointerPressed += (_, _) => PushEffectsUndoState();
         slider.ValueChanged += (_, args) =>
         {
             double t = Math.Clamp(args.NewValue, 0, 1);
@@ -3444,25 +3444,25 @@ public sealed partial class MainWindow : Window
             mapped = Math.Clamp(mapped, min, max);
             setValue(mapped);
             valueText.Text = mapped.ToString(format);
-            QueuePostPreviewRefresh();
+            QueueEffectsPreviewRefresh();
             UpdateDynamicMenuStates();
             UpdateFileMenuState();
         };
-        slider.PointerCaptureLost += (_, _) => QueuePostPreviewRefresh(immediate: true);
-        slider.PointerReleased += (_, _) => QueuePostPreviewRefresh(immediate: true);
+        slider.PointerCaptureLost += (_, _) => QueueEffectsPreviewRefresh(immediate: true);
+        slider.PointerReleased += (_, _) => QueueEffectsPreviewRefresh(immediate: true);
 
         row.Children.Add(header);
         row.Children.Add(slider);
         parent.Children.Add(row);
     }
 
-    private void AddPostEffectCombo(Panel parent, string label, IReadOnlyList<string> options, int selectedIndex, Action<int> setValue)
+    private void AddEffectCombo(Panel parent, string label, IReadOnlyList<string> options, int selectedIndex, Action<int> setValue)
     {
         var row = new StackPanel { Spacing = 4 };
         row.Children.Add(new TextBlock
         {
             Text = label,
-            Foreground = GetPostSecondaryTextBrush(),
+            Foreground = GetEffectsSecondaryTextBrush(),
         });
 
         var combo = new ComboBox
@@ -3478,14 +3478,14 @@ public sealed partial class MainWindow : Window
         combo.SelectionChanged += (_, _) =>
         {
             setValue(Math.Max(0, combo.SelectedIndex));
-            QueuePostPreviewRefresh();
+            QueueEffectsPreviewRefresh();
             UpdateFileMenuState();
         };
         row.Children.Add(combo);
         parent.Children.Add(row);
     }
 
-    private void AddPostRegionSliders(
+    private void AddEffectRegionSliders(
         Panel parent,
         double centerX,
         double centerY,
@@ -3496,19 +3496,19 @@ public sealed partial class MainWindow : Window
         Action<double> widthSetter,
         Action<double> heightSetter)
     {
-        AddPostEffectSlider(parent, "中心 X", 0, 100, 1, centerX, "F0", centerXSetter);
-        AddPostEffectSlider(parent, "中心 Y", 0, 100, 1, centerY, "F0", centerYSetter);
-        AddPostEffectSlider(parent, "区域宽度", 1, 100, 1, width, "F0", widthSetter);
-        AddPostEffectSlider(parent, "区域高度", 1, 100, 1, height, "F0", heightSetter);
+        AddEffectSlider(parent, "中心 X", 0, 100, 1, centerX, "F0", centerXSetter);
+        AddEffectSlider(parent, "中心 Y", 0, 100, 1, centerY, "F0", centerYSetter);
+        AddEffectSlider(parent, "区域宽度", 1, 100, 1, width, "F0", widthSetter);
+        AddEffectSlider(parent, "区域高度", 1, 100, 1, height, "F0", heightSetter);
     }
 
-    private void AddPostColorTextBox(Panel parent, string label, string value, Action<string> setValue)
+    private void AddEffectColorTextBox(Panel parent, string label, string value, Action<string> setValue)
     {
         var row = new StackPanel { Spacing = 4 };
         row.Children.Add(new TextBlock
         {
             Text = label,
-            Foreground = GetPostSecondaryTextBrush(),
+            Foreground = GetEffectsSecondaryTextBrush(),
         });
 
         var colorRow = new Grid();
@@ -3522,8 +3522,8 @@ public sealed partial class MainWindow : Window
             Height = 28,
             CornerRadius = new CornerRadius(4),
             BorderThickness = new Thickness(1),
-            BorderBrush = GetPostTextBoxBorderBrush(),
-            Background = new SolidColorBrush(ToUiColor(TryParsePostColor(value) ?? new SKColor(0, 0, 0, 255))),
+            BorderBrush = GetEffectsTextBoxBorderBrush(),
+            Background = new SolidColorBrush(ToUiColor(TryParseEffectsColor(value) ?? new SKColor(0, 0, 0, 255))),
             Margin = new Thickness(0, 0, 8, 0),
         };
         colorRow.Children.Add(previewBorder);
@@ -3533,15 +3533,15 @@ public sealed partial class MainWindow : Window
             Text = string.IsNullOrWhiteSpace(value) ? "#000000" : value,
             PlaceholderText = "#000000",
         };
-        ApplyPostTextBoxTheme(textBox);
-        textBox.GotFocus += (_, _) => PushPostUndoState();
+        ApplyEffectsTextBoxTheme(textBox);
+        textBox.GotFocus += (_, _) => PushEffectsUndoState();
         textBox.TextChanged += (_, _) =>
         {
             string newValue = textBox.Text.Trim();
             setValue(newValue);
-            var parsed = TryParsePostColor(newValue) ?? new SKColor(0, 0, 0, 255);
+            var parsed = TryParseEffectsColor(newValue) ?? new SKColor(0, 0, 0, 255);
             previewBorder.Background = new SolidColorBrush(ToUiColor(parsed));
-            QueuePostPreviewRefresh();
+            QueueEffectsPreviewRefresh();
             UpdateFileMenuState();
         };
         Grid.SetColumn(textBox, 1);
@@ -3550,7 +3550,7 @@ public sealed partial class MainWindow : Window
         var picker = new Microsoft.UI.Xaml.Controls.ColorPicker
         {
             IsAlphaEnabled = true,
-            Color = ToUiColor(TryParsePostColor(value) ?? new SKColor(0, 0, 0, 255)),
+            Color = ToUiColor(TryParseEffectsColor(value) ?? new SKColor(0, 0, 0, 255)),
             RequestedTheme = GetResolvedTheme(),
         };
         picker.ColorChanged += (_, args) =>
@@ -3561,7 +3561,7 @@ public sealed partial class MainWindow : Window
             textBox.Text = hex;
             previewBorder.Background = new SolidColorBrush(args.NewColor);
             setValue(hex);
-            QueuePostPreviewRefresh();
+            QueueEffectsPreviewRefresh();
             UpdateFileMenuState();
         };
 
@@ -3571,8 +3571,8 @@ public sealed partial class MainWindow : Window
             Content = "调色盘",
             Margin = new Thickness(8, 0, 0, 0),
         };
-        ApplyPostButtonTheme(pickerBtn);
-        pickerBtn.Click += (_, _) => PushPostUndoState();
+        ApplyEffectsButtonTheme(pickerBtn);
+        pickerBtn.Click += (_, _) => PushEffectsUndoState();
         pickerBtn.Click += (_, _) => flyout.ShowAt(pickerBtn);
         Grid.SetColumn(pickerBtn, 2);
         colorRow.Children.Add(pickerBtn);
@@ -3581,43 +3581,43 @@ public sealed partial class MainWindow : Window
         parent.Children.Add(row);
     }
 
-    private Button CreatePostAddEffectButton()
+    private Button CreateAddEffectButton()
     {
         var btn = new Button
         {
             Content = "添加效果",
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            IsEnabled = _postEffects.Count < 10,
+            IsEnabled = _effects.Count < 10,
         };
-        ApplyPostButtonTheme(btn);
+        ApplyEffectsButtonTheme(btn);
 
         var flyout = new MenuFlyout();
-        foreach (var type in Enum.GetValues<PostEffectType>())
+        foreach (var type in Enum.GetValues<EffectType>())
         {
             var item = new MenuFlyoutItem
             {
-                Text = GetPostEffectTitle(type),
-                IsEnabled = _postEffects.Count < 10,
+                Text = GetEffectTitle(type),
+                IsEnabled = _effects.Count < 10,
             };
             item.Click += (_, _) =>
             {
-                if (_postEffects.Count >= 10)
+                if (_effects.Count >= 10)
                 {
                     TxtStatus.Text = "最多只能添加 10 个效果";
                     return;
                 }
 
-                PushPostUndoState();
-                var entry = CreatePostEffect(type);
-                _postEffects.Add(entry);
-                if (IsRegionPostEffect(type))
-                    _selectedPostEffectId = entry.Id;
-                RefreshPostEffectsPanel();
-                QueuePostPreviewRefresh();
+                PushEffectsUndoState();
+                var entry = CreateEffect(type);
+                _effects.Add(entry);
+                if (IsRegionEffect(type))
+                    _selectedEffectId = entry.Id;
+                RefreshEffectsPanel();
+                QueueEffectsPreviewRefresh();
                 UpdateDynamicMenuStates();
                 UpdateFileMenuState();
-                RefreshPostOverlay();
-                TxtStatus.Text = $"已添加效果：{GetPostEffectTitle(type)}";
+                RefreshEffectsOverlay();
+                TxtStatus.Text = $"已添加效果：{GetEffectTitle(type)}";
             };
             flyout.Items.Add(item);
         }
@@ -3629,7 +3629,7 @@ public sealed partial class MainWindow : Window
         return btn;
     }
 
-    private static bool HasPostFxPresets()
+    private static bool HasEffectsPresets()
     {
         EnsureDefaultFxPresets();
         if (!Directory.Exists(FxPresetsDir)) return false;
@@ -3665,7 +3665,7 @@ public sealed partial class MainWindow : Window
         return sb.ToString().Trim();
     }
 
-    private static PostEffectEntry RehydratePresetEffect(PostEffectEntry x) => new()
+    private static EffectEntry RehydratePresetEffect(EffectEntry x) => new()
     {
         Type = x.Type,
         Value1 = x.Value1,
@@ -3677,9 +3677,9 @@ public sealed partial class MainWindow : Window
         TextValue = x.TextValue ?? "",
     };
 
-    private async void OnAddPostPreset(object sender, RoutedEventArgs e)
+    private async void OnAddEffectsPreset(object sender, RoutedEventArgs e)
     {
-        if (_postEffects.Count == 0)
+        if (_effects.Count == 0)
         {
             TxtStatus.Text = "当前没有效果可保存为预设";
             return;
@@ -3727,11 +3727,11 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var payload = new PostFxPresetFile
+        var payload = new EffectsPresetFile
         {
             Name = presetName,
             SavedAt = DateTime.Now,
-            Effects = _postEffects.Select(ClonePostEffect).ToList(),
+            Effects = _effects.Select(CloneEffect).ToList(),
         };
 
         try
@@ -3749,7 +3749,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async void OnUsePostPreset(object sender, RoutedEventArgs e)
+    private async void OnUseEffectsPreset(object sender, RoutedEventArgs e)
     {
         EnsureDefaultFxPresets();
         if (!Directory.Exists(FxPresetsDir))
@@ -3774,7 +3774,7 @@ public sealed partial class MainWindow : Window
             string label = Path.GetFileNameWithoutExtension(file);
             try
             {
-                var parsed = JsonSerializer.Deserialize<PostFxPresetFile>(await File.ReadAllTextAsync(file));
+                var parsed = JsonSerializer.Deserialize<EffectsPresetFile>(await File.ReadAllTextAsync(file));
                 if (parsed != null && !string.IsNullOrWhiteSpace(parsed.Name))
                     label = parsed.Name;
             }
@@ -3801,7 +3801,7 @@ public sealed partial class MainWindow : Window
                 Spacing = 8,
                 Children =
                 {
-                    new TextBlock { Text = "选择一个预设并整体应用到后期效果链" },
+                    new TextBlock { Text = "选择一个预设并整体应用到效果链" },
                     presetCombo,
                 },
             },
@@ -3820,23 +3820,23 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var parsed = JsonSerializer.Deserialize<PostFxPresetFile>(await File.ReadAllTextAsync(selectedFile));
-            var loadedEffects = parsed?.Effects ?? new List<PostEffectEntry>();
+            var parsed = JsonSerializer.Deserialize<EffectsPresetFile>(await File.ReadAllTextAsync(selectedFile));
+            var loadedEffects = parsed?.Effects ?? new List<EffectEntry>();
             if (loadedEffects.Count == 0)
             {
                 TxtStatus.Text = "预设为空，未应用";
                 return;
             }
 
-            PushPostUndoState();
-            _postEffects.Clear();
+            PushEffectsUndoState();
+            _effects.Clear();
             foreach (var fx in loadedEffects.Take(10))
-                _postEffects.Add(RehydratePresetEffect(fx));
+                _effects.Add(RehydratePresetEffect(fx));
 
-            _selectedPostEffectId = _postEffects.Count > 0 ? _postEffects[0].Id : null;
-            RefreshPostEffectsPanel();
-            RefreshPostOverlay();
-            QueuePostPreviewRefresh(immediate: true);
+            _selectedEffectId = _effects.Count > 0 ? _effects[0].Id : null;
+            RefreshEffectsPanel();
+            RefreshEffectsOverlay();
+            QueueEffectsPreviewRefresh(immediate: true);
             UpdateDynamicMenuStates();
             UpdateFileMenuState();
             TxtStatus.Text = $"已应用预设：{selectedName}";
@@ -3847,51 +3847,51 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void OnClearAllPostEffects(object sender, RoutedEventArgs e)
+    private void OnClearAllEffects(object sender, RoutedEventArgs e)
     {
-        if (_postEffects.Count == 0) return;
-        PushPostUndoState();
-        _postEffects.Clear();
-        _selectedPostEffectId = null;
-        RefreshPostEffectsPanel();
-        QueuePostPreviewRefresh();
+        if (_effects.Count == 0) return;
+        PushEffectsUndoState();
+        _effects.Clear();
+        _selectedEffectId = null;
+        RefreshEffectsPanel();
+        QueueEffectsPreviewRefresh();
         UpdateDynamicMenuStates();
         UpdateFileMenuState();
-        RefreshPostOverlay();
+        RefreshEffectsOverlay();
         TxtStatus.Text = "已清空所有效果";
     }
 
-    private async void OnApplyPostEffects(object sender, RoutedEventArgs e)
+    private async void OnApplyEffects(object sender, RoutedEventArgs e)
     {
-        if (_postImageBytes == null || _postEffects.Count == 0) return;
-        PushPostUndoState();
+        if (_effectsImageBytes == null || _effects.Count == 0) return;
+        PushEffectsUndoState();
 
-        var bytes = await GetPostSaveBytesAsync();
+        var bytes = await GetEffectsSaveBytesAsync();
         if (bytes == null)
         {
             TxtStatus.Text = "没有可应用的图片";
             return;
         }
 
-        _postImageBytes = bytes;
-        _postPreviewImageBytes = bytes;
-        ReplacePostSourceBitmap(bytes);
-        _postPreviewVersion++;
-        _postEffects.Clear();
-        _selectedPostEffectId = null;
-        RefreshPostEffectsPanel();
-        await ShowPostPreviewAsync(bytes, fitToScreen: false);
+        _effectsImageBytes = bytes;
+        _effectsPreviewImageBytes = bytes;
+        ReplaceEffectsSourceBitmap(bytes);
+        _effectsPreviewVersion++;
+        _effects.Clear();
+        _selectedEffectId = null;
+        RefreshEffectsPanel();
+        await ShowEffectsPreviewAsync(bytes, fitToScreen: false);
         UpdateDynamicMenuStates();
         UpdateFileMenuState();
         TxtStatus.Text = "已应用效果";
     }
 
-    private async Task LoadPostImageAsync(string filePath)
+    private async Task LoadEffectsImageAsync(string filePath)
     {
         try
         {
             var bytes = await File.ReadAllBytesAsync(filePath);
-            await LoadPostImageFromBytesAsync(bytes, filePath);
+            await LoadEffectsImageFromBytesAsync(bytes, filePath);
             TxtStatus.Text = $"已加载: {Path.GetFileName(filePath)}";
         }
         catch (Exception ex)
@@ -3900,24 +3900,24 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private Task LoadPostImageFromBytesAsync(byte[] bytes, string? filePath = null)
+    private Task LoadEffectsImageFromBytesAsync(byte[] bytes, string? filePath = null)
     {
-        PushPostUndoState();
-        _postImageBytes = bytes;
-        _postPreviewImageBytes = bytes;
-        ReplacePostSourceBitmap(bytes);
-        _postImagePath = filePath;
-        if (_currentMode == AppMode.PostProcess)
+        PushEffectsUndoState();
+        _effectsImageBytes = bytes;
+        _effectsPreviewImageBytes = bytes;
+        ReplaceEffectsSourceBitmap(bytes);
+        _effectsImagePath = filePath;
+        if (_currentMode == AppMode.Effects)
             ReplaceEditMenu();
         UpdateFileMenuState();
-        QueuePostPreviewRefresh(fitToScreen: true);
+        QueueEffectsPreviewRefresh(fitToScreen: true);
         return Task.CompletedTask;
     }
 
-    private void ReplacePostSourceBitmap(byte[]? bytes)
+    private void ReplaceEffectsSourceBitmap(byte[]? bytes)
     {
-        _postSourceBitmap?.Dispose();
-        _postSourceBitmap = null;
+        _effectsSourceBitmap?.Dispose();
+        _effectsSourceBitmap = null;
         if (bytes == null || bytes.Length == 0)
             return;
 
@@ -3925,93 +3925,93 @@ public sealed partial class MainWindow : Window
         if (decoded == null)
             return;
 
-        _postSourceBitmap = decoded.Copy();
+        _effectsSourceBitmap = decoded.Copy();
     }
 
-    private async Task SendBytesToPostAsync(byte[] bytes, string? sourcePath = null)
+    private async Task SendBytesToEffectsAsync(byte[] bytes, string? sourcePath = null)
     {
-        SwitchMode(AppMode.PostProcess);
-        await LoadPostImageFromBytesAsync(bytes, sourcePath);
+        SwitchMode(AppMode.Effects);
+        await LoadEffectsImageFromBytesAsync(bytes, sourcePath);
         TxtStatus.Text = sourcePath != null
-            ? $"已发送到后期: {Path.GetFileName(sourcePath)}"
-            : "已发送到后期";
+            ? $"已发送到效果: {Path.GetFileName(sourcePath)}"
+            : "已发送到效果";
     }
 
-    private void QueuePostPreviewRefresh(bool fitToScreen = false, bool immediate = false)
+    private void QueueEffectsPreviewRefresh(bool fitToScreen = false, bool immediate = false)
     {
-        _postPreviewQueuedFit |= fitToScreen;
-        if (_postPreviewTimer == null)
+        _effectsPreviewQueuedFit |= fitToScreen;
+        if (_effectsPreviewTimer == null)
         {
-            _ = RenderQueuedPostPreview();
+            _ = RenderQueuedEffectsPreview();
             return;
         }
 
-        _postPreviewTimer.Stop();
-        _postPreviewTimer.Interval = TimeSpan.FromMilliseconds(immediate ? 1 : 60);
-        _postPreviewTimer.Start();
+        _effectsPreviewTimer.Stop();
+        _effectsPreviewTimer.Interval = TimeSpan.FromMilliseconds(immediate ? 1 : 60);
+        _effectsPreviewTimer.Start();
     }
 
-    private async Task RenderQueuedPostPreview()
+    private async Task RenderQueuedEffectsPreview()
     {
-        int version = ++_postPreviewVersion;
-        bool fitToScreen = _postPreviewQueuedFit;
-        _postPreviewQueuedFit = false;
-        var sourceBytes = _postImageBytes;
-        var sourceBitmap = _postSourceBitmap;
+        int version = ++_effectsPreviewVersion;
+        bool fitToScreen = _effectsPreviewQueuedFit;
+        _effectsPreviewQueuedFit = false;
+        var sourceBytes = _effectsImageBytes;
+        var sourceBitmap = _effectsSourceBitmap;
 
         if (sourceBytes == null)
         {
-            _postPreviewImageBytes = null;
-            ReplacePostSourceBitmap(null);
-            PostPreviewImage.Source = null;
-            PostImagePlaceholder.Visibility = Visibility.Visible;
+            _effectsPreviewImageBytes = null;
+            ReplaceEffectsSourceBitmap(null);
+            EffectsPreviewImage.Source = null;
+            EffectsImagePlaceholder.Visibility = Visibility.Visible;
             UpdateDynamicMenuStates();
             return;
         }
 
-        var snapshot = _postEffects
-            .Select(ClonePostEffect)
+        var snapshot = _effects
+            .Select(CloneEffect)
             .ToList();
 
         try
         {
             if (snapshot.Count == 0)
             {
-                _postPreviewImageBytes = sourceBytes;
-                await ShowPostPreviewAsync(sourceBytes, fitToScreen);
+                _effectsPreviewImageBytes = sourceBytes;
+                await ShowEffectsPreviewAsync(sourceBytes, fitToScreen);
                 UpdateDynamicMenuStates();
                 return;
             }
 
-            using var previewBitmap = await Task.Run(() => RenderPostEffectsPreview(sourceBitmap, sourceBytes, snapshot));
+            using var previewBitmap = await Task.Run(() => RenderEffectsPreview(sourceBitmap, sourceBytes, snapshot));
 
-            if (version != _postPreviewVersion) return;
+            if (version != _effectsPreviewVersion) return;
 
-            _postPreviewImageBytes = null;
-            await ShowPostPreviewBitmapAsync(previewBitmap, fitToScreen);
+            _effectsPreviewImageBytes = null;
+            await ShowEffectsPreviewBitmapAsync(previewBitmap, fitToScreen);
             UpdateDynamicMenuStates();
         }
         catch (Exception ex)
         {
-            if (version != _postPreviewVersion) return;
-            DebugLog($"[后期] 预览失败: {ex}");
-            TxtStatus.Text = $"后期预览失败: {ex.Message}";
+            if (version != _effectsPreviewVersion) return;
+            DebugLog($"[效果] 预览失败: {ex}");
+            TxtStatus.Text = $"效果预览失败: {ex.Message}";
         }
     }
 
-    private async Task<byte[]?> GetPostSaveBytesAsync()
+    private async Task<byte[]?> GetEffectsSaveBytesAsync()
     {
-        var sourceBytes = _postImageBytes;
+        var sourceBytes = _effectsImageBytes;
         if (sourceBytes == null) return null;
-        if (_postEffects.Count == 0) return sourceBytes;
+        if (_effects.Count == 0) return sourceBytes;
 
-        var snapshot = _postEffects
-            .Select(ClonePostEffect)
+        var snapshot = _effects
+            .Select(CloneEffect)
             .ToList();
-        return await Task.Run(() => RenderPostEffects(sourceBytes, snapshot));
+        return await Task.Run(() => RenderEffects(sourceBytes, snapshot));
     }
 
-    private async Task ShowPostPreviewBitmapAsync(SKBitmap bitmap, bool fitToScreen)
+    private async Task ShowEffectsPreviewBitmapAsync(SKBitmap bitmap, bool fitToScreen)
     {
         var writeable = new WriteableBitmap(bitmap.Width, bitmap.Height);
         byte[] buffer = new byte[bitmap.ByteCount];
@@ -4023,22 +4023,22 @@ public sealed partial class MainWindow : Window
             stream.SetLength(buffer.Length);
         }
 
-        PostPreviewImage.Source = writeable;
-        PostPreviewContent.Width = writeable.PixelWidth;
-        PostPreviewContent.Height = writeable.PixelHeight;
-        PostOverlayCanvas.Width = writeable.PixelWidth;
-        PostOverlayCanvas.Height = writeable.PixelHeight;
-        PostImagePlaceholder.Visibility = Visibility.Collapsed;
-        RefreshPostOverlay();
+        EffectsPreviewImage.Source = writeable;
+        EffectsPreviewContent.Width = writeable.PixelWidth;
+        EffectsPreviewContent.Height = writeable.PixelHeight;
+        EffectsOverlayCanvas.Width = writeable.PixelWidth;
+        EffectsOverlayCanvas.Height = writeable.PixelHeight;
+        EffectsImagePlaceholder.Visibility = Visibility.Collapsed;
+        RefreshEffectsOverlay();
 
         if (fitToScreen)
         {
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                () => FitPostPreviewToScreen());
+                () => FitEffectsPreviewToScreen());
         }
     }
 
-    private async Task ShowPostPreviewAsync(byte[] bytes, bool fitToScreen)
+    private async Task ShowEffectsPreviewAsync(byte[] bytes, bool fitToScreen)
     {
         var bitmapImage = new BitmapImage();
         using var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
@@ -4048,62 +4048,62 @@ public sealed partial class MainWindow : Window
         writer.DetachStream();
         ms.Seek(0);
         await bitmapImage.SetSourceAsync(ms);
-        PostPreviewImage.Source = bitmapImage;
-        PostPreviewContent.Width = bitmapImage.PixelWidth;
-        PostPreviewContent.Height = bitmapImage.PixelHeight;
-        PostOverlayCanvas.Width = bitmapImage.PixelWidth;
-        PostOverlayCanvas.Height = bitmapImage.PixelHeight;
-        PostImagePlaceholder.Visibility = Visibility.Collapsed;
-        RefreshPostOverlay();
+        EffectsPreviewImage.Source = bitmapImage;
+        EffectsPreviewContent.Width = bitmapImage.PixelWidth;
+        EffectsPreviewContent.Height = bitmapImage.PixelHeight;
+        EffectsOverlayCanvas.Width = bitmapImage.PixelWidth;
+        EffectsOverlayCanvas.Height = bitmapImage.PixelHeight;
+        EffectsImagePlaceholder.Visibility = Visibility.Collapsed;
+        RefreshEffectsOverlay();
 
         if (fitToScreen)
         {
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                () => FitPostPreviewToScreen());
+                () => FitEffectsPreviewToScreen());
         }
     }
 
-    private void FitPostPreviewToScreen()
+    private void FitEffectsPreviewToScreen()
     {
-        if (PostPreviewImage.Source is not BitmapSource bmp) return;
+        if (EffectsPreviewImage.Source is not BitmapSource bmp) return;
         double imgW = bmp.PixelWidth;
         double imgH = bmp.PixelHeight;
         if (imgW <= 0 || imgH <= 0) return;
 
-        double viewW = PostImageScroller.ViewportWidth;
-        double viewH = PostImageScroller.ViewportHeight;
+        double viewW = EffectsImageScroller.ViewportWidth;
+        double viewH = EffectsImageScroller.ViewportHeight;
         if (viewW <= 0 || viewH <= 0) return;
 
         float zoom = (float)Math.Min(viewW / imgW, viewH / imgH);
         zoom = Math.Min(zoom, 1.0f);
-        PostImageScroller.ChangeView(0, 0, zoom);
+        EffectsImageScroller.ChangeView(0, 0, zoom);
     }
 
-    private void CenterPostPreview()
+    private void CenterEffectsPreview()
     {
-        if (PostPreviewImage.Source is not BitmapSource bmp) return;
-        double contentW = bmp.PixelWidth * PostImageScroller.ZoomFactor;
-        double contentH = bmp.PixelHeight * PostImageScroller.ZoomFactor;
-        double offsetX = Math.Max(0, (contentW - PostImageScroller.ViewportWidth) / 2);
-        double offsetY = Math.Max(0, (contentH - PostImageScroller.ViewportHeight) / 2);
-        PostImageScroller.ChangeView(offsetX, offsetY, null);
+        if (EffectsPreviewImage.Source is not BitmapSource bmp) return;
+        double contentW = bmp.PixelWidth * EffectsImageScroller.ZoomFactor;
+        double contentH = bmp.PixelHeight * EffectsImageScroller.ZoomFactor;
+        double offsetX = Math.Max(0, (contentW - EffectsImageScroller.ViewportWidth) / 2);
+        double offsetY = Math.Max(0, (contentH - EffectsImageScroller.ViewportHeight) / 2);
+        EffectsImageScroller.ChangeView(offsetX, offsetY, null);
     }
 
-    private void RefreshPostOverlay()
+    private void RefreshEffectsOverlay()
     {
-        if (PostOverlayCanvas == null) return;
+        if (EffectsOverlayCanvas == null) return;
 
-        PostOverlayCanvas.Children.Clear();
-        var effect = GetSelectedPostEffect();
-        if (effect == null || !IsRegionPostEffect(effect.Type) || PostPreviewImage.Source is not BitmapSource bmp)
+        EffectsOverlayCanvas.Children.Clear();
+        var effect = GetSelectedEffect();
+        if (effect == null || !IsRegionEffect(effect.Type) || EffectsPreviewImage.Source is not BitmapSource bmp)
         {
-            PostOverlayCanvas.Visibility = Visibility.Collapsed;
+            EffectsOverlayCanvas.Visibility = Visibility.Collapsed;
             return;
         }
 
-        PostOverlayCanvas.Visibility = Visibility.Visible;
-        GetPostRegionValues(effect, out double centerX, out double centerY, out double widthPct, out double heightPct);
-        GetPostEffectRect(bmp.PixelWidth, bmp.PixelHeight, centerX, centerY, widthPct, heightPct,
+        EffectsOverlayCanvas.Visibility = Visibility.Visible;
+        GetEffectRegionValues(effect, out double centerX, out double centerY, out double widthPct, out double heightPct);
+        GetEffectRect(bmp.PixelWidth, bmp.PixelHeight, centerX, centerY, widthPct, heightPct,
             out int left, out int top, out int right, out int bottom);
 
         var rect = new Microsoft.UI.Xaml.Shapes.Rectangle
@@ -4119,7 +4119,7 @@ public sealed partial class MainWindow : Window
         };
         Canvas.SetLeft(rect, left);
         Canvas.SetTop(rect, top);
-        PostOverlayCanvas.Children.Add(rect);
+        EffectsOverlayCanvas.Children.Add(rect);
 
         var handle = new Border
         {
@@ -4131,64 +4131,64 @@ public sealed partial class MainWindow : Window
         };
         Canvas.SetLeft(handle, right - 6);
         Canvas.SetTop(handle, bottom - 6);
-        PostOverlayCanvas.Children.Add(handle);
+        EffectsOverlayCanvas.Children.Add(handle);
     }
 
-    private static byte[] RenderPostEffects(byte[] sourceBytes, List<PostEffectEntry> effects)
+    private static byte[] RenderEffects(byte[] sourceBytes, List<EffectEntry> effects)
     {
-        using var bitmap = RenderPostEffectsPreview(null, sourceBytes, effects);
+        using var bitmap = RenderEffectsPreview(null, sourceBytes, effects);
         using var image = SKImage.FromBitmap(bitmap);
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
         return data?.ToArray() ?? sourceBytes;
     }
 
-    private static SKBitmap RenderPostEffectsPreview(
+    private static SKBitmap RenderEffectsPreview(
         SKBitmap? cachedSourceBitmap,
         byte[] sourceBytes,
-        List<PostEffectEntry> effects)
+        List<EffectEntry> effects)
     {
         SKBitmap? baseBitmap = cachedSourceBitmap?.Copy() ?? SKBitmap.Decode(sourceBytes);
         if (baseBitmap == null)
-            throw new InvalidOperationException("无法解码后期源图像");
+            throw new InvalidOperationException("无法解码效果源图像");
 
         foreach (var effect in effects)
         {
             switch (effect.Type)
             {
-                case PostEffectType.BrightnessContrast:
+                case EffectType.BrightnessContrast:
                     ApplyBrightnessContrast(baseBitmap, effect.Value1, effect.Value2);
                     break;
-                case PostEffectType.SaturationVibrance:
+                case EffectType.SaturationVibrance:
                     ApplySaturationVibrance(baseBitmap, effect.Value1, effect.Value2);
                     break;
-                case PostEffectType.Temperature:
+                case EffectType.Temperature:
                     ApplyTemperature(baseBitmap, effect.Value1, effect.Value2);
                     break;
-                case PostEffectType.Glow:
+                case EffectType.Glow:
                     ApplyGlow(baseBitmap, effect.Value1, effect.Value2, effect.Value3, effect.Value4, effect.Value6, effect.Value5);
                     break;
-                case PostEffectType.RadialBlur:
+                case EffectType.RadialBlur:
                     ApplyRadialBlur(baseBitmap, effect.Value1, effect.Value2, effect.Value3, (int)Math.Round(effect.Value4));
                     break;
-                case PostEffectType.Vignette:
+                case EffectType.Vignette:
                     ApplyVignette(baseBitmap, effect.Value1, effect.Value2);
                     break;
-                case PostEffectType.ChromaticAberration:
+                case EffectType.ChromaticAberration:
                     ApplyChromaticAberration(baseBitmap, effect.Value1);
                     break;
-                case PostEffectType.Noise:
+                case EffectType.Noise:
                     ApplyNoise(baseBitmap, effect.Value1, effect.Value2);
                     break;
-                case PostEffectType.Gamma:
+                case EffectType.Gamma:
                     ApplyGamma(baseBitmap, effect.Value1);
                     break;
-                case PostEffectType.Pixelate:
+                case EffectType.Pixelate:
                     ApplyPixelateRegion(baseBitmap, effect.Value1, effect.Value2, effect.Value3, effect.Value4, effect.Value5);
                     break;
-                case PostEffectType.SolidBlock:
+                case EffectType.SolidBlock:
                     ApplySolidBlock(baseBitmap, effect.TextValue, effect.Value1, effect.Value2, effect.Value3, effect.Value4);
                     break;
-                case PostEffectType.Scanline:
+                case EffectType.Scanline:
                     ApplyScanline(baseBitmap, effect.Value1, effect.Value2, effect.Value3, effect.Value4, effect.Value5);
                     break;
             }
@@ -4494,7 +4494,7 @@ public sealed partial class MainWindow : Window
                         float localRadius = distNorm * (0.5f + strength / 100f * 14f);
                         if (localRadius < 0.75f)
                         {
-                            sample = SamplePostPixel(source, width, height, x, y);
+                            sample = SampleEffectsPixel(source, width, height, x, y);
                         }
                         else
                         {
@@ -4502,13 +4502,13 @@ public sealed partial class MainWindow : Window
                             float ang = i * angleStep;
                             sampleX = x + MathF.Cos(ang) * localRadius;
                             sampleY = y + MathF.Sin(ang) * localRadius;
-                            sample = SamplePostPixel(source, width, height, sampleX, sampleY);
+                            sample = SampleEffectsPixel(source, width, height, sampleX, sampleY);
                         }
                         weight = 1f;
                     }
                     else
                     {
-                        sample = SamplePostPixel(source, width, height, sampleX, sampleY);
+                        sample = SampleEffectsPixel(source, width, height, sampleX, sampleY);
                     }
                     accumR += sample.Red * weight;
                     accumG += sample.Green * weight;
@@ -4607,9 +4607,9 @@ public sealed partial class MainWindow : Window
                 float ux = len > 0.001f ? dx / len : 0f;
                 float uy = len > 0.001f ? dy / len : 0f;
 
-                var center = SamplePostPixel(source, width, height, x, y);
-                var red = SamplePostPixel(source, width, height, x + ux * shift, y + uy * shift);
-                var blue = SamplePostPixel(source, width, height, x - ux * shift, y - uy * shift);
+                var center = SampleEffectsPixel(source, width, height, x, y);
+                var red = SampleEffectsPixel(source, width, height, x + ux * shift, y + uy * shift);
+                var blue = SampleEffectsPixel(source, width, height, x - ux * shift, y - uy * shift);
 
                 result[y * width + x] = new SKColor(red.Red, center.Green, blue.Blue, center.Alpha);
             }
@@ -4739,7 +4739,7 @@ public sealed partial class MainWindow : Window
     private static void ApplyPixelateRegion(SKBitmap bitmap, double blockSizeValue, double centerX, double centerY, double widthPct, double heightPct)
     {
         int blockSize = Math.Max(1, (int)Math.Round(blockSizeValue));
-        GetPostEffectRect(bitmap.Width, bitmap.Height, centerX, centerY, widthPct, heightPct, out int left, out int top, out int right, out int bottom);
+        GetEffectRect(bitmap.Width, bitmap.Height, centerX, centerY, widthPct, heightPct, out int left, out int top, out int right, out int bottom);
         if (right <= left || bottom <= top) return;
 
         int width = bitmap.Width;
@@ -4782,10 +4782,10 @@ public sealed partial class MainWindow : Window
 
     private static void ApplySolidBlock(SKBitmap bitmap, string colorText, double centerX, double centerY, double widthPct, double heightPct)
     {
-        GetPostEffectRect(bitmap.Width, bitmap.Height, centerX, centerY, widthPct, heightPct, out int left, out int top, out int right, out int bottom);
+        GetEffectRect(bitmap.Width, bitmap.Height, centerX, centerY, widthPct, heightPct, out int left, out int top, out int right, out int bottom);
         if (right <= left || bottom <= top) return;
 
-        var color = TryParsePostColor(colorText) ?? new SKColor(0, 0, 0, 255);
+        var color = TryParseEffectsColor(colorText) ?? new SKColor(0, 0, 0, 255);
         int width = bitmap.Width;
         var pixels = bitmap.Pixels;
         for (int y = top; y < bottom; y++)
@@ -4794,9 +4794,9 @@ public sealed partial class MainWindow : Window
         bitmap.Pixels = pixels;
     }
 
-    private static void GetPostRegionValues(PostEffectEntry effect, out double centerX, out double centerY, out double widthPct, out double heightPct)
+    private static void GetEffectRegionValues(EffectEntry effect, out double centerX, out double centerY, out double widthPct, out double heightPct)
     {
-        if (effect.Type == PostEffectType.Pixelate)
+        if (effect.Type == EffectType.Pixelate)
         {
             centerX = effect.Value2;
             centerY = effect.Value3;
@@ -4812,9 +4812,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private static void SetPostRegionValues(PostEffectEntry effect, double centerX, double centerY, double widthPct, double heightPct)
+    private static void SetEffectRegionValues(EffectEntry effect, double centerX, double centerY, double widthPct, double heightPct)
     {
-        if (effect.Type == PostEffectType.Pixelate)
+        if (effect.Type == EffectType.Pixelate)
         {
             effect.Value2 = centerX;
             effect.Value3 = centerY;
@@ -4830,14 +4830,14 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private static SKColor SamplePostPixel(SKColor[] pixels, int width, int height, float x, float y)
+    private static SKColor SampleEffectsPixel(SKColor[] pixels, int width, int height, float x, float y)
     {
         int px = Math.Clamp((int)MathF.Round(x), 0, width - 1);
         int py = Math.Clamp((int)MathF.Round(y), 0, height - 1);
         return pixels[py * width + px];
     }
 
-    private static void GetPostEffectRect(int imageWidth, int imageHeight, double centerXPct, double centerYPct, double widthPct, double heightPct,
+    private static void GetEffectRect(int imageWidth, int imageHeight, double centerXPct, double centerYPct, double widthPct, double heightPct,
         out int left, out int top, out int right, out int bottom)
     {
         float cx = (float)(Math.Clamp(centerXPct, 0, 100) / 100.0 * imageWidth);
@@ -4851,7 +4851,7 @@ public sealed partial class MainWindow : Window
         bottom = Math.Clamp((int)MathF.Round(cy + halfH), top + 1, imageHeight);
     }
 
-    private static SKColor? TryParsePostColor(string? text)
+    private static SKColor? TryParseEffectsColor(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
         string value = text.Trim();
@@ -5225,13 +5225,13 @@ public sealed partial class MainWindow : Window
                 var left = new TextBlock
                 {
                     Text = "快捷提示词",
-                    Style = (Style)((Grid)this.Content).Resources["ReaderCaptionStyle"],
+                    Style = (Style)((Grid)this.Content).Resources["InspectCaptionStyle"],
                     VerticalAlignment = VerticalAlignment.Center,
                 };
                 var right = new TextBlock
                 {
                     Text = "完整提示词",
-                    Style = (Style)((Grid)this.Content).Resources["ReaderCaptionStyle"],
+                    Style = (Style)((Grid)this.Content).Resources["InspectCaptionStyle"],
                     VerticalAlignment = VerticalAlignment.Center,
                 };
                 Grid.SetColumn(right, 1);
@@ -6798,7 +6798,7 @@ public sealed partial class MainWindow : Window
             Text = $"角色 {index + 1}",
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
-            Style = (Style)rootGrid.Resources["ReaderCaptionStyle"],
+            Style = (Style)rootGrid.Resources["InspectCaptionStyle"],
         };
         tabPanel.Children.Add(label);
 
@@ -7025,7 +7025,7 @@ public sealed partial class MainWindow : Window
         var titleText = new TextBlock
         {
             Text = "角色位置",
-            Style = (Style)rootGrid.Resources["ReaderCaptionStyle"],
+            Style = (Style)rootGrid.Resources["InspectCaptionStyle"],
         };
         panel.Children.Add(titleText);
 
@@ -7063,7 +7063,7 @@ public sealed partial class MainWindow : Window
         {
             Text = $"X: {entry.CenterX:F2}    Y: {entry.CenterY:F2}",
             HorizontalAlignment = HorizontalAlignment.Center,
-            Style = (Style)rootGrid.Resources["ReaderSubLabelStyle"],
+            Style = (Style)rootGrid.Resources["InspectSubLabelStyle"],
         };
 
         var resetBtn = new Button
@@ -7694,13 +7694,13 @@ public sealed partial class MainWindow : Window
         var file = await picker.PickSingleFileAsync();
         if (file != null)
         {
-            if (_currentMode == AppMode.Reader)
+            if (_currentMode == AppMode.Inspect)
             {
-                await LoadReaderImageAsync(file.Path);
+                await LoadInspectImageAsync(file.Path);
             }
-            else if (_currentMode == AppMode.PostProcess)
+            else if (_currentMode == AppMode.Effects)
             {
-                await LoadPostImageAsync(file.Path);
+                await LoadEffectsImageAsync(file.Path);
             }
             else if (_currentMode == AppMode.Inpaint)
             {
@@ -7724,13 +7724,13 @@ public sealed partial class MainWindow : Window
 
     private async void OnSaveOverwrite(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.Reader)
+        if (_currentMode == AppMode.Inspect)
         {
-            await SaveReaderOverwriteAsync();
+            await SaveInspectOverwriteAsync();
         }
-        else if (_currentMode == AppMode.PostProcess)
+        else if (_currentMode == AppMode.Effects)
         {
-            await SavePostOverwriteAsync();
+            await SaveEffectsOverwriteAsync();
         }
         else if (_currentMode == AppMode.Inpaint)
         {
@@ -7862,13 +7862,13 @@ public sealed partial class MainWindow : Window
     {
         byte[]? bytesToSave = null;
 
-        if (_currentMode == AppMode.Reader)
+        if (_currentMode == AppMode.Inspect)
         {
-            bytesToSave = GetReaderSaveBytes(stripMetadata);
+            bytesToSave = GetInspectSaveBytes(stripMetadata);
         }
-        else if (_currentMode == AppMode.PostProcess)
+        else if (_currentMode == AppMode.Effects)
         {
-            bytesToSave = await GetPostSaveBytesAsync();
+            bytesToSave = await GetEffectsSaveBytesAsync();
         }
         else if (_currentMode == AppMode.Inpaint)
         {
@@ -7968,11 +7968,11 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (_currentMode == AppMode.PostProcess)
+        if (_currentMode == AppMode.Effects)
         {
-            if (string.IsNullOrEmpty(_postImagePath) || !File.Exists(_postImagePath))
+            if (string.IsNullOrEmpty(_effectsImagePath) || !File.Exists(_effectsImagePath))
             { TxtStatus.Text = "尚未加载图片，无法打开文件夹"; return; }
-            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{_postImagePath}\"");
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{_effectsImagePath}\"");
             return;
         }
 
@@ -8000,12 +8000,12 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (_currentMode == AppMode.PostProcess && _postUndoStack.Count > 0)
+        if (_currentMode == AppMode.Effects && _effectsUndoStack.Count > 0)
         {
-            _postRedoStack.Push(CapturePostWorkspaceState());
-            var state = _postUndoStack.Pop();
-            await RestorePostWorkspaceStateAsync(state);
-            TxtStatus.Text = "已撤销后期操作";
+            _effectsRedoStack.Push(CaptureEffectsWorkspaceState());
+            var state = _effectsUndoStack.Pop();
+            await RestoreEffectsWorkspaceStateAsync(state);
+            TxtStatus.Text = "已撤销效果操作";
         }
     }
 
@@ -8017,12 +8017,12 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (_currentMode == AppMode.PostProcess && _postRedoStack.Count > 0)
+        if (_currentMode == AppMode.Effects && _effectsRedoStack.Count > 0)
         {
-            _postUndoStack.Push(CapturePostWorkspaceState());
-            var state = _postRedoStack.Pop();
-            await RestorePostWorkspaceStateAsync(state);
-            TxtStatus.Text = "已重做后期操作";
+            _effectsUndoStack.Push(CaptureEffectsWorkspaceState());
+            var state = _effectsRedoStack.Pop();
+            await RestoreEffectsWorkspaceStateAsync(state);
+            TxtStatus.Text = "已重做效果操作";
         }
     }
 
@@ -8070,9 +8070,9 @@ public sealed partial class MainWindow : Window
     private void OnFitToScreen(object sender, RoutedEventArgs e)
     {
         if (_currentMode == AppMode.Inpaint) MaskCanvas.FitToScreen();
-        else if (_currentMode == AppMode.Reader) FitReaderPreviewToScreen();
+        else if (_currentMode == AppMode.Inspect) FitInspectPreviewToScreen();
         else if (_currentMode == AppMode.Upscale) FitUpscalePreviewToScreen();
-        else if (_currentMode == AppMode.PostProcess) FitPostPreviewToScreen();
+        else if (_currentMode == AppMode.Effects) FitEffectsPreviewToScreen();
         else FitGenPreviewToScreen();
     }
     private void OnActualSize(object sender, RoutedEventArgs e)
@@ -8080,17 +8080,17 @@ public sealed partial class MainWindow : Window
         float dpiScale = (float)(this.Content.XamlRoot?.RasterizationScale ?? 1.0);
         float trueZoom = 1.0f / dpiScale;
         if (_currentMode == AppMode.Inpaint) MaskCanvas.ActualSize();
-        else if (_currentMode == AppMode.Reader) ReaderImageScroller.ChangeView(null, null, trueZoom);
+        else if (_currentMode == AppMode.Inspect) InspectImageScroller.ChangeView(null, null, trueZoom);
         else if (_currentMode == AppMode.Upscale) UpscaleImageScroller.ChangeView(null, null, trueZoom);
-        else if (_currentMode == AppMode.PostProcess) PostImageScroller.ChangeView(null, null, trueZoom);
+        else if (_currentMode == AppMode.Effects) EffectsImageScroller.ChangeView(null, null, trueZoom);
         else GenImageScroller.ChangeView(null, null, trueZoom);
     }
     private void OnCenterView(object sender, RoutedEventArgs e)
     {
         if (_currentMode == AppMode.Inpaint) MaskCanvas.CenterView();
-        else if (_currentMode == AppMode.Reader) FitReaderPreviewToScreen();
+        else if (_currentMode == AppMode.Inspect) FitInspectPreviewToScreen();
         else if (_currentMode == AppMode.Upscale) FitUpscalePreviewToScreen();
-        else if (_currentMode == AppMode.PostProcess) CenterPostPreview();
+        else if (_currentMode == AppMode.Effects) CenterEffectsPreview();
         else FitGenPreviewToScreen();
     }
 
@@ -8113,23 +8113,23 @@ public sealed partial class MainWindow : Window
     private void OnZoomIn(object sender, RoutedEventArgs e)
     {
         if (_currentMode == AppMode.Inpaint) MaskCanvas.ZoomIn();
-        else if (_currentMode == AppMode.Reader)
-            ReaderImageScroller.ChangeView(null, null, ReaderImageScroller.ZoomFactor * 1.25f);
+        else if (_currentMode == AppMode.Inspect)
+            InspectImageScroller.ChangeView(null, null, InspectImageScroller.ZoomFactor * 1.25f);
         else if (_currentMode == AppMode.Upscale)
             UpscaleImageScroller.ChangeView(null, null, UpscaleImageScroller.ZoomFactor * 1.25f);
-        else if (_currentMode == AppMode.PostProcess)
-            PostImageScroller.ChangeView(null, null, PostImageScroller.ZoomFactor * 1.25f);
+        else if (_currentMode == AppMode.Effects)
+            EffectsImageScroller.ChangeView(null, null, EffectsImageScroller.ZoomFactor * 1.25f);
         else GenImageScroller.ChangeView(null, null, GenImageScroller.ZoomFactor * 1.25f);
     }
     private void OnZoomOut(object sender, RoutedEventArgs e)
     {
         if (_currentMode == AppMode.Inpaint) MaskCanvas.ZoomOut();
-        else if (_currentMode == AppMode.Reader)
-            ReaderImageScroller.ChangeView(null, null, ReaderImageScroller.ZoomFactor / 1.25f);
+        else if (_currentMode == AppMode.Inspect)
+            InspectImageScroller.ChangeView(null, null, InspectImageScroller.ZoomFactor / 1.25f);
         else if (_currentMode == AppMode.Upscale)
             UpscaleImageScroller.ChangeView(null, null, UpscaleImageScroller.ZoomFactor / 1.25f);
-        else if (_currentMode == AppMode.PostProcess)
-            PostImageScroller.ChangeView(null, null, PostImageScroller.ZoomFactor / 1.25f);
+        else if (_currentMode == AppMode.Effects)
+            EffectsImageScroller.ChangeView(null, null, EffectsImageScroller.ZoomFactor / 1.25f);
         else GenImageScroller.ChangeView(null, null, GenImageScroller.ZoomFactor / 1.25f);
     }
 
@@ -8137,9 +8137,9 @@ public sealed partial class MainWindow : Window
     {
         GenImageScroller.AddHandler(UIElement.PointerWheelChangedEvent,
             new PointerEventHandler(OnPreviewWheelZoom), true);
-        ReaderImageScroller.AddHandler(UIElement.PointerWheelChangedEvent,
+        InspectImageScroller.AddHandler(UIElement.PointerWheelChangedEvent,
             new PointerEventHandler(OnPreviewWheelZoom), true);
-        PostImageScroller.AddHandler(UIElement.PointerWheelChangedEvent,
+        EffectsImageScroller.AddHandler(UIElement.PointerWheelChangedEvent,
             new PointerEventHandler(OnPreviewWheelZoom), true);
         UpscaleImageScroller.AddHandler(UIElement.PointerWheelChangedEvent,
             new PointerEventHandler(OnPreviewWheelZoom), true);
@@ -8151,15 +8151,15 @@ public sealed partial class MainWindow : Window
         GenPreviewImage.AddHandler(UIElement.PointerPressedEvent,
             new PointerEventHandler(OnGenPreviewPointerPressed), true);
 
-        ReaderPreviewImage.PointerPressed += OnPreviewDragStart;
-        ReaderPreviewImage.PointerMoved += OnPreviewDragMove;
-        ReaderPreviewImage.PointerReleased += OnPreviewDragEnd;
-        ReaderPreviewImage.PointerCanceled += OnPreviewDragEnd;
+        InspectPreviewImage.PointerPressed += OnPreviewDragStart;
+        InspectPreviewImage.PointerMoved += OnPreviewDragMove;
+        InspectPreviewImage.PointerReleased += OnPreviewDragEnd;
+        InspectPreviewImage.PointerCanceled += OnPreviewDragEnd;
 
-        PostPreviewImage.PointerPressed += OnPreviewDragStart;
-        PostPreviewImage.PointerMoved += OnPreviewDragMove;
-        PostPreviewImage.PointerReleased += OnPreviewDragEnd;
-        PostPreviewImage.PointerCanceled += OnPreviewDragEnd;
+        EffectsPreviewImage.PointerPressed += OnPreviewDragStart;
+        EffectsPreviewImage.PointerMoved += OnPreviewDragMove;
+        EffectsPreviewImage.PointerReleased += OnPreviewDragEnd;
+        EffectsPreviewImage.PointerCanceled += OnPreviewDragEnd;
 
         UpscalePreviewImage.PointerPressed += OnPreviewDragStart;
         UpscalePreviewImage.PointerMoved += OnPreviewDragMove;
@@ -8199,10 +8199,10 @@ public sealed partial class MainWindow : Window
         var sv = el switch
         {
             var _ when el == GenPreviewImage => GenImageScroller,
-            var _ when el == ReaderPreviewImage => ReaderImageScroller,
-            var _ when el == PostPreviewImage || el == PostOverlayCanvas => PostImageScroller,
+            var _ when el == InspectPreviewImage => InspectImageScroller,
+            var _ when el == EffectsPreviewImage || el == EffectsOverlayCanvas => EffectsImageScroller,
             var _ when el == UpscalePreviewImage => UpscaleImageScroller,
-            _ => ReaderImageScroller,
+            _ => InspectImageScroller,
         };
         _imgDragging = true;
         _imgDragScroller = sv;
@@ -8298,8 +8298,8 @@ public sealed partial class MainWindow : Window
                     (root.RequestedTheme == ElementTheme.Default && root.ActualTheme == ElementTheme.Dark),
                     _advTitleBarGrid, _advRootPanel);
 
-            RefreshPostEffectsPanel();
-            RefreshPostOverlay();
+            RefreshEffectsPanel();
+            RefreshEffectsOverlay();
         }
     }
 
@@ -8330,7 +8330,7 @@ public sealed partial class MainWindow : Window
                 "1. 在左侧栏选择模型、输入提示词、调整参数。\n" +
                 "2. 点击“生成”或按 Ctrl+Enter 发送请求。\n" +
                 "3. 生成结果会自动保存到 output/ 文件夹。\n" +
-                "4. 可将结果继续发送到重绘或后期工作区。",
+                "4. 可将结果继续发送到重绘或效果工作区。",
                 "\uE768"
             ),
             (
@@ -8517,22 +8517,22 @@ public sealed partial class MainWindow : Window
             (
                 "本地超分",
                 "内置本地超分工作区，使用 ONNX 模型（如 Real-ESRGAN Anime 6B）在本地对图片进行放大。\n\n" +
-                "支持多种倍率选择，无需联网，不消耗 Anlas。处理完成后可自适应缩放预览，或直接发送到其他工作区继续后期处理。"
+                "支持多种倍率选择，无需联网，不消耗 Anlas。处理完成后可自适应缩放预览，或直接发送到其他工作区继续效果处理。"
             ),
             (
-                "后期滤镜",
-                "内置后期处理工作区，可以在生成完成后继续做轻量修整。\n\n" +
+                "效果滤镜",
+                "内置效果处理工作区，可以在生成完成后继续做轻量修整。\n\n" +
                 "适合做一些统一风格、增强观感或快速试效果的操作，让整个流程不用频繁切到外部软件。"
             ),
             (
-                "读取 NAI / SD 图片",
+                "检视 NAI / SD 图片",
                 "支持读取 NovelAI 和 Stable Diffusion 图片里的常见参数与提示词信息。\n\n" +
                 "这让你可以直接从已有图片回看生成设置，快速复现、继续修改，或把参数重新送回当前工作流。"
             ),
             (
                 "图片反推",
                 "当图片没有可用生成元数据时，工具可以调用外部反推模型，从图像内容反向推测标签。\n\n" +
-                "结果会直接回填到读取工作区，便于继续转到生图模式中微调，也支持按需附加角色 tag、作品 tag 和阈值控制。"
+                "结果会直接回填到检视工作区，便于继续转到生图模式中微调，也支持按需附加角色 tag、作品 tag 和阈值控制。"
             ),
         };
 
@@ -9922,9 +9922,9 @@ public sealed partial class MainWindow : Window
             string? finalSavedPath = originalSavedPath;
             string postSummary = "";
 
-            if (_autoGenRunning && _activeAutomationSettings?.PostProcess.Enabled == true)
+            if (_autoGenRunning && _activeAutomationSettings?.Effects.Enabled == true)
             {
-                var postResult = await RunAutomationPostProcessAsync(imageBytes, _activeAutomationSettings.PostProcess, ct);
+                var postResult = await RunAutomationEffectsProcessAsync(imageBytes, _activeAutomationSettings.Effects, ct);
                 finalBytes = postResult.Bytes;
                 finalSavedPath = await SaveToOutputAsync(finalBytes, "auto");
                 postSummary = postResult.Summary;
@@ -10016,7 +10016,7 @@ public sealed partial class MainWindow : Window
         SendImageToInpaint(_currentGenImageBytes);
     }
 
-    private async void OnSendToPostFromGen(object sender, RoutedEventArgs e)
+    private async void OnSendToEffectsFromGen(object sender, RoutedEventArgs e)
     {
         if (_currentGenImageBytes == null)
         {
@@ -10025,10 +10025,10 @@ public sealed partial class MainWindow : Window
         }
 
         GenResultBar.Visibility = Visibility.Collapsed;
-        await SendBytesToPostAsync(_currentGenImageBytes, _currentGenImagePath);
+        await SendBytesToEffectsAsync(_currentGenImageBytes, _currentGenImagePath);
     }
 
-    private async void OnSendToPostFromInpaint(object sender, RoutedEventArgs e)
+    private async void OnSendToEffectsFromInpaint(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -10045,25 +10045,25 @@ public sealed partial class MainWindow : Window
 
             if (bytesToSend == null || bytesToSend.Length == 0)
             {
-                TxtStatus.Text = "没有图像可发送到后期";
+                TxtStatus.Text = "没有图像可发送到效果";
                 return;
             }
 
-            await SendBytesToPostAsync(bytesToSend, MaskCanvas.LoadedFilePath);
+            await SendBytesToEffectsAsync(bytesToSend, MaskCanvas.LoadedFilePath);
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"发送到后期失败: {ex.Message}";
+            TxtStatus.Text = $"发送到效果失败: {ex.Message}";
         }
     }
 
-    private async void OnGenSendToReader(object sender, RoutedEventArgs e)
+    private async void OnGenSendToInspect(object sender, RoutedEventArgs e)
     {
         if (_currentGenImageBytes == null)
         { TxtStatus.Text = "没有生成结果可发送"; return; }
         GenResultBar.Visibility = Visibility.Collapsed;
-        SwitchMode(AppMode.Reader);
-        await LoadReaderImageFromBytesAsync(_currentGenImageBytes, _currentGenImagePath != null ? Path.GetFileName(_currentGenImagePath) : null);
+        SwitchMode(AppMode.Inspect);
+        await LoadInspectImageFromBytesAsync(_currentGenImageBytes, _currentGenImagePath != null ? Path.GetFileName(_currentGenImagePath) : null);
     }
 
     private async void OnDeleteGenResult(object sender, RoutedEventArgs e)
@@ -10189,29 +10189,29 @@ public sealed partial class MainWindow : Window
 
             var readerItem = new MenuFlyoutItem
             {
-                Text = "发送到读取",
+                Text = "发送到检视",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEE6F" },
                 IsEnabled = hasImage,
             };
             readerItem.Click += async (_, _) =>
             {
                 if (_currentGenImageBytes == null) return;
-                SwitchMode(AppMode.Reader);
-                await LoadReaderImageFromBytesAsync(_currentGenImageBytes,
+                SwitchMode(AppMode.Inspect);
+                await LoadInspectImageFromBytesAsync(_currentGenImageBytes,
                     _currentGenImagePath != null ? Path.GetFileName(_currentGenImagePath) : null);
             };
             flyout.Items.Add(readerItem);
 
             var postItem = new MenuFlyoutItem
             {
-                Text = "发送到后期",
+                Text = "发送到效果",
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" },
                 IsEnabled = hasImage,
             };
             postItem.Click += async (_, _) =>
             {
                 if (_currentGenImageBytes == null) return;
-                await SendBytesToPostAsync(_currentGenImageBytes, _currentGenImagePath);
+                await SendBytesToEffectsAsync(_currentGenImageBytes, _currentGenImagePath);
             };
             flyout.Items.Add(postItem);
 
@@ -10853,22 +10853,22 @@ public sealed partial class MainWindow : Window
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  读取模式
+    //  检视模式
     // ═══════════════════════════════════════════════════════════
 
-    private void SetReaderPrimaryAction(ReaderPrimaryAction action, bool isEnabled)
+    private void SetInspectPrimaryAction(InspectPrimaryAction action, bool isEnabled)
     {
-        _readerPrimaryAction = action;
+        _inspectPrimaryAction = action;
         BtnSendToGen.IsEnabled = isEnabled;
 
         switch (action)
         {
-            case ReaderPrimaryAction.InferTags:
+            case InspectPrimaryAction.InferTags:
                 BtnSendToGenIcon.Symbol = Symbol.Tag;
                 BtnSendToGenText.Text = "使用模型进行反推";
                 break;
-            case ReaderPrimaryAction.DisabledSend:
-            case ReaderPrimaryAction.SendMetadata:
+            case InspectPrimaryAction.DisabledSend:
+            case InspectPrimaryAction.SendMetadata:
             default:
                 BtnSendToGenIcon.Symbol = Symbol.Send;
                 BtnSendToGenText.Text = "发送生成参数";
@@ -10876,10 +10876,10 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private static string FormatReaderValue(string? value)
+    private static string FormatInspectValue(string? value)
         => string.IsNullOrWhiteSpace(value) ? "-" : value;
 
-    private static string FormatReaderNumber(double value)
+    private static string FormatInspectNumber(double value)
         => value > 0 ? value.ToString("G") : "-";
 
     private async Task<byte[]?> CreateCurrentCanvasImageBytesAsync()
@@ -11108,9 +11108,9 @@ public sealed partial class MainWindow : Window
         return fields;
     }
 
-    private async Task RunReaderReverseTagAsync()
+    private async Task RunInspectReverseTagAsync()
     {
-        if (_readerImageBytes == null)
+        if (_inspectImageBytes == null)
         {
             TxtStatus.Text = "没有可用于反推的图片";
             return;
@@ -11123,16 +11123,16 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        SetReaderPrimaryAction(ReaderPrimaryAction.InferTags, false);
+        SetInspectPrimaryAction(InspectPrimaryAction.InferTags, false);
         BtnSendToGenText.Text = "正在反推...";
         TxtStatus.Text = "正在使用反推模型分析图片...";
         DebugLog($"[反推] 开始 | 模型={_settings.Settings.ReverseTagger.ModelPath}");
 
         try
         {
-            var result = await _reverseTaggerService.InferAsync(_readerImageBytes, _settings.Settings.ReverseTagger);
+            var result = await _reverseTaggerService.InferAsync(_inspectImageBytes, _settings.Settings.ReverseTagger);
 
-            _readerMetadata = new ImageMetadata
+            _inspectMetadata = new ImageMetadata
             {
                 PositivePrompt = result.PositivePrompt,
                 NegativePrompt = "",
@@ -11142,7 +11142,7 @@ public sealed partial class MainWindow : Window
                 IsModelInference = true,
             };
 
-            DisplayReaderMetadata(_readerMetadata);
+            DisplayInspectMetadata(_inspectMetadata);
 
             int totalTags = result.GeneralTags.Count +
                             (_settings.Settings.ReverseTagger.AddCharacterTags ? result.CharacterTags.Count : 0) +
@@ -11153,7 +11153,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             DebugLog($"[反推] 失败: {ex}");
-            SetReaderPrimaryAction(ReaderPrimaryAction.InferTags, _readerImageBytes != null);
+            SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
             TxtStatus.Text = $"反推失败: {ex.Message}";
         }
         finally
@@ -11163,9 +11163,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async void RunReaderImageScrambleAsync(ImageScrambleService.ProcessType processType)
+    private async void RunInspectImageScrambleAsync(ImageScrambleService.ProcessType processType)
     {
-        if (_readerImageBytes == null) return;
+        if (_inspectImageBytes == null) return;
 
         try
         {
@@ -11175,7 +11175,7 @@ public sealed partial class MainWindow : Window
 
             byte[]? resultBytes = await Task.Run(() =>
             {
-                using var bitmap = SKBitmap.Decode(_readerImageBytes);
+                using var bitmap = SKBitmap.Decode(_inspectImageBytes);
                 if (bitmap == null) return null;
 
                 using var processed = ImageScrambleService.Process(bitmap, processType);
@@ -11190,20 +11190,20 @@ public sealed partial class MainWindow : Window
                 return;
             }
 
-            _readerImageBytes = resultBytes;
-            _readerRawModified = true;
+            _inspectImageBytes = resultBytes;
+            _inspectRawModified = true;
 
             using var ms = new MemoryStream(resultBytes);
             var bmp = new BitmapImage();
             await bmp.SetSourceAsync(ms.AsRandomAccessStream());
-            ReaderPreviewImage.Source = bmp;
+            InspectPreviewImage.Source = bmp;
 
             TxtStatus.Text = processType == ImageScrambleService.ProcessType.Encrypt
                 ? "图片混淆完成"
                 : "图片反混淆完成";
 
             UpdateFileMenuState();
-            if (_currentMode == AppMode.Reader) ReplaceEditMenu();
+            if (_currentMode == AppMode.Inspect) ReplaceEditMenu();
         }
         catch (Exception ex)
         {
@@ -11211,14 +11211,14 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async Task LoadReaderImageAsync(string filePath)
+    private async Task LoadInspectImageAsync(string filePath)
     {
         try
         {
             var bytes = await Task.Run(() => File.ReadAllBytes(filePath));
-            _readerImageBytes = bytes;
-            _readerImagePath = filePath;
-            _readerRawModified = false;
+            _inspectImageBytes = bytes;
+            _inspectImagePath = filePath;
+            _inspectRawModified = false;
 
             var bitmapImage = new BitmapImage();
             using var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
@@ -11228,17 +11228,17 @@ public sealed partial class MainWindow : Window
             writer.DetachStream();
             ms.Seek(0);
             await bitmapImage.SetSourceAsync(ms);
-            ReaderPreviewImage.Source = bitmapImage;
-            ReaderImagePlaceholder.Visibility = Visibility.Collapsed;
+            InspectPreviewImage.Source = bitmapImage;
+            InspectImagePlaceholder.Visibility = Visibility.Collapsed;
 
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                () => FitReaderPreviewToScreen());
+                () => FitInspectPreviewToScreen());
 
             var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
-            _readerMetadata = meta;
-            DisplayReaderMetadata(meta);
-            UpdateReaderSaveState();
-            if (_currentMode == AppMode.Reader)
+            _inspectMetadata = meta;
+            DisplayInspectMetadata(meta);
+            UpdateInspectSaveState();
+            if (_currentMode == AppMode.Inspect)
             {
                 ReplaceEditMenu();
                 ReplaceToolMenu();
@@ -11254,13 +11254,13 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async Task LoadReaderImageFromBytesAsync(byte[] bytes, string? sourceName = null)
+    private async Task LoadInspectImageFromBytesAsync(byte[] bytes, string? sourceName = null)
     {
         try
         {
-            _readerImageBytes = bytes;
-            _readerImagePath = null;
-            _readerRawModified = false;
+            _inspectImageBytes = bytes;
+            _inspectImagePath = null;
+            _inspectRawModified = false;
 
             var bitmapImage = new BitmapImage();
             using var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
@@ -11270,17 +11270,17 @@ public sealed partial class MainWindow : Window
             writer.DetachStream();
             ms.Seek(0);
             await bitmapImage.SetSourceAsync(ms);
-            ReaderPreviewImage.Source = bitmapImage;
-            ReaderImagePlaceholder.Visibility = Visibility.Collapsed;
+            InspectPreviewImage.Source = bitmapImage;
+            InspectImagePlaceholder.Visibility = Visibility.Collapsed;
 
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                () => FitReaderPreviewToScreen());
+                () => FitInspectPreviewToScreen());
 
             var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
-            _readerMetadata = meta;
-            DisplayReaderMetadata(meta);
-            UpdateReaderSaveState();
-            if (_currentMode == AppMode.Reader) ReplaceEditMenu();
+            _inspectMetadata = meta;
+            DisplayInspectMetadata(meta);
+            UpdateInspectSaveState();
+            if (_currentMode == AppMode.Inspect) ReplaceEditMenu();
 
             TxtStatus.Text = meta != null
                 ? $"已加载图像 (含元数据)"
@@ -11292,63 +11292,63 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void DisplayReaderMetadata(ImageMetadata? meta)
+    private void DisplayInspectMetadata(ImageMetadata? meta)
     {
-        TxtReaderRawMeta.Visibility = Visibility.Collapsed;
-        ReaderCharPanel.Children.Clear();
-        ReaderCharPanel.Visibility = Visibility.Collapsed;
-        ReaderCharNegPanel.Children.Clear();
-        ReaderCharNegPanel.Visibility = Visibility.Collapsed;
-        TxtReaderPositive.Text = "";
-        TxtReaderNegative.Text = "";
-        TxtReaderSize.Text = "-";
-        TxtReaderSteps.Text = "-";
-        TxtReaderSampler.Text = "-";
-        TxtReaderSchedule.Text = "-";
-        TxtReaderScale.Text = "-";
-        TxtReaderCfgRescale.Text = "-";
-        TxtReaderSeed.Text = "-";
-        TxtReaderVariety.Text = "-";
+        TxtInspectRawMeta.Visibility = Visibility.Collapsed;
+        InspectCharPanel.Children.Clear();
+        InspectCharPanel.Visibility = Visibility.Collapsed;
+        InspectCharNegPanel.Children.Clear();
+        InspectCharNegPanel.Visibility = Visibility.Collapsed;
+        TxtInspectPositive.Text = "";
+        TxtInspectNegative.Text = "";
+        TxtInspectSize.Text = "-";
+        TxtInspectSteps.Text = "-";
+        TxtInspectSampler.Text = "-";
+        TxtInspectSchedule.Text = "-";
+        TxtInspectScale.Text = "-";
+        TxtInspectCfgRescale.Text = "-";
+        TxtInspectSeed.Text = "-";
+        TxtInspectVariety.Text = "-";
 
         if (meta == null)
         {
-            ReaderPlaceholder.Text = "此图片不包含可识别的元数据";
-            ReaderPlaceholder.Visibility = Visibility.Visible;
-            ReaderContent.Visibility = Visibility.Collapsed;
-            SetReaderPrimaryAction(ReaderPrimaryAction.InferTags, _readerImageBytes != null);
-            BtnSendReaderToInpaint.IsEnabled = _readerImageBytes != null;
+            InspectPlaceholder.Text = "此图片不包含可识别的元数据";
+            InspectPlaceholder.Visibility = Visibility.Visible;
+            InspectContent.Visibility = Visibility.Collapsed;
+            SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
+            BtnSendInspectToInpaint.IsEnabled = _inspectImageBytes != null;
             UpdateDynamicMenuStates();
             return;
         }
 
         if (!meta.IsNaiParsed && !meta.IsSdFormat && !meta.IsModelInference)
         {
-            ReaderPlaceholder.Visibility = Visibility.Collapsed;
-            ReaderContent.Visibility = Visibility.Collapsed;
-            TxtReaderRawMeta.Visibility = Visibility.Visible;
-            TxtReaderRawMeta.Text = meta.RawJson;
-            SetReaderPrimaryAction(ReaderPrimaryAction.InferTags, _readerImageBytes != null);
-            BtnSendReaderToInpaint.IsEnabled = _readerImageBytes != null;
+            InspectPlaceholder.Visibility = Visibility.Collapsed;
+            InspectContent.Visibility = Visibility.Collapsed;
+            TxtInspectRawMeta.Visibility = Visibility.Visible;
+            TxtInspectRawMeta.Text = meta.RawJson;
+            SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
+            BtnSendInspectToInpaint.IsEnabled = _inspectImageBytes != null;
             UpdateDynamicMenuStates();
             return;
         }
 
-        ReaderPlaceholder.Visibility = Visibility.Collapsed;
-        ReaderContent.Visibility = Visibility.Visible;
-        SetReaderPrimaryAction(ReaderPrimaryAction.SendMetadata, true);
-        BtnSendReaderToInpaint.IsEnabled = true;
+        InspectPlaceholder.Visibility = Visibility.Collapsed;
+        InspectContent.Visibility = Visibility.Visible;
+        SetInspectPrimaryAction(InspectPrimaryAction.SendMetadata, true);
+        BtnSendInspectToInpaint.IsEnabled = true;
 
-        TxtReaderPositive.Text = FormatReaderValue(meta.PositivePrompt);
-        TxtReaderNegative.Text = FormatReaderValue(meta.NegativePrompt);
+        TxtInspectPositive.Text = FormatInspectValue(meta.PositivePrompt);
+        TxtInspectNegative.Text = FormatInspectValue(meta.NegativePrompt);
 
         if (!meta.IsModelInference && meta.CharacterPrompts.Count > 0)
         {
-            ReaderCharPanel.Visibility = Visibility.Visible;
-            ReaderCharPanel.Children.Add(CreateThemedCaption("角色提示词"));
+            InspectCharPanel.Visibility = Visibility.Visible;
+            InspectCharPanel.Children.Add(CreateThemedCaption("角色提示词"));
             for (int i = 0; i < meta.CharacterPrompts.Count; i++)
             {
-                ReaderCharPanel.Children.Add(CreateThemedSubLabel($"角色 {i + 1}"));
-                ReaderCharPanel.Children.Add(new TextBox
+                InspectCharPanel.Children.Add(CreateThemedSubLabel($"角色 {i + 1}"));
+                InspectCharPanel.Children.Add(new TextBox
                 {
                     Text = meta.CharacterPrompts[i],
                     IsReadOnly = true, AcceptsReturn = true,
@@ -11358,17 +11358,17 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            ReaderCharPanel.Visibility = Visibility.Collapsed;
+            InspectCharPanel.Visibility = Visibility.Collapsed;
         }
 
         if (!meta.IsModelInference && meta.CharacterNegativePrompts.Count > 0)
         {
-            ReaderCharNegPanel.Visibility = Visibility.Visible;
-            ReaderCharNegPanel.Children.Add(CreateThemedCaption("角色负面提示词"));
+            InspectCharNegPanel.Visibility = Visibility.Visible;
+            InspectCharNegPanel.Children.Add(CreateThemedCaption("角色负面提示词"));
             for (int i = 0; i < meta.CharacterNegativePrompts.Count; i++)
             {
-                ReaderCharNegPanel.Children.Add(CreateThemedSubLabel($"角色 {i + 1}"));
-                ReaderCharNegPanel.Children.Add(new TextBox
+                InspectCharNegPanel.Children.Add(CreateThemedSubLabel($"角色 {i + 1}"));
+                InspectCharNegPanel.Children.Add(new TextBox
                 {
                     Text = meta.CharacterNegativePrompts[i],
                     IsReadOnly = true, AcceptsReturn = true,
@@ -11378,17 +11378,17 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            ReaderCharNegPanel.Visibility = Visibility.Collapsed;
+            InspectCharNegPanel.Visibility = Visibility.Collapsed;
         }
 
-        TxtReaderSize.Text = meta.Width > 0 && meta.Height > 0 ? $"{meta.Width} × {meta.Height}" : "-";
-        TxtReaderSteps.Text = meta.Steps > 0 ? meta.Steps.ToString() : "-";
-        TxtReaderSampler.Text = FormatReaderValue(meta.Sampler);
-        TxtReaderSchedule.Text = FormatReaderValue(meta.NoiseSchedule);
-        TxtReaderScale.Text = FormatReaderNumber(meta.Scale);
-        TxtReaderCfgRescale.Text = meta.IsSdFormat || meta.IsModelInference ? "-" : FormatReaderNumber(meta.CfgRescale);
-        TxtReaderSeed.Text = meta.Seed > 0 ? meta.Seed.ToString() : "-";
-        TxtReaderVariety.Text = meta.IsSdFormat || meta.IsModelInference ? "-" : ((meta.SmDyn || meta.Sm) ? "是" : "否");
+        TxtInspectSize.Text = meta.Width > 0 && meta.Height > 0 ? $"{meta.Width} × {meta.Height}" : "-";
+        TxtInspectSteps.Text = meta.Steps > 0 ? meta.Steps.ToString() : "-";
+        TxtInspectSampler.Text = FormatInspectValue(meta.Sampler);
+        TxtInspectSchedule.Text = FormatInspectValue(meta.NoiseSchedule);
+        TxtInspectScale.Text = FormatInspectNumber(meta.Scale);
+        TxtInspectCfgRescale.Text = meta.IsSdFormat || meta.IsModelInference ? "-" : FormatInspectNumber(meta.CfgRescale);
+        TxtInspectSeed.Text = meta.Seed > 0 ? meta.Seed.ToString() : "-";
+        TxtInspectVariety.Text = meta.IsSdFormat || meta.IsModelInference ? "-" : ((meta.SmDyn || meta.Sm) ? "是" : "否");
         UpdateDynamicMenuStates();
     }
 
@@ -11398,7 +11398,7 @@ public sealed partial class MainWindow : Window
         return new TextBlock
         {
             Text = text,
-            Style = (Style)rootGrid.Resources["ReaderCaptionStyle"],
+            Style = (Style)rootGrid.Resources["InspectCaptionStyle"],
         };
     }
 
@@ -11408,20 +11408,20 @@ public sealed partial class MainWindow : Window
         return new TextBlock
         {
             Text = text,
-            Style = (Style)rootGrid.Resources["ReaderSubLabelStyle"],
+            Style = (Style)rootGrid.Resources["InspectSubLabelStyle"],
         };
     }
 
     private async void OnEditRawMetadata(object sender, RoutedEventArgs e)
     {
-        if (_readerImageBytes == null) return;
+        if (_inspectImageBytes == null) return;
 
-        if (_readerMetadata == null)
-            _readerMetadata = new ImageMetadata();
+        if (_inspectMetadata == null)
+            _inspectMetadata = new ImageMetadata();
 
-        string prettyJson = string.IsNullOrWhiteSpace(_readerMetadata.RawJson)
+        string prettyJson = string.IsNullOrWhiteSpace(_inspectMetadata.RawJson)
             ? ""
-            : ImageMetadataService.PrettyPrintJson(_readerMetadata.RawJson);
+            : ImageMetadataService.PrettyPrintJson(_inspectMetadata.RawJson);
 
         var textBox = new TextBox
         {
@@ -11450,61 +11450,61 @@ public sealed partial class MainWindow : Window
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
         {
             string compactJson = ImageMetadataService.CompactJson(textBox.Text);
-            if (compactJson == ImageMetadataService.CompactJson(_readerMetadata.RawJson)) return;
+            if (compactJson == ImageMetadataService.CompactJson(_inspectMetadata.RawJson)) return;
 
             var newMeta = ImageMetadataService.TryParseJson(compactJson);
             if (newMeta != null)
             {
-                _readerMetadata = newMeta;
-                _readerRawModified = true;
-                DisplayReaderMetadata(newMeta);
-                UpdateReaderSaveState();
+                _inspectMetadata = newMeta;
+                _inspectRawModified = true;
+                DisplayInspectMetadata(newMeta);
+                UpdateInspectSaveState();
                 ReplaceEditMenu();
                 TxtStatus.Text = "Raw 数据已更新";
             }
             else
             {
-                _readerMetadata.RawJson = compactJson;
-                _readerRawModified = true;
-                UpdateReaderSaveState();
+                _inspectMetadata.RawJson = compactJson;
+                _inspectRawModified = true;
+                UpdateInspectSaveState();
                 TxtStatus.Text = "Raw 数据已保存（JSON 解析失败，参数显示可能不准确）";
             }
         }
     }
 
-    private void UpdateReaderSaveState()
+    private void UpdateInspectSaveState()
     {
         UpdateFileMenuState();
     }
 
-    private byte[]? GetReaderSaveBytes(bool stripMetadata)
+    private byte[]? GetInspectSaveBytes(bool stripMetadata)
     {
-        if (_readerImageBytes == null) return null;
+        if (_inspectImageBytes == null) return null;
         if (stripMetadata)
-            return ImageMetadataService.StripPngMetadata(_readerImageBytes);
-        if (_readerRawModified && _readerMetadata != null)
-            return ImageMetadataService.ReplacePngComment(_readerImageBytes, _readerMetadata.RawJson);
-        return _readerImageBytes;
+            return ImageMetadataService.StripPngMetadata(_inspectImageBytes);
+        if (_inspectRawModified && _inspectMetadata != null)
+            return ImageMetadataService.ReplacePngComment(_inspectImageBytes, _inspectMetadata.RawJson);
+        return _inspectImageBytes;
     }
 
-    private async Task SaveReaderOverwriteAsync()
+    private async Task SaveInspectOverwriteAsync()
     {
-        if (!_readerRawModified)
+        if (!_inspectRawModified)
         { TxtStatus.Text = "Raw 数据未修改，无需保存"; return; }
 
-        var bytesToSave = GetReaderSaveBytes(stripMetadata: false);
+        var bytesToSave = GetInspectSaveBytes(stripMetadata: false);
         if (bytesToSave == null)
         { TxtStatus.Text = "没有可保存的图片"; return; }
 
-        if (!string.IsNullOrEmpty(_readerImagePath) && File.Exists(_readerImagePath))
+        if (!string.IsNullOrEmpty(_inspectImagePath) && File.Exists(_inspectImagePath))
         {
             try
             {
-                await File.WriteAllBytesAsync(_readerImagePath, bytesToSave);
-                _readerImageBytes = bytesToSave;
-                _readerRawModified = false;
-                UpdateReaderSaveState();
-                TxtStatus.Text = $"已保存: {_readerImagePath}";
+                await File.WriteAllBytesAsync(_inspectImagePath, bytesToSave);
+                _inspectImageBytes = bytesToSave;
+                _inspectRawModified = false;
+                UpdateInspectSaveState();
+                TxtStatus.Text = $"已保存: {_inspectImagePath}";
             }
             catch (Exception ex) { TxtStatus.Text = $"保存失败: {ex.Message}"; }
         }
@@ -11514,25 +11514,25 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async Task SavePostOverwriteAsync()
+    private async Task SaveEffectsOverwriteAsync()
     {
-        var bytesToSave = await GetPostSaveBytesAsync();
+        var bytesToSave = await GetEffectsSaveBytesAsync();
         if (bytesToSave == null)
         {
             TxtStatus.Text = "没有可保存的图片";
             return;
         }
 
-        if (!string.IsNullOrEmpty(_postImagePath) && File.Exists(_postImagePath))
+        if (!string.IsNullOrEmpty(_effectsImagePath) && File.Exists(_effectsImagePath))
         {
             try
             {
-                await File.WriteAllBytesAsync(_postImagePath, bytesToSave);
-                _postImageBytes = bytesToSave;
-                _postPreviewImageBytes = bytesToSave;
-                ReplacePostSourceBitmap(bytesToSave);
+                await File.WriteAllBytesAsync(_effectsImagePath, bytesToSave);
+                _effectsImageBytes = bytesToSave;
+                _effectsPreviewImageBytes = bytesToSave;
+                ReplaceEffectsSourceBitmap(bytesToSave);
                 UpdateFileMenuState();
-                TxtStatus.Text = $"已保存: {_postImagePath}";
+                TxtStatus.Text = $"已保存: {_effectsImagePath}";
             }
             catch (Exception ex)
             {
@@ -11545,40 +11545,40 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void FitReaderPreviewToScreen()
+    private void FitInspectPreviewToScreen()
     {
-        if (ReaderPreviewImage.Source is not BitmapImage bmp) return;
+        if (InspectPreviewImage.Source is not BitmapImage bmp) return;
         double imgW = bmp.PixelWidth;
         double imgH = bmp.PixelHeight;
         if (imgW <= 0 || imgH <= 0) return;
 
-        double viewW = ReaderImageScroller.ViewportWidth;
-        double viewH = ReaderImageScroller.ViewportHeight;
+        double viewW = InspectImageScroller.ViewportWidth;
+        double viewH = InspectImageScroller.ViewportHeight;
         if (viewW <= 0 || viewH <= 0) return;
 
         float zoom = (float)Math.Min(viewW / imgW, viewH / imgH);
         zoom = Math.Min(zoom, 1.0f);
-        ReaderImageScroller.ChangeView(0, 0, zoom);
+        InspectImageScroller.ChangeView(0, 0, zoom);
     }
 
     private static readonly string QualityTagBlock = "rating:general, best quality, very aesthetic, absurdres";
 
-    private void OnSendReaderToInpaint(object sender, RoutedEventArgs e)
+    private void OnSendInspectToInpaint(object sender, RoutedEventArgs e)
     {
-        if (_readerImageBytes == null) return;
+        if (_inspectImageBytes == null) return;
 
         var savedPos = _genPositivePrompt;
         var savedNeg = _genNegativePrompt;
         var savedStyle = _genStylePrompt;
 
-        if (_readerMetadata != null)
+        if (_inspectMetadata != null)
         {
-            _genPositivePrompt = _readerMetadata.PositivePrompt;
-            _genNegativePrompt = _readerMetadata.NegativePrompt;
+            _genPositivePrompt = _inspectMetadata.PositivePrompt;
+            _genNegativePrompt = _inspectMetadata.NegativePrompt;
             _genStylePrompt = "";
         }
 
-        SendImageToInpaint(_readerImageBytes);
+        SendImageToInpaint(_inspectImageBytes);
 
         _genPositivePrompt = savedPos;
         _genNegativePrompt = savedNeg;
@@ -11587,14 +11587,14 @@ public sealed partial class MainWindow : Window
 
     private async void OnSendMetadataToGen(object sender, RoutedEventArgs e)
     {
-        if (_readerPrimaryAction == ReaderPrimaryAction.InferTags)
+        if (_inspectPrimaryAction == InspectPrimaryAction.InferTags)
         {
-            await RunReaderReverseTagAsync();
+            await RunInspectReverseTagAsync();
             return;
         }
 
-        if (_readerMetadata == null) return;
-        var meta = _readerMetadata;
+        if (_inspectMetadata == null) return;
+        var meta = _inspectMetadata;
         bool maxMode = _settings.Settings.MaxMode;
         var skipped = new List<string>();
         var notes = new List<string>();
@@ -11698,13 +11698,13 @@ public sealed partial class MainWindow : Window
             : "已将生成参数发送到生图模式";
     }
 
-    private void OnReaderDragOver(object sender, DragEventArgs e)
+    private void OnInspectDragOver(object sender, DragEventArgs e)
     {
         if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
     }
 
-    private async void OnReaderDrop(object sender, DragEventArgs e)
+    private async void OnInspectDrop(object sender, DragEventArgs e)
     {
         if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
             return;
@@ -11718,20 +11718,20 @@ public sealed partial class MainWindow : Window
                  file.FileType.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
                  file.FileType.Equals(".webp", StringComparison.OrdinalIgnoreCase)))
             {
-                await LoadReaderImageAsync(file.Path);
+                await LoadInspectImageAsync(file.Path);
                 return;
             }
         }
         TxtStatus.Text = "不支持的文件格式，请拖入 PNG/JPG/WebP 图片";
     }
 
-    private void OnPostDragOver(object sender, DragEventArgs e)
+    private void OnEffectsDragOver(object sender, DragEventArgs e)
     {
         if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
     }
 
-    private async void OnPostDrop(object sender, DragEventArgs e)
+    private async void OnEffectsDrop(object sender, DragEventArgs e)
     {
         if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
             return;
@@ -11746,22 +11746,22 @@ public sealed partial class MainWindow : Window
                  file.FileType.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
                  file.FileType.Equals(".webp", StringComparison.OrdinalIgnoreCase)))
             {
-                await LoadPostImageAsync(file.Path);
+                await LoadEffectsImageAsync(file.Path);
                 return;
             }
         }
         TxtStatus.Text = "不支持的文件格式，请拖入 PNG/JPG/WebP/BMP 图片";
     }
 
-    private void OnPostOverlayPointerPressed(object sender, PointerRoutedEventArgs e)
+    private void OnEffectsOverlayPointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        var effect = GetSelectedPostEffect();
-        if (effect == null || !IsRegionPostEffect(effect.Type) || PostPreviewImage.Source is not BitmapImage bmp)
+        var effect = GetSelectedEffect();
+        if (effect == null || !IsRegionEffect(effect.Type) || EffectsPreviewImage.Source is not BitmapImage bmp)
             return;
 
-        var pos = e.GetCurrentPoint(PostOverlayCanvas).Position;
-        GetPostRegionValues(effect, out double centerX, out double centerY, out double widthPct, out double heightPct);
-        GetPostEffectRect(bmp.PixelWidth, bmp.PixelHeight, centerX, centerY, widthPct, heightPct,
+        var pos = e.GetCurrentPoint(EffectsOverlayCanvas).Position;
+        GetEffectRegionValues(effect, out double centerX, out double centerY, out double widthPct, out double heightPct);
+        GetEffectRect(bmp.PixelWidth, bmp.PixelHeight, centerX, centerY, widthPct, heightPct,
             out int left, out int top, out int right, out int bottom);
 
         bool inResize = Math.Abs(pos.X - right) <= 12 && Math.Abs(pos.Y - bottom) <= 12;
@@ -11772,88 +11772,88 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        PushPostUndoState();
-        _postRegionDragging = inRect && !inResize;
-        _postRegionResizing = inResize;
-        _postRegionDragStart = pos;
-        _postRegionStartCenterX = centerX;
-        _postRegionStartCenterY = centerY;
-        _postRegionStartWidth = widthPct;
-        _postRegionStartHeight = heightPct;
-        PostOverlayCanvas.CapturePointer(e.Pointer);
+        PushEffectsUndoState();
+        _effectsRegionDragging = inRect && !inResize;
+        _effectsRegionResizing = inResize;
+        _effectsRegionDragStart = pos;
+        _effectsRegionStartCenterX = centerX;
+        _effectsRegionStartCenterY = centerY;
+        _effectsRegionStartWidth = widthPct;
+        _effectsRegionStartHeight = heightPct;
+        EffectsOverlayCanvas.CapturePointer(e.Pointer);
         e.Handled = true;
     }
 
-    private void OnPostOverlayPointerMoved(object sender, PointerRoutedEventArgs e)
+    private void OnEffectsOverlayPointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (!_postRegionDragging && !_postRegionResizing)
+        if (!_effectsRegionDragging && !_effectsRegionResizing)
         {
             OnPreviewDragMove(sender, e);
             return;
         }
-        if (PostPreviewImage.Source is not BitmapImage bmp) return;
+        if (EffectsPreviewImage.Source is not BitmapImage bmp) return;
 
-        var effect = GetSelectedPostEffect();
+        var effect = GetSelectedEffect();
         if (effect == null) return;
 
-        var pos = e.GetCurrentPoint(PostOverlayCanvas).Position;
-        double dxPct = (pos.X - _postRegionDragStart.X) / Math.Max(1, bmp.PixelWidth) * 100.0;
-        double dyPct = (pos.Y - _postRegionDragStart.Y) / Math.Max(1, bmp.PixelHeight) * 100.0;
+        var pos = e.GetCurrentPoint(EffectsOverlayCanvas).Position;
+        double dxPct = (pos.X - _effectsRegionDragStart.X) / Math.Max(1, bmp.PixelWidth) * 100.0;
+        double dyPct = (pos.Y - _effectsRegionDragStart.Y) / Math.Max(1, bmp.PixelHeight) * 100.0;
 
-        double centerX = _postRegionStartCenterX;
-        double centerY = _postRegionStartCenterY;
-        double widthPct = _postRegionStartWidth;
-        double heightPct = _postRegionStartHeight;
+        double centerX = _effectsRegionStartCenterX;
+        double centerY = _effectsRegionStartCenterY;
+        double widthPct = _effectsRegionStartWidth;
+        double heightPct = _effectsRegionStartHeight;
 
-        if (_postRegionDragging)
+        if (_effectsRegionDragging)
         {
-            centerX = Math.Clamp(_postRegionStartCenterX + dxPct, 0, 100);
-            centerY = Math.Clamp(_postRegionStartCenterY + dyPct, 0, 100);
+            centerX = Math.Clamp(_effectsRegionStartCenterX + dxPct, 0, 100);
+            centerY = Math.Clamp(_effectsRegionStartCenterY + dyPct, 0, 100);
         }
-        else if (_postRegionResizing)
+        else if (_effectsRegionResizing)
         {
-            widthPct = Math.Clamp(_postRegionStartWidth + dxPct * 2.0, 1, 100);
-            heightPct = Math.Clamp(_postRegionStartHeight + dyPct * 2.0, 1, 100);
+            widthPct = Math.Clamp(_effectsRegionStartWidth + dxPct * 2.0, 1, 100);
+            heightPct = Math.Clamp(_effectsRegionStartHeight + dyPct * 2.0, 1, 100);
         }
 
-        SetPostRegionValues(effect, centerX, centerY, widthPct, heightPct);
-        RefreshPostOverlay();
-        QueuePostPreviewRefresh();
+        SetEffectRegionValues(effect, centerX, centerY, widthPct, heightPct);
+        RefreshEffectsOverlay();
+        QueueEffectsPreviewRefresh();
         UpdateFileMenuState();
         e.Handled = true;
     }
 
-    private void OnPostOverlayPointerReleased(object sender, PointerRoutedEventArgs e)
+    private void OnEffectsOverlayPointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        if (!_postRegionDragging && !_postRegionResizing)
+        if (!_effectsRegionDragging && !_effectsRegionResizing)
         {
             OnPreviewDragEnd(sender, e);
             return;
         }
-        _postRegionDragging = false;
-        _postRegionResizing = false;
-        PostOverlayCanvas.ReleasePointerCapture(e.Pointer);
-        RefreshPostEffectsPanel();
-        RefreshPostOverlay();
-        QueuePostPreviewRefresh(immediate: true);
+        _effectsRegionDragging = false;
+        _effectsRegionResizing = false;
+        EffectsOverlayCanvas.ReleasePointerCapture(e.Pointer);
+        RefreshEffectsPanel();
+        RefreshEffectsOverlay();
+        QueueEffectsPreviewRefresh(immediate: true);
         e.Handled = true;
     }
 
-    private async void OnHistorySendToReader(object sender, RoutedEventArgs e)
+    private async void OnHistorySendToInspect(object sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem item && item.Tag is string filePath)
         {
-            SwitchMode(AppMode.Reader);
-            await LoadReaderImageAsync(filePath);
+            SwitchMode(AppMode.Inspect);
+            await LoadInspectImageAsync(filePath);
         }
     }
 
-    private async void OnHistorySendToPost(object sender, RoutedEventArgs e)
+    private async void OnHistorySendToEffects(object sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem item && item.Tag is string filePath)
         {
-            SwitchMode(AppMode.PostProcess);
-            await LoadPostImageAsync(filePath);
+            SwitchMode(AppMode.Effects);
+            await LoadEffectsImageAsync(filePath);
         }
     }
 
@@ -12151,17 +12151,17 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(new MenuFlyoutSeparator());
         var readerItem = new MenuFlyoutItem
         {
-            Text = "发送到读取", Tag = filePath,
+            Text = "发送到检视", Tag = filePath,
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEE6F" },
         };
-        readerItem.Click += OnHistorySendToReader;
+        readerItem.Click += OnHistorySendToInspect;
         menu.Items.Add(readerItem);
         var postItem = new MenuFlyoutItem
         {
-            Text = "发送到后期", Tag = filePath,
+            Text = "发送到效果", Tag = filePath,
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" },
         };
-        postItem.Click += OnHistorySendToPost;
+        postItem.Click += OnHistorySendToEffects;
         menu.Items.Add(postItem);
         var sendItem = new MenuFlyoutItem
         {
@@ -12714,14 +12714,14 @@ public sealed partial class MainWindow : Window
         SendImageToInpaint(_upscaleInputImageBytes);
     }
 
-    private async void OnSendToPostFromUpscale(object sender, RoutedEventArgs e)
+    private async void OnSendToEffectsFromUpscale(object sender, RoutedEventArgs e)
     {
         if (_upscaleInputImageBytes == null)
         {
             TxtStatus.Text = "没有图像可发送";
             return;
         }
-        await SendBytesToPostAsync(_upscaleInputImageBytes);
+        await SendBytesToEffectsAsync(_upscaleInputImageBytes);
     }
 
     private async void OnHistorySendToUpscale(object sender, RoutedEventArgs e)

@@ -32,7 +32,7 @@ public sealed partial class MainWindow
         public bool MissingVibePoolNotified { get; set; }
     }
 
-    private sealed class AutomationPostProcessResult
+    private sealed class AutomationEffectsProcessResult
     {
         public required byte[] Bytes { get; init; }
         public string Summary { get; init; } = "";
@@ -168,8 +168,8 @@ public sealed partial class MainWindow
             },
         };
 
-        var chkEnableUpscale = new CheckBox { Content = "启用自动超分", IsChecked = workingSettings.PostProcess.UpscaleEnabled };
-        var chkEnablePostFx = new CheckBox { Content = "启用后期滤镜预设", IsChecked = workingSettings.PostProcess.PostFxEnabled };
+        var chkEnableUpscale = new CheckBox { Content = "启用自动超分", IsChecked = workingSettings.Effects.UpscaleEnabled };
+        var chkEnableFx = new CheckBox { Content = "启用效果滤镜预设", IsChecked = workingSettings.Effects.FxEnabled };
         var cboUpscaleModel = new ComboBox { Header = "超分模型", HorizontalAlignment = HorizontalAlignment.Stretch };
         var upscaleModels = UpscaleService.ScanModels(Path.Combine(ModelsDir, "upscaler"));
         foreach (var model in upscaleModels)
@@ -182,9 +182,9 @@ public sealed partial class MainWindow
         cboUpscaleScale.Items.Add(new ComboBoxItem { Content = "4x", Tag = 4 });
         ApplyMenuTypography(cboUpscaleScale);
 
-        var cboPostPreset = new ComboBox { Header = "后期滤镜预设", HorizontalAlignment = HorizontalAlignment.Stretch };
-        PopulateAutomationPostPresetCombo(cboPostPreset);
-        ApplyMenuTypography(cboPostPreset);
+        var cboEffectsPreset = new ComboBox { Header = "效果滤镜预设", HorizontalAlignment = HorizontalAlignment.Stretch };
+        PopulateAutomationEffectsPresetCombo(cboEffectsPreset);
+        ApplyMenuTypography(cboEffectsPreset);
 
         void ApplySettingsToControls(AutomationSettings settings)
         {
@@ -204,15 +204,15 @@ public sealed partial class MainWindow
             foreach (var pair in sizePresetChecks)
                 pair.Value.IsChecked = settings.Randomization.SizePresets.Contains(pair.Key, StringComparer.OrdinalIgnoreCase);
 
-            chkEnableUpscale.IsChecked = settings.PostProcess.UpscaleEnabled;
-            chkEnablePostFx.IsChecked = settings.PostProcess.PostFxEnabled;
-            SelectComboText(cboUpscaleModel, settings.PostProcess.UpscaleModel);
-            SelectComboTag(cboUpscaleScale, settings.PostProcess.UpscaleScale);
-            SelectComboText(cboPostPreset, settings.PostProcess.PostFxPresetName);
+            chkEnableUpscale.IsChecked = settings.Effects.UpscaleEnabled;
+            chkEnableFx.IsChecked = settings.Effects.FxEnabled;
+            SelectComboText(cboUpscaleModel, settings.Effects.UpscaleModel);
+            SelectComboTag(cboUpscaleScale, settings.Effects.UpscaleScale);
+            SelectComboText(cboEffectsPreset, settings.Effects.FxPresetName);
 
             RefreshPresetSummary();
             UpdateRandomSizePanelState();
-            UpdatePostPanelState();
+            UpdateEffectsPanelState();
         }
 
         AutomationSettings CollectSettingsFromControls()
@@ -246,15 +246,15 @@ public sealed partial class MainWindow
                     RandomizeStyleTags = chkRandomStyle.IsChecked == true,
                     RandomizePrompt = chkRandomPrompt.IsChecked == true,
                 },
-                PostProcess = new AutomationPostProcessOptions
+                Effects = new AutomationEffectsOptions
                 {
                     UpscaleEnabled = chkEnableUpscale.IsEnabled &&
                                      chkEnableUpscale.IsChecked == true &&
                                      !string.IsNullOrWhiteSpace(GetSelectedComboText(cboUpscaleModel)),
                     UpscaleModel = GetSelectedComboText(cboUpscaleModel) ?? "",
-                    UpscaleScale = GetSelectedComboTagInt(cboUpscaleScale, workingSettings.PostProcess.UpscaleScale),
-                    PostFxEnabled = chkEnablePostFx.IsChecked == true,
-                    PostFxPresetName = GetSelectedComboText(cboPostPreset) ?? "",
+                    UpscaleScale = GetSelectedComboTagInt(cboUpscaleScale, workingSettings.Effects.UpscaleScale),
+                    FxEnabled = chkEnableFx.IsChecked == true,
+                    FxPresetName = GetSelectedComboText(cboEffectsPreset) ?? "",
                 },
             };
             collected.Normalize();
@@ -285,7 +285,7 @@ public sealed partial class MainWindow
             btnSelectSizes.IsEnabled = chkRandomSize.IsChecked == true;
         }
 
-        void UpdatePostPanelState()
+        void UpdateEffectsPanelState()
         {
             bool hasUpscaleModels = upscaleModels.Count > 0;
             chkEnableUpscale.IsEnabled = hasUpscaleModels;
@@ -295,7 +295,7 @@ public sealed partial class MainWindow
             cboUpscaleModel.IsEnabled = upscaleOn && hasUpscaleModels;
             cboUpscaleScale.IsEnabled = upscaleOn;
 
-            cboPostPreset.IsEnabled = chkEnablePostFx.IsChecked == true;
+            cboEffectsPreset.IsEnabled = chkEnableFx.IsChecked == true;
         }
 
         async Task LoadSelectedPresetAsync()
@@ -388,8 +388,8 @@ public sealed partial class MainWindow
         };
 
         chkRandomSize.Click += (_, _) => UpdateRandomSizePanelState();
-        chkEnableUpscale.Click += (_, _) => UpdatePostPanelState();
-        chkEnablePostFx.Click += (_, _) => UpdatePostPanelState();
+        chkEnableUpscale.Click += (_, _) => UpdateEffectsPanelState();
+        chkEnableFx.Click += (_, _) => UpdateEffectsPanelState();
 
         var presetPage = new StackPanel
         {
@@ -429,7 +429,7 @@ public sealed partial class MainWindow
                     }
                 },
                 presetSummaryCard,
-                new TextBlock { Text = "预设保存全部自动化配置（生成处理、随机化、后期处理）。", TextWrapping = TextWrapping.Wrap, Opacity = 0.6, FontSize = 12 }
+                new TextBlock { Text = "预设保存全部自动化配置（生成处理、随机化、效果处理）。", TextWrapping = TextWrapping.Wrap, Opacity = 0.6, FontSize = 12 }
             }
         };
 
@@ -480,7 +480,7 @@ public sealed partial class MainWindow
             }
         };
 
-        cboPostPreset.HorizontalAlignment = HorizontalAlignment.Stretch;
+        cboEffectsPreset.HorizontalAlignment = HorizontalAlignment.Stretch;
 
         var postProcessPage = new StackPanel
         {
@@ -504,13 +504,13 @@ public sealed partial class MainWindow
                     Opacity = 0.25,
                 },
                 CreateAutomationSettingRow(
-                    "后期滤镜预设",
+                    "效果滤镜预设",
                     "启用后在超分之后应用所选滤镜预设。",
-                    chkEnablePostFx),
+                    chkEnableFx),
                 CreateAutomationSection(
                     "滤镜预设",
-                    "选择生成后要自动应用的后期滤镜预设。",
-                    cboPostPreset),
+                    "选择生成后要自动应用的效果滤镜预设。",
+                    cboEffectsPreset),
             }
         };
 
@@ -569,7 +569,7 @@ public sealed partial class MainWindow
         nav.MenuItems.Add(new NavigationViewItem { Content = "预设", Tag = "preset" });
         nav.MenuItems.Add(new NavigationViewItem { Content = "生成处理", Tag = "generation" });
         nav.MenuItems.Add(new NavigationViewItem { Content = "随机化", Tag = "randomization" });
-        nav.MenuItems.Add(new NavigationViewItem { Content = "后期处理", Tag = "post" });
+        nav.MenuItems.Add(new NavigationViewItem { Content = "效果处理", Tag = "post" });
         nav.SelectionChanged += (_, args) =>
         {
             if (args.SelectedItemContainer?.Tag is string key)
@@ -806,7 +806,7 @@ public sealed partial class MainWindow
         settings.Normalize();
         var gen = settings.Generation;
         var rand = settings.Randomization;
-        var post = settings.PostProcess;
+        var post = settings.Effects;
 
         string reqLabel = gen.RequestLimit > 0 ? $"{gen.RequestLimit}" : "\u221e";
         string retryLabel = gen.FailureRetryLimit > 0 ? $"{gen.FailureRetryLimit}" : "\u221e";
@@ -819,8 +819,8 @@ public sealed partial class MainWindow
         string upscaleLabel = post.UpscaleEnabled && !string.IsNullOrWhiteSpace(post.UpscaleModel)
             ? $"{post.UpscaleModel} {post.UpscaleScale}x"
             : "\u5173";
-        string fxLabel = post.PostFxEnabled && !string.IsNullOrWhiteSpace(post.PostFxPresetName)
-            ? post.PostFxPresetName
+        string fxLabel = post.FxEnabled && !string.IsNullOrWhiteSpace(post.FxPresetName)
+            ? post.FxPresetName
             : "\u5173";
 
         return $"\u5ef6\u8fdf {gen.MinDelaySeconds:F1}-{gen.MaxDelaySeconds:F1}s \u00b7 \u8bf7\u6c42 {reqLabel} \u00b7 \u91cd\u8bd5 {retryLabel}\n" +
@@ -928,16 +928,16 @@ public sealed partial class MainWindow
         IsCollapsed = x.IsCollapsed,
     };
 
-    private void PopulateAutomationPostPresetCombo(ComboBox combo)
+    private void PopulateAutomationEffectsPresetCombo(ComboBox combo)
     {
         combo.Items.Clear();
-        foreach (string preset in GetAvailablePostFxPresetNames())
+        foreach (string preset in GetAvailableEffectsPresetNames())
             combo.Items.Add(CreateTextComboBoxItem(preset));
         if (combo.SelectedIndex < 0 && combo.Items.Count > 0)
             combo.SelectedIndex = 0;
     }
 
-    private IReadOnlyList<string> GetAvailablePostFxPresetNames()
+    private IReadOnlyList<string> GetAvailableEffectsPresetNames()
     {
         EnsureDefaultFxPresets();
         if (!Directory.Exists(FxPresetsDir))
@@ -950,7 +950,7 @@ public sealed partial class MainWindow
             string label = Path.GetFileNameWithoutExtension(file);
             try
             {
-                var parsed = JsonSerializer.Deserialize<PostFxPresetFile>(File.ReadAllText(file));
+                var parsed = JsonSerializer.Deserialize<EffectsPresetFile>(File.ReadAllText(file));
                 if (!string.IsNullOrWhiteSpace(parsed?.Name))
                     label = parsed.Name;
             }
@@ -966,7 +966,7 @@ public sealed partial class MainWindow
         return names;
     }
 
-    private string? TryResolvePostFxPresetPath(string? presetName)
+    private string? TryResolveEffectsPresetPath(string? presetName)
     {
         if (string.IsNullOrWhiteSpace(presetName) || !Directory.Exists(FxPresetsDir))
             return null;
@@ -978,7 +978,7 @@ public sealed partial class MainWindow
 
             try
             {
-                var parsed = JsonSerializer.Deserialize<PostFxPresetFile>(File.ReadAllText(file));
+                var parsed = JsonSerializer.Deserialize<EffectsPresetFile>(File.ReadAllText(file));
                 if (string.Equals(parsed?.Name, presetName, StringComparison.OrdinalIgnoreCase))
                     return file;
             }
@@ -991,13 +991,13 @@ public sealed partial class MainWindow
         return null;
     }
 
-    private async Task<List<PostEffectEntry>> LoadPostEffectsFromPresetByNameAsync(string presetName)
+    private async Task<List<EffectEntry>> LoadEffectsFromPresetByNameAsync(string presetName)
     {
-        string? path = TryResolvePostFxPresetPath(presetName);
+        string? path = TryResolveEffectsPresetPath(presetName);
         if (path == null)
             return [];
 
-        var parsed = JsonSerializer.Deserialize<PostFxPresetFile>(await File.ReadAllTextAsync(path));
+        var parsed = JsonSerializer.Deserialize<EffectsPresetFile>(await File.ReadAllTextAsync(path));
         if (parsed?.Effects == null)
             return [];
 
@@ -1006,9 +1006,9 @@ public sealed partial class MainWindow
             .ToList();
     }
 
-    private async Task<AutomationPostProcessResult> RunAutomationPostProcessAsync(
+    private async Task<AutomationEffectsProcessResult> RunAutomationEffectsProcessAsync(
         byte[] sourceBytes,
-        AutomationPostProcessOptions options,
+        AutomationEffectsOptions options,
         CancellationToken ct)
     {
         options.Normalize();
@@ -1028,17 +1028,17 @@ public sealed partial class MainWindow
             }
         }
 
-        if (options.PostFxEnabled && !string.IsNullOrWhiteSpace(options.PostFxPresetName))
+        if (options.FxEnabled && !string.IsNullOrWhiteSpace(options.FxPresetName))
         {
-            var effects = await LoadPostEffectsFromPresetByNameAsync(options.PostFxPresetName);
+            var effects = await LoadEffectsFromPresetByNameAsync(options.FxPresetName);
             if (effects.Count > 0)
             {
-                currentBytes = await Task.Run(() => RenderPostEffects(currentBytes, effects), ct);
-                notes.Add($"滤镜 {options.PostFxPresetName}");
+                currentBytes = await Task.Run(() => RenderEffects(currentBytes, effects), ct);
+                notes.Add($"滤镜 {options.FxPresetName}");
             }
         }
 
-        return new AutomationPostProcessResult
+        return new AutomationEffectsProcessResult
         {
             Bytes = currentBytes,
             Summary = notes.Count > 0 ? string.Join(" -> ", notes) : "",
@@ -1047,7 +1047,7 @@ public sealed partial class MainWindow
 
     private async Task<byte[]> RunAutomationUpscaleAsync(
         byte[] sourceBytes,
-        AutomationPostProcessOptions options,
+        AutomationEffectsOptions options,
         CancellationToken ct)
     {
         var modelInfo = _upscaleModelInfos

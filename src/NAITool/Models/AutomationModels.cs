@@ -9,14 +9,14 @@ public sealed class AutomationSettings
     public string SelectedPresetName { get; set; } = "";
     public AutomationGenerationOptions Generation { get; set; } = new();
     public AutomationRandomizationOptions Randomization { get; set; } = new();
-    public AutomationPostProcessOptions PostProcess { get; set; } = new();
+    public AutomationEffectsOptions Effects { get; set; } = new();
 
     public AutomationSettings Clone() => new()
     {
         SelectedPresetName = SelectedPresetName ?? "",
         Generation = Generation?.Clone() ?? new(),
         Randomization = Randomization?.Clone() ?? new(),
-        PostProcess = PostProcess?.Clone() ?? new(),
+        Effects = Effects?.Clone() ?? new(),
     };
 
     public void Normalize()
@@ -26,8 +26,8 @@ public sealed class AutomationSettings
         Generation.Normalize();
         Randomization ??= new();
         Randomization.Normalize();
-        PostProcess ??= new();
-        PostProcess.Normalize();
+        Effects ??= new();
+        Effects.Normalize();
     }
 }
 
@@ -90,37 +90,37 @@ public sealed class AutomationRandomizationOptions
     ];
 }
 
-public sealed class AutomationPostProcessOptions
+public sealed class AutomationEffectsOptions
 {
     public bool Enabled { get; set; }
     public bool UpscaleEnabled { get; set; }
     public string UpscaleModel { get; set; } = "";
     public int UpscaleScale { get; set; } = 2;
-    public bool PostFxEnabled { get; set; }
-    public string PostFxPresetName { get; set; } = "";
+    public bool FxEnabled { get; set; }
+    public string FxPresetName { get; set; } = "";
 
-    public AutomationPostProcessOptions Clone() => new()
+    public AutomationEffectsOptions Clone() => new()
     {
         Enabled = Enabled,
         UpscaleEnabled = UpscaleEnabled,
         UpscaleModel = UpscaleModel ?? "",
         UpscaleScale = UpscaleScale,
-        PostFxEnabled = PostFxEnabled,
-        PostFxPresetName = PostFxPresetName ?? "",
+        FxEnabled = FxEnabled,
+        FxPresetName = FxPresetName ?? "",
     };
 
     public void Normalize()
     {
         UpscaleModel ??= "";
-        PostFxPresetName ??= "";
+        FxPresetName ??= "";
         UpscaleScale = UpscaleScale switch
         {
             2 or 3 or 4 => UpscaleScale,
             _ => 2,
         };
-        if (Enabled && !PostFxEnabled && !string.IsNullOrWhiteSpace(PostFxPresetName))
-            PostFxEnabled = true;
-        Enabled = UpscaleEnabled || PostFxEnabled;
+        if (Enabled && !FxEnabled && !string.IsNullOrWhiteSpace(FxPresetName))
+            FxEnabled = true;
+        Enabled = UpscaleEnabled || FxEnabled;
     }
 }
 

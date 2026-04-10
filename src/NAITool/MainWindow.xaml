@@ -9,10 +9,10 @@
 
     <Grid>
         <Grid.Resources>
-            <Style x:Key="ReaderCaptionStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+            <Style x:Key="InspectCaptionStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
             </Style>
-            <Style x:Key="ReaderSubLabelStyle" TargetType="TextBlock">
+            <Style x:Key="InspectSubLabelStyle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="11"/>
                 <Setter Property="Margin" Value="0,4,0,0"/>
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}"/>
@@ -203,10 +203,10 @@
                 <ToggleButton x:Name="TabUpscale" Content="超分"
                               Click="OnModeTabSwitch" CornerRadius="0"
                               MinWidth="56" Height="34"/>
-                <ToggleButton x:Name="TabPost" Content="后期"
+                <ToggleButton x:Name="TabEffects" Content="效果"
                               Click="OnModeTabSwitch" CornerRadius="0"
                               MinWidth="56" Height="34"/>
-                <ToggleButton x:Name="TabReader" Content="读取"
+                <ToggleButton x:Name="TabInspect" Content="检视"
                               Click="OnModeTabSwitch" CornerRadius="0,4,4,0"
                               MinWidth="56" Height="34"/>
             </StackPanel>
@@ -596,8 +596,8 @@
                 </Grid>
             </Border>
 
-            <!-- ═══ 左侧栏（读取） ═══ -->
-            <Border x:Name="PanelLeftReader" Grid.Column="0" Visibility="Collapsed"
+            <!-- ═══ 左侧栏（检视） ═══ -->
+            <Border x:Name="PanelLeftInspect" Grid.Column="0" Visibility="Collapsed"
                     BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                     BorderThickness="0,0,1,0">
                 <Grid>
@@ -608,7 +608,7 @@
 
                     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
                         <StackPanel Padding="12" Spacing="10">
-                            <TextBlock x:Name="ReaderPlaceholder"
+                            <TextBlock x:Name="InspectPlaceholder"
                                        Text="拖入或打开图片以查看元数据"
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                        TextWrapping="Wrap"
@@ -616,29 +616,29 @@
                                        TextAlignment="Center"
                                        Margin="0,20,0,0"/>
 
-                            <TextBox x:Name="TxtReaderRawMeta" Visibility="Collapsed"
+                            <TextBox x:Name="TxtInspectRawMeta" Visibility="Collapsed"
                                      IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="Wrap" FontFamily="Consolas" FontSize="11"
                                      MaxHeight="500"/>
 
-                            <StackPanel x:Name="ReaderContent" Visibility="Collapsed" Spacing="10">
+                            <StackPanel x:Name="InspectContent" Visibility="Collapsed" Spacing="10">
                                 <TextBlock Text="正面提示词"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            Style="{StaticResource CaptionTextBlockStyle}"/>
-                                <TextBox x:Name="TxtReaderPositive" IsReadOnly="True"
+                                <TextBox x:Name="TxtInspectPositive" IsReadOnly="True"
                                          AcceptsReturn="True" TextWrapping="Wrap"
                                          MaxHeight="160"/>
 
-                                <StackPanel x:Name="ReaderCharPanel" Spacing="4" Visibility="Collapsed"/>
+                                <StackPanel x:Name="InspectCharPanel" Spacing="4" Visibility="Collapsed"/>
 
                                 <TextBlock Text="负面提示词"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            Style="{StaticResource CaptionTextBlockStyle}"/>
-                                <TextBox x:Name="TxtReaderNegative" IsReadOnly="True"
+                                <TextBox x:Name="TxtInspectNegative" IsReadOnly="True"
                                          AcceptsReturn="True" TextWrapping="Wrap"
                                          MaxHeight="120"/>
 
-                                <StackPanel x:Name="ReaderCharNegPanel" Spacing="4" Visibility="Collapsed"/>
+                                <StackPanel x:Name="InspectCharNegPanel" Spacing="4" Visibility="Collapsed"/>
 
                                 <TextBlock Text="生成参数"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -661,36 +661,36 @@
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="尺寸"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="TxtReaderSize"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="TxtInspectSize"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="步数"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TxtReaderSteps"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TxtInspectSteps"/>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="采样器"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="TxtReaderSampler"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="TxtInspectSampler"/>
 
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="调度器"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="TxtReaderSchedule"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="TxtInspectSchedule"/>
 
                                     <TextBlock Grid.Row="4" Grid.Column="0" Text="CFG Scale"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="TxtReaderScale"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="TxtInspectScale"/>
 
                                     <TextBlock Grid.Row="5" Grid.Column="0" Text="CFG Rescale"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="TxtReaderCfgRescale"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="TxtInspectCfgRescale"/>
 
                                     <TextBlock Grid.Row="6" Grid.Column="0" Text="种子"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Grid.Row="6" Grid.Column="1" x:Name="TxtReaderSeed"
+                                    <TextBlock Grid.Row="6" Grid.Column="1" x:Name="TxtInspectSeed"
                                                IsTextSelectionEnabled="True"/>
 
                                     <TextBlock Grid.Row="7" Grid.Column="0" Text="Variety+"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                                    <TextBlock Grid.Row="7" Grid.Column="1" x:Name="TxtReaderVariety"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="1" x:Name="TxtInspectVariety"/>
                                 </Grid>
                             </StackPanel>
                         </StackPanel>
@@ -709,7 +709,7 @@
                                     <TextBlock x:Name="BtnSendToGenText" Text="发送生成参数"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="BtnSendReaderToInpaint" Click="OnSendReaderToInpaint"
+                            <Button x:Name="BtnSendInspectToInpaint" Click="OnSendInspectToInpaint"
                                     IsEnabled="False"
                                     HorizontalAlignment="Stretch"
                                     Style="{StaticResource AccentButtonStyle}">
@@ -723,12 +723,12 @@
                 </Grid>
             </Border>
 
-            <!-- ═══ 左侧栏（后期） ═══ -->
-            <Border x:Name="PanelLeftPost" Grid.Column="0" Visibility="Collapsed"
+            <!-- ═══ 左侧栏（效果） ═══ -->
+            <Border x:Name="PanelLeftEffects" Grid.Column="0" Visibility="Collapsed"
                     BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                     BorderThickness="0,0,1,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel x:Name="PostEffectsPanel" Padding="12" Spacing="10"/>
+                    <StackPanel x:Name="EffectsPanel" Padding="12" Spacing="10"/>
                 </ScrollViewer>
             </Border>
 
@@ -864,10 +864,10 @@
                                     <TextBlock Text="发送到重绘"/>
                                 </StackPanel>
                             </Button>
-                            <Button Click="OnSendToPostFromGen" Style="{StaticResource AccentButtonStyle}" Height="32">
+                            <Button Click="OnSendToEffectsFromGen" Style="{StaticResource AccentButtonStyle}" Height="32">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEB3C;" FontSize="16"/>
-                                    <TextBlock Text="发送到后期"/>
+                                    <TextBlock Text="发送到效果"/>
                                 </StackPanel>
                             </Button>
                             <Button Click="OnDeleteGenResult" Foreground="#E74856" Height="32">
@@ -935,51 +935,51 @@
                 </Grid>
             </Grid>
 
-            <!-- ═══ 读取模式预览区（跨中间和右侧列） ═══ -->
-            <Grid x:Name="ReaderPreviewArea" Grid.Column="2" Grid.ColumnSpan="2"
+            <!-- ═══ 检视模式预览区（跨中间和右侧列） ═══ -->
+            <Grid x:Name="InspectPreviewArea" Grid.Column="2" Grid.ColumnSpan="2"
                   Visibility="Collapsed"
                   Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                   AllowDrop="True"
-                  DragOver="OnReaderDragOver" Drop="OnReaderDrop">
-                <TextBlock x:Name="ReaderImagePlaceholder"
+                  DragOver="OnInspectDragOver" Drop="OnInspectDrop">
+                <TextBlock x:Name="InspectImagePlaceholder"
                            Text="拖入或打开图片"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                            FontSize="16"/>
-                <ScrollViewer x:Name="ReaderImageScroller"
+                <ScrollViewer x:Name="InspectImageScroller"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto"
                               ZoomMode="Enabled" MinZoomFactor="0.1" MaxZoomFactor="5"
                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                    <Image x:Name="ReaderPreviewImage" Stretch="None"/>
+                    <Image x:Name="InspectPreviewImage" Stretch="None"/>
                 </ScrollViewer>
             </Grid>
 
-            <!-- ═══ 后期模式预览区（跨中间和右侧列） ═══ -->
-            <Grid x:Name="PostPreviewArea" Grid.Column="2" Grid.ColumnSpan="2"
+            <!-- ═══ 效果模式预览区（跨中间和右侧列） ═══ -->
+            <Grid x:Name="EffectsPreviewArea" Grid.Column="2" Grid.ColumnSpan="2"
                   Visibility="Collapsed"
                   Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                   AllowDrop="True"
-                  DragOver="OnPostDragOver" Drop="OnPostDrop">
-                <TextBlock x:Name="PostImagePlaceholder"
+                  DragOver="OnEffectsDragOver" Drop="OnEffectsDrop">
+                <TextBlock x:Name="EffectsImagePlaceholder"
                            Text="拖入或打开图片"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                            FontSize="16"/>
-                <ScrollViewer x:Name="PostImageScroller"
+                <ScrollViewer x:Name="EffectsImageScroller"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto"
                               ZoomMode="Enabled" MinZoomFactor="0.1" MaxZoomFactor="5"
                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                    <Grid x:Name="PostPreviewContent">
-                        <Image x:Name="PostPreviewImage" Stretch="None"/>
-                        <Canvas x:Name="PostOverlayCanvas"
+                    <Grid x:Name="EffectsPreviewContent">
+                        <Image x:Name="EffectsPreviewImage" Stretch="None"/>
+                        <Canvas x:Name="EffectsOverlayCanvas"
                                 Background="Transparent"
                                 Visibility="Collapsed"
-                                PointerPressed="OnPostOverlayPointerPressed"
-                                PointerMoved="OnPostOverlayPointerMoved"
-                                PointerReleased="OnPostOverlayPointerReleased"
-                                PointerCanceled="OnPostOverlayPointerReleased"/>
+                                PointerPressed="OnEffectsOverlayPointerPressed"
+                                PointerMoved="OnEffectsOverlayPointerMoved"
+                                PointerReleased="OnEffectsOverlayPointerReleased"
+                                PointerCanceled="OnEffectsOverlayPointerReleased"/>
                     </Grid>
                 </ScrollViewer>
             </Grid>

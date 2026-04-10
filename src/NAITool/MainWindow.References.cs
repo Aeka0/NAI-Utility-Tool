@@ -1029,7 +1029,7 @@ public sealed partial class MainWindow
             Text = title,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
-            Style = (Style)((Grid)this.Content).Resources["ReaderCaptionStyle"],
+            Style = (Style)((Grid)this.Content).Resources["InspectCaptionStyle"],
         };
         Grid.SetColumn(label, 1);
         headerGrid.Children.Add(label);
