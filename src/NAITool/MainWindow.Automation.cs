@@ -62,13 +62,13 @@ public sealed partial class MainWindow
 
         var txtPresetName = new TextBox
         {
-            Header = "预设名称",
-            PlaceholderText = "输入预设名称后可保存",
+            Header = L("automation.preset_name_header"),
+            PlaceholderText = L("automation.preset_name_placeholder"),
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
         var presetCombo = new ComboBox
         {
-            Header = "已保存预设",
+            Header = L("automation.saved_presets"),
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
         ApplyMenuTypography(presetCombo);
@@ -86,15 +86,15 @@ public sealed partial class MainWindow
             Child = presetSummary,
         };
 
-        var btnLoadPreset = new Button { Content = "读取", VerticalAlignment = VerticalAlignment.Bottom };
-        var btnSavePreset = new Button { Content = "另存为", VerticalAlignment = VerticalAlignment.Bottom };
-        var btnOverwritePreset = new Button { Content = "覆盖", VerticalAlignment = VerticalAlignment.Bottom };
+        var btnLoadPreset = new Button { Content = L("automation.load"), VerticalAlignment = VerticalAlignment.Bottom };
+        var btnSavePreset = new Button { Content = L("automation.save_as"), VerticalAlignment = VerticalAlignment.Bottom };
+        var btnOverwritePreset = new Button { Content = L("automation.overwrite"), VerticalAlignment = VerticalAlignment.Bottom };
 
-        var nbMinDelay = CreateAutomationDecimalBox("最小延迟 (秒)", workingSettings.Generation.MinDelaySeconds);
-        var nbMaxDelay = CreateAutomationDecimalBox("最大延迟 (秒)", workingSettings.Generation.MaxDelaySeconds);
+        var nbMinDelay = CreateAutomationDecimalBox(L("automation.min_delay"), workingSettings.Generation.MinDelaySeconds);
+        var nbMaxDelay = CreateAutomationDecimalBox(L("automation.max_delay"), workingSettings.Generation.MaxDelaySeconds);
         var nbRequestCount = new NumberBox
         {
-            Header = "请求次数",
+            Header = L("automation.request_count"),
             Minimum = 0,
             Maximum = 100000,
             Value = workingSettings.Generation.RequestLimit,
@@ -103,7 +103,7 @@ public sealed partial class MainWindow
         };
         var nbRetryCount = new NumberBox
         {
-            Header = "请求失败重试",
+            Header = L("automation.failure_retry_count"),
             Minimum = 0,
             Maximum = 100000,
             Value = workingSettings.Generation.FailureRetryLimit,
@@ -111,10 +111,10 @@ public sealed partial class MainWindow
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
 
-        var chkRandomSize = new CheckBox { Content = "随机预设尺寸", IsChecked = workingSettings.Randomization.RandomizeSize };
-        var chkRandomVibe = new CheckBox { Content = "随机使用 Vibe 文件", IsChecked = workingSettings.Randomization.RandomizeVibeFiles };
-        var chkRandomStyle = new CheckBox { Content = "随机风格词", IsChecked = workingSettings.Randomization.RandomizeStyleTags };
-        var chkRandomPrompt = new CheckBox { Content = "随机 Prompt", IsChecked = workingSettings.Randomization.RandomizePrompt };
+        var chkRandomSize = new CheckBox { Content = L("automation.random_size"), IsChecked = workingSettings.Randomization.RandomizeSize };
+        var chkRandomVibe = new CheckBox { Content = L("automation.random_vibe"), IsChecked = workingSettings.Randomization.RandomizeVibeFiles };
+        var chkRandomStyle = new CheckBox { Content = L("automation.random_style"), IsChecked = workingSettings.Randomization.RandomizeStyleTags };
+        var chkRandomPrompt = new CheckBox { Content = L("automation.random_prompt"), IsChecked = workingSettings.Randomization.RandomizePrompt };
         var sizePresetChecks = new Dictionary<string, CheckBox>(StringComparer.OrdinalIgnoreCase);
         var sizeGrid = new Grid { ColumnSpacing = 8, RowSpacing = 0 };
         sizeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -147,7 +147,7 @@ public sealed partial class MainWindow
         void UpdateSizeButtonText()
         {
             int selected = sizePresetChecks.Count(x => x.Value.IsChecked == true);
-            btnSelectSizes.Content = $"选择尺寸池 ({selected}/{sizePresetChecks.Count} 已选)";
+            btnSelectSizes.Content = Lf("automation.size_pool_button", selected, sizePresetChecks.Count);
         }
 
         foreach (var chk in sizePresetChecks.Values)
@@ -168,21 +168,21 @@ public sealed partial class MainWindow
             },
         };
 
-        var chkEnableUpscale = new CheckBox { Content = "启用自动超分", IsChecked = workingSettings.Effects.UpscaleEnabled };
-        var chkEnableFx = new CheckBox { Content = "启用效果滤镜预设", IsChecked = workingSettings.Effects.FxEnabled };
-        var cboUpscaleModel = new ComboBox { Header = "超分模型", HorizontalAlignment = HorizontalAlignment.Stretch };
+        var chkEnableUpscale = new CheckBox { Content = L("automation.enable_auto_upscale"), IsChecked = workingSettings.Effects.UpscaleEnabled };
+        var chkEnableFx = new CheckBox { Content = L("automation.enable_post_preset"), IsChecked = workingSettings.Effects.FxEnabled };
+        var cboUpscaleModel = new ComboBox { Header = L("automation.upscale_model"), HorizontalAlignment = HorizontalAlignment.Stretch };
         var upscaleModels = UpscaleService.ScanModels(Path.Combine(ModelsDir, "upscaler"));
         foreach (var model in upscaleModels)
             cboUpscaleModel.Items.Add(CreateTextComboBoxItem(model.DisplayName));
         ApplyMenuTypography(cboUpscaleModel);
 
-        var cboUpscaleScale = new ComboBox { Header = "超分倍率", HorizontalAlignment = HorizontalAlignment.Stretch };
+        var cboUpscaleScale = new ComboBox { Header = L("automation.upscale_scale"), HorizontalAlignment = HorizontalAlignment.Stretch };
         cboUpscaleScale.Items.Add(new ComboBoxItem { Content = "2x", Tag = 2 });
         cboUpscaleScale.Items.Add(new ComboBoxItem { Content = "3x", Tag = 3 });
         cboUpscaleScale.Items.Add(new ComboBoxItem { Content = "4x", Tag = 4 });
         ApplyMenuTypography(cboUpscaleScale);
 
-        var cboEffectsPreset = new ComboBox { Header = "效果滤镜预设", HorizontalAlignment = HorizontalAlignment.Stretch };
+        var cboEffectsPreset = new ComboBox { Header = L("automation.post_preset"), HorizontalAlignment = HorizontalAlignment.Stretch };
         PopulateAutomationEffectsPresetCombo(cboEffectsPreset);
         ApplyMenuTypography(cboEffectsPreset);
 
@@ -303,7 +303,7 @@ public sealed partial class MainWindow
             string? name = GetSelectedComboText(presetCombo);
             if (string.IsNullOrWhiteSpace(name))
             {
-                TxtStatus.Text = "没有可读取的自动化预设";
+                TxtStatus.Text = L("automation.status.no_preset_to_load");
                 return;
             }
 
@@ -312,7 +312,7 @@ public sealed partial class MainWindow
                 var preset = await _automationPresetService.LoadPresetAsync(name);
                 if (preset?.Settings == null)
                 {
-                    TxtStatus.Text = "读取自动化预设失败";
+                    TxtStatus.Text = L("automation.status.load_failed");
                     return;
                 }
 
@@ -320,11 +320,11 @@ public sealed partial class MainWindow
                 ApplySettingsToControls(preset.Settings);
                 SelectComboText(presetCombo, preset.Name);
                 txtPresetName.Text = preset.Name;
-                TxtStatus.Text = $"已读取自动化预设：{preset.Name}";
+                TxtStatus.Text = Lf("automation.status.loaded", preset.Name);
             }
             catch (Exception ex)
             {
-                TxtStatus.Text = $"读取自动化预设失败: {ex.Message}";
+                TxtStatus.Text = Lf("automation.status.load_failed_with_reason", ex.Message);
             }
         }
 
@@ -333,7 +333,7 @@ public sealed partial class MainWindow
             string presetName = (txtPresetName.Text ?? "").Trim();
             if (string.IsNullOrWhiteSpace(presetName))
             {
-                TxtStatus.Text = "预设名称不能为空";
+                TxtStatus.Text = L("automation.preset_name_required");
                 return;
             }
 
@@ -345,11 +345,11 @@ public sealed partial class MainWindow
                 RefreshPresetCombo(presetName);
                 SelectComboText(presetCombo, presetName);
                 RefreshPresetSummary();
-                TxtStatus.Text = $"已保存自动化预设：{presetName}";
+                TxtStatus.Text = Lf("automation.status.saved", presetName);
             }
             catch (Exception ex)
             {
-                TxtStatus.Text = $"保存自动化预设失败: {ex.Message}";
+                TxtStatus.Text = Lf("automation.status.save_failed", ex.Message);
             }
         }
 
@@ -358,7 +358,7 @@ public sealed partial class MainWindow
             string? selectedName = GetSelectedComboText(presetCombo);
             if (string.IsNullOrWhiteSpace(selectedName))
             {
-                TxtStatus.Text = "请先选择要覆盖的自动化预设";
+                TxtStatus.Text = L("automation.status.select_preset_to_overwrite");
                 return;
             }
 
@@ -370,11 +370,11 @@ public sealed partial class MainWindow
                 txtPresetName.Text = selectedName;
                 RefreshPresetCombo(selectedName);
                 RefreshPresetSummary();
-                TxtStatus.Text = $"已覆盖自动化预设：{selectedName}";
+                TxtStatus.Text = Lf("automation.status.overwritten", selectedName);
             }
             catch (Exception ex)
             {
-                TxtStatus.Text = $"覆盖自动化预设失败: {ex.Message}";
+                TxtStatus.Text = Lf("automation.status.overwrite_failed", ex.Message);
             }
         }
 

@@ -171,19 +171,19 @@ public class NovelAIService : IDisposable
             var response = await client.GetAsync(UserDataUrl, ct);
             if (!response.IsSuccessStatusCode)
             {
-                Debug.WriteLine($"[NAI] /user/data 请求失败: {(int)response.StatusCode}");
+                Debug.WriteLine($"[NAI] /user/data request failed: {(int)response.StatusCode}");
                 return null;
             }
 
             string json = await response.Content.ReadAsStringAsync(ct);
-            Debug.WriteLine($"[NAI] /user/data 响应: {json[..Math.Min(json.Length, 2000)]}");
+            Debug.WriteLine($"[NAI] /user/data response: {json[..Math.Min(json.Length, 2000)]}");
 
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
             if (!TryGetPropertyIgnoreCase(root, "subscription", out var sub))
             {
-                Debug.WriteLine("[NAI] 响应中未找到 subscription 字段");
+                Debug.WriteLine("[NAI] subscription field was not found in the response");
                 return null;
             }
 
@@ -214,7 +214,7 @@ public class NovelAIService : IDisposable
                 if (stepsEl.ValueKind == JsonValueKind.Number)
                 {
                     anlas = ReadNullableInt(stepsEl);
-                    Debug.WriteLine($"[NAI] trainingStepsLeft (整数) = {anlas}");
+                    Debug.WriteLine($"[NAI] trainingStepsLeft (number) = {anlas}");
                 }
                 else if (stepsEl.ValueKind == JsonValueKind.Object)
                 {
@@ -224,16 +224,16 @@ public class NovelAIService : IDisposable
                     if (TryGetPropertyIgnoreCase(stepsEl, "purchasedTrainingSteps", out var purchasedEl))
                         purchasedSteps = ReadNullableInt(purchasedEl) ?? 0;
                     anlas = fixedSteps + purchasedSteps;
-                    Debug.WriteLine($"[NAI] trainingStepsLeft (对象): fixed={fixedSteps}, purchased={purchasedSteps}, total={anlas}");
+                    Debug.WriteLine($"[NAI] trainingStepsLeft (object): fixed={fixedSteps}, purchased={purchasedSteps}, total={anlas}");
                 }
                 else
                 {
-                    Debug.WriteLine($"[NAI] trainingStepsLeft 类型未知: {stepsEl.ValueKind}");
+                    Debug.WriteLine($"[NAI] trainingStepsLeft has an unknown value kind: {stepsEl.ValueKind}");
                 }
             }
             else
             {
-                Debug.WriteLine("[NAI] subscription 中未找到 trainingStepsLeft 字段");
+                Debug.WriteLine("[NAI] trainingStepsLeft field was not found in subscription");
             }
 
             string? expiresAt = null;
@@ -243,7 +243,7 @@ public class NovelAIService : IDisposable
                 expiresAt = DateTimeOffset.FromUnixTimeSeconds(ts).ToLocalTime().ToString("yyyy-MM-dd");
             }
 
-            Debug.WriteLine($"[NAI] 解析结果: tier={tier}, tierName={tierName}, isOpus={isOpus}, anlas={anlas}, expires={expiresAt}");
+            Debug.WriteLine($"[NAI] Parsed account info: tier={tier}, tierName={tierName}, isOpus={isOpus}, anlas={anlas}, expires={expiresAt}");
 
             return new NovelAiAccountInfo
             {
@@ -256,7 +256,7 @@ public class NovelAIService : IDisposable
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[NAI] GetAccountInfoAsync 异常: {ex}");
+            Debug.WriteLine($"[NAI] GetAccountInfoAsync exception: {ex}");
             return null;
         }
     }
@@ -396,7 +396,7 @@ public class NovelAIService : IDisposable
         if (value is string text)
         {
             if (text.Length > 200)
-                return $"<长文本，长度 {text.Length}>";
+                return $"<long text, length {text.Length}>";
             return text;
         }
 
@@ -443,39 +443,39 @@ public class NovelAIService : IDisposable
             var sanitizedPayload = SanitizeLogValue(payload);
             var builder = new StringBuilder();
             builder.AppendLine(new string('=', 72));
-            builder.AppendLine($"时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
-            builder.AppendLine($"请求: {requestName}");
-            builder.AppendLine($"耗时: {elapsedMs} ms");
+            builder.AppendLine($"Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+            builder.AppendLine($"Request: {requestName}");
+            builder.AppendLine($"Elapsed: {elapsedMs} ms");
 
             if (response != null)
             {
-                builder.AppendLine($"响应状态: {(int)response.StatusCode} {response.ReasonPhrase}");
-                builder.AppendLine($"响应类型: {response.Content.Headers.ContentType}");
+                builder.AppendLine($"Response status: {(int)response.StatusCode} {response.ReasonPhrase}");
+                builder.AppendLine($"Response type: {response.Content.Headers.ContentType}");
                 if (response.Content.Headers.ContentLength.HasValue)
-                    builder.AppendLine($"响应长度: {response.Content.Headers.ContentLength.Value} 字节");
+                    builder.AppendLine($"Response length: {response.Content.Headers.ContentLength.Value} bytes");
             }
 
             if (exception != null)
             {
-                builder.AppendLine($"异常信息: {exception.Message}");
+                builder.AppendLine($"Exception: {exception.Message}");
             }
 
-            builder.AppendLine("请求内容:");
+            builder.AppendLine("Request payload:");
             builder.AppendLine(JsonSerializer.Serialize(sanitizedPayload, LogJsonOptions));
 
             if (!string.IsNullOrWhiteSpace(responseText))
             {
-                builder.AppendLine("响应正文:");
+                builder.AppendLine("Response body:");
                 builder.AppendLine(responseText);
             }
 
             if (imageBytes != null)
             {
-                builder.AppendLine($"响应图像: {imageBytes.Length} 字节");
+                builder.AppendLine($"Response image: {imageBytes.Length} bytes");
                 var meta = ImageMetadataService.ReadFromBytes(imageBytes);
                 if (meta != null && !string.IsNullOrWhiteSpace(meta.RawJson))
                 {
-                    builder.AppendLine("响应图像元数据:");
+                    builder.AppendLine("Response image metadata:");
                     builder.AppendLine(ImageMetadataService.PrettyPrintJson(meta.RawJson));
                 }
             }

@@ -41,7 +41,7 @@ public class SettingsService
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[设置] 加载失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[Settings] Load failed: {ex.Message}");
             Settings = new();
         }
 
@@ -60,7 +60,7 @@ public class SettingsService
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[API配置] 加载失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[ApiConfig] Load failed: {ex.Message}");
         }
     }
 
@@ -86,7 +86,7 @@ public class SettingsService
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[设置] 保存失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[Settings] Save failed: {ex.Message}");
             return false;
         }
     }
@@ -131,6 +131,7 @@ public class AppSettings
     public string ProxyPort { get; set; } = "10808";
     public bool UseWebp { get; set; }
     public string ThemeMode { get; set; } = "System";
+    public string LanguageCode { get; set; } = "";
     public bool DevLogEnabled { get; set; }
     public ReverseTaggerSettings ReverseTagger { get; set; } = new();
     public NAIParameters GenParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full" };
@@ -142,6 +143,8 @@ public class AppSettings
 
     public void Normalize()
     {
+        if (!string.IsNullOrWhiteSpace(LanguageCode))
+            LanguageCode = LocalizationService.NormalizeLanguageCode(LanguageCode);
         ReverseTagger ??= new();
         GenParameters ??= new() { Model = "nai-diffusion-4-5-full" };
         InpaintParameters ??= new() { Model = "nai-diffusion-4-5-full-inpainting" };

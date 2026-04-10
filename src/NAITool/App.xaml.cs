@@ -34,7 +34,7 @@ public partial class App : Application
 
     private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
-        System.Diagnostics.Debug.WriteLine($"[未处理异常] {e.Exception}");
+        System.Diagnostics.Debug.WriteLine($"[UnhandledException] {e.Exception}");
         e.Handled = true;
     }
 }

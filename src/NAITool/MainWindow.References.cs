@@ -167,14 +167,14 @@ public sealed partial class MainWindow
             _settings.Settings.MaxMode &&
             IsV45ModelKey(GetCurrentModelKey()))
         {
-            error = "氛围迁移与精确参考不能同时使用，请删除其中一类参考后再生成";
+            error = L("references.validation.mixed_reference_types");
             return false;
         }
 
         if (RequiresEncodedVibeFileOnly() &&
             _genVibeTransfers.Any(x => !x.IsEncodedFile))
         {
-            error = "当前为非 Max 模式，V4 及以上模型的氛围迁移仅允许使用已编码的 .naiv4vibe 文件";
+            error = L("references.error.non_max_requires_encoded_vibe");
             return false;
         }
 
@@ -202,7 +202,7 @@ public sealed partial class MainWindow
 
             _genVibeTransfers.Add(new VibeTransferEntry
             {
-                FileName = string.IsNullOrWhiteSpace(vibe.FileName) ? "已导入的氛围参考" : vibe.FileName,
+                FileName = string.IsNullOrWhiteSpace(vibe.FileName) ? L("references.imported.vibe_label") : vibe.FileName,
                 ImageBase64 = vibe.ImageBase64,
                 Strength = Math.Clamp(vibe.Strength, 0, 1),
                 InformationExtracted = Math.Clamp(vibe.InformationExtracted, 0, 1),
@@ -217,7 +217,7 @@ public sealed partial class MainWindow
 
             _genPreciseReferences.Add(new PreciseReferenceEntry
             {
-                FileName = string.IsNullOrWhiteSpace(reference.FileName) ? "已导入的精确参考" : reference.FileName,
+                FileName = string.IsNullOrWhiteSpace(reference.FileName) ? L("references.imported.precise_label") : reference.FileName,
                 ImageBase64 = reference.ImageBase64,
                 ReferenceType = reference.ReferenceType,
                 Strength = Math.Clamp(reference.Strength, -1, 1),
@@ -230,9 +230,9 @@ public sealed partial class MainWindow
     {
         if (meta == null) return;
         if (meta.VibeTransfers.Count > 0)
-            notes.Add($"已导入 {meta.VibeTransfers.Count} 个氛围参考");
+            notes.Add(Lf("references.imported.vibe_count", meta.VibeTransfers.Count));
         if (meta.PreciseReferences.Count > 0)
-            notes.Add($"已导入 {meta.PreciseReferences.Count} 个精确参考");
+            notes.Add(Lf("references.imported.precise_count", meta.PreciseReferences.Count));
     }
 
     private List<VibeTransferInfo>? GetVibeTransferData()
@@ -290,15 +290,15 @@ public sealed partial class MainWindow
         BtnAddVibeTransfer.IsEnabled = CanEditVibeTransferFeature() && _genVibeTransfers.Count < MaxVibeTransfers;
 
         string vibeToolTip = RequiresEncodedVibeFileOnly()
-            ? "当前为非 Max 模式，V4 及以上模型仅允许导入已编码的 .naiv4vibe 文件"
-            : "添加氛围参考";
+            ? L("references.error.non_max_requires_encoded_vibe")
+            : L("references.tooltips.vibe");
         ToolTipService.SetToolTip(BtnAddVibeTransfer, vibeToolTip);
 
         BtnAddPreciseReference.Visibility = SupportsPreciseReferenceFeature() && _genVibeTransfers.Count == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
         BtnAddPreciseReference.IsEnabled = CanEditPreciseReferenceFeature() && _genPreciseReferences.Count < MaxPreciseReferences;
-        ToolTipService.SetToolTip(BtnAddPreciseReference, "添加精确参考");
+        ToolTipService.SetToolTip(BtnAddPreciseReference, L("references.tooltips.precise"));
 
         CharacterPanel.Visibility = SupportsCharacterFeature()
             ? Visibility.Visible
@@ -310,7 +310,7 @@ public sealed partial class MainWindow
         TxtVibeTransferHint.Visibility = RequiresEncodedVibeFileOnly() && _genVibeTransfers.Count > 0
             ? Visibility.Visible
             : Visibility.Collapsed;
-        TxtVibeTransferHint.Text = "当前为非 Max 模式，V4 及以上模型新增氛围参考时仅允许导入已编码的 .naiv4vibe 文件。";
+        TxtVibeTransferHint.Text = L("references.hint.non_max_vibe");
 
         PreciseReferencePanel.Visibility = ShouldShowPreciseReferencePanel()
             ? Visibility.Visible
@@ -358,9 +358,9 @@ public sealed partial class MainWindow
             double perButton = (availableWidth - (visibleCount - 1) * 6) / visibleCount;
             useCompact = (perButton - 34) < 50;
         }
-        if (TxtAddCharacterButton != null) TxtAddCharacterButton.Text = useCompact ? "角色" : "添加角色";
-        if (TxtAddVibeTransferButton != null) TxtAddVibeTransferButton.Text = useCompact ? "氛围" : "氛围迁移";
-        if (TxtAddPreciseReferenceButton != null) TxtAddPreciseReferenceButton.Text = useCompact ? "精确" : "精确参考";
+        if (TxtAddCharacterButton != null) TxtAddCharacterButton.Text = useCompact ? L("references.compact.character") : L("button.add_character");
+        if (TxtAddVibeTransferButton != null) TxtAddVibeTransferButton.Text = useCompact ? L("references.compact.vibe") : L("button.add_vibe");
+        if (TxtAddPreciseReferenceButton != null) TxtAddPreciseReferenceButton.Text = useCompact ? L("references.compact.precise") : L("button.add_precise_reference");
     }
 
     private void OnReferenceButtonRowSizeChanged(object sender, SizeChangedEventArgs e)
@@ -410,7 +410,7 @@ public sealed partial class MainWindow
         RefreshVibeTransferPanel();
         UpdateReferenceButtonAndPanelState();
         UpdateGenerateButtonWarning();
-        TxtStatus.Text = $"已添加氛围参考：{newEntry.FileName}";
+        TxtStatus.Text = Lf("references.status.added_vibe", newEntry.FileName);
     }
 
     private async void OnAddPreciseReference(object sender, RoutedEventArgs e)
@@ -426,7 +426,7 @@ public sealed partial class MainWindow
         RefreshPreciseReferencePanel();
         UpdateReferenceButtonAndPanelState();
         UpdateGenerateButtonWarning();
-        TxtStatus.Text = $"已添加精确参考：{newEntry.FileName}";
+        TxtStatus.Text = Lf("references.status.added_precise", newEntry.FileName);
     }
 
     private async Task<VibeTransferEntry?> CreateVibeTransferEntryAsync()
@@ -476,7 +476,7 @@ public sealed partial class MainWindow
         byte[]? pngBytes = await ReadImageFileAsPngAsync(file);
         if (pngBytes == null || pngBytes.Length == 0)
         {
-            TxtStatus.Text = $"无法读取参考图像：{file.Name}";
+            TxtStatus.Text = Lf("references.error.cannot_read_reference_image", file.Name);
             return null;
         }
 
@@ -520,7 +520,7 @@ public sealed partial class MainWindow
             byte[] bytes = await File.ReadAllBytesAsync(file.Path);
             if (bytes.Length == 0)
             {
-                TxtStatus.Text = $"无法读取已编码氛围文件：{file.Name}";
+                TxtStatus.Text = Lf("references.error.cannot_read_encoded_vibe", file.Name);
                 return null;
             }
 
@@ -529,14 +529,14 @@ public sealed partial class MainWindow
 
         if (RequiresEncodedVibeFileOnly())
         {
-            TxtStatus.Text = "当前为非 Max 模式，V4 及以上模型仅允许导入已编码的 .naiv4vibe 文件";
+            TxtStatus.Text = L("references.error.non_max_requires_encoded_vibe");
             return null;
         }
 
         byte[]? pngBytes = await ReadImageFileAsPngAsync(file);
         if (pngBytes == null || pngBytes.Length == 0)
         {
-            TxtStatus.Text = $"无法读取参考图像：{file.Name}";
+            TxtStatus.Text = Lf("references.error.cannot_read_reference_image", file.Name);
             return null;
         }
 
@@ -549,7 +549,7 @@ public sealed partial class MainWindow
             cacheDir, imageHash, 1.0, currentModel);
         if (cachedEncoding != null)
         {
-            TxtStatus.Text = $"已从缓存加载氛围编码：{file.Name}（模型: {currentModel}）";
+            TxtStatus.Text = Lf("references.status.cached_vibe_loaded", file.Name, currentModel);
             return new VibePickResult(file.Name, cachedEncoding, IsEncodedFile: true,
                 ImageHash: imageHash, OriginalBase64: originalBase64, IsCachedHit: true);
         }
@@ -649,8 +649,8 @@ public sealed partial class MainWindow
         var root = new StackPanel { Spacing = 6 };
 
         string vibeTitle = entry.IsCachedEncoding
-            ? $"氛围参考 {index + 1}（已缓存）"
-            : $"氛围参考 {index + 1}";
+            ? Lf("references.vibe.cached_title", index + 1)
+            : Lf("references.vibe.title", index + 1);
         var header = BuildReferenceHeader(
             vibeTitle,
             entry.IsCollapsed,
@@ -717,7 +717,7 @@ public sealed partial class MainWindow
             {
                 rightCol.Children.Add(new TextBlock
                 {
-                    Text = $"✓ 已缓存（{GetCurrentModelKey()}）",
+                    Text = Lf("references.vibe.cached_badge", GetCurrentModelKey()),
                     FontSize = 11,
                     Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 80, 200, 120)),
                     Opacity = 0.85,
@@ -727,7 +727,7 @@ public sealed partial class MainWindow
             {
                 rightCol.Children.Add(new TextBlock
                 {
-                    Text = "已编码文件",
+                    Text = L("references.vibe.encoded_file"),
                     FontSize = 11,
                     Opacity = 0.5,
                 });
@@ -736,7 +736,7 @@ public sealed partial class MainWindow
             {
                 rightCol.Children.Add(new TextBlock
                 {
-                    Text = "未编码（发送时消耗 2 Anlas）",
+                    Text = L("references.vibe.unencoded_cost"),
                     FontSize = 11,
                     Opacity = 0.5,
                 });
@@ -744,7 +744,7 @@ public sealed partial class MainWindow
 
             var replaceBtn = new Button
             {
-                Content = "更换",
+                Content = L("references.vibe.replace"),
                 FontSize = 12,
                 MinWidth = 52, MinHeight = 24,
                 Padding = new Thickness(8, 2, 8, 2),
@@ -763,7 +763,7 @@ public sealed partial class MainWindow
                 entry.IsCachedEncoding = picked.IsCachedHit;
                 RefreshVibeTransferPanel();
                 UpdateGenerateButtonWarning();
-                TxtStatus.Text = $"已更新氛围参考：{entry.FileName}";
+                TxtStatus.Text = Lf("references.vibe.updated", entry.FileName);
             };
             replaceBtn.IsEnabled = canEdit;
             rightCol.Children.Add(replaceBtn);
@@ -775,7 +775,7 @@ public sealed partial class MainWindow
             root.Children.Add(infoGrid);
 
             var strengthRow = BuildReferenceSliderRow(
-                "参考强度",
+                L("references.vibe.reference_strength"),
                 0, 1, entry.Strength,
                 value => entry.Strength = Math.Round(value, 2));
             strengthRow.IsHitTestVisible = canEdit;
@@ -783,7 +783,7 @@ public sealed partial class MainWindow
             root.Children.Add(strengthRow);
 
             var infoRow = BuildReferenceSliderRow(
-                "信息提取",
+                L("references.vibe.info_extracted"),
                 0, 1, entry.InformationExtracted,
                 value =>
                 {
@@ -842,7 +842,7 @@ public sealed partial class MainWindow
         var root = new StackPanel { Spacing = 6 };
 
         var header = BuildReferenceHeader(
-            $"精确参考 {index + 1}",
+            Lf("references.precise.cached", index + 1),
             entry.IsCollapsed,
             canMoveUp: index > 0,
             canMoveDown: index < _genPreciseReferences.Count - 1,
@@ -903,7 +903,7 @@ public sealed partial class MainWindow
 
             var replaceBtn = new Button
             {
-                Content = "更换",
+                Content = L("references.precise.replace"),
                 FontSize = 12,
                 MinWidth = 52, MinHeight = 24,
                 Padding = new Thickness(8, 2, 8, 2),
@@ -917,7 +917,7 @@ public sealed partial class MainWindow
                 entry.FileName = picked.Value.FileName;
                 entry.ImageBase64 = picked.Value.ImageBase64;
                 RefreshPreciseReferencePanel();
-                TxtStatus.Text = $"已更新精确参考：{entry.FileName}";
+                TxtStatus.Text = Lf("references.precise.updated", entry.FileName);
             };
             replaceBtn.IsEnabled = canEdit;
             rightCol.Children.Add(replaceBtn);
@@ -934,9 +934,9 @@ public sealed partial class MainWindow
                 MinHeight = 32,
                 FontFamily = UiTextFontFamily,
             };
-            typeCombo.Items.Add(CreateTextComboBoxItem("角色 + 风格"));
-            typeCombo.Items.Add(CreateTextComboBoxItem("仅角色"));
-            typeCombo.Items.Add(CreateTextComboBoxItem("仅风格"));
+            typeCombo.Items.Add(CreateTextComboBoxItem(L("references.precise.type.both")));
+            typeCombo.Items.Add(CreateTextComboBoxItem(L("references.precise.type.character")));
+            typeCombo.Items.Add(CreateTextComboBoxItem(L("references.precise.type.style")));
             typeCombo.SelectedIndex = entry.ReferenceType switch
             {
                 PreciseReferenceType.CharacterAndStyle => 0,
@@ -957,7 +957,7 @@ public sealed partial class MainWindow
             root.Children.Add(typeCombo);
 
             var strengthRow = BuildReferenceSliderRow(
-                "强度",
+                L("references.precise.strength"),
                 -1, 1, entry.Strength,
                 value => entry.Strength = Math.Round(value, 2));
             strengthRow.IsHitTestVisible = canEdit;
@@ -965,7 +965,7 @@ public sealed partial class MainWindow
             root.Children.Add(strengthRow);
 
             var fidelityRow = BuildReferenceSliderRow(
-                "保真度",
+                L("references.precise.fidelity"),
                 -1, 1, entry.Fidelity,
                 value => entry.Fidelity = Math.Round(value, 2));
             fidelityRow.IsHitTestVisible = canEdit;
@@ -1042,8 +1042,8 @@ public sealed partial class MainWindow
             VerticalAlignment = VerticalAlignment.Center,
             Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible,
         };
-        var upBtn = CreateCharacterActionButton("\uE70E", "上移", canMoveUp);
-        var downBtn = CreateCharacterActionButton("\uE70D", "下移", canMoveDown);
+        var upBtn = CreateCharacterActionButton("\uE70E", L("references.action.move_up"), canMoveUp);
+        var downBtn = CreateCharacterActionButton("\uE70D", L("references.action.move_down"), canMoveDown);
         upBtn.Click += (_, _) => onMoveUp();
         downBtn.Click += (_, _) => onMoveDown();
         movePanel.Children.Add(upBtn);
@@ -1051,7 +1051,7 @@ public sealed partial class MainWindow
         Grid.SetColumn(movePanel, 2);
         headerGrid.Children.Add(movePanel);
 
-        var delBtn = CreateCharacterActionButton("\uE74D", "删除", true, isDelete: true);
+        var delBtn = CreateCharacterActionButton("\uE74D", L("references.action.delete"), true, isDelete: true);
         delBtn.Margin = new Thickness(4, 0, 0, 0);
         delBtn.Click += (_, _) => onDelete();
         delBtn.Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible;

@@ -83,7 +83,7 @@ public sealed class UpscaleService : IDisposable
             }
 
             System.Diagnostics.Debug.WriteLine(
-                $"[超分] 模型已加载: {Path.GetFileName(modelPath)} | 提供器: {_executionProvider} | 倍率: {_modelScale}x");
+                $"[Upscale] Model loaded: {Path.GetFileName(modelPath)} | Provider: {_executionProvider} | Scale: {_modelScale}x");
         }
     }
 
@@ -292,7 +292,7 @@ public sealed class UpscaleService : IDisposable
             _session?.Dispose();
             _session = null;
             _loadedModelPath = null;
-            System.Diagnostics.Debug.WriteLine("[超分] 模型已卸载");
+            System.Diagnostics.Debug.WriteLine("[Upscale] Model unloaded");
         }
     }
 

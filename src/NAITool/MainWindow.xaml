@@ -35,14 +35,14 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="0" Text="NAI Utility Tool"
+            <TextBlock x:Name="AppTitleText" Grid.Column="0" Text="NAI Utility Tool"
                        FontSize="14" FontWeight="SemiBold"
                        VerticalAlignment="Center" Margin="16,0,16,0"
                        IsHitTestVisible="False"/>
 
             <MenuBar x:Name="AppMenuBar" Grid.Column="1" VerticalAlignment="Center">
-                <MenuBarItem Title="文件">
-                    <MenuFlyoutItem Text="打开图片..." Click="OnOpenImage">
+                <MenuBarItem x:Name="MenuFile" Title="文件">
+                    <MenuFlyoutItem x:Name="MenuOpenImage" Text="打开图片..." Click="OnOpenImage">
                         <MenuFlyoutItem.Icon><SymbolIcon Symbol="OpenFile"/></MenuFlyoutItem.Icon>
                         <MenuFlyoutItem.KeyboardAccelerators>
                             <KeyboardAccelerator Modifiers="Control" Key="O"/>
@@ -70,13 +70,13 @@
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE792;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
-                    <MenuFlyoutItem Text="打开当前图像文件夹" Click="OnOpenImageFolder">
+                    <MenuFlyoutItem x:Name="MenuOpenImageFolder" Text="打开当前图像文件夹" Click="OnOpenImageFolder">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xED25;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
                     <MenuFlyoutSeparator/>
-                    <MenuFlyoutItem Text="退出" Click="OnExit">
+                    <MenuFlyoutItem x:Name="MenuExit" Text="退出" Click="OnExit">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF3B1;"/>
                         </MenuFlyoutItem.Icon>
@@ -87,10 +87,10 @@
                 </MenuBarItem>
 
                 <MenuBarItem x:Name="MenuEdit" Title="编辑"/>
-                <MenuBarItem Title="工具"/>
+                <MenuBarItem x:Name="MenuTools" Title="工具"/>
 
-                <MenuBarItem Title="视图">
-                    <MenuFlyoutItem Text="适配窗口" Click="OnFitToScreen">
+                <MenuBarItem x:Name="MenuView" Title="视图">
+                    <MenuFlyoutItem x:Name="MenuFitToScreen" Text="适配窗口" Click="OnFitToScreen">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE9A6;"/>
                         </MenuFlyoutItem.Icon>
@@ -98,7 +98,7 @@
                             <KeyboardAccelerator Modifiers="Control" Key="Number0"/>
                         </MenuFlyoutItem.KeyboardAccelerators>
                     </MenuFlyoutItem>
-                    <MenuFlyoutItem Text="实际大小" Click="OnActualSize">
+                    <MenuFlyoutItem x:Name="MenuActualSize" Text="实际大小" Click="OnActualSize">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7F9;"/>
                         </MenuFlyoutItem.Icon>
@@ -106,36 +106,36 @@
                             <KeyboardAccelerator Modifiers="Control" Key="Number1"/>
                         </MenuFlyoutItem.KeyboardAccelerators>
                     </MenuFlyoutItem>
-                    <MenuFlyoutItem Text="视图居中" Click="OnCenterView">
+                    <MenuFlyoutItem x:Name="MenuCenterView" Text="视图居中" Click="OnCenterView">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE799;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
                     <MenuFlyoutSeparator/>
-                    <MenuFlyoutItem Text="放大" Click="OnZoomIn">
+                    <MenuFlyoutItem x:Name="MenuZoomIn" Text="放大" Click="OnZoomIn">
                         <MenuFlyoutItem.Icon><SymbolIcon Symbol="ZoomIn"/></MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
-                    <MenuFlyoutItem Text="缩小" Click="OnZoomOut">
+                    <MenuFlyoutItem x:Name="MenuZoomOut" Text="缩小" Click="OnZoomOut">
                         <MenuFlyoutItem.Icon><SymbolIcon Symbol="ZoomOut"/></MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
                 </MenuBarItem>
 
-                <MenuBarItem Title="设置">
-                    <MenuFlyoutItem Text="使用设置..." Click="OnUsageSettings">
+                <MenuBarItem x:Name="MenuSettings" Title="设置">
+                    <MenuFlyoutItem x:Name="MenuUsageSettings" Text="使用设置..." Click="OnUsageSettings">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE713;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
-                    <MenuFlyoutItem Text="网络/API设置..." Click="OnNetworkSettings">
+                    <MenuFlyoutItem x:Name="MenuNetworkSettings" Text="网络/API设置..." Click="OnNetworkSettings">
                         <MenuFlyoutItem.Icon><SymbolIcon Symbol="Globe"/></MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
-                    <MenuFlyoutItem Text="反推模型设置..." Click="OnReverseTaggerSettings">
+                    <MenuFlyoutItem x:Name="MenuReverseTaggerSettings" Text="反推模型设置..." Click="OnReverseTaggerSettings">
                         <MenuFlyoutItem.Icon>
                             <SymbolIcon Symbol="Tag"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
                     <MenuFlyoutSeparator/>
-                    <MenuFlyoutSubItem Text="外观">
+                    <MenuFlyoutSubItem x:Name="MenuAppearance" Text="外观">
                         <MenuFlyoutSubItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE790;"/>
                         </MenuFlyoutSubItem.Icon>
@@ -159,31 +159,45 @@
                         </ToggleMenuFlyoutItem>
                     </MenuFlyoutSubItem>
                     <MenuFlyoutSeparator/>
-                    <MenuFlyoutItem Text="开发者选项..." Click="OnDevSettings">
+                    <MenuFlyoutSubItem x:Name="MenuLanguage" Text="语言">
+                        <MenuFlyoutSubItem.Icon>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE909;"/>
+                        </MenuFlyoutSubItem.Icon>
+                        <ToggleMenuFlyoutItem x:Name="MenuLanguageEnglish" Text="English"
+                                              Click="OnLanguageChanged" Tag="en_us"/>
+                        <ToggleMenuFlyoutItem x:Name="MenuLanguageZhCn" Text="简体中文"
+                                              Click="OnLanguageChanged" Tag="zh_cn"/>
+                        <ToggleMenuFlyoutItem x:Name="MenuLanguageZhTw" Text="繁體中文"
+                                              Click="OnLanguageChanged" Tag="zh_tw"/>
+                        <ToggleMenuFlyoutItem x:Name="MenuLanguageJaJp" Text="日本語"
+                                              Click="OnLanguageChanged" Tag="ja_jp"/>
+                    </MenuFlyoutSubItem>
+                    <MenuFlyoutSeparator/>
+                    <MenuFlyoutItem x:Name="MenuDevSettings" Text="开发者选项..." Click="OnDevSettings">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEC7A;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
                 </MenuBarItem>
 
-                <MenuBarItem Title="帮助">
-                    <MenuFlyoutItem Text="操作概览" Click="OnHelpOverview">
+                <MenuBarItem x:Name="MenuHelp" Title="帮助">
+                    <MenuFlyoutItem x:Name="MenuHelpOverview" Text="操作概览" Click="OnHelpOverview">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE897;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
-                    <MenuFlyoutItem Text="工具亮点" Click="OnHelpHighlights">
+                    <MenuFlyoutItem x:Name="MenuHelpHighlights" Text="工具亮点" Click="OnHelpHighlights">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE734;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
                     <MenuFlyoutSeparator/>
-                    <MenuFlyoutItem Text="常用网址" Click="OnHelpUsefulLinks">
+                    <MenuFlyoutItem x:Name="MenuHelpLinks" Text="常用网址" Click="OnHelpUsefulLinks">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE71B;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
-                    <MenuFlyoutItem Text="关于..." Click="OnAbout">
+                    <MenuFlyoutItem x:Name="MenuAbout" Text="关于..." Click="OnAbout">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE946;"/>
                         </MenuFlyoutItem.Icon>
@@ -244,7 +258,7 @@
 
                             <StackPanel x:Name="ModelHeaderPanel" Grid.Row="0" Spacing="4">
                                 <Grid>
-                                    <TextBlock Text="模型"
+                                    <TextBlock x:Name="TxtModelLabel" Text="模型"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                VerticalAlignment="Center"/>
                                     <TextBlock x:Name="TxtAnlasBalance"
@@ -506,7 +520,7 @@
                             </Grid>
 
                             <StackPanel Spacing="4">
-                                <TextBlock Text="尺寸"
+                                <TextBlock x:Name="TxtSizeLabel" Text="尺寸"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 <Grid x:Name="MaxSizePanel" Visibility="Collapsed">
                                     <Grid.ColumnDefinitions>
@@ -523,7 +537,7 @@
                                                SmallChange="64" LargeChange="64"
                                                SpinButtonPlacementMode="Compact"
                                                ValueChanged="OnMaxSizeValueChanged"/>
-                                    <Button Grid.Column="1" Click="OnSwapSizeDimensions"
+                                    <Button x:Name="BtnSwapSizeDimensions" Grid.Column="1" Click="OnSwapSizeDimensions"
                                             MinWidth="32" Height="32" Padding="0"
                                             Background="Transparent" BorderThickness="0"
                                             ToolTipService.ToolTip="交换宽高">
@@ -548,17 +562,17 @@
                                            Minimum="0" Value="0"
                                            SpinButtonPlacementMode="Compact">
                                     <NumberBox.Header>
-                                        <TextBlock Text="种子 (0=随机)"
+                                        <TextBlock x:Name="TxtSeedLabel" Text="种子 (0=随机)"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                     </NumberBox.Header>
                                 </NumberBox>
-                                <Button Grid.Column="1" Click="OnSeedRandomize"
+                                <Button x:Name="BtnSeedRandomize" Grid.Column="1" Click="OnSeedRandomize"
                                         ToolTipService.ToolTip="随机种子 (设为0)"
                                         VerticalAlignment="Bottom" Width="32" Height="32"
                                         Padding="0" Margin="4,0,0,0">
                                     <SymbolIcon Symbol="Shuffle"/>
                                 </Button>
-                                <Button Grid.Column="2" Click="OnSeedRestore"
+                                <Button x:Name="BtnSeedRestore" Grid.Column="2" Click="OnSeedRestore"
                                         ToolTipService.ToolTip="还原上次生成的种子"
                                         VerticalAlignment="Bottom" Width="32" Height="32"
                                         Padding="0" Margin="2,0,0,0">
@@ -572,7 +586,7 @@
                                     HorizontalAlignment="Stretch">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <SymbolIcon Symbol="Setting"/>
-                                    <TextBlock Text="高级参数..."/>
+                                    <TextBlock x:Name="TxtAdvancedParamsButton" Text="高级参数..."/>
                                 </StackPanel>
                             </Button>
                             </StackPanel>
@@ -589,7 +603,7 @@
                                 Style="{StaticResource AccentButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <SymbolIcon Symbol="Send"/>
-                                <TextBlock Text="生成 (Ctrl+Enter)"/>
+                                <TextBlock x:Name="TxtGenerateButton" Text="生成 (Ctrl+Enter)"/>
                             </StackPanel>
                         </Button>
                     </Border>
@@ -622,7 +636,7 @@
                                      MaxHeight="500"/>
 
                             <StackPanel x:Name="InspectContent" Visibility="Collapsed" Spacing="10">
-                                <TextBlock Text="正面提示词"
+                                <TextBlock x:Name="TxtInspectPositiveLabel" Text="正面提示词"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            Style="{StaticResource CaptionTextBlockStyle}"/>
                                 <TextBox x:Name="TxtInspectPositive" IsReadOnly="True"
@@ -631,7 +645,7 @@
 
                                 <StackPanel x:Name="InspectCharPanel" Spacing="4" Visibility="Collapsed"/>
 
-                                <TextBlock Text="负面提示词"
+                                <TextBlock x:Name="TxtInspectNegativeLabel" Text="负面提示词"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            Style="{StaticResource CaptionTextBlockStyle}"/>
                                 <TextBox x:Name="TxtInspectNegative" IsReadOnly="True"
@@ -640,7 +654,7 @@
 
                                 <StackPanel x:Name="InspectCharNegPanel" Spacing="4" Visibility="Collapsed"/>
 
-                                <TextBlock Text="生成参数"
+                                <TextBlock x:Name="TxtInspectParametersLabel" Text="生成参数"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            Style="{StaticResource CaptionTextBlockStyle}" Margin="0,4,0,0"/>
                                 <Grid RowSpacing="6" ColumnSpacing="8">
@@ -659,19 +673,19 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="尺寸"
+                                    <TextBlock x:Name="TxtInspectSizeLabel" Grid.Row="0" Grid.Column="0" Text="尺寸"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                     <TextBlock Grid.Row="0" Grid.Column="1" x:Name="TxtInspectSize"/>
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="步数"
+                                    <TextBlock x:Name="TxtInspectStepsLabel" Grid.Row="1" Grid.Column="0" Text="步数"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                     <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TxtInspectSteps"/>
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="采样器"
+                                    <TextBlock x:Name="TxtInspectSamplerLabel" Grid.Row="2" Grid.Column="0" Text="采样器"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                     <TextBlock Grid.Row="2" Grid.Column="1" x:Name="TxtInspectSampler"/>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="调度器"
+                                    <TextBlock x:Name="TxtInspectScheduleLabel" Grid.Row="3" Grid.Column="0" Text="调度器"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                     <TextBlock Grid.Row="3" Grid.Column="1" x:Name="TxtInspectSchedule"/>
 
@@ -683,7 +697,7 @@
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                     <TextBlock Grid.Row="5" Grid.Column="1" x:Name="TxtInspectCfgRescale"/>
 
-                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="种子"
+                                    <TextBlock x:Name="TxtInspectSeedLabel" Grid.Row="6" Grid.Column="0" Text="种子"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                                     <TextBlock Grid.Row="6" Grid.Column="1" x:Name="TxtInspectSeed"
                                                IsTextSelectionEnabled="True"/>
@@ -711,11 +725,11 @@
                             </Button>
                             <Button x:Name="BtnSendInspectToInpaint" Click="OnSendInspectToInpaint"
                                     IsEnabled="False"
-                                    HorizontalAlignment="Stretch"
-                                    Style="{StaticResource AccentButtonStyle}">
+                                HorizontalAlignment="Stretch"
+                                Style="{StaticResource AccentButtonStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8B9;"/>
-                                    <TextBlock Text="整体发送至重绘"/>
+                                    <TextBlock x:Name="TxtSendInspectToInpaint" Text="整体发送至重绘"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -744,12 +758,12 @@
 
                     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
                         <StackPanel Padding="12" Spacing="10">
-                            <TextBlock Text="超分模型"
+                            <TextBlock x:Name="TxtUpscaleModelLabel" Text="超分模型"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                             <ComboBox x:Name="CboUpscaleModel" HorizontalAlignment="Stretch"
                                       SelectionChanged="OnUpscaleModelChanged"/>
 
-                            <TextBlock Text="超分倍率"
+                            <TextBlock x:Name="TxtUpscaleScaleLabel" Text="超分倍率"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Margin="0,8,0,0"/>
                             <ComboBox x:Name="CboUpscaleScale" HorizontalAlignment="Stretch"
@@ -759,25 +773,25 @@
                                 <ComboBoxItem Content="4x" Tag="4"/>
                             </ComboBox>
 
-                            <TextBlock Text="推理设备"
+                            <TextBlock x:Name="TxtUpscaleDeviceLabel" Text="推理设备"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Margin="0,8,0,0"/>
                             <ComboBox x:Name="CboUpscaleDevice" HorizontalAlignment="Stretch">
-                                <ComboBoxItem Content="GPU 优先（DirectML）" IsSelected="True"/>
-                                <ComboBoxItem Content="仅 CPU"/>
+                                <ComboBoxItem x:Name="CboUpscaleDeviceGpu" Content="GPU 优先（DirectML）" IsSelected="True"/>
+                                <ComboBoxItem x:Name="CboUpscaleDeviceCpu" Content="仅 CPU"/>
                             </ComboBox>
 
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     CornerRadius="4" Padding="10,8">
                                 <StackPanel Spacing="4">
                                     <Grid>
-                                        <TextBlock Text="超分前"
+                                        <TextBlock x:Name="TxtUpscaleBeforeLabel" Text="超分前"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                         <TextBlock x:Name="TxtUpscaleInputRes" Text="—"
                                                    HorizontalAlignment="Right"/>
                                     </Grid>
                                     <Grid>
-                                        <TextBlock Text="超分后（预计）"
+                                        <TextBlock x:Name="TxtUpscaleAfterLabel" Text="超分后（预计）"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                         <TextBlock x:Name="TxtUpscaleOutputRes" Text="—"
                                                    HorizontalAlignment="Right"/>
@@ -801,7 +815,7 @@
                                 IsEnabled="False">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xECE9;" FontSize="16"/>
-                                <TextBlock Text="开始超分"/>
+                                <TextBlock x:Name="TxtStartUpscaleButton" Text="开始超分"/>
                             </StackPanel>
                         </Button>
                     </Border>
@@ -861,25 +875,25 @@
                             <Button Click="OnSendToInpaint" Style="{StaticResource AccentButtonStyle}" Height="32">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8B9;" FontSize="16"/>
-                                    <TextBlock Text="发送到重绘"/>
+                                    <TextBlock x:Name="TxtSendGenToInpaint" Text="发送到重绘"/>
                                 </StackPanel>
                             </Button>
                             <Button Click="OnSendToEffectsFromGen" Style="{StaticResource AccentButtonStyle}" Height="32">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEB3C;" FontSize="16"/>
-                                    <TextBlock Text="发送到效果"/>
+                                    <TextBlock x:Name="TxtSendGenToEffects" Text="发送到效果"/>
                                 </StackPanel>
                             </Button>
                             <Button Click="OnDeleteGenResult" Foreground="#E74856" Height="32">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE74D;" FontSize="16"/>
-                                    <TextBlock Text="删除"/>
+                                    <TextBlock x:Name="TxtDeleteGenResult" Text="删除"/>
                                 </StackPanel>
                             </Button>
                             <Button Click="OnCloseGenResultBar" Height="32">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE711;" FontSize="16"/>
-                                    <TextBlock Text="关闭"/>
+                                    <TextBlock x:Name="TxtCloseGenResult" Text="关闭"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -909,25 +923,25 @@
                             <Button Click="OnApplyResult" Style="{StaticResource AccentButtonStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <SymbolIcon Symbol="Accept"/>
-                                    <TextBlock Text="应用"/>
+                                    <TextBlock x:Name="TxtApplyResult" Text="应用"/>
                                 </StackPanel>
                             </Button>
                             <Button x:Name="BtnRedoGenerate" Click="OnRedoGenerate" Style="{StaticResource AccentButtonStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <SymbolIcon Symbol="Refresh"/>
-                                    <TextBlock Text="重做"/>
+                                    <TextBlock x:Name="TxtRedoGenerate" Text="重做"/>
                                 </StackPanel>
                             </Button>
                             <Button x:Name="BtnCompare">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE81D;" FontSize="16"/>
-                                    <TextBlock Text="对比"/>
+                                    <TextBlock x:Name="TxtCompareResult" Text="对比"/>
                                 </StackPanel>
                             </Button>
                             <Button Click="OnDiscardResult" Foreground="#E74856">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <SymbolIcon Symbol="Cancel"/>
-                                    <TextBlock Text="舍弃"/>
+                                    <TextBlock x:Name="TxtDiscardResult" Text="舍弃"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -1014,7 +1028,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="历史记录" Margin="12,10,12,6"
+                    <TextBlock x:Name="TxtHistoryTitle" Grid.Row="0" Text="历史记录" Margin="12,10,12,6"
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <CalendarDatePicker x:Name="HistoryDatePicker" Grid.Row="1"
@@ -1036,7 +1050,7 @@
                     BorderThickness="1,0,0,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Padding="12" Spacing="12">
-                        <TextBlock Text="预览 (拖拽移动图像)" Style="{StaticResource CaptionTextBlockStyle}"
+                        <TextBlock x:Name="TxtInpaintPreviewLabel" Text="预览 (拖拽移动图像)" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 CornerRadius="4" Height="180"
@@ -1058,7 +1072,7 @@
                         <CheckBox x:Name="ChkPreviewMask" Content="仅预览遮罩"
                                   Click="OnTogglePreviewMask"/>
 
-                        <TextBlock Text="工具" Style="{StaticResource CaptionTextBlockStyle}"
+                        <TextBlock x:Name="TxtInpaintToolsLabel" Text="工具" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <ToggleButton x:Name="BtnBrush" IsChecked="True"
@@ -1081,7 +1095,7 @@
                             </ToggleButton>
                         </StackPanel>
 
-                        <TextBlock Text="笔刷大小" Style="{StaticResource CaptionTextBlockStyle}"
+                        <TextBlock x:Name="TxtBrushSizeLabel" Text="笔刷大小" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <Grid>
                             <Grid.ColumnDefinitions>

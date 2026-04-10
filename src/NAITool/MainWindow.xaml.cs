@@ -47,9 +47,38 @@ public sealed class ResizeHandle : Microsoft.UI.Xaml.Controls.Grid
 public sealed partial class MainWindow : Window
 {
     private readonly SettingsService _settings = new();
+    private readonly LocalizationService _loc = LocalizationService.Instance;
     private readonly NovelAIService _naiService;
     private readonly ReverseImageTaggerService _reverseTaggerService = new();
     private readonly WildcardService _wildcardService = new();
+
+    private const string MenuCommandNormalizePrompts = "normalize_prompts";
+    private const string MenuCommandRandomStylePrompt = "random_style_prompt";
+    private const string MenuCommandPromptShortcuts = "prompt_shortcuts";
+    private const string MenuCommandSendToInpaint = "send_to_inpaint";
+    private const string MenuCommandSendToPost = "send_to_post";
+    private const string MenuCommandSendToUpscale = "send_to_upscale";
+    private const string MenuCommandClearAllPrompts = "clear_all_prompts";
+    private const string MenuCommandResetGenerationParams = "reset_generation_params";
+    private const string MenuCommandEditRawMetadata = "edit_raw_metadata";
+    private const string MenuCommandImageScramble = "image_scramble";
+    private const string MenuCommandScramble = "scramble";
+    private const string MenuCommandUnscramble = "unscramble";
+    private const string MenuCommandUndo = "undo";
+    private const string MenuCommandRedo = "redo";
+    private const string MenuCommandAddPreset = "add_preset";
+    private const string MenuCommandUsePreset = "use_preset";
+    private const string MenuCommandClearAllEffects = "clear_all_effects";
+    private const string MenuCommandApplyEffects = "apply_effects";
+    private const string MenuCommandWeightConverter = "weight_converter";
+    private const string MenuCommandVibeEncode = "vibe_encode";
+    private const string MenuCommandWildcard = "wildcard";
+    private const string MenuCommandAutomation = "automation";
+    private const string MenuCommandExpandMask = "expand_mask";
+    private const string MenuCommandContractMask = "contract_mask";
+    private const string MenuCommandAlignImage = "align_image";
+    private const string MenuCommandPromptInference = "prompt_inference";
+    private const string MenuCommandMaskOps = "mask_ops";
 
     // ═══ 模式 ═══
     private AppMode _currentMode = AppMode.ImageGeneration;
@@ -240,8 +269,8 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
-        System.Diagnostics.Debug.WriteLine($"[启动] 应用根目录: {AppRootDir}");
-        System.Diagnostics.Debug.WriteLine($"[启动] BaseDirectory: {AppContext.BaseDirectory}");
+        System.Diagnostics.Debug.WriteLine($"[Startup] App root: {AppRootDir}");
+        System.Diagnostics.Debug.WriteLine($"[Startup] BaseDirectory: {AppContext.BaseDirectory}");
 
         this.InitializeComponent();
 
@@ -268,7 +297,13 @@ public sealed partial class MainWindow : Window
         };
 
         _settings.Load();
-        DebugLog($"[启动] 应用根目录={AppRootDir} | DevLog={_settings.Settings.DevLogEnabled}");
+        bool persistDetectedLanguage = string.IsNullOrWhiteSpace(_settings.Settings.LanguageCode);
+        _settings.Settings.LanguageCode = _loc.Initialize(_settings.Settings.LanguageCode);
+        _loc.LanguageChanged += OnAppLanguageChanged;
+        if (persistDetectedLanguage)
+            _settings.Save();
+
+        DebugLog($"[Startup] App root={AppRootDir} | DevLog={_settings.Settings.DevLogEnabled} | Language={_settings.Settings.LanguageCode}");
         ApplyRememberedPromptAndParameterPreference();
         ApplyCachedAccountInfo();
         AutoDetectTaggerModel();
@@ -280,7 +315,7 @@ public sealed partial class MainWindow : Window
         ApplyTheme(_settings.Settings.ThemeMode);
         SyncThemeMenuChecks(_settings.Settings.ThemeMode);
 
-        MaskCanvas.ZoomChanged += z => TxtZoomInfo.Text = $"缩放: {z * 100:F0}%";
+        MaskCanvas.ZoomChanged += z => TxtZoomInfo.Text = Lf("status.zoom", z * 100);
         MaskCanvas.ContentChanged += () =>
         {
             if (_currentMode == AppMode.Inpaint &&
@@ -306,9 +341,10 @@ public sealed partial class MainWindow : Window
         BtnSplitPrompt.IsChecked = _isSplitPrompt;
         ApplyStaticMenuAndComboTypography();
         CboModel.SelectionChanged += (_, _) => UpdateModelDependentUI();
-        _menuTools = AppMenuBar.Items.OfType<MenuBarItem>().FirstOrDefault(x => x.Title == "工具");
+        _menuTools = MenuTools;
         SyncParamsToUI();
         SwitchMode(AppMode.ImageGeneration);
+        ApplyLocalization();
         SetupPromptContextFlyouts();
         SetupGenPreviewContextMenu();
         SetupPreviewScrollZoomAndDrag();
@@ -338,6 +374,184 @@ public sealed partial class MainWindow : Window
 
         RefreshEffectsPanel();
         LoadHistoryAsync();
+    }
+
+    private string L(string key) => _loc.GetString(key);
+
+    private string Lf(string key, params object?[] args) => _loc.Format(key, args);
+
+    private static bool HasMenuCommand(MenuFlyoutItem item, string commandId) =>
+        string.Equals(item.Tag as string, commandId, StringComparison.Ordinal);
+
+    private static bool HasMenuCommand(MenuFlyoutSubItem item, string commandId) =>
+        string.Equals(item.Tag as string, commandId, StringComparison.Ordinal);
+
+    private MenuFlyoutItem CreateLocalizedMenuItem(string commandId, string key, IconElement? icon = null)
+    {
+        var item = new MenuFlyoutItem
+        {
+            Tag = commandId,
+            Text = L(key),
+        };
+        if (icon != null)
+            item.Icon = icon;
+        return item;
+    }
+
+    private MenuFlyoutSubItem CreateLocalizedSubItem(string commandId, string key, IconElement? icon = null)
+    {
+        var item = new MenuFlyoutSubItem
+        {
+            Tag = commandId,
+            Text = L(key),
+        };
+        if (icon != null)
+            item.Icon = icon;
+        return item;
+    }
+
+    private void OnAppLanguageChanged(object? sender, EventArgs e)
+    {
+        ApplyLocalization();
+        ReplaceEditMenu();
+        ReplaceToolMenu();
+        RefreshVibeTransferPanel();
+        RefreshPreciseReferencePanel();
+        RefreshHistoryPanel();
+        RefreshEffectsPanel();
+        TxtStatus.Text = Lf("status.language_changed", _loc.GetLanguageDisplayName(_settings.Settings.LanguageCode));
+    }
+
+    private void ApplyLanguageSelectionChecks()
+    {
+        string code = _settings.Settings.LanguageCode;
+        MenuLanguageEnglish.IsChecked = code == "en_us";
+        MenuLanguageZhCn.IsChecked = code == "zh_cn";
+        MenuLanguageZhTw.IsChecked = code == "zh_tw";
+        MenuLanguageJaJp.IsChecked = code == "ja_jp";
+    }
+
+    private void ApplyLocalization()
+    {
+        Title = L("app.title");
+        AppTitleText.Text = L("app.title");
+
+        MenuFile.Title = L("menu.file");
+        MenuOpenImage.Text = L("menu.file.open_image");
+        MenuSave.Text = L("menu.file.save");
+        MenuSaveAs.Text = L("menu.file.save_as");
+        MenuSaveStripped.Text = L("menu.file.save_as_stripped");
+        MenuOpenImageFolder.Text = L("menu.file.open_folder");
+        MenuExit.Text = L("menu.file.exit");
+
+        MenuView.Title = L("menu.view");
+        MenuFitToScreen.Text = L("menu.view.fit_to_screen");
+        MenuActualSize.Text = L("menu.view.actual_size");
+        MenuCenterView.Text = L("menu.view.center");
+        MenuZoomIn.Text = L("menu.view.zoom_in");
+        MenuZoomOut.Text = L("menu.view.zoom_out");
+
+        MenuSettings.Title = L("menu.settings");
+        MenuUsageSettings.Text = L("menu.settings.usage");
+        MenuNetworkSettings.Text = L("menu.settings.network");
+        MenuReverseTaggerSettings.Text = L("menu.settings.reverse_tagger");
+        MenuAppearance.Text = L("menu.settings.appearance");
+        MenuThemeSystem.Text = L("menu.settings.theme.system");
+        MenuThemeLight.Text = L("menu.settings.theme.light");
+        MenuThemeDark.Text = L("menu.settings.theme.dark");
+        MenuLanguage.Text = L("menu.settings.language");
+        MenuLanguageEnglish.Text = _loc.GetLanguageDisplayName("en_us");
+        MenuLanguageZhCn.Text = _loc.GetLanguageDisplayName("zh_cn");
+        MenuLanguageZhTw.Text = _loc.GetLanguageDisplayName("zh_tw");
+        MenuLanguageJaJp.Text = _loc.GetLanguageDisplayName("ja_jp");
+        MenuDevSettings.Text = L("menu.settings.developer");
+        ApplyLanguageSelectionChecks();
+
+        MenuHelp.Title = L("menu.help");
+        MenuHelpOverview.Text = L("menu.help.overview");
+        MenuHelpHighlights.Text = L("menu.help.highlights");
+        MenuHelpLinks.Text = L("menu.help.links");
+        MenuAbout.Text = L("menu.help.about");
+
+        TabGenerate.Content = L("mode.generate");
+        TabInpaint.Content = L("mode.inpaint");
+        TabUpscale.Content = L("mode.upscale");
+        TabEffects.Content = L("mode.post");
+        TabInspect.Content = L("mode.inspect");
+        TabPositive.Content = L("prompt.positive");
+        TabNegative.Content = L("prompt.negative");
+
+        ToolTipService.SetToolTip(BtnSplitPrompt, L("tooltip.split_prompt"));
+        TxtStylePrompt.PlaceholderText = L("prompt.style_placeholder");
+        TxtPrompt.PlaceholderText = L("prompt.placeholder");
+
+        TxtModelLabel.Text = L("panel.model");
+        TxtSizeLabel.Text = L("panel.size");
+        TxtSeedLabel.Text = L("panel.seed");
+        ToolTipService.SetToolTip(BtnSwapSizeDimensions, L("tooltip.swap_dimensions"));
+        ToolTipService.SetToolTip(BtnSeedRandomize, L("tooltip.random_seed"));
+        ToolTipService.SetToolTip(BtnSeedRestore, L("tooltip.restore_last_seed"));
+        ToolTipService.SetToolTip(BtnBrush, L("tooltip.brush"));
+        ToolTipService.SetToolTip(BtnEraser, L("tooltip.eraser"));
+        ToolTipService.SetToolTip(BtnRect, L("tooltip.rectangle"));
+        ChkVariety.Content = L("panel.variety");
+        TxtAdvancedParamsButton.Text = L("button.advanced_parameters");
+        TxtGenerateButton.Text = L("button.generate");
+
+        InspectPlaceholder.Text = L("inspect.placeholder.drop_or_open");
+        TxtInspectPositiveLabel.Text = L("inspect.positive_prompt");
+        TxtInspectNegativeLabel.Text = L("inspect.negative_prompt");
+        TxtInspectParametersLabel.Text = L("inspect.parameters");
+        TxtInspectSizeLabel.Text = L("panel.size");
+        TxtInspectStepsLabel.Text = L("panel.steps");
+        TxtInspectSamplerLabel.Text = L("panel.sampler");
+        TxtInspectScheduleLabel.Text = L("panel.scheduler");
+        TxtInspectSeedLabel.Text = L("panel.seed_short");
+        TxtSendInspectToInpaint.Text = L("button.send_whole_to_inpaint");
+
+        TxtUpscaleModelLabel.Text = L("upscale.model");
+        TxtUpscaleScaleLabel.Text = L("upscale.scale");
+        TxtUpscaleDeviceLabel.Text = L("upscale.device");
+        CboUpscaleDeviceGpu.Content = L("upscale.device_gpu");
+        CboUpscaleDeviceCpu.Content = L("upscale.device_cpu");
+        TxtUpscaleBeforeLabel.Text = L("upscale.before");
+        TxtUpscaleAfterLabel.Text = L("upscale.after_estimated");
+        TxtStartUpscaleButton.Text = _upscaleRunning ? L("button.upscaling") : L("button.start_upscale");
+
+        GenPlaceholder.Text = L("placeholder.generate");
+        TxtSendGenToInpaint.Text = L("button.send_to_inpaint");
+        TxtSendGenToEffects.Text = L("button.send_to_post");
+        TxtDeleteGenResult.Text = L("button.delete");
+        TxtCloseGenResult.Text = L("button.close");
+        TxtApplyResult.Text = L("button.apply");
+        TxtRedoGenerate.Text = L("button.regenerate");
+        TxtCompareResult.Text = L("button.compare");
+        TxtDiscardResult.Text = L("button.discard");
+
+        InspectImagePlaceholder.Text = L("placeholder.drop_or_open");
+        EffectsImagePlaceholder.Text = L("placeholder.drop_or_open");
+        UpscalePlaceholder.Text = L("placeholder.upscale");
+        TxtHistoryTitle.Text = L("history.title");
+        HistoryDatePicker.PlaceholderText = L("history.select_date");
+
+        TxtInpaintPreviewLabel.Text = L("inpaint.preview");
+        TxtZoomInfo.Text = Lf("status.zoom", 100d);
+        ChkPreviewMask.Content = L("inpaint.preview_mask");
+        TxtInpaintToolsLabel.Text = L("inpaint.tools");
+        TxtBrushSizeLabel.Text = L("inpaint.brush_size");
+
+        if (string.IsNullOrWhiteSpace(TxtStatus.Text) || TxtStatus.Text == "就绪" || TxtStatus.Text == "Ready")
+            TxtStatus.Text = L("status.ready");
+    }
+
+    private void OnLanguageChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleMenuFlyoutItem item || item.Tag is not string languageCode)
+            return;
+
+        _settings.Settings.LanguageCode = LocalizationService.NormalizeLanguageCode(languageCode);
+        _loc.SetLanguage(_settings.Settings.LanguageCode);
+        _settings.Save();
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1022,69 +1236,62 @@ public sealed partial class MainWindow : Window
 
         AppMenuBar.Items.Remove(MenuEdit);
 
-        var newEdit = new MenuBarItem { Title = "编辑" };
+        var newEdit = new MenuBarItem { Title = L("menu.edit") };
 
         if (_currentMode == AppMode.ImageGeneration)
         {
             newEdit.Items.Add(BuildPresetResolutionSubMenu());
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
-            var normalizeItem = new MenuFlyoutItem
-            {
-                Text = "提示词标准化...",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8D2" },
-            };
+            var normalizeItem = CreateLocalizedMenuItem(
+                MenuCommandNormalizePrompts,
+                "menu.edit.normalize_prompts",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8D2" });
             normalizeItem.Click += OnNormalizePrompts;
             newEdit.Items.Add(normalizeItem);
 
-            var randomStyleItem = new MenuFlyoutItem
-            {
-                Text = "随机风格提示词...",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B1" },
-            };
+            var randomStyleItem = CreateLocalizedMenuItem(
+                MenuCommandRandomStylePrompt,
+                "menu.edit.random_style_prompt",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B1" });
             randomStyleItem.Click += OnRandomStylePrompt;
             newEdit.Items.Add(randomStyleItem);
             newEdit.Items.Add(BuildPromptShortcutsMenuItem());
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
-            var sendItem = new MenuFlyoutItem
-            {
-                Text = "发送到重绘",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" },
-            };
+            var sendItem = CreateLocalizedMenuItem(
+                MenuCommandSendToInpaint,
+                "action.send_to_inpaint",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" });
             sendItem.Click += OnSendToInpaint;
             newEdit.Items.Add(sendItem);
 
-            var postItem = new MenuFlyoutItem
-            {
-                Text = "发送到效果",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" },
-            };
+            var postItem = CreateLocalizedMenuItem(
+                MenuCommandSendToPost,
+                "action.send_to_post",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" });
             postItem.Click += OnSendToEffectsFromGen;
             newEdit.Items.Add(postItem);
 
-            var upscaleItem = new MenuFlyoutItem
-            {
-                Text = "发送到超分",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uECE9" },
-            };
+            var upscaleItem = CreateLocalizedMenuItem(
+                MenuCommandSendToUpscale,
+                "action.send_to_upscale",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uECE9" });
             upscaleItem.Click += OnSendToUpscaleFromGen;
             newEdit.Items.Add(upscaleItem);
 
             newEdit.Items.Add(new MenuFlyoutSeparator());
-            var clearAllItem = new MenuFlyoutItem
-            {
-                Text = "清空所有提示词",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74D" },
-            };
+            var clearAllItem = CreateLocalizedMenuItem(
+                MenuCommandClearAllPrompts,
+                "menu.edit.clear_all_prompts",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74D" });
             clearAllItem.Click += OnClearAllPrompts;
             newEdit.Items.Add(clearAllItem);
 
-            var resetParamsItem = new MenuFlyoutItem
-            {
-                Text = "重置生成参数",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE777" },
-            };
+            var resetParamsItem = CreateLocalizedMenuItem(
+                MenuCommandResetGenerationParams,
+                "menu.edit.reset_generation_params",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE777" });
             resetParamsItem.Click += OnResetGenParams;
             newEdit.Items.Add(resetParamsItem);
         }
@@ -1094,34 +1301,30 @@ public sealed partial class MainWindow : Window
         }
         else if (_currentMode == AppMode.Inspect)
         {
-            var rawItem = new MenuFlyoutItem
-            {
-                Text = "编辑 Raw 元数据...",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE70F" },
-                IsEnabled = _inspectImageBytes != null,
-            };
+            var rawItem = CreateLocalizedMenuItem(
+                MenuCommandEditRawMetadata,
+                "menu.edit.edit_raw_metadata",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE70F" });
+            rawItem.IsEnabled = _inspectImageBytes != null;
             rawItem.Click += OnEditRawMetadata;
             newEdit.Items.Add(rawItem);
 
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
-            var scrambleMenu = new MenuFlyoutSubItem
-            {
-                Text = "图片混淆",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uF404" },
-                IsEnabled = _inspectImageBytes != null,
-            };
-            var encryptItem = new MenuFlyoutItem
-            {
-                Text = "混淆",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE727" },
-            };
+            var scrambleMenu = CreateLocalizedSubItem(
+                MenuCommandImageScramble,
+                "menu.edit.image_scramble",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uF404" });
+            scrambleMenu.IsEnabled = _inspectImageBytes != null;
+            var encryptItem = CreateLocalizedMenuItem(
+                MenuCommandScramble,
+                "menu.edit.scramble",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE727" });
             encryptItem.Click += (_, _) => RunInspectImageScrambleAsync(ImageScrambleService.ProcessType.Encrypt);
-            var decryptItem = new MenuFlyoutItem
-            {
-                Text = "反混淆",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8D7" },
-            };
+            var decryptItem = CreateLocalizedMenuItem(
+                MenuCommandUnscramble,
+                "menu.edit.unscramble",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8D7" });
             decryptItem.Click += (_, _) => RunInspectImageScrambleAsync(ImageScrambleService.ProcessType.Decrypt);
 
             scrambleMenu.Items.Add(encryptItem);
@@ -1130,31 +1333,29 @@ public sealed partial class MainWindow : Window
         }
         else if (_currentMode == AppMode.Upscale)
         {
-            var sendInpaintItem = new MenuFlyoutItem
-            {
-                Text = "发送到重绘",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" },
-            };
+            var sendInpaintItem = CreateLocalizedMenuItem(
+                MenuCommandSendToInpaint,
+                "action.send_to_inpaint",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" });
             sendInpaintItem.Click += OnSendToInpaintFromUpscale;
             newEdit.Items.Add(sendInpaintItem);
 
-            var sendPostItem = new MenuFlyoutItem
-            {
-                Text = "发送到效果",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" },
-            };
+            var sendPostItem = CreateLocalizedMenuItem(
+                MenuCommandSendToPost,
+                "action.send_to_post",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" });
             sendPostItem.Click += OnSendToEffectsFromUpscale;
             newEdit.Items.Add(sendPostItem);
         }
         else if (_currentMode == AppMode.Effects)
         {
-            var undoItem = new MenuFlyoutItem { Text = "撤销", Icon = new SymbolIcon(Symbol.Undo) };
+            var undoItem = CreateLocalizedMenuItem(MenuCommandUndo, "menu.edit.undo", new SymbolIcon(Symbol.Undo));
             undoItem.Click += OnUndo;
             undoItem.KeyboardAccelerators.Add(new KeyboardAccelerator
             { Modifiers = Windows.System.VirtualKeyModifiers.Control, Key = Windows.System.VirtualKey.Z });
             newEdit.Items.Add(undoItem);
 
-            var redoItem = new MenuFlyoutItem { Text = "重做", Icon = new SymbolIcon(Symbol.Redo) };
+            var redoItem = CreateLocalizedMenuItem(MenuCommandRedo, "menu.edit.redo", new SymbolIcon(Symbol.Redo));
             redoItem.Click += OnRedo;
             redoItem.KeyboardAccelerators.Add(new KeyboardAccelerator
             { Modifiers = Windows.System.VirtualKeyModifiers.Control, Key = Windows.System.VirtualKey.Y });
@@ -1162,45 +1363,40 @@ public sealed partial class MainWindow : Window
 
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
-            var sendInpaintItem = new MenuFlyoutItem
-            {
-                Text = "发送到重绘",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" },
-            };
+            var sendInpaintItem = CreateLocalizedMenuItem(
+                MenuCommandSendToInpaint,
+                "action.send_to_inpaint",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" });
             sendInpaintItem.Click += OnSendToInpaintFromEffects;
             newEdit.Items.Add(sendInpaintItem);
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
-            var addPresetItem = new MenuFlyoutItem
-            {
-                Text = "添加预设...",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE70F" },
-            };
+            var addPresetItem = CreateLocalizedMenuItem(
+                MenuCommandAddPreset,
+                "menu.edit.add_preset",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE70F" });
             addPresetItem.Click += OnAddEffectsPreset;
             newEdit.Items.Add(addPresetItem);
 
-            var usePresetItem = new MenuFlyoutItem
-            {
-                Text = "使用预设...",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE790" },
-            };
+            var usePresetItem = CreateLocalizedMenuItem(
+                MenuCommandUsePreset,
+                "menu.edit.use_preset",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE790" });
             usePresetItem.Click += OnUseEffectsPreset;
             newEdit.Items.Add(usePresetItem);
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
-            var clearEffectsItem = new MenuFlyoutItem
-            {
-                Text = "清空所有效果",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74D" },
-            };
+            var clearEffectsItem = CreateLocalizedMenuItem(
+                MenuCommandClearAllEffects,
+                "menu.edit.clear_all_effects",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74D" });
             clearEffectsItem.Click += OnClearAllEffects;
             newEdit.Items.Add(clearEffectsItem);
 
-            var applyEffectsItem = new MenuFlyoutItem
-            {
-                Text = "应用效果",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8C7" },
-            };
+            var applyEffectsItem = CreateLocalizedMenuItem(
+                MenuCommandApplyEffects,
+                "menu.edit.apply_effects",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8C7" });
             applyEffectsItem.Click += OnApplyEffects;
             newEdit.Items.Add(applyEffectsItem);
         }
@@ -1213,36 +1409,33 @@ public sealed partial class MainWindow : Window
 
     private void ReplaceToolMenu()
     {
-        _menuTools ??= AppMenuBar.Items.OfType<MenuBarItem>().FirstOrDefault(x => x.Title == "工具");
+        _menuTools ??= MenuTools;
         int idx = _menuTools != null ? AppMenuBar.Items.IndexOf(_menuTools) : -1;
         if (idx < 0) idx = 2;
 
         if (_menuTools != null)
             AppMenuBar.Items.Remove(_menuTools);
 
-        var newTools = new MenuBarItem { Title = "工具" };
+        var newTools = new MenuBarItem { Title = L("menu.tools") };
 
-        var weightItem = new MenuFlyoutItem
-        {
-            Text = "权重转换...",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE943" },
-        };
+        var weightItem = CreateLocalizedMenuItem(
+            MenuCommandWeightConverter,
+            "menu.tools.weight_converter",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE943" });
         weightItem.Click += (_, _) => ShowWeightConversionDialog();
         newTools.Items.Add(weightItem);
 
-        var vibeEncodeItem = new MenuFlyoutItem
-        {
-            Text = "氛围预编码...",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE706" },
-        };
+        var vibeEncodeItem = CreateLocalizedMenuItem(
+            MenuCommandVibeEncode,
+            "menu.tools.vibe_encode",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE706" });
         vibeEncodeItem.Click += (_, _) => ShowVibeEncodeDialog();
         newTools.Items.Add(vibeEncodeItem);
 
-        var wildcardItem = new MenuFlyoutItem
-        {
-            Text = "抽卡器...",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74C" },
-        };
+        var wildcardItem = CreateLocalizedMenuItem(
+            MenuCommandWildcard,
+            "menu.tools.wildcard",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74C" });
         wildcardItem.Click += (_, _) => ShowWildcardDialog();
         newTools.Items.Add(wildcardItem);
 
@@ -1250,11 +1443,10 @@ public sealed partial class MainWindow : Window
         {
             newTools.Items.Add(new MenuFlyoutSeparator());
 
-            var autoItem = new MenuFlyoutItem
-            {
-                Text = "自动化...",
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE768" },
-            };
+            var autoItem = CreateLocalizedMenuItem(
+                MenuCommandAutomation,
+                "menu.tools.automation",
+                new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE768" });
             autoItem.Click += OnAutoGenSettings;
             newTools.Items.Add(autoItem);
         }
@@ -1276,7 +1468,9 @@ public sealed partial class MainWindow : Window
             foreach (var baseItem in MenuEdit.Items)
             {
                 if (baseItem is MenuFlyoutItem item &&
-                    (item.Text == "发送到重绘" || item.Text == "发送到效果" || item.Text == "发送到超分"))
+                    (HasMenuCommand(item, MenuCommandSendToInpaint) ||
+                     HasMenuCommand(item, MenuCommandSendToPost) ||
+                     HasMenuCommand(item, MenuCommandSendToUpscale)))
                     item.IsEnabled = hasImage;
             }
         }
@@ -1286,7 +1480,8 @@ public sealed partial class MainWindow : Window
             foreach (var baseItem in MenuEdit.Items)
             {
                 if (baseItem is MenuFlyoutItem item &&
-                    (item.Text == "发送到重绘" || item.Text == "发送到效果"))
+                    (HasMenuCommand(item, MenuCommandSendToInpaint) ||
+                     HasMenuCommand(item, MenuCommandSendToPost)))
                     item.IsEnabled = hasImage;
             }
         }
@@ -1297,19 +1492,19 @@ public sealed partial class MainWindow : Window
             foreach (var baseItem in MenuEdit.Items)
             {
                 if (baseItem is not MenuFlyoutItem item) continue;
-                if (item.Text == "发送到重绘")
+                if (HasMenuCommand(item, MenuCommandSendToInpaint))
                     item.IsEnabled = hasImage;
-                else if (item.Text == "添加预设...")
+                else if (HasMenuCommand(item, MenuCommandAddPreset))
                     item.IsEnabled = hasEffects;
-                else if (item.Text == "使用预设...")
+                else if (HasMenuCommand(item, MenuCommandUsePreset))
                     item.IsEnabled = HasEffectsPresets();
-                else if (item.Text == "清空所有效果")
+                else if (HasMenuCommand(item, MenuCommandClearAllEffects))
                     item.IsEnabled = hasEffects;
-                else if (item.Text == "应用效果")
+                else if (HasMenuCommand(item, MenuCommandApplyEffects))
                     item.IsEnabled = hasImage && hasEffects;
-                else if (item.Text == "撤销")
+                else if (HasMenuCommand(item, MenuCommandUndo))
                     item.IsEnabled = _effectsUndoStack.Count > 0;
-                else if (item.Text == "重做")
+                else if (HasMenuCommand(item, MenuCommandRedo))
                     item.IsEnabled = _effectsRedoStack.Count > 0;
             }
         }
@@ -1324,12 +1519,12 @@ public sealed partial class MainWindow : Window
             {
                 if (baseItem is MenuFlyoutItem item)
                 {
-                    if (item.Text == "扩展遮罩" || item.Text == "收缩遮罩")
+                    if (HasMenuCommand(item, MenuCommandExpandMask) || HasMenuCommand(item, MenuCommandContractMask))
                         item.IsEnabled = hasMaskContent;
-                    else if (item.Text == "发送到效果" || item.Text == "发送到超分")
+                    else if (HasMenuCommand(item, MenuCommandSendToPost) || HasMenuCommand(item, MenuCommandSendToUpscale))
                         item.IsEnabled = hasInpaintImage;
                 }
-                else if (baseItem is MenuFlyoutSubItem sub && sub.Text == "对齐图像")
+                else if (baseItem is MenuFlyoutSubItem sub && HasMenuCommand(sub, MenuCommandAlignImage))
                 {
                     sub.IsEnabled = hasImageLoaded;
                     foreach (var child in sub.Items)
@@ -1338,7 +1533,7 @@ public sealed partial class MainWindow : Window
                             childItem.IsEnabled = hasImageLoaded;
                     }
                 }
-                else if (baseItem is MenuFlyoutSubItem inferSub && inferSub.Text == "提示词推理")
+                else if (baseItem is MenuFlyoutSubItem inferSub && HasMenuCommand(inferSub, MenuCommandPromptInference))
                 {
                     inferSub.IsEnabled = hasInpaintImage;
                     foreach (var child in inferSub.Items)
@@ -1347,12 +1542,12 @@ public sealed partial class MainWindow : Window
                             childItem.IsEnabled = hasInpaintImage;
                     }
                 }
-                else if (baseItem is MenuFlyoutSubItem maskSub && maskSub.Text == "遮罩操作")
+                else if (baseItem is MenuFlyoutSubItem maskSub && HasMenuCommand(maskSub, MenuCommandMaskOps))
                 {
                     foreach (var child in maskSub.Items)
                     {
                         if (child is not MenuFlyoutItem childItem) continue;
-                        if (childItem.Text == "扩展遮罩" || childItem.Text == "收缩遮罩")
+                        if (HasMenuCommand(childItem, MenuCommandExpandMask) || HasMenuCommand(childItem, MenuCommandContractMask))
                             childItem.IsEnabled = hasMaskContent;
                         else
                             childItem.IsEnabled = !MaskCanvas.IsInPreviewMode;
@@ -1370,7 +1565,7 @@ public sealed partial class MainWindow : Window
 
         foreach (var baseItem in _menuTools.Items)
         {
-            if (baseItem is MenuFlyoutItem item && item.Text == "权重转换...")
+            if (baseItem is MenuFlyoutItem item && HasMenuCommand(item, MenuCommandWeightConverter))
                 item.IsEnabled = true;
         }
     }
@@ -1609,13 +1804,13 @@ public sealed partial class MainWindow : Window
 
     private void BuildInpaintEditMenuItems(MenuBarItem menu)
     {
-        var undoItem = new MenuFlyoutItem { Text = "撤销", Icon = new SymbolIcon(Symbol.Undo) };
+        var undoItem = CreateLocalizedMenuItem(MenuCommandUndo, "menu.edit.undo", new SymbolIcon(Symbol.Undo));
         undoItem.Click += OnUndo;
         undoItem.KeyboardAccelerators.Add(new KeyboardAccelerator
         { Modifiers = Windows.System.VirtualKeyModifiers.Control, Key = Windows.System.VirtualKey.Z });
         menu.Items.Add(undoItem);
 
-        var redoItem = new MenuFlyoutItem { Text = "重做", Icon = new SymbolIcon(Symbol.Redo) };
+        var redoItem = CreateLocalizedMenuItem(MenuCommandRedo, "menu.edit.redo", new SymbolIcon(Symbol.Redo));
         redoItem.Click += OnRedo;
         redoItem.KeyboardAccelerators.Add(new KeyboardAccelerator
         { Modifiers = Windows.System.VirtualKeyModifiers.Control, Key = Windows.System.VirtualKey.Y });
@@ -1623,72 +1818,66 @@ public sealed partial class MainWindow : Window
 
         menu.Items.Add(new MenuFlyoutSeparator());
 
-        var maskSub = new MenuFlyoutSubItem
-        {
-            Text = "遮罩操作",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE7C3" },
-        };
-        var fillItem = new MenuFlyoutItem
-        {
-            Text = "填充空白区域",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE771" },
-        };
+        var maskSub = CreateLocalizedSubItem(
+            MenuCommandMaskOps,
+            "menu.inpaint.mask_ops",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE7C3" });
+        var fillItem = CreateLocalizedMenuItem(
+            "fill_empty",
+            "menu.inpaint.fill_empty",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE771" });
         fillItem.Click += OnFillEmpty;
         fillItem.KeyboardAccelerators.Add(new KeyboardAccelerator
         { Modifiers = Windows.System.VirtualKeyModifiers.Control | Windows.System.VirtualKeyModifiers.Shift, Key = Windows.System.VirtualKey.I });
         maskSub.Items.Add(fillItem);
 
-        var invertItem = new MenuFlyoutItem
-        {
-            Text = "反转遮罩",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE895" },
-        };
+        var invertItem = CreateLocalizedMenuItem(
+            "invert_mask",
+            "menu.inpaint.invert_mask",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE895" });
         invertItem.Click += OnInvertMask;
         invertItem.KeyboardAccelerators.Add(new KeyboardAccelerator
         { Modifiers = Windows.System.VirtualKeyModifiers.Control, Key = Windows.System.VirtualKey.I });
         maskSub.Items.Add(invertItem);
 
-        var expandItem = new MenuFlyoutItem
-        {
-            Text = "扩展遮罩",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE744" },
-            KeyboardAcceleratorTextOverride = "Ctrl++",
-        };
+        var expandItem = CreateLocalizedMenuItem(
+            MenuCommandExpandMask,
+            "menu.inpaint.expand_mask",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE744" });
+        expandItem.KeyboardAcceleratorTextOverride = "Ctrl++";
         expandItem.Click += OnExpandMask;
         maskSub.Items.Add(expandItem);
 
-        var shrinkItem = new MenuFlyoutItem
-        {
-            Text = "收缩遮罩",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE743" },
-            KeyboardAcceleratorTextOverride = "Ctrl+-",
-        };
+        var shrinkItem = CreateLocalizedMenuItem(
+            MenuCommandContractMask,
+            "menu.inpaint.contract_mask",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE743" });
+        shrinkItem.KeyboardAcceleratorTextOverride = "Ctrl+-";
         shrinkItem.Click += OnShrinkMask;
         maskSub.Items.Add(shrinkItem);
 
-        var clearItem = new MenuFlyoutItem { Text = "清空遮罩", Icon = new SymbolIcon(Symbol.Delete) };
+        var clearItem = CreateLocalizedMenuItem("clear_mask", "menu.inpaint.clear_mask", new SymbolIcon(Symbol.Delete));
         clearItem.Click += OnClearMask;
         clearItem.KeyboardAccelerators.Add(new KeyboardAccelerator
         { Modifiers = Windows.System.VirtualKeyModifiers.Control, Key = Windows.System.VirtualKey.D });
         maskSub.Items.Add(clearItem);
         menu.Items.Add(maskSub);
 
-        var trimItem = new MenuFlyoutItem
-        {
-            Text = "修剪画布",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE7A8" },
-        };
+        var trimItem = CreateLocalizedMenuItem(
+            "trim_canvas",
+            "menu.inpaint.trim_canvas",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE7A8" });
         trimItem.Click += OnTrimCanvas;
         menu.Items.Add(trimItem);
 
         menu.Items.Add(new MenuFlyoutSeparator());
 
-        var alignSub = new MenuFlyoutSubItem { Text = "对齐图像" };
+        var alignSub = CreateLocalizedSubItem(MenuCommandAlignImage, "menu.inpaint.align_image");
         string[,] alignments =
         {
-            {"左上角","TL"}, {"顶部居中","TC"}, {"右上角","TR"},
-            {"-",""}, {"左侧居中","CL"}, {"居中","CC"}, {"右侧居中","CR"},
-            {"-",""}, {"左下角","BL"}, {"底部居中","BC"}, {"右下角","BR"},
+            {"align.top_left","TL"}, {"align.top_center","TC"}, {"align.top_right","TR"},
+            {"-",""}, {"align.center_left","CL"}, {"align.center","CC"}, {"align.center_right","CR"},
+            {"-",""}, {"align.bottom_left","BL"}, {"align.bottom_center","BC"}, {"align.bottom_right","BR"},
         };
         for (int i = 0; i < alignments.GetLength(0); i++)
         {
@@ -1696,7 +1885,7 @@ public sealed partial class MainWindow : Window
                 alignSub.Items.Add(new MenuFlyoutSeparator());
             else
             {
-                var ai = new MenuFlyoutItem { Text = alignments[i, 0], Tag = alignments[i, 1] };
+                var ai = new MenuFlyoutItem { Text = L(alignments[i, 0]), Tag = alignments[i, 1] };
                 ai.Click += OnAlign;
                 alignSub.Items.Add(ai);
             }
@@ -1707,90 +1896,80 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(BuildPresetResolutionSubMenu());
         menu.Items.Add(new MenuFlyoutSeparator());
 
-        var inferSub = new MenuFlyoutSubItem
-        {
-            Text = "提示词推理",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8A5" },
-        };
-        var inferGlobalItem = new MenuFlyoutItem
-        {
-            Text = "全局推理",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE9A6" },
-        };
+        var inferSub = CreateLocalizedSubItem(
+            MenuCommandPromptInference,
+            "menu.inpaint.prompt_inference",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8A5" });
+        var inferGlobalItem = CreateLocalizedMenuItem(
+            "infer_global",
+            "menu.inpaint.infer_global",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE9A6" });
         inferGlobalItem.Click += async (_, _) => await RunInpaintPromptInferenceAsync(canvasOnly: false);
         inferSub.Items.Add(inferGlobalItem);
 
-        var inferCanvasItem = new MenuFlyoutItem
-        {
-            Text = "画布推理",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE799" },
-        };
+        var inferCanvasItem = CreateLocalizedMenuItem(
+            "infer_canvas",
+            "menu.inpaint.infer_canvas",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE799" });
         inferCanvasItem.Click += async (_, _) => await RunInpaintPromptInferenceAsync(canvasOnly: true);
         inferSub.Items.Add(inferCanvasItem);
         menu.Items.Add(inferSub);
 
         menu.Items.Add(new MenuFlyoutSeparator());
 
-        var postItem = new MenuFlyoutItem
-        {
-            Text = "发送到效果",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" },
-        };
+        var postItem = CreateLocalizedMenuItem(
+            MenuCommandSendToPost,
+            "action.send_to_post",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" });
         postItem.Click += OnSendToEffectsFromInpaint;
         menu.Items.Add(postItem);
 
-        var upscaleItem = new MenuFlyoutItem
-        {
-            Text = "发送到超分",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uECE9" },
-        };
+        var upscaleItem = CreateLocalizedMenuItem(
+            MenuCommandSendToUpscale,
+            "action.send_to_upscale",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uECE9" });
         upscaleItem.Click += OnSendToUpscaleFromInpaint;
         menu.Items.Add(upscaleItem);
 
         menu.Items.Add(new MenuFlyoutSeparator());
 
-        var normalizeItem = new MenuFlyoutItem
-        {
-            Text = "提示词标准化...",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8D2" },
-        };
+        var normalizeItem = CreateLocalizedMenuItem(
+            MenuCommandNormalizePrompts,
+            "menu.edit.normalize_prompts",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8D2" });
         normalizeItem.Click += OnNormalizePrompts;
         menu.Items.Add(normalizeItem);
 
-        var randomStyleItem = new MenuFlyoutItem
-        {
-            Text = "随机风格提示词...",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B1" },
-        };
+        var randomStyleItem = CreateLocalizedMenuItem(
+            MenuCommandRandomStylePrompt,
+            "menu.edit.random_style_prompt",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B1" });
         randomStyleItem.Click += OnRandomStylePrompt;
         menu.Items.Add(randomStyleItem);
         menu.Items.Add(BuildPromptShortcutsMenuItem());
 
         menu.Items.Add(new MenuFlyoutSeparator());
-        var clearAllItem = new MenuFlyoutItem
-        {
-            Text = "清空所有提示词",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74D" },
-        };
+        var clearAllItem = CreateLocalizedMenuItem(
+            MenuCommandClearAllPrompts,
+            "menu.edit.clear_all_prompts",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74D" });
         clearAllItem.Click += OnClearAllPrompts;
         menu.Items.Add(clearAllItem);
 
-        var resetParamsItem = new MenuFlyoutItem
-        {
-            Text = "重置生成参数",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE777" },
-        };
+        var resetParamsItem = CreateLocalizedMenuItem(
+            MenuCommandResetGenerationParams,
+            "menu.edit.reset_generation_params",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE777" });
         resetParamsItem.Click += OnResetGenParams;
         menu.Items.Add(resetParamsItem);
     }
 
     private MenuFlyoutSubItem BuildPresetResolutionSubMenu()
     {
-        var presetSub = new MenuFlyoutSubItem
-        {
-            Text = "使用预设分辨率",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE740" },
-        };
+        var presetSub = CreateLocalizedSubItem(
+            "preset_resolution",
+            "menu.edit.preset_resolution",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE740" });
         foreach (var p in MaskCanvasControl.CanvasPresets)
         {
             string glyph = p.W == p.H
@@ -1812,11 +1991,10 @@ public sealed partial class MainWindow : Window
 
     private MenuFlyoutItem BuildPromptShortcutsMenuItem()
     {
-        var item = new MenuFlyoutItem
-        {
-            Text = "快捷提示词...",
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8A7" },
-        };
+        var item = CreateLocalizedMenuItem(
+            MenuCommandPromptShortcuts,
+            "menu.edit.prompt_shortcuts",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8A7" });
         item.Click += OnPromptShortcuts;
         return item;
     }
@@ -2183,19 +2361,19 @@ public sealed partial class MainWindow : Window
                 statusBlock.Text = "正在编码，请稍候...（消耗 2 Anlas）";
 
                 string imageBase64 = Convert.ToBase64String(selectedImageBytes);
-                DebugLog($"[氛围编码] 开始 | 模型={model} | IE={ie:0.00}");
+                DebugLog($"[VibeEncode] Start | Model={model} | IE={ie:0.00}");
                 var (vibeData, error) = await _naiService.EncodeVibeAsync(imageBase64, model, ie);
 
                 if (vibeData != null && vibeData.Length > 0)
                 {
                     string savePath = VibeCacheService.SaveVibe(cacheDir, selectedImageBytes, vibeData, ie, model);
-                    DebugLog($"[氛围编码] 完成 | 保存={savePath}");
+                    DebugLog($"[VibeEncode] Completed | Saved={savePath}");
                     statusBlock.Text = $"编码成功！已保存到:\n{savePath}";
                     _ = RefreshAnlasInfoAsync(forceRefresh: true);
                 }
                 else
                 {
-                    DebugLog($"[氛围编码] 失败: {error ?? "未知错误"}");
+                    DebugLog($"[VibeEncode] Failed: {error ?? "Unknown error"}");
                     statusBlock.Text = $"编码失败: {error ?? "未知错误"}";
                 }
 
@@ -3994,7 +4172,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             if (version != _effectsPreviewVersion) return;
-            DebugLog($"[效果] 预览失败: {ex}");
+            DebugLog($"[Effects] Preview failed: {ex}");
             TxtStatus.Text = $"效果预览失败: {ex.Message}";
         }
     }
@@ -8734,7 +8912,7 @@ public sealed partial class MainWindow : Window
         });
         aboutPanel.Children.Add(new TextBlock
         {
-            Text = "版本 Pre-Release 12",
+            Text = "版本 Pre-Release 13",
             Opacity = 0.7
         });
         aboutPanel.Children.Add(new TextBlock
@@ -9130,7 +9308,7 @@ public sealed partial class MainWindow : Window
     {
         var dir = Path.Combine(AppRootDir, "assets", "tagsheet");
         try { await _tagService.LoadFromDirectoryAsync(dir); }
-        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[标签] 加载失败: {ex.Message}"); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Tags] Load failed: {ex.Message}"); }
     }
 
     private void TriggerAutoComplete(TextBox textBox)
@@ -9439,7 +9617,7 @@ public sealed partial class MainWindow : Window
 
         taggerSettings.ModelPath = found;
         _settings.Save();
-        System.Diagnostics.Debug.WriteLine($"[反推] 自动检测到 tagger 模型: {found}");
+        System.Diagnostics.Debug.WriteLine($"[ReverseTagger] Auto-detected tagger model: {found}");
     }
 
     private static string? FindValidTaggerDir(string searchRoot)
@@ -9903,7 +10081,7 @@ public sealed partial class MainWindow : Window
                 return false;
             }
 
-            DebugLog($"[生图] 开始 | {w}x{h} | 模型={p.Model} | seed={actualSeed}");
+            DebugLog($"[Generate] Start | {w}x{h} | Model={p.Model} | Seed={actualSeed}");
 
             if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
             var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
@@ -9914,8 +10092,8 @@ public sealed partial class MainWindow : Window
                 chars, vibes, preciseReferences, ct);
             _lastUsedSeed = actualSeed;
 
-            if (error != null) { DebugLog($"[生图] API 错误: {error}"); TxtStatus.Text = error; return false; }
-            if (imageBytes == null) { DebugLog("[生图] API 返回为空"); TxtStatus.Text = "API 返回为空"; return false; }
+            if (error != null) { DebugLog($"[Generate] API error: {error}"); TxtStatus.Text = error; return false; }
+            if (imageBytes == null) { DebugLog("[Generate] API returned no image"); TxtStatus.Text = "API 返回为空"; return false; }
 
             byte[] finalBytes = imageBytes;
             string? originalSavedPath = await SaveToOutputAsync(imageBytes);
@@ -9946,14 +10124,14 @@ public sealed partial class MainWindow : Window
             }
             _ = RefreshAnlasInfoAsync(forceRefresh: true);
             UpdateDynamicMenuStates();
-            DebugLog($"[生图] 完成 | seed={actualSeed} | 保存={finalSavedPath}");
+            DebugLog($"[Generate] Completed | Seed={actualSeed} | Saved={finalSavedPath}");
             TxtStatus.Text = string.IsNullOrWhiteSpace(postSummary)
                 ? $"生成完成！已保存到: {finalSavedPath}"
                 : $"生成完成！已执行 {postSummary}，保存到: {finalSavedPath}";
             return true;
         }
-        catch (OperationCanceledException) { DebugLog("[生图] 已取消"); TxtStatus.Text = "生成已取消"; return false; }
-        catch (Exception ex) { DebugLog($"[生图] 失败: {ex}"); TxtStatus.Text = $"生成失败: {ex.Message}"; return false; }
+        catch (OperationCanceledException) { DebugLog("[Generate] Cancelled"); TxtStatus.Text = "生成已取消"; return false; }
+        catch (Exception ex) { DebugLog($"[Generate] Failed: {ex}"); TxtStatus.Text = $"生成失败: {ex.Message}"; return false; }
         finally
         {
             _generateRequestRunning = false;
@@ -10570,7 +10748,7 @@ public sealed partial class MainWindow : Window
             _cachedPrompt = prompt;
             _cachedNegPrompt = negPrompt;
 
-            DebugLog($"[重绘] 开始 | 模型={ip.Model} | seed={actualSeed}");
+            DebugLog($"[Inpaint] Start | Model={ip.Model} | Seed={actualSeed}");
 
             var resultBitmap = await SendInpaintRequestAsync(imageBase64, maskBase64, prompt, negPrompt, wildcardContext, ct);
             _lastUsedSeed = actualSeed;
@@ -10582,13 +10760,13 @@ public sealed partial class MainWindow : Window
             if (!keepGenerateButtonInteractive)
                 BtnGenerate.IsEnabled = true;
             _ = RefreshAnlasInfoAsync(forceRefresh: true);
-            DebugLog($"[重绘] 完成 | seed={actualSeed}");
+            DebugLog($"[Inpaint] Completed | Seed={actualSeed}");
             TxtStatus.Text = "生成完成！";
             return true;
         }
         catch (OperationCanceledException)
         {
-            DebugLog("[重绘] 已取消");
+            DebugLog("[Inpaint] Cancelled");
             TxtStatus.Text = "生成已取消";
             if (!keepGenerateButtonInteractive)
                 BtnGenerate.IsEnabled = true;
@@ -10596,7 +10774,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            DebugLog($"[重绘] 失败: {ex}");
+            DebugLog($"[Inpaint] Failed: {ex}");
             TxtStatus.Text = $"生成失败: {ex.Message}";
             if (!keepGenerateButtonInteractive)
                 BtnGenerate.IsEnabled = true;
@@ -10630,8 +10808,8 @@ public sealed partial class MainWindow : Window
             MaskCanvas.CanvasW, MaskCanvas.CanvasH,
             prompt, negPrompt, chars, vibes, preciseReferences, ct);
 
-        if (error != null) { DebugLog($"[重绘] API 错误: {error}"); TxtStatus.Text = error; BtnGenerate.IsEnabled = true; return null; }
-        if (imageBytes == null) { DebugLog("[重绘] API 返回为空"); TxtStatus.Text = "API 返回为空"; BtnGenerate.IsEnabled = true; return null; }
+        if (error != null) { DebugLog($"[Inpaint] API error: {error}"); TxtStatus.Text = error; BtnGenerate.IsEnabled = true; return null; }
+        if (imageBytes == null) { DebugLog("[Inpaint] API returned no image"); TxtStatus.Text = "API 返回为空"; BtnGenerate.IsEnabled = true; return null; }
 
         _pendingResultBytes = imageBytes;
         _pendingResultBitmap?.Dispose();
@@ -10941,7 +11119,7 @@ public sealed partial class MainWindow : Window
 
         string modeLabel = canvasOnly ? "画布推理" : "全局推理";
         TxtStatus.Text = $"正在执行{modeLabel}...";
-        DebugLog($"[重绘提示词推理] 开始 | 模式={modeLabel}");
+        DebugLog($"[InpaintPromptInfer] Start | Mode={modeLabel}");
 
         try
         {
@@ -10958,12 +11136,12 @@ public sealed partial class MainWindow : Window
             int totalTags = result.GeneralTags.Count +
                             (_settings.Settings.ReverseTagger.AddCharacterTags ? result.CharacterTags.Count : 0) +
                             (_settings.Settings.ReverseTagger.AddCopyrightTags ? result.CopyrightTags.Count : 0);
-            DebugLog($"[重绘提示词推理] 完成 | 模式={modeLabel} | 保留风格标签={preservedArtistTags.Count} | 标签数={totalTags}");
+            DebugLog($"[InpaintPromptInfer] Completed | Mode={modeLabel} | PreservedStyleTags={preservedArtistTags.Count} | TagCount={totalTags}");
             TxtStatus.Text = $"{modeLabel}完成，已替换主提示词中的非风格标签";
         }
         catch (Exception ex)
         {
-            DebugLog($"[重绘提示词推理] 失败: {ex}");
+            DebugLog($"[InpaintPromptInfer] Failed: {ex}");
             TxtStatus.Text = $"{modeLabel}失败: {ex.Message}";
         }
         finally
@@ -11126,7 +11304,7 @@ public sealed partial class MainWindow : Window
         SetInspectPrimaryAction(InspectPrimaryAction.InferTags, false);
         BtnSendToGenText.Text = "正在反推...";
         TxtStatus.Text = "正在使用反推模型分析图片...";
-        DebugLog($"[反推] 开始 | 模型={_settings.Settings.ReverseTagger.ModelPath}");
+        DebugLog($"[ReverseTagger] Start | Model={_settings.Settings.ReverseTagger.ModelPath}");
 
         try
         {
@@ -11147,12 +11325,12 @@ public sealed partial class MainWindow : Window
             int totalTags = result.GeneralTags.Count +
                             (_settings.Settings.ReverseTagger.AddCharacterTags ? result.CharacterTags.Count : 0) +
                             (_settings.Settings.ReverseTagger.AddCopyrightTags ? result.CopyrightTags.Count : 0);
-            DebugLog($"[反推] 完成 | 提供器={result.ExecutionProvider} | 标签数={totalTags}");
+            DebugLog($"[ReverseTagger] Completed | Provider={result.ExecutionProvider} | TagCount={totalTags}");
             TxtStatus.Text = $"反推完成，已使用 {result.ExecutionProvider}，共识别 {totalTags} 个标签";
         }
         catch (Exception ex)
         {
-            DebugLog($"[反推] 失败: {ex}");
+            DebugLog($"[ReverseTagger] Failed: {ex}");
             SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
             TxtStatus.Text = $"反推失败: {ex.Message}";
         }
@@ -12560,10 +12738,10 @@ public sealed partial class MainWindow : Window
             var inputBytes = _upscaleInputImageBytes;
             bool preferCpu = CboUpscaleDevice.SelectedIndex == 1;
 
-            DebugLog($"[超分] 开始 | 模型={modelInfo.DisplayName} | 设备={( preferCpu ? "CPU" : "GPU优先")} | 输入={_upscaleSourceWidth}x{_upscaleSourceHeight}");
+            DebugLog($"[Upscale] Start | Model={modelInfo.DisplayName} | Device={(preferCpu ? "CPU" : "Prefer GPU")} | Input={_upscaleSourceWidth}x{_upscaleSourceHeight}");
 
             await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath, preferCpu));
-            DebugLog($"[超分] 模型已加载 | 提供器={_upscaleService.ExecutionProvider} | 倍率={_upscaleService.ModelScale}x");
+            DebugLog($"[Upscale] Model loaded | Provider={_upscaleService.ExecutionProvider} | Scale={_upscaleService.ModelScale}x");
             TxtStatus.Text = "正在超分…";
 
             var progress = new Progress<double>(p =>
@@ -12589,14 +12767,14 @@ public sealed partial class MainWindow : Window
             UpdateUpscaleResolutionDisplay();
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
                 () => FitUpscalePreviewToScreen());
-            DebugLog($"[超分] 完成 | 结果={_upscaleSourceWidth}x{_upscaleSourceHeight} | 提供器={_upscaleService.ExecutionProvider}");
+            DebugLog($"[Upscale] Completed | Output={_upscaleSourceWidth}x{_upscaleSourceHeight} | Provider={_upscaleService.ExecutionProvider}");
             TxtStatus.Text = $"超分完成 ({_upscaleSourceWidth}×{_upscaleSourceHeight}) | {_upscaleService.ExecutionProvider}";
 
             await PromptSaveUpscaleResultAsync(resultBytes);
         }
         catch (Exception ex)
         {
-            DebugLog($"[超分] 失败: {ex}");
+            DebugLog($"[Upscale] Failed: {ex}");
             TxtStatus.Text = $"超分失败: {ex.Message}";
         }
         finally
