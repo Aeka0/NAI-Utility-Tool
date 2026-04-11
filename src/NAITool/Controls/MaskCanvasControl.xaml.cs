@@ -293,6 +293,8 @@ public sealed partial class MaskCanvasControl : UserControl
     public void PerformUndo()
     {
         var current = _document.GetMaskSnapshot();
+        if (current == null) return;
+
         var snapshot = _undoManager.Undo(current, _document.ImageOffset);
         if (snapshot.HasValue)
         {
@@ -305,6 +307,8 @@ public sealed partial class MaskCanvasControl : UserControl
     public void PerformRedo()
     {
         var current = _document.GetMaskSnapshot();
+        if (current == null) return;
+
         var snapshot = _undoManager.Redo(current, _document.ImageOffset);
         if (snapshot.HasValue)
         {
