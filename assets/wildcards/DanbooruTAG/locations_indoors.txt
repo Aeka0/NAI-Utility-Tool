@@ -1,0 +1,36 @@
+bathroom
+bathtub
+toilet stall
+shower
+bedroom
+hotel room
+messy room
+otaku room
+cafeteria
+changing room
+classroom
+clubroom
+conservatory
+courtroom
+dining room
+dressing room
+dungeon
+prison cell
+fitting room
+gym
+locker room
+gym storeroom
+infirmary
+kitchen
+laboratory
+library
+living room
+office
+cubicle
+pool
+stage
+staff room
+storage room
+armory
+closet
+workshop

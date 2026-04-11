@@ -1,0 +1,53 @@
+airfield
+runway
+amusement park
+carousel
+ferris wheel
+roller coaster
+aqueduct
+bridge
+rope bridge
+wooden bridge
+canal
+city
+floating city
+rural
+town
+village
+dam
+dock
+drydock
+shipyard
+garden
+graveyard
+jetty
+field
+flower field
+rice paddy
+wheat field
+fountain
+harbor
+market
+market stall
+pier
+phone booth
+pool
+poolside
+waterpark
+railroad tracks
+railroad crossing
+road
+alley
+crosswalk
+dirt road
+highway
+path
+sidewalk
+stone walkway
+street
+soccer field
+running track
+trench
+tunnel
+well
+zoo

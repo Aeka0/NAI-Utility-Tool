@@ -30,9 +30,11 @@ Write-Host "复制数据文件..." -ForegroundColor Green
 $AssetsDir = Join-Path $PublishDir "assets"
 New-Item -ItemType Directory -Force (Join-Path $AssetsDir "Splash")   | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $AssetsDir "tagsheet") | Out-Null
+New-Item -ItemType Directory -Force (Join-Path $AssetsDir "wildcards") | Out-Null
 
 Copy-Item -Force "$RootDir\assets\Splash\*"          (Join-Path $AssetsDir "Splash")
 Copy-Item -Force "$RootDir\assets\tagsheet\*.csv"     (Join-Path $AssetsDir "tagsheet")
+Copy-Item -Recurse -Force "$RootDir\assets\wildcards\*" (Join-Path $AssetsDir "wildcards")
 
 $ModelsUpscalerDir = Join-Path $PublishDir "models\upscaler"
 New-Item -ItemType Directory -Force $ModelsUpscalerDir | Out-Null
@@ -49,7 +51,7 @@ New-Item -ItemType Directory -Force (Join-Path $UserDir "vibe")              | O
 
 Copy-Item -Force "$RootDir\assets\fxpresets\*.json" (Join-Path $UserDir "fxpresets")
 
-$WildcardsSrc = Join-Path $RootDir "assets\stable-diffusion-webui-wildcards\wildcards"
+$WildcardsSrc = Join-Path $RootDir "assets\wildcards"
 if (Test-Path $WildcardsSrc) {
     Copy-Item -Recurse -Force "$WildcardsSrc\*" (Join-Path $UserDir "wildcards")
 }
