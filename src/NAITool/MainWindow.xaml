@@ -272,17 +272,34 @@
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
 
-                            <Grid x:Name="PromptTabRow" Grid.Row="1">
-                                <StackPanel Orientation="Horizontal" Spacing="0"
-                                            HorizontalAlignment="Left">
+                            <Grid x:Name="PromptTabRow" Grid.Row="1" ColumnSpacing="8"
+                                  SizeChanged="OnPromptTabRowSizeChanged">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid Grid.Column="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
                                     <ToggleButton x:Name="TabPositive" Content=""
+                                                  Grid.Column="0"
                                                   IsChecked="True" Click="OnPromptTabSwitch"
+                                                  HorizontalAlignment="Stretch"
+                                                  HorizontalContentAlignment="Center"
+                                                  MinWidth="0"
                                                   CornerRadius="4,0,0,4"/>
                                     <ToggleButton x:Name="TabNegative" Content=""
+                                                  Grid.Column="1"
                                                   Click="OnPromptTabSwitch"
+                                                  HorizontalAlignment="Stretch"
+                                                  HorizontalContentAlignment="Center"
+                                                  MinWidth="0"
                                                   CornerRadius="0,4,4,0"/>
-                                </StackPanel>
-                                <ToggleButton x:Name="BtnSplitPrompt" HorizontalAlignment="Right"
+                                </Grid>
+                                <ToggleButton x:Name="BtnSplitPrompt" Grid.Column="1"
+                                              HorizontalAlignment="Right"
                                               Click="OnSplitPromptToggle"
                                               ToolTipService.ToolTip=""
                                               Width="32" Height="32" Padding="0">

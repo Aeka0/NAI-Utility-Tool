@@ -769,8 +769,8 @@
   "character.label": "Char {0}",
   "inspect.character_prompts": "Character Prompts",
   "inspect.character_negative_prompts": "Character Negative Prompts",
-  "prompt.positive_compact": "Positive",
+  "prompt.positive_compact": "Pos. Prompt",
   "prompt.positive_compact_character": "Pos.",
-  "prompt.negative_compact": "Negative",
+  "prompt.negative_compact": "Neg. Prompt",
   "prompt.negative_compact_character": "Neg."
 }

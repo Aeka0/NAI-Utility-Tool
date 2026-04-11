@@ -374,6 +374,7 @@ public sealed partial class MainWindow
 
     private void OnLeftPanelScrollViewerSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        UpdatePromptTabText();
         UpdatePromptAreaHeight();
     }
 

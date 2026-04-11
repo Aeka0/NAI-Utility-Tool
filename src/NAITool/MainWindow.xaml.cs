@@ -99,6 +99,8 @@ public sealed partial class MainWindow : Window
     private string _inpaintStylePrompt = "";
     private bool _isPositiveTab = true;
     private bool _isSplitPrompt;
+    private bool? _promptTabsUsingCompact;
+    private string _promptTabLanguageCode = "";
 
     // ═══ 角色提示词 ═══
     private readonly List<CharacterEntry> _genCharacters = new();
@@ -412,7 +414,11 @@ public sealed partial class MainWindow : Window
 
     private void OnAppLanguageChanged(object? sender, EventArgs e)
     {
+        if (IsPromptMode(_currentMode))
+            SaveCurrentPromptToBuffer();
+
         ApplyLocalization();
+        RefreshLocalizedDynamicInterface();
         ReplaceEditMenu();
         ReplaceToolMenu();
         RefreshVibeTransferPanel();
@@ -478,8 +484,7 @@ public sealed partial class MainWindow : Window
         TabUpscale.Content = L("mode.upscale");
         TabEffects.Content = L("mode.post");
         TabInspect.Content = L("mode.inspect");
-        TabPositive.Content = L("prompt.positive");
-        TabNegative.Content = L("prompt.negative");
+        UpdatePromptTabText();
 
         ToolTipService.SetToolTip(BtnSplitPrompt, L("tooltip.split_prompt"));
         TxtStylePrompt.PlaceholderText = L("prompt.style_placeholder");
@@ -541,6 +546,74 @@ public sealed partial class MainWindow : Window
         TxtBrushSizeLabel.Text = L("inpaint.brush_size");
 
         TxtStatus.Text = L("status.ready");
+    }
+
+    private static TextBlock CreateTabHeaderText(string text, double fontSize = 13)
+    {
+        return new TextBlock
+        {
+            Text = text,
+            FontSize = fontSize,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextAlignment = TextAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+    }
+
+    private void UpdatePromptTabText()
+    {
+        if (TabPositive == null || TabNegative == null)
+            return;
+
+        string code = LocalizationService.NormalizeLanguageCode(_settings.Settings.LanguageCode);
+        bool useCompact = ShouldUseCompactPromptTabText();
+        if (_promptTabsUsingCompact == useCompact && _promptTabLanguageCode == code)
+            return;
+
+        TabPositive.Content = CreateTabHeaderText(L(useCompact ? "prompt.positive_compact" : "prompt.positive"));
+        TabNegative.Content = CreateTabHeaderText(L(useCompact ? "prompt.negative_compact" : "prompt.negative"));
+        _promptTabsUsingCompact = useCompact;
+        _promptTabLanguageCode = code;
+    }
+
+    private bool ShouldUseCompactPromptTabText()
+    {
+        string code = LocalizationService.NormalizeLanguageCode(_settings.Settings.LanguageCode);
+        double threshold = code switch
+        {
+            "en_us" => 116,
+            "ja_jp" => 136,
+            _ => 0,
+        };
+
+        if (threshold <= 0)
+            return false;
+
+        double availableWidth = PromptTabRow?.ActualWidth ?? 0;
+        if (availableWidth < 1)
+            availableWidth = (PanelLeftMain?.ActualWidth ?? MainContentGrid?.ColumnDefinitions[0].ActualWidth ?? 300) - 24;
+
+        double reservedRight = BtnSplitPrompt?.Visibility == Visibility.Visible ? 40 : 0;
+        double perTabWidth = Math.Max(0, (availableWidth - reservedRight) / 2.0);
+        return perTabWidth < threshold;
+    }
+
+    private void RefreshLocalizedDynamicInterface()
+    {
+        if (IsPromptMode(_currentMode))
+        {
+            LoadPromptFromBuffer();
+            UpdateSplitVisibility();
+        }
+
+        RefreshCharacterPanel();
+        SetInspectPrimaryAction(_inspectPrimaryAction, BtnSendToGen.IsEnabled);
+        SetUpscaleButtonText(_upscaleRunning ? L("button.upscaling") : L("button.start_upscale"));
+        UpdatePromptTabText();
+        UpdateAutoGenUI();
+        UpdateGenerateButtonWarning();
+        UpdateInpaintRedoButtonWarning();
     }
 
     private void OnLanguageChanged(object sender, RoutedEventArgs e)
@@ -1082,8 +1155,9 @@ public sealed partial class MainWindow : Window
 
         double currentX = e.GetCurrentPoint(MainContentGrid).Position.X;
         double newWidth = _leftSidebarStartWidth + (currentX - _leftSidebarDragStartX);
-        newWidth = Math.Clamp(newWidth, 280, 720);
+        newWidth = Math.Clamp(newWidth, 283, 720);
         MainContentGrid.ColumnDefinitions[0].Width = new GridLength(newWidth);
+        UpdatePromptTabText();
         e.Handled = true;
     }
 
@@ -6777,6 +6851,12 @@ public sealed partial class MainWindow : Window
         bool showSplit = _isSplitPrompt && _isPositiveTab;
         StylePromptGrid.Visibility = showSplit ? Visibility.Visible : Visibility.Collapsed;
         BtnSplitPrompt.Visibility = _isPositiveTab ? Visibility.Visible : Visibility.Collapsed;
+        UpdatePromptTabText();
+    }
+
+    private void OnPromptTabRowSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdatePromptTabText();
     }
 
     private static string MergeStyleAndMain(string style, string main)
@@ -6970,7 +7050,15 @@ public sealed partial class MainWindow : Window
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var tabPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0 };
+        var tabPanel = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        tabPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        tabPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        tabPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
         var rootGrid = (Grid)this.Content;
         var collapseBtn = CreateCharacterCollapseButton(entry.IsCollapsed);
         Grid.SetColumn(collapseBtn, 0);
@@ -6982,23 +7070,31 @@ public sealed partial class MainWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
             Style = (Style)rootGrid.Resources["InspectCaptionStyle"],
+            TextTrimming = TextTrimming.CharacterEllipsis,
         };
+        Grid.SetColumn(label, 0);
         tabPanel.Children.Add(label);
 
         var tabPos = new Microsoft.UI.Xaml.Controls.Primitives.ToggleButton
         {
-            Content = L("prompt.positive_compact_character"), IsChecked = entry.IsPositiveTab,
+            Content = CreateTabHeaderText(L("prompt.positive_compact_character"), 11), IsChecked = entry.IsPositiveTab,
             CornerRadius = new CornerRadius(4, 0, 0, 4),
             MinWidth = 0, Height = 26, Padding = new Thickness(8, 2, 8, 2),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
             FontSize = 11,
         };
         var tabNeg = new Microsoft.UI.Xaml.Controls.Primitives.ToggleButton
         {
-            Content = L("prompt.negative_compact_character"), IsChecked = !entry.IsPositiveTab,
+            Content = CreateTabHeaderText(L("prompt.negative_compact_character"), 11), IsChecked = !entry.IsPositiveTab,
             CornerRadius = new CornerRadius(0, 4, 4, 0),
             MinWidth = 0, Height = 26, Padding = new Thickness(8, 2, 8, 2),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
             FontSize = 11,
         };
+        Grid.SetColumn(tabPos, 1);
+        Grid.SetColumn(tabNeg, 2);
         tabPanel.Children.Add(tabPos);
         tabPanel.Children.Add(tabNeg);
         Grid.SetColumn(tabPanel, 1);
