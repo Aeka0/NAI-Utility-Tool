@@ -116,6 +116,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public bool IsActivelyDrawing => _isDrawing || _isRectDrawing || _isPanning || _isImageDragging;
     public bool IsInPreviewMode => _previewBitmap != null;
+    public bool IsImageFileDropEnabled { get; set; } = true;
 
     /// <summary>导入图片的原始文件路径（用于"保存"覆盖写回）。</summary>
     public string? LoadedFilePath => _loadedFilePath;
@@ -1099,6 +1100,9 @@ public sealed partial class MaskCanvasControl : UserControl
 
     private void OnDragOver(object sender, DragEventArgs e)
     {
+        if (!IsImageFileDropEnabled)
+            return;
+
         if (e.DataView.Contains(StandardDataFormats.StorageItems))
         {
             e.AcceptedOperation = DataPackageOperation.Copy;
@@ -1108,6 +1112,9 @@ public sealed partial class MaskCanvasControl : UserControl
 
     private async void OnDrop(object sender, DragEventArgs e)
     {
+        if (!IsImageFileDropEnabled)
+            return;
+
         if (!e.DataView.Contains(StandardDataFormats.StorageItems)) return;
         var items = await e.DataView.GetStorageItemsAsync();
         foreach (var item in items)

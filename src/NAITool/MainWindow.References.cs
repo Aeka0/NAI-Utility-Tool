@@ -433,6 +433,17 @@ public sealed partial class MainWindow
     private async Task<VibeTransferEntry?> CreateVibeTransferEntryAsync()
     {
         var picked = await PickVibeTransferSourceAsync();
+        return CreateVibeTransferEntry(picked);
+    }
+
+    private async Task<PreciseReferenceEntry?> CreatePreciseReferenceEntryAsync()
+    {
+        var picked = await PickReferenceImageAsync();
+        return CreatePreciseReferenceEntry(picked);
+    }
+
+    private VibeTransferEntry? CreateVibeTransferEntry(VibePickResult? picked)
+    {
         if (picked == null)
             return null;
 
@@ -447,9 +458,8 @@ public sealed partial class MainWindow
         };
     }
 
-    private async Task<PreciseReferenceEntry?> CreatePreciseReferenceEntryAsync()
+    private PreciseReferenceEntry? CreatePreciseReferenceEntry((string FileName, string ImageBase64)? picked)
     {
-        var picked = await PickReferenceImageAsync();
         if (picked == null)
             return null;
 
@@ -474,6 +484,11 @@ public sealed partial class MainWindow
         if (file == null)
             return null;
 
+        return await CreateReferenceImagePickResultAsync(file);
+    }
+
+    private async Task<(string FileName, string ImageBase64)?> CreateReferenceImagePickResultAsync(StorageFile file)
+    {
         byte[]? pngBytes = await ReadImageFileAsPngAsync(file);
         if (pngBytes == null || pngBytes.Length == 0)
         {
@@ -516,6 +531,11 @@ public sealed partial class MainWindow
         if (file == null)
             return null;
 
+        return await CreateVibeTransferPickResultAsync(file);
+    }
+
+    private async Task<VibePickResult?> CreateVibeTransferPickResultAsync(StorageFile file)
+    {
         if (file.FileType.Equals(".naiv4vibe", StringComparison.OrdinalIgnoreCase))
         {
             byte[] bytes = await File.ReadAllBytesAsync(file.Path);
@@ -557,6 +577,38 @@ public sealed partial class MainWindow
 
         return new VibePickResult(file.Name, originalBase64, IsEncodedFile: false,
             ImageHash: imageHash, OriginalBase64: originalBase64);
+    }
+
+    private async Task AddDroppedVibeTransferAsync(StorageFile file)
+    {
+        if (!CanEditVibeTransferFeature() || _genVibeTransfers.Count >= MaxVibeTransfers)
+            return;
+
+        var newEntry = CreateVibeTransferEntry(await CreateVibeTransferPickResultAsync(file));
+        if (newEntry == null)
+            return;
+
+        _genVibeTransfers.Add(newEntry);
+        RefreshVibeTransferPanel();
+        UpdateReferenceButtonAndPanelState();
+        UpdateGenerateButtonWarning();
+        TxtStatus.Text = Lf("references.status.added_vibe", newEntry.FileName);
+    }
+
+    private async Task AddDroppedPreciseReferenceAsync(StorageFile file)
+    {
+        if (!CanEditPreciseReferenceFeature() || _genPreciseReferences.Count >= MaxPreciseReferences)
+            return;
+
+        var newEntry = CreatePreciseReferenceEntry(await CreateReferenceImagePickResultAsync(file));
+        if (newEntry == null)
+            return;
+
+        _genPreciseReferences.Add(newEntry);
+        RefreshPreciseReferencePanel();
+        UpdateReferenceButtonAndPanelState();
+        UpdateGenerateButtonWarning();
+        TxtStatus.Text = Lf("references.status.added_precise", newEntry.FileName);
     }
 
     private static async Task<byte[]?> ReadImageFileAsPngAsync(StorageFile file)

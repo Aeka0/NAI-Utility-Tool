@@ -23,6 +23,7 @@ using NAITool.Controls;
 using NAITool.Models;
 using NAITool.Services;
 using SkiaSharp;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Graphics;
 using Windows.Storage;
@@ -35,6 +36,7 @@ namespace NAITool;
 public enum AppMode { ImageGeneration, Inpaint, Upscale, Effects, Inspect }
 public enum PromptWeightFormat { StableDiffusion, NaiClassic, NaiNumeric }
 public enum PromptGeneratorOutputMode { BooruTags, BooruTagsWithNaturalLanguage, NaturalLanguage }
+public enum SuperDropAction { GeneratePrompt, GenerateVibe, GeneratePrecise, InpaintPrompt, InpaintVibe, InpaintPrecise, Upscale, Effects, Inspect }
 
 public sealed class ResizeHandle : Microsoft.UI.Xaml.Controls.Grid
 {
@@ -337,6 +339,7 @@ public sealed partial class MainWindow : Window
         };
         MaskCanvas.StatusMessage += m => TxtStatus.Text = m;
         MaskCanvas.ImageFileLoaded += OnMaskCanvasImageFileLoaded;
+        ApplyDragDropModeSetting();
 
         ThumbnailCanvas.CustomDevice = CanvasDevice.GetSharedDevice();
 
@@ -385,6 +388,244 @@ public sealed partial class MainWindow : Window
     private string L(string key) => _loc.GetString(key);
 
     private string Lf(string key, params object?[] args) => _loc.Format(key, args);
+
+    private bool IsSuperDropEnabled => _settings.Settings.SuperDropEnabled;
+
+    private void ApplyDragDropModeSetting()
+    {
+        bool useLegacyDrop = !IsSuperDropEnabled;
+
+        RootGrid.AllowDrop = IsSuperDropEnabled;
+        GenPreviewArea.AllowDrop = useLegacyDrop;
+        InspectPreviewArea.AllowDrop = useLegacyDrop;
+        EffectsPreviewArea.AllowDrop = useLegacyDrop;
+        UpscalePreviewArea.AllowDrop = useLegacyDrop;
+        MaskCanvas.AllowDrop = useLegacyDrop;
+        MaskCanvas.IsImageFileDropEnabled = useLegacyDrop;
+
+        if (!IsSuperDropEnabled)
+            HideSuperDropOverlay();
+    }
+
+    private bool TryAcceptImageFileDrag(DragEventArgs e)
+    {
+        if (IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
+            return false;
+
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        return true;
+    }
+
+    private async Task<StorageFile?> GetFirstDroppedImageFileAsync(DragEventArgs e, bool includeBmp)
+    {
+        if (IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
+            return null;
+
+        var items = await e.DataView.GetStorageItemsAsync();
+        foreach (var item in items)
+        {
+            if (item is StorageFile file && IsSupportedDroppedImageFile(file, includeBmp))
+                return file;
+        }
+
+        return null;
+    }
+
+    private static bool IsSupportedDroppedImageFile(StorageFile file, bool includeBmp)
+    {
+        string ext = file.FileType;
+        return ext.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".webp", StringComparison.OrdinalIgnoreCase) ||
+               (includeBmp && ext.Equals(".bmp", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ShowSuperDropOverlay()
+    {
+        if (!IsSuperDropEnabled)
+            return;
+
+        SuperDropOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void HideSuperDropOverlay()
+    {
+        if (SuperDropOverlay != null)
+            SuperDropOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private bool TryAcceptSuperDropDrag(DragEventArgs e)
+    {
+        if (!IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
+            return false;
+
+        ShowSuperDropOverlay();
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        e.Handled = true;
+        return true;
+    }
+
+    private void OnSuperDropDragEnter(object sender, DragEventArgs e)
+    {
+        TryAcceptSuperDropDrag(e);
+    }
+
+    private void OnSuperDropDragOver(object sender, DragEventArgs e)
+    {
+        TryAcceptSuperDropDrag(e);
+    }
+
+    private void OnSuperDropDragLeave(object sender, DragEventArgs e)
+    {
+        if (!IsSuperDropEnabled || SuperDropOverlay.Visibility != Visibility.Visible)
+            return;
+
+        var p = e.GetPosition(RootGrid);
+        if (p.X < 0 || p.Y < 0 || p.X > RootGrid.ActualWidth || p.Y > RootGrid.ActualHeight)
+            HideSuperDropOverlay();
+    }
+
+    private void OnSuperDropCardDragOver(object sender, DragEventArgs e)
+    {
+        TryAcceptSuperDropDrag(e);
+    }
+
+    private void OnSuperDropRootDrop(object sender, DragEventArgs e)
+    {
+        if (!IsSuperDropEnabled)
+            return;
+
+        HideSuperDropOverlay();
+        e.Handled = true;
+    }
+
+    private async void OnSuperDropCardDrop(object sender, DragEventArgs e)
+    {
+        if (!IsSuperDropEnabled)
+            return;
+
+        HideSuperDropOverlay();
+        e.Handled = true;
+
+        if (sender is not FrameworkElement { Tag: string actionText } ||
+            !Enum.TryParse(actionText, out SuperDropAction action))
+            return;
+
+        var file = await GetFirstSuperDropFileAsync(e);
+        if (file == null)
+        {
+            TxtStatus.Text = L("superdrop.unsupported_file");
+            return;
+        }
+        if (!IsSupportedSuperDropFile(file, action))
+        {
+            TxtStatus.Text = L("superdrop.unsupported_file");
+            return;
+        }
+
+        await ExecuteSuperDropActionAsync(action, file);
+    }
+
+    private async Task<StorageFile?> GetFirstSuperDropFileAsync(DragEventArgs e)
+    {
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+            return null;
+
+        var items = await e.DataView.GetStorageItemsAsync();
+        foreach (var item in items)
+        {
+            if (item is StorageFile file)
+                return file;
+        }
+
+        return null;
+    }
+
+    private static bool IsSupportedSuperDropFile(StorageFile file, SuperDropAction action)
+    {
+        string ext = file.FileType;
+        if ((action == SuperDropAction.GenerateVibe || action == SuperDropAction.InpaintVibe) &&
+            ext.Equals(".naiv4vibe", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return ext.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".webp", StringComparison.OrdinalIgnoreCase) ||
+               ext.Equals(".bmp", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task ExecuteSuperDropActionAsync(SuperDropAction action, StorageFile file)
+    {
+        try
+        {
+            switch (action)
+            {
+                case SuperDropAction.GeneratePrompt:
+                    SwitchMode(AppMode.ImageGeneration);
+                    await ApplySuperDropGenerationPromptAsync(file);
+                    break;
+                case SuperDropAction.GenerateVibe:
+                    SwitchMode(AppMode.ImageGeneration);
+                    await AddDroppedVibeTransferAsync(file);
+                    break;
+                case SuperDropAction.GeneratePrecise:
+                    SwitchMode(AppMode.ImageGeneration);
+                    await AddDroppedPreciseReferenceAsync(file);
+                    break;
+                case SuperDropAction.InpaintPrompt:
+                    SwitchMode(AppMode.Inpaint);
+                    await MaskCanvas.LoadImageAsync(file);
+                    await ApplySuperDropInpaintPromptAsync(file);
+                    break;
+                case SuperDropAction.InpaintVibe:
+                    SwitchMode(AppMode.Inpaint);
+                    await AddDroppedVibeTransferAsync(file);
+                    break;
+                case SuperDropAction.InpaintPrecise:
+                    SwitchMode(AppMode.Inpaint);
+                    await AddDroppedPreciseReferenceAsync(file);
+                    break;
+                case SuperDropAction.Upscale:
+                    SwitchMode(AppMode.Upscale);
+                    await LoadUpscaleImageAsync(file.Path);
+                    break;
+                case SuperDropAction.Effects:
+                    SwitchMode(AppMode.Effects);
+                    await LoadEffectsImageAsync(file.Path);
+                    break;
+                case SuperDropAction.Inspect:
+                    SwitchMode(AppMode.Inspect);
+                    await LoadInspectImageAsync(file.Path);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            TxtStatus.Text = Lf("superdrop.failed", ex.Message);
+        }
+    }
+
+    private async Task ApplySuperDropGenerationPromptAsync(StorageFile file)
+    {
+        byte[] bytes = await File.ReadAllBytesAsync(file.Path);
+        var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
+        if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat || meta.IsModelInference))
+            ApplyMetadataToGeneration(meta);
+        else
+            TxtStatus.Text = Lf("metadata.no_usable_generation_metadata", file.Name);
+    }
+
+    private async Task ApplySuperDropInpaintPromptAsync(StorageFile file)
+    {
+        byte[] bytes = await File.ReadAllBytesAsync(file.Path);
+        var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
+        if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat))
+            ApplyMetadataToInpaint(meta, file.Name);
+        else
+            TxtStatus.Text = Lf("metadata.no_usable_generation_metadata", file.Name);
+    }
 
     private static bool HasMenuCommand(MenuFlyoutItem item, string commandId) =>
         string.Equals(item.Tag as string, commandId, StringComparison.Ordinal);
@@ -540,6 +781,17 @@ public sealed partial class MainWindow : Window
         InspectImagePlaceholder.Text = L("placeholder.drop_or_open");
         EffectsImagePlaceholder.Text = L("placeholder.drop_or_open");
         UpscalePlaceholder.Text = L("placeholder.upscale");
+        TxtSuperDropTitle.Text = L("superdrop.title");
+        TxtSuperDropHint.Text = L("superdrop.hint");
+        TxtSuperDropGeneratePrompt.Text = L("superdrop.generate_prompt");
+        TxtSuperDropGenerateVibe.Text = L("superdrop.generate_vibe");
+        TxtSuperDropGeneratePrecise.Text = L("superdrop.generate_precise");
+        TxtSuperDropInpaintPrompt.Text = L("superdrop.inpaint_prompt");
+        TxtSuperDropInpaintVibe.Text = L("superdrop.inpaint_vibe");
+        TxtSuperDropInpaintPrecise.Text = L("superdrop.inpaint_precise");
+        TxtSuperDropUpscale.Text = L("superdrop.upscale");
+        TxtSuperDropEffects.Text = L("superdrop.effects");
+        TxtSuperDropInspect.Text = L("superdrop.inspect");
         TxtHistoryTitle.Text = L("history.title");
         HistoryDatePicker.PlaceholderText = L("history.select_date");
 
@@ -9923,6 +10175,11 @@ public sealed partial class MainWindow : Window
             Content = L("settings.usage.remember_prompt"),
             IsChecked = _settings.Settings.RememberPromptAndParameters,
         };
+        var chkSuperDrop = new CheckBox
+        {
+            Content = L("settings.usage.superdrop"),
+            IsChecked = _settings.Settings.SuperDropEnabled,
+        };
         var chkWildcardsEnabled = new CheckBox
         {
             Content = L("settings.usage.wildcards_enabled"),
@@ -9938,6 +10195,7 @@ public sealed partial class MainWindow : Window
         panel.Children.Add(chkWeightHighlight);
         panel.Children.Add(chkAutoComplete);
         panel.Children.Add(chkRememberPromptAndParameters);
+        panel.Children.Add(chkSuperDrop);
         panel.Children.Add(chkWildcardsEnabled);
         panel.Children.Add(chkWildcardExplicitSyntax);
 
@@ -9957,6 +10215,7 @@ public sealed partial class MainWindow : Window
             _settings.Settings.WeightHighlight = chkWeightHighlight.IsChecked == true;
             _settings.Settings.AutoComplete = chkAutoComplete.IsChecked == true;
             _settings.Settings.RememberPromptAndParameters = chkRememberPromptAndParameters.IsChecked == true;
+            _settings.Settings.SuperDropEnabled = chkSuperDrop.IsChecked == true;
             _settings.Settings.WildcardsEnabled = chkWildcardsEnabled.IsChecked == true;
             _settings.Settings.WildcardsRequireExplicitSyntax = chkWildcardExplicitSyntax.IsChecked == true;
             if (!_settings.Settings.AutoComplete) CloseAutoComplete();
@@ -9971,6 +10230,7 @@ public sealed partial class MainWindow : Window
                 ClearRememberedPromptState();
             }
             _settings.Save();
+            ApplyDragDropModeSetting();
             UpdatePromptHighlights();
             TxtStatus.Text = L("settings.usage.saved");
         }
@@ -10845,29 +11105,17 @@ public sealed partial class MainWindow : Window
 
     private void OnGenPreviewDragOver(object sender, DragEventArgs e)
     {
-        if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        TryAcceptImageFileDrag(e);
     }
 
     private async void OnGenPreviewDrop(object sender, DragEventArgs e)
     {
-        if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+        var file = await GetFirstDroppedImageFileAsync(e, includeBmp: false);
+        if (file == null)
             return;
 
-        var items = await e.DataView.GetStorageItemsAsync();
-        foreach (var item in items)
-        {
-            if (item is StorageFile file &&
-                (file.FileType.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".webp", StringComparison.OrdinalIgnoreCase)))
-            {
-                var bytes = await File.ReadAllBytesAsync(file.Path);
-                await ApplyDroppedImageMetadata(bytes, file.Name);
-                return;
-            }
-        }
+        var bytes = await File.ReadAllBytesAsync(file.Path);
+        await ApplyDroppedImageMetadata(bytes, file.Name);
     }
 
     private async Task ApplyDroppedImageMetadata(byte[] bytes, string fileName, bool skipSeed = false)
@@ -12342,56 +12590,41 @@ public sealed partial class MainWindow : Window
 
     private void OnInspectDragOver(object sender, DragEventArgs e)
     {
-        if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        TryAcceptImageFileDrag(e);
     }
 
     private async void OnInspectDrop(object sender, DragEventArgs e)
     {
-        if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+        if (IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
             return;
 
-        var items = await e.DataView.GetStorageItemsAsync();
-        foreach (var item in items)
+        var file = await GetFirstDroppedImageFileAsync(e, includeBmp: false);
+        if (file != null)
         {
-            if (item is StorageFile file &&
-                (file.FileType.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".webp", StringComparison.OrdinalIgnoreCase)))
-            {
-                await LoadInspectImageAsync(file.Path);
-                return;
-            }
+            await LoadInspectImageAsync(file.Path);
+            return;
         }
+
         TxtStatus.Text = L("common.unsupported_file_format_inspect");
     }
 
     private void OnEffectsDragOver(object sender, DragEventArgs e)
     {
-        if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        TryAcceptImageFileDrag(e);
     }
 
     private async void OnEffectsDrop(object sender, DragEventArgs e)
     {
-        if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+        if (IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
             return;
 
-        var items = await e.DataView.GetStorageItemsAsync();
-        foreach (var item in items)
+        var file = await GetFirstDroppedImageFileAsync(e, includeBmp: true);
+        if (file != null)
         {
-            if (item is StorageFile file &&
-                (file.FileType.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".webp", StringComparison.OrdinalIgnoreCase)))
-            {
-                await LoadEffectsImageAsync(file.Path);
-                return;
-            }
+            await LoadEffectsImageAsync(file.Path);
+            return;
         }
+
         TxtStatus.Text = L("common.unsupported_file_format_post");
     }
 
@@ -13090,29 +13323,21 @@ public sealed partial class MainWindow : Window
 
     private void OnUpscaleDragOver(object sender, DragEventArgs e)
     {
-        if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        TryAcceptImageFileDrag(e);
     }
 
     private async void OnUpscaleDrop(object sender, DragEventArgs e)
     {
-        if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+        if (IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
             return;
 
-        var items = await e.DataView.GetStorageItemsAsync();
-        foreach (var item in items)
+        var file = await GetFirstDroppedImageFileAsync(e, includeBmp: true);
+        if (file != null)
         {
-            if (item is StorageFile file &&
-                (file.FileType.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
-                 file.FileType.Equals(".webp", StringComparison.OrdinalIgnoreCase)))
-            {
-                await LoadUpscaleImageAsync(file.Path);
-                return;
-            }
+            await LoadUpscaleImageAsync(file.Path);
+            return;
         }
+
         TxtStatus.Text = L("file.unsupported_format_upscale");
     }
 
