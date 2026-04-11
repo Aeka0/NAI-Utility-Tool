@@ -490,6 +490,7 @@
     "metadata.applied":  "已从 {0} 应用元数据",
     "metadata.applied_with_notes":  "已从 {0} 应用元数据（{1}）",
     "metadata.drop_no_nai_data":  "已拖入 {0}，但未找到可用的 NAI 元数据",
+    "metadata.no_usable_generation_metadata":  "未在 {0} 中找到可用的生成元数据。",
     "metadata.note.quality_extracted":  "已提取质量词并启用「添加质量词」",
     "metadata.note.seed_skipped":  "已跳过种子",
     "metadata.note.skipped":  "已跳过: {0}",

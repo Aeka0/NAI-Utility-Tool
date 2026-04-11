@@ -490,6 +490,7 @@
     "metadata.applied":  "{0} からメタデータを適用しました",
     "metadata.applied_with_notes":  "{0} からメタデータを適用しました（{1}）",
     "metadata.drop_no_nai_data":  "{0} をドロップしましたが、有効な NAI メタデータは見つかりませんでした",
+    "metadata.no_usable_generation_metadata":  "{0} に利用可能な生成メタデータが見つかりませんでした。",
     "metadata.note.quality_extracted":  "品質タグを抽出し「品質タグを追加」を有効化しました",
     "metadata.note.seed_skipped":  "シードをスキップしました",
     "metadata.note.skipped":  "スキップ: {0}",

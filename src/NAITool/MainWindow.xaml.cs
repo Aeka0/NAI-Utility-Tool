@@ -7981,22 +7981,26 @@ public sealed partial class MainWindow : Window
             {
                 await LoadEffectsImageAsync(file.Path);
             }
+            else if (_currentMode == AppMode.Upscale)
+            {
+                await LoadUpscaleImageAsync(file.Path);
+            }
             else if (_currentMode == AppMode.Inpaint)
             {
                 await MaskCanvas.LoadImageAsync(file);
             }
-            else
+            else if (_currentMode == AppMode.ImageGeneration)
             {
                 try
                 {
-                    var bitmapImage = new BitmapImage();
-                    using var stream = await file.OpenReadAsync();
-                    await bitmapImage.SetSourceAsync(stream);
-                    GenPreviewImage.Source = bitmapImage;
-                    GenPlaceholder.Visibility = Visibility.Collapsed;
-                    TxtStatus.Text = Lf("file.loaded_path", file.Path);
+                    var bytes = await File.ReadAllBytesAsync(file.Path);
+                    var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
+                    if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat || meta.IsModelInference))
+                        ApplyMetadataToGeneration(meta);
+                    else
+                        TxtStatus.Text = Lf("metadata.no_usable_generation_metadata", file.Name);
                 }
-                catch (Exception ex) { TxtStatus.Text = Lf("common.load_failed", ex.Message); }
+                catch (Exception ex) { TxtStatus.Text = Lf("common.read_failed", ex.Message); }
             }
         }
     }
@@ -10619,10 +10623,7 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        _isUpdatingMaxSize = true;
-        NbMaxWidth.Value = _customWidth;
-        NbMaxHeight.Value = _customHeight;
-        _isUpdatingMaxSize = false;
+        SetSizeInputsSilently(_customWidth, _customHeight);
         if (!skipSeed) NbSeed.Value = p.Seed;
         ChkVariety.IsChecked = p.Variety;
 
@@ -11835,7 +11836,13 @@ public sealed partial class MainWindow : Window
         }
 
         if (_inspectMetadata == null) return;
-        var meta = _inspectMetadata;
+        ApplyMetadataToGeneration(_inspectMetadata);
+    }
+
+    private void ApplyMetadataToGeneration(ImageMetadata meta)
+    {
+        SwitchMode(AppMode.ImageGeneration);
+
         bool maxMode = _settings.Settings.MaxMode;
         var skipped = new List<string>();
         var notes = new List<string>();
@@ -11867,7 +11874,6 @@ public sealed partial class MainWindow : Window
         {
             _genCharacters.Clear();
             ClearReferenceFeatures();
-            SwitchMode(AppMode.ImageGeneration);
             RefreshCharacterPanel();
             LoadPromptFromBuffer();
             UpdateSplitVisibility();
@@ -11916,11 +11922,9 @@ public sealed partial class MainWindow : Window
             _genCharacters.Clear();
         ApplyReferenceDataFromMetadata(meta);
 
-        SwitchMode(AppMode.ImageGeneration);
         RefreshCharacterPanel();
 
-        NbMaxWidth.Value = _customWidth;
-        NbMaxHeight.Value = _customHeight;
+        SetSizeInputsSilently(_customWidth, _customHeight);
         NbSeed.Value = p.Seed;
         ChkVariety.IsChecked = p.Variety;
         if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();

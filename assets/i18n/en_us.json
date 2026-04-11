@@ -490,6 +490,7 @@
   "metadata.applied": "Applied metadata from {0}",
   "metadata.applied_with_notes": "Applied metadata from {0} ({1})",
   "metadata.drop_no_nai_data": "Dropped {0}, but no usable NAI metadata was found.",
+  "metadata.no_usable_generation_metadata": "No usable generation metadata was found in {0}.",
   "metadata.note.quality_extracted": "Extracted quality tags and enabled Add Quality Tags",
   "metadata.note.seed_skipped": "Skipped seed",
   "metadata.note.skipped": "Skipped: {0}",
