@@ -31,6 +31,7 @@ public class NovelAiAccountInfo
     public int? AnlasBalance { get; init; }
     public string TierName { get; init; } = "";
     public bool IsOpus { get; init; }
+    public bool HasActiveSubscription { get; init; }
     public int? TierLevel { get; init; }
     public string? ExpiresAt { get; init; }
 }
@@ -44,6 +45,7 @@ public class NovelAIService : IDisposable
     private const string EncodeVibeUrl = "https://image.novelai.net/ai/encode-vibe";
     private const string UserInfoUrl = "https://api.novelai.net/user/information";
     private const string UserDataUrl = "https://api.novelai.net/user/data";
+    private const string TextChatCompletionUrl = "https://text.novelai.net/oa/v1/chat/completions";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -199,6 +201,14 @@ public class NovelAIService : IDisposable
             Debug.WriteLine($"[NAI] subscription.tier = {tier}");
 
             bool isOpus = tier.HasValue && tier.Value >= 3;
+            bool hasActiveField = TryGetPropertyIgnoreCase(sub, "active", out var activeEl);
+            bool active = !hasActiveField || activeEl.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.String => bool.TryParse(activeEl.GetString(), out bool value) && value,
+                _ => false,
+            };
             string tierName = tier switch
             {
                 0 => "Paper",
@@ -240,19 +250,28 @@ public class NovelAIService : IDisposable
             }
 
             string? expiresAt = null;
+            bool expired = false;
             if (TryGetPropertyIgnoreCase(sub, "expiresAt", out var expiresEl) && expiresEl.ValueKind == JsonValueKind.Number)
             {
                 long ts = expiresEl.GetInt64();
-                expiresAt = DateTimeOffset.FromUnixTimeSeconds(ts).ToLocalTime().ToString("yyyy-MM-dd");
+                if (ts > 10_000_000_000L)
+                    ts /= 1000;
+
+                var expiresAtOffset = DateTimeOffset.FromUnixTimeSeconds(ts);
+                expired = expiresAtOffset <= DateTimeOffset.UtcNow;
+                expiresAt = expiresAtOffset.ToLocalTime().ToString("yyyy-MM-dd");
             }
 
-            Debug.WriteLine($"[NAI] Parsed account info: tier={tier}, tierName={tierName}, isOpus={isOpus}, anlas={anlas}, expires={expiresAt}");
+            bool hasActiveSubscription = tier.HasValue && tier.Value > 0 && active && !expired;
+
+            Debug.WriteLine($"[NAI] Parsed account info: tier={tier}, tierName={tierName}, active={active}, expired={expired}, isOpus={isOpus}, anlas={anlas}, expires={expiresAt}");
 
             return new NovelAiAccountInfo
             {
                 AnlasBalance = anlas,
                 TierName = tierName,
                 IsOpus = isOpus,
+                HasActiveSubscription = hasActiveSubscription,
                 TierLevel = tier,
                 ExpiresAt = expiresAt,
             };
@@ -958,6 +977,165 @@ public class NovelAIService : IDisposable
         {
             stopwatch.Stop();
             WriteRequestLog("Vibe encoding", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, Lf("api.error.request_failed", ex.Message));
+        }
+    }
+
+    private static string? ExtractOpenAiTextResponse(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        if (TryGetPropertyIgnoreCase(root, "choices", out var choices) &&
+            choices.ValueKind == JsonValueKind.Array &&
+            choices.GetArrayLength() > 0)
+        {
+            var first = choices[0];
+
+            // standard chat completions: choices[0].message.content
+            if (TryGetNestedElement(first, out var messageContent, "message", "content") &&
+                messageContent.ValueKind == JsonValueKind.String)
+                return messageContent.GetString();
+
+            // streaming chat completions: choices[0].delta.content
+            if (TryGetNestedElement(first, out var deltaContent, "delta", "content") &&
+                deltaContent.ValueKind == JsonValueKind.String)
+                return deltaContent.GetString();
+
+            // standard completions: choices[0].text
+            if (TryGetPropertyIgnoreCase(first, "text", out var text) &&
+                text.ValueKind == JsonValueKind.String)
+                return text.GetString();
+        }
+
+        if (TryGetPropertyIgnoreCase(root, "generated_text", out var generatedText) &&
+            generatedText.ValueKind == JsonValueKind.String)
+            return generatedText.GetString();
+
+        if (TryGetPropertyIgnoreCase(root, "output", out var output) &&
+            output.ValueKind == JsonValueKind.String)
+            return output.GetString();
+
+        return null;
+    }
+
+    public async Task<(string? Text, string? Error)> GeneratePromptTextAsync(
+        string instruction, string model, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+            return (null, L("api.error.token_missing_network_api"));
+
+        var messages = new[]
+        {
+            new Dictionary<string, string> { ["role"] = "user", ["content"] = instruction },
+        };
+        var payload = new Dictionary<string, object>
+        {
+            ["model"] = model,
+            ["messages"] = messages,
+            ["temperature"] = 0.7,
+            ["top_p"] = 0.95,
+            ["max_tokens"] = 320,
+            ["stream"] = true,
+        };
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            var client = GetOrCreateClient();
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+            var json = JsonSerializer.Serialize(payload, JsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, TextChatCompletionUrl) { Content = content };
+            var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = await response.Content.ReadAsStringAsync(ct);
+                stopwatch.Stop();
+                WriteRequestLog("Prompt text generation", payload, stopwatch.ElapsedMilliseconds, response, errorText);
+                return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
+            }
+
+            var textBuilder = new StringBuilder();
+            using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+
+            string? line;
+            while ((line = await reader.ReadLineAsync(ct)) != null)
+            {
+                if (!line.StartsWith("data:", StringComparison.Ordinal))
+                    continue;
+
+                var data = line.AsSpan(5).Trim().ToString();
+                if (data.Length == 0 || data == "[DONE]")
+                    continue;
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(data);
+                    var root = doc.RootElement;
+
+                    if (!TryGetPropertyIgnoreCase(root, "choices", out var choices) ||
+                        choices.ValueKind != JsonValueKind.Array || choices.GetArrayLength() == 0)
+                        continue;
+
+                    var first = choices[0];
+
+                    if (TryGetPropertyIgnoreCase(first, "text", out var textEl) &&
+                        textEl.ValueKind == JsonValueKind.String)
+                    {
+                        var chunk = textEl.GetString();
+                        if (!string.IsNullOrEmpty(chunk))
+                            textBuilder.Append(chunk);
+                    }
+
+                    if (TryGetNestedElement(first, out var deltaContent, "delta", "content") &&
+                        deltaContent.ValueKind == JsonValueKind.String)
+                    {
+                        var chunk = deltaContent.GetString();
+                        if (!string.IsNullOrEmpty(chunk))
+                            textBuilder.Append(chunk);
+                    }
+                }
+                catch { /* 跳过格式异常的 chunk */ }
+            }
+
+            stopwatch.Stop();
+            var result = textBuilder.ToString();
+
+            var logPayloadCopy = new Dictionary<string, object>(payload) { ["_streaming_result_length"] = result.Length };
+            WriteRequestLog("Prompt text generation (streaming)", logPayloadCopy, stopwatch.ElapsedMilliseconds, response, result);
+
+            if (!string.IsNullOrWhiteSpace(result))
+                return (result, null);
+
+            Debug.WriteLine($"[NAI] 提示词生成：流式响应未包含可解析的文本内容");
+            return (null, L("api.error.empty_text_response"));
+        }
+        catch (TaskCanceledException ex)
+        {
+            stopwatch.Stop();
+            WriteRequestLog("Prompt text generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, L("api.error.request_cancelled"));
+        }
+        catch (HttpRequestException ex)
+        {
+            stopwatch.Stop();
+            WriteRequestLog("Prompt text generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            var msg = Lf("api.error.network_failed", ex.Message);
+            if (ex.Message.Contains("proxy", StringComparison.OrdinalIgnoreCase))
+                msg += L("api.error.proxy_hint");
+            return (null, msg);
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            WriteRequestLog("Prompt text generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
             return (null, Lf("api.error.request_failed", ex.Message));
         }
     }

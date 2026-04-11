@@ -161,7 +161,7 @@
                     <MenuFlyoutSeparator/>
                     <MenuFlyoutSubItem x:Name="MenuLanguage" Text="">
                         <MenuFlyoutSubItem.Icon>
-                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE909;"/>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF2B7;"/>
                         </MenuFlyoutSubItem.Icon>
                         <ToggleMenuFlyoutItem x:Name="MenuLanguageEnglish" Text="English"
                                               Click="OnLanguageChanged" Tag="en_us"/>
