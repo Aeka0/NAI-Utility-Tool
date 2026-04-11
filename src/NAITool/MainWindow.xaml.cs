@@ -18,6 +18,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using NAITool.Controls;
 using NAITool.Models;
@@ -214,6 +215,8 @@ public sealed partial class MainWindow : Window
     private int _historyLoadedCount;
     private const int HistoryPageSize = 40;
     private bool _historyLoadingMore;
+    private bool _superDropOverlayVisible;
+    private int _superDropDragVersion;
 
     // ═══ 预览拖拽 ═══
     private bool _imgDragging;
@@ -446,13 +449,138 @@ public sealed partial class MainWindow : Window
         if (!IsSuperDropEnabled)
             return;
 
+        if (_superDropOverlayVisible)
+            return;
+
+        _superDropOverlayVisible = true;
         SuperDropOverlay.Visibility = Visibility.Visible;
+        SuperDropOverlay.Opacity = 0;
+        SuperDropCardsHost.Opacity = 0;
+        SuperDropCardsScale.ScaleX = 0.96;
+        SuperDropCardsScale.ScaleY = 0.96;
+        AnimateDouble(SuperDropOverlay, "Opacity", 1, 180);
+        AnimateDouble(SuperDropCardsHost, "Opacity", 1, 220);
+        AnimateDouble(SuperDropCardsScale, "ScaleX", 1, 220);
+        AnimateDouble(SuperDropCardsScale, "ScaleY", 1, 220);
     }
 
     private void HideSuperDropOverlay()
     {
-        if (SuperDropOverlay != null)
-            SuperDropOverlay.Visibility = Visibility.Collapsed;
+        if (SuperDropOverlay == null || !_superDropOverlayVisible)
+            return;
+
+        _superDropOverlayVisible = false;
+        ResetSuperDropCardHighlights();
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(CreateDoubleAnimation(SuperDropOverlay, "Opacity", 0, 120));
+        storyboard.Children.Add(CreateDoubleAnimation(SuperDropCardsHost, "Opacity", 0, 100));
+        storyboard.Children.Add(CreateDoubleAnimation(SuperDropCardsScale, "ScaleX", 0.98, 120));
+        storyboard.Children.Add(CreateDoubleAnimation(SuperDropCardsScale, "ScaleY", 0.98, 120));
+        storyboard.Completed += (_, _) =>
+        {
+            if (!_superDropOverlayVisible)
+                SuperDropOverlay.Visibility = Visibility.Collapsed;
+        };
+        storyboard.Begin();
+    }
+
+    private static DoubleAnimation CreateDoubleAnimation(DependencyObject target, string property, double to, int milliseconds)
+    {
+        var animation = new DoubleAnimation
+        {
+            To = to,
+            Duration = new Duration(TimeSpan.FromMilliseconds(milliseconds)),
+            EnableDependentAnimation = true,
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        };
+        Storyboard.SetTarget(animation, target);
+        Storyboard.SetTargetProperty(animation, property);
+        return animation;
+    }
+
+    private static void AnimateDouble(DependencyObject target, string property, double to, int milliseconds)
+    {
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(CreateDoubleAnimation(target, property, to, milliseconds));
+        storyboard.Begin();
+    }
+
+    private void AnimateSuperDropCardHover(Border card, bool isHovering)
+    {
+        if (card.Child is not Grid grid || grid.Children.Count == 0 || grid.Children[0] is not Border highlight)
+            return;
+
+        AnimateDouble(highlight, "Opacity", isHovering ? 0.22 : 0, 130);
+        card.BorderThickness = isHovering ? new Thickness(2) : new Thickness(1);
+    }
+
+    private void ResetSuperDropCardHighlights()
+    {
+        foreach (var card in EnumerateSuperDropCards())
+            AnimateSuperDropCardHover(card, false);
+    }
+
+    private IEnumerable<Border> EnumerateSuperDropCards()
+    {
+        if (SuperDropCardsHost == null)
+            yield break;
+
+        var stack = new Stack<DependencyObject>();
+        stack.Push(SuperDropCardsHost);
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            int count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(current);
+            for (int i = 0; i < count; i++)
+            {
+                var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(current, i);
+                if (child is Border { Tag: string })
+                    yield return (Border)child;
+                stack.Push(child);
+            }
+        }
+    }
+
+    private void ScheduleSuperDropDragCancelCheck()
+    {
+        int version = _superDropDragVersion;
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(140);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            if (_superDropDragVersion == version && _superDropOverlayVisible)
+                HideSuperDropOverlay();
+        };
+        timer.Start();
+    }
+
+    private void OnSuperDropCardPointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Border card)
+            AnimateSuperDropCardHover(card, true);
+    }
+
+    private void OnSuperDropCardPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Border card)
+            AnimateSuperDropCardHover(card, false);
+    }
+
+    private void OnSuperDropCardDragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is Border card)
+            AnimateSuperDropCardHover(card, false);
+
+        var p = e.GetPosition(RootGrid);
+        if (p.X < 0 || p.Y < 0 || p.X > RootGrid.ActualWidth || p.Y > RootGrid.ActualHeight)
+            HideSuperDropOverlay();
+        else
+            ScheduleSuperDropDragCancelCheck();
+
+        e.Handled = true;
     }
 
     private bool TryAcceptSuperDropDrag(DragEventArgs e)
@@ -460,6 +588,7 @@ public sealed partial class MainWindow : Window
         if (!IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
             return false;
 
+        _superDropDragVersion++;
         ShowSuperDropOverlay();
         e.AcceptedOperation = DataPackageOperation.Copy;
         e.Handled = true;
@@ -484,11 +613,17 @@ public sealed partial class MainWindow : Window
         var p = e.GetPosition(RootGrid);
         if (p.X < 0 || p.Y < 0 || p.X > RootGrid.ActualWidth || p.Y > RootGrid.ActualHeight)
             HideSuperDropOverlay();
+        else
+            ScheduleSuperDropDragCancelCheck();
     }
 
     private void OnSuperDropCardDragOver(object sender, DragEventArgs e)
     {
-        TryAcceptSuperDropDrag(e);
+        if (TryAcceptSuperDropDrag(e) && sender is Border card)
+        {
+            ResetSuperDropCardHighlights();
+            AnimateSuperDropCardHover(card, true);
+        }
     }
 
     private void OnSuperDropRootDrop(object sender, DragEventArgs e)
@@ -781,8 +916,6 @@ public sealed partial class MainWindow : Window
         InspectImagePlaceholder.Text = L("placeholder.drop_or_open");
         EffectsImagePlaceholder.Text = L("placeholder.drop_or_open");
         UpscalePlaceholder.Text = L("placeholder.upscale");
-        TxtSuperDropTitle.Text = L("superdrop.title");
-        TxtSuperDropHint.Text = L("superdrop.hint");
         TxtSuperDropGeneratePrompt.Text = L("superdrop.generate_prompt");
         TxtSuperDropGenerateVibe.Text = L("superdrop.generate_vibe");
         TxtSuperDropGeneratePrecise.Text = L("superdrop.generate_precise");

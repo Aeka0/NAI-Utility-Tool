@@ -22,20 +22,39 @@
                 <Setter Property="Margin" Value="0,4,0,0"/>
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}"/>
             </Style>
+            <LinearGradientBrush x:Key="SuperDropGlassBackground" StartPoint="0.6,0" EndPoint="0.4,1">
+                <GradientStop Color="#1AFFFFFF" Offset="0.0"/>
+                <GradientStop Color="#0AFFFFFF" Offset="1.0"/>
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="SuperDropGlassBorder" StartPoint="0.6,0" EndPoint="0.4,1">
+                <GradientStop Color="#4DFFFFFF" Offset="0.0"/>
+                <GradientStop Color="#26FFFFFF" Offset="0.5"/>
+                <GradientStop Color="#1AFFFFFF" Offset="1.0"/>
+            </LinearGradientBrush>
+
             <Style x:Key="SuperDropCardStyle" TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
-                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+                <Setter Property="Background" Value="{StaticResource SuperDropGlassBackground}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource SuperDropGlassBorder}"/>
                 <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="Padding" Value="16"/>
+                <Setter Property="CornerRadius" Value="16"/>
+                <Setter Property="Padding" Value="0"/>
             </Style>
             <Style x:Key="SuperDropCardTextStyle" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="22"/>
+                <Setter Property="FontSize" Value="16"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="TextAlignment" Value="Center"/>
                 <Setter Property="TextWrapping" Value="WrapWholeWords"/>
                 <Setter Property="HorizontalAlignment" Value="Center"/>
                 <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+            </Style>
+            <Style x:Key="SuperDropCardIconStyle" TargetType="FontIcon">
+                <Setter Property="FontFamily" Value="{StaticResource SymbolThemeFontFamily}"/>
+                <Setter Property="FontSize" Value="36"/>
+                <Setter Property="HorizontalAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <Setter Property="Margin" Value="0,0,0,12"/>
             </Style>
         </Grid.Resources>
         <Grid.RowDefinitions>
@@ -1168,37 +1187,36 @@
         <Grid x:Name="SuperDropOverlay"
               Grid.RowSpan="3"
               Visibility="Collapsed"
+              Opacity="0"
               AllowDrop="True"
               DragOver="OnSuperDropDragOver"
               DragLeave="OnSuperDropDragLeave"
               Drop="OnSuperDropRootDrop">
-            <Grid.Background>
-                <AcrylicBrush TintColor="Black"
-                              TintOpacity="0.66"
-                              FallbackColor="#D0000000"/>
-            </Grid.Background>
-            <Grid HorizontalAlignment="Center"
+            <!-- 模糊层：如果遇到透明区域，会使用 Transparent 回退，避免黑块 -->
+            <Border>
+                <Border.Background>
+                    <AcrylicBrush TintColor="Black"
+                                  TintOpacity="0.0"
+                                  TintLuminosityOpacity="0"
+                                  FallbackColor="Transparent"/>
+                </Border.Background>
+            </Border>
+            <!-- 压暗层：提供统一的 25% 黑色遮罩，确保空白区域和内容区域亮度一致 -->
+            <Border Background="#40000000"/>
+            
+            <Grid x:Name="SuperDropCardsHost"
+                  HorizontalAlignment="Center"
                   VerticalAlignment="Center"
-                  MaxWidth="820"
-                  Margin="28">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,18" HorizontalAlignment="Center">
-                    <TextBlock x:Name="TxtSuperDropTitle"
-                               Text=""
-                               FontSize="28"
-                               FontWeight="SemiBold"
-                               TextAlignment="Center"/>
-                    <TextBlock x:Name="TxtSuperDropHint"
-                               Text=""
-                               FontSize="13"
-                               TextAlignment="Center"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                </StackPanel>
+                  MaxWidth="760"
+                  MaxHeight="760"
+                  Opacity="0"
+                  Margin="28"
+                  RenderTransformOrigin="0.5,0.5">
+                <Grid.RenderTransform>
+                    <ScaleTransform x:Name="SuperDropCardsScale" ScaleX="0.96" ScaleY="0.96"/>
+                </Grid.RenderTransform>
 
-                <Viewbox Grid.Row="1"
+                <Viewbox
                          Stretch="Uniform"
                          MaxWidth="720"
                          MaxHeight="720">
@@ -1214,32 +1232,86 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource SuperDropCardStyle}" Tag="GeneratePrompt" AllowDrop="True" DragOver="OnSuperDropCardDragOver" Drop="OnSuperDropCardDrop">
-                            <TextBlock x:Name="TxtSuperDropGeneratePrompt" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                        <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource SuperDropCardStyle}" Tag="GeneratePrompt" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                            <Grid>
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                                    <FontIcon Glyph="&#xE91B;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <TextBlock x:Name="TxtSuperDropGeneratePrompt" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
-                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource SuperDropCardStyle}" Tag="GenerateVibe" AllowDrop="True" DragOver="OnSuperDropCardDragOver" Drop="OnSuperDropCardDrop">
-                            <TextBlock x:Name="TxtSuperDropGenerateVibe" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource SuperDropCardStyle}" Tag="GenerateVibe" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                            <Grid>
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                                    <FontIcon Glyph="&#xEB9F;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <TextBlock x:Name="TxtSuperDropGenerateVibe" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
-                        <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource SuperDropCardStyle}" Tag="GeneratePrecise" AllowDrop="True" DragOver="OnSuperDropCardDragOver" Drop="OnSuperDropCardDrop">
-                            <TextBlock x:Name="TxtSuperDropGeneratePrecise" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                        <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource SuperDropCardStyle}" Tag="GeneratePrecise" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                            <Grid>
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                                    <FontIcon Glyph="&#xF158;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <TextBlock x:Name="TxtSuperDropGeneratePrecise" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
-                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource SuperDropCardStyle}" Tag="InpaintPrompt" AllowDrop="True" DragOver="OnSuperDropCardDragOver" Drop="OnSuperDropCardDrop">
-                            <TextBlock x:Name="TxtSuperDropInpaintPrompt" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource SuperDropCardStyle}" Tag="InpaintPrompt" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                            <Grid>
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                                    <FontIcon Glyph="&#xEDFB;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <TextBlock x:Name="TxtSuperDropInpaintPrompt" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
-                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource SuperDropCardStyle}" Tag="InpaintVibe" AllowDrop="True" DragOver="OnSuperDropCardDragOver" Drop="OnSuperDropCardDrop">
-                            <TextBlock x:Name="TxtSuperDropInpaintVibe" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource SuperDropCardStyle}" Tag="InpaintVibe" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                            <Grid>
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                                    <FontIcon Glyph="&#xE771;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <TextBlock x:Name="TxtSuperDropInpaintVibe" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
-                        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource SuperDropCardStyle}" Tag="InpaintPrecise" AllowDrop="True" DragOver="OnSuperDropCardDragOver" Drop="OnSuperDropCardDrop">
-                            <TextBlock x:Name="TxtSuperDropInpaintPrecise" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource SuperDropCardStyle}" Tag="InpaintPrecise" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                            <Grid>
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                                    <FontIcon Glyph="&#xEBD2;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <TextBlock x:Name="TxtSuperDropInpaintPrecise" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
-                        <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource SuperDropCardStyle}" Tag="Upscale" AllowDrop="True" DragOver="OnSuperDropCardDragOver" Drop="OnSuperDropCardDrop">
-                            <TextBlock x:Name="TxtSuperDropUpscale" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                        <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource SuperDropCardStyle}" Tag="Upscale" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                            <Grid>
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                                    <FontIcon Glyph="&#xECE9;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <TextBlock x:Name="TxtSuperDropUpscale" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
-                        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource SuperDropCardStyle}" Tag="Effects" AllowDrop="True" DragOver="OnSuperDropCardDragOver" Drop="OnSuperDropCardDrop">
-                            <TextBlock x:Name="TxtSuperDropEffects" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource SuperDropCardStyle}" Tag="Effects" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                            <Grid>
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                                    <FontIcon Glyph="&#xEB3C;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <TextBlock x:Name="TxtSuperDropEffects" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
-                        <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource SuperDropCardStyle}" Tag="Inspect" AllowDrop="True" DragOver="OnSuperDropCardDragOver" Drop="OnSuperDropCardDrop">
-                            <TextBlock x:Name="TxtSuperDropInspect" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                        <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource SuperDropCardStyle}" Tag="Inspect" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                            <Grid>
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                                    <FontIcon Glyph="&#xE71E;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <TextBlock x:Name="TxtSuperDropInspect" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
                 </Viewbox>
