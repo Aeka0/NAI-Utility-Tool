@@ -333,6 +333,7 @@ public sealed partial class MainWindow : Window
             UpdateDynamicMenuStates();
         };
         MaskCanvas.StatusMessage += m => TxtStatus.Text = m;
+        MaskCanvas.ImageFileLoaded += OnMaskCanvasImageFileLoaded;
 
         ThumbnailCanvas.CustomDevice = CanvasDevice.GetSharedDevice();
 
@@ -11941,6 +11942,97 @@ public sealed partial class MainWindow : Window
         TxtStatus.Text = notes.Count > 0
             ? Lf("inspect.sent_parameters_with_notes", string.Join("; ", notes))
             : L("inspect.sent_parameters_to_generate");
+    }
+
+    private void ApplyMetadataToInpaint(ImageMetadata meta, string fileName)
+    {
+        var notes = new List<string>();
+        var skipped = new List<string>();
+        bool maxMode = _settings.Settings.MaxMode;
+
+        string positivePrompt = meta.PositivePrompt;
+        string negativePrompt = meta.NegativePrompt;
+
+        if (meta.IsSdFormat)
+        {
+            positivePrompt = ImageMetadataService.ConvertSdPromptToNai(positivePrompt);
+            negativePrompt = ImageMetadataService.ConvertSdPromptToNai(negativePrompt);
+            notes.Add(L("metadata.note.sd_converted"));
+        }
+
+        bool strippedQuality = false;
+        if (positivePrompt.Contains(QualityTagBlock))
+        {
+            positivePrompt = positivePrompt.Replace(QualityTagBlock, "");
+            positivePrompt = System.Text.RegularExpressions.Regex.Replace(positivePrompt, @",\s*,", ",");
+            positivePrompt = positivePrompt.Trim(' ', ',');
+            strippedQuality = true;
+        }
+
+        _inpaintPositivePrompt = positivePrompt;
+        _inpaintNegativePrompt = negativePrompt;
+        _inpaintStylePrompt = "";
+
+        var p = _settings.Settings.InpaintParameters;
+
+        if (strippedQuality)
+        {
+            p.QualityToggle = true;
+            if (IsAdvancedWindowOpen) _advCboQuality.SelectedIndex = 0;
+        }
+
+        if (meta.Steps > 0)
+        {
+            if (!maxMode && meta.Steps > 28)
+                skipped.Add(Lf("metadata.skipped.steps", meta.Steps));
+            else
+                p.Steps = meta.Steps;
+        }
+        if (meta.Seed > 0 && meta.Seed <= int.MaxValue) p.Seed = (int)meta.Seed;
+        if (meta.Scale > 0) p.Scale = meta.Scale;
+        if (!meta.IsSdFormat) p.CfgRescale = meta.CfgRescale;
+        if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = meta.Sampler;
+        if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = meta.NoiseSchedule;
+        if (!meta.IsSdFormat) p.Variety = meta.SmDyn || meta.Sm;
+
+        NbSeed.Value = p.Seed;
+        ChkVariety.IsChecked = p.Variety;
+
+        if (meta.IsNaiParsed)
+        {
+            if (meta.CharacterPrompts.Count > 0)
+                SetGenCharactersFromMetadata(meta);
+            else
+                _genCharacters.Clear();
+            ApplyReferenceDataFromMetadata(meta);
+        }
+
+        RefreshCharacterPanel();
+        LoadPromptFromBuffer();
+        UpdateSplitVisibility();
+        if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();
+
+        if (strippedQuality) notes.Add(L("metadata.note.quality_extracted"));
+        if (skipped.Count > 0) notes.Add(Lf("metadata.note.skipped", string.Join(", ", skipped)));
+        if (meta.IsNaiParsed && meta.CharacterPrompts.Count > 0)
+            notes.Add(Lf("metadata.note.characters_imported", meta.CharacterPrompts.Count));
+        AppendReferenceImportNotes(meta, notes);
+
+        TxtStatus.Text = notes.Count > 0
+            ? Lf("metadata.applied_with_notes", fileName, string.Join("; ", notes))
+            : Lf("metadata.applied", fileName);
+    }
+
+    private async void OnMaskCanvasImageFileLoaded(string filePath)
+    {
+        try
+        {
+            var bytes = await File.ReadAllBytesAsync(filePath);
+            var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
+            if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat))
+                ApplyMetadataToInpaint(meta, Path.GetFileName(filePath));
+        }
+        catch { }
     }
 
     private void OnInspectDragOver(object sender, DragEventArgs e)

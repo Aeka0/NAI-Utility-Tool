@@ -130,6 +130,7 @@ public sealed partial class MaskCanvasControl : UserControl
     public event Action<float>? ZoomChanged;
     public event Action? ContentChanged;
     public event Action<string>? StatusMessage;
+    public event Action<string>? ImageFileLoaded;
 
     public MaskCanvasControl()
     {
@@ -263,6 +264,7 @@ public sealed partial class MaskCanvasControl : UserControl
             if (sizeChanged)
                 msg += " " + LocalizationService.Instance.Format("mask_canvas.canvas_auto_matched", _canvasWidth, _canvasHeight);
             StatusMessage?.Invoke(msg);
+            ImageFileLoaded?.Invoke(file.Path);
         }
         catch (Exception ex)
         {
