@@ -60,6 +60,9 @@ public class NovelAIService : IDisposable
 
     public NovelAIService(SettingsService settings) { _settings = settings; }
 
+    private static string L(string key) => LocalizationService.Instance.GetString(key);
+    private static string Lf(string key, params object?[] args) => LocalizationService.Instance.Format(key, args);
+
     private HttpClient GetOrCreateClient()
     {
         _httpClient?.Dispose();
@@ -87,18 +90,18 @@ public class NovelAIService : IDisposable
             var response = await client.GetAsync(UserInfoUrl, ct);
             return response.StatusCode switch
             {
-                HttpStatusCode.OK => (true, "连接成功！API Token 有效。"),
-                HttpStatusCode.Unauthorized => (false, "认证失败 (401): API Token 无效。"),
-                _ => (false, $"API 错误 ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync(ct)}")
+                HttpStatusCode.OK => (true, L("settings.network.test.success")),
+                HttpStatusCode.Unauthorized => (false, L("settings.network.test.unauthorized")),
+                _ => (false, Lf("settings.network.test.api_error", (int)response.StatusCode, await response.Content.ReadAsStringAsync(ct)))
             };
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("proxy", StringComparison.OrdinalIgnoreCase))
         {
-            return (false, $"代理连接失败: {ex.Message}\n\n提示: 请检查代理客户端是否运行以及端口是否正确。");
+            return (false, Lf("settings.network.test.proxy_error", ex.Message));
         }
         catch (Exception ex)
         {
-            return (false, $"连接 NovelAI 失败: {ex.Message}");
+            return (false, Lf("settings.network.test.connection_failed", ex.Message));
         }
     }
 
@@ -498,7 +501,7 @@ public class NovelAIService : IDisposable
         CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
-            return (null, "API Token 未设置。请在 设置 → 网络 中配置。");
+            return (null, L("api.error.token_missing_network"));
 
         var naiParams = _settings.Settings.InpaintParameters;
         int seed = naiParams.Seed > 0 ? naiParams.Seed : Random.Shared.Next(1, int.MaxValue);
@@ -628,8 +631,8 @@ public class NovelAIService : IDisposable
             {
                 var errorText = await response.Content.ReadAsStringAsync(ct);
                 stopwatch.Stop();
-                WriteRequestLog("重绘生成", payload, stopwatch.ElapsedMilliseconds, response, errorText);
-                return (null, $"API 错误 ({(int)response.StatusCode}): {errorText}");
+                WriteRequestLog("Inpaint generation", payload, stopwatch.ElapsedMilliseconds, response, errorText);
+                return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
             var zipBytes = await response.Content.ReadAsByteArrayAsync(ct);
@@ -637,7 +640,7 @@ public class NovelAIService : IDisposable
             using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
 
             if (archive.Entries.Count == 0)
-                return (null, "API 返回了空的 zip 文件。");
+                return (null, L("api.error.empty_zip"));
 
             var entry = archive.Entries[0];
             using var entryStream = entry.Open();
@@ -645,29 +648,29 @@ public class NovelAIService : IDisposable
             await entryStream.CopyToAsync(imageStream, ct);
             byte[] imageBytes = imageStream.ToArray();
             stopwatch.Stop();
-            WriteRequestLog("重绘生成", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
+            WriteRequestLog("Inpaint generation", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
             return (imageBytes, null);
         }
         catch (TaskCanceledException ex)
         {
             stopwatch.Stop();
-            WriteRequestLog("重绘生成", payload, stopwatch.ElapsedMilliseconds, exception: ex);
-            return (null, "请求已取消。");
+            WriteRequestLog("Inpaint generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, L("api.error.request_cancelled"));
         }
         catch (HttpRequestException ex)
         {
             stopwatch.Stop();
-            WriteRequestLog("重绘生成", payload, stopwatch.ElapsedMilliseconds, exception: ex);
-            var msg = $"网络请求失败: {ex.Message}";
+            WriteRequestLog("Inpaint generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            var msg = Lf("api.error.network_failed", ex.Message);
             if (ex.Message.Contains("proxy", StringComparison.OrdinalIgnoreCase))
-                msg += "\n\n提示: 请检查代理客户端是否运行以及端口是否正确。";
+                msg += L("api.error.proxy_hint");
             return (null, msg);
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
-            WriteRequestLog("重绘生成", payload, stopwatch.ElapsedMilliseconds, exception: ex);
-            return (null, $"请求失败: {ex.Message}");
+            WriteRequestLog("Inpaint generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, Lf("api.error.request_failed", ex.Message));
         }
     }
 
@@ -680,7 +683,7 @@ public class NovelAIService : IDisposable
         CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
-            return (null, "API Token 未设置。请在 设置 → 网络/API设置 中配置。");
+            return (null, L("api.error.token_missing_network_api"));
 
         var naiParams = _settings.Settings.GenParameters;
         string model = naiParams.Model;
@@ -806,8 +809,8 @@ public class NovelAIService : IDisposable
             {
                 var errorText = await response.Content.ReadAsStringAsync(ct);
                 stopwatch.Stop();
-                WriteRequestLog("生图生成", payload, stopwatch.ElapsedMilliseconds, response, errorText);
-                return (null, $"API 错误 ({(int)response.StatusCode}): {errorText}");
+                WriteRequestLog("Image generation", payload, stopwatch.ElapsedMilliseconds, response, errorText);
+                return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
             var zipBytes = await response.Content.ReadAsByteArrayAsync(ct);
@@ -815,7 +818,7 @@ public class NovelAIService : IDisposable
             using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
 
             if (archive.Entries.Count == 0)
-                return (null, "API 返回了空的 zip 文件。");
+                return (null, L("api.error.empty_zip"));
 
             var entry = archive.Entries[0];
             using var entryStream = entry.Open();
@@ -823,29 +826,29 @@ public class NovelAIService : IDisposable
             await entryStream.CopyToAsync(imageStream, ct);
             byte[] imageBytes = imageStream.ToArray();
             stopwatch.Stop();
-            WriteRequestLog("生图生成", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
+            WriteRequestLog("Image generation", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
             return (imageBytes, null);
         }
         catch (TaskCanceledException ex)
         {
             stopwatch.Stop();
-            WriteRequestLog("生图生成", payload, stopwatch.ElapsedMilliseconds, exception: ex);
-            return (null, "请求已取消。");
+            WriteRequestLog("Image generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, L("api.error.request_cancelled"));
         }
         catch (HttpRequestException ex)
         {
             stopwatch.Stop();
-            WriteRequestLog("生图生成", payload, stopwatch.ElapsedMilliseconds, exception: ex);
-            var msg = $"网络请求失败: {ex.Message}";
+            WriteRequestLog("Image generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            var msg = Lf("api.error.network_failed", ex.Message);
             if (ex.Message.Contains("proxy", StringComparison.OrdinalIgnoreCase))
-                msg += "\n\n提示: 请检查代理客户端是否运行以及端口是否正确。";
+                msg += L("api.error.proxy_hint");
             return (null, msg);
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
-            WriteRequestLog("生图生成", payload, stopwatch.ElapsedMilliseconds, exception: ex);
-            return (null, $"请求失败: {ex.Message}");
+            WriteRequestLog("Image generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, Lf("api.error.request_failed", ex.Message));
         }
     }
 
@@ -901,7 +904,7 @@ public class NovelAIService : IDisposable
         CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
-            return (null, "API Token 未设置。请在 设置 → 网络/API设置 中配置。");
+            return (null, L("api.error.token_missing_network_api"));
 
         var payload = new Dictionary<string, object>
         {
@@ -927,35 +930,35 @@ public class NovelAIService : IDisposable
             {
                 var errorText = await response.Content.ReadAsStringAsync(ct);
                 stopwatch.Stop();
-                WriteRequestLog("氛围编码", payload, stopwatch.ElapsedMilliseconds, response, errorText);
-                return (null, $"API 错误 ({(int)response.StatusCode}): {errorText}");
+                WriteRequestLog("Vibe encoding", payload, stopwatch.ElapsedMilliseconds, response, errorText);
+                return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
             byte[] vibeData = await response.Content.ReadAsByteArrayAsync(ct);
             stopwatch.Stop();
-            WriteRequestLog("氛围编码", payload, stopwatch.ElapsedMilliseconds, response);
+            WriteRequestLog("Vibe encoding", payload, stopwatch.ElapsedMilliseconds, response);
             return (vibeData, null);
         }
         catch (TaskCanceledException ex)
         {
             stopwatch.Stop();
-            WriteRequestLog("氛围编码", payload, stopwatch.ElapsedMilliseconds, exception: ex);
-            return (null, "请求已取消。");
+            WriteRequestLog("Vibe encoding", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, L("api.error.request_cancelled"));
         }
         catch (HttpRequestException ex)
         {
             stopwatch.Stop();
-            WriteRequestLog("氛围编码", payload, stopwatch.ElapsedMilliseconds, exception: ex);
-            var msg = $"网络请求失败: {ex.Message}";
+            WriteRequestLog("Vibe encoding", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            var msg = Lf("api.error.network_failed", ex.Message);
             if (ex.Message.Contains("proxy", StringComparison.OrdinalIgnoreCase))
-                msg += "\n\n提示: 请检查代理客户端是否运行以及端口是否正确。";
+                msg += L("api.error.proxy_hint");
             return (null, msg);
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
-            WriteRequestLog("氛围编码", payload, stopwatch.ElapsedMilliseconds, exception: ex);
-            return (null, $"请求失败: {ex.Message}");
+            WriteRequestLog("Vibe encoding", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, Lf("api.error.request_failed", ex.Message));
         }
     }
 

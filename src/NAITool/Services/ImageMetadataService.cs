@@ -604,7 +604,7 @@ public static class ImageMetadataService
                     ImageBase64 = imageBase64,
                     Strength = strength,
                     InformationExtracted = info,
-                    FileName = $"已导入的氛围参考 {index + 1}",
+                    FileName = LocalizationService.Instance.Format("references.imported.vibe_numbered", index + 1),
                 });
                 index++;
             }
@@ -622,7 +622,7 @@ public static class ImageMetadataService
                     ImageBase64 = imageBase64,
                     Strength = TryReadDouble(root, "reference_strength", 0.6),
                     InformationExtracted = TryReadDouble(root, "reference_information_extracted", 1.0),
-                    FileName = "已导入的氛围参考 1",
+                    FileName = LocalizationService.Instance.Format("references.imported.vibe_numbered", 1),
                 });
             }
         }
@@ -683,7 +683,7 @@ public static class ImageMetadataService
                 continue;
             }
 
-            string fileName = $"已导入的精确参考 {currentIndex + 1}";
+            string fileName = LocalizationService.Instance.Format("references.imported.precise_numbered", currentIndex + 1);
             string typeValue = hasTypeArray && typeArray.ValueKind == JsonValueKind.Array
                 ? TryReadStringAt(typeArray, currentIndex)
                 : "";

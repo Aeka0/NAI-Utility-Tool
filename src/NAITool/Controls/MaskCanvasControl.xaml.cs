@@ -15,6 +15,7 @@ using NAITool.Commands;
 using NAITool.Input;
 using NAITool.Models;
 using NAITool.Rendering;
+using NAITool.Services;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.UI;
@@ -258,13 +259,14 @@ public sealed partial class MaskCanvasControl : UserControl
             FitToScreen();
             ContentChanged?.Invoke();
 
-            string msg = $"已加载图片: {file.Name} ({imgW}×{imgH})";
-            if (sizeChanged) msg += $" — 画布已自动匹配为 {_canvasWidth}×{_canvasHeight}";
+            string msg = LocalizationService.Instance.Format("mask_canvas.image_loaded", file.Name, imgW, imgH);
+            if (sizeChanged)
+                msg += " " + LocalizationService.Instance.Format("mask_canvas.canvas_auto_matched", _canvasWidth, _canvasHeight);
             StatusMessage?.Invoke(msg);
         }
         catch (Exception ex)
         {
-            StatusMessage?.Invoke($"加载图片失败: {ex.Message}");
+            StatusMessage?.Invoke(LocalizationService.Instance.Format("common.load_failed", ex.Message));
         }
     }
 
@@ -283,7 +285,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
         uint imgW = bitmap.SizeInPixels.Width;
         uint imgH = bitmap.SizeInPixels.Height;
-        StatusMessage?.Invoke($"已加载图片 ({imgW}×{imgH})");
+        StatusMessage?.Invoke(LocalizationService.Instance.Format("mask_canvas.image_loaded_simple", imgW, imgH));
     }
 
     public void PerformUndo()
@@ -1094,7 +1096,7 @@ public sealed partial class MaskCanvasControl : UserControl
         if (e.DataView.Contains(StandardDataFormats.StorageItems))
         {
             e.AcceptedOperation = DataPackageOperation.Copy;
-            e.DragUIOverride.Caption = "加载图片";
+            e.DragUIOverride.Caption = LocalizationService.Instance.GetString("mask_canvas.drag_caption");
         }
     }
 

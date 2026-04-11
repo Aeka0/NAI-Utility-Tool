@@ -86,7 +86,7 @@ public sealed class WildcardService
 
                 if (_entriesByName.ContainsKey(normalized))
                 {
-                    _scanWarnings.Add($"检测到重复抽卡器名称，已忽略后续文件：{normalized}");
+                    _scanWarnings.Add(LocalizationService.Instance.Format("wildcards.warning.duplicate_name", normalized));
                     continue;
                 }
 
@@ -101,7 +101,7 @@ public sealed class WildcardService
             }
             catch (Exception ex)
             {
-                _scanWarnings.Add($"扫描抽卡器文件失败：{Path.GetFileName(path)} - {ex.Message}");
+                _scanWarnings.Add(LocalizationService.Instance.Format("wildcards.warning.scan_failed", Path.GetFileName(path), ex.Message));
             }
         }
     }
@@ -221,7 +221,7 @@ public sealed class WildcardService
             if (context.Variables.TryGetValue(varName, out string? stored))
                 return stored;
 
-            context.Warnings.Add($"抽卡器变量未定义：{varName}");
+            context.Warnings.Add(LocalizationService.Instance.Format("wildcards.warning.variable_undefined", varName));
             return $"__{body}__";
         }
 
@@ -240,7 +240,7 @@ public sealed class WildcardService
         string normalized = NormalizeName(name);
         if (!_optionsByName.TryGetValue(normalized, out var options) || options.Count == 0)
         {
-            context.Warnings.Add($"抽卡器不存在或为空：{normalized}");
+            context.Warnings.Add(LocalizationService.Instance.Format("wildcards.warning.missing_or_empty", normalized));
             return $"__{body}__";
         }
 

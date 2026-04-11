@@ -540,8 +540,7 @@ public sealed partial class MainWindow : Window
         TxtInpaintToolsLabel.Text = L("inpaint.tools");
         TxtBrushSizeLabel.Text = L("inpaint.brush_size");
 
-        if (string.IsNullOrWhiteSpace(TxtStatus.Text) || TxtStatus.Text == "就绪" || TxtStatus.Text == "Ready")
-            TxtStatus.Text = L("status.ready");
+        TxtStatus.Text = L("status.ready");
     }
 
     private void OnLanguageChanged(object sender, RoutedEventArgs e)
@@ -718,7 +717,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"加载抽卡器失败: {ex.Message}";
+            TxtStatus.Text = Lf("wildcards.load_failed", ex.Message);
         }
     }
 
@@ -803,7 +802,7 @@ public sealed partial class MainWindow : Window
     {
         var title = new TextBlock
         {
-            Text = "连续生成",
+            Text = L("generate.continuous.title"),
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
         };
         var countRow = new StackPanel
@@ -813,7 +812,7 @@ public sealed partial class MainWindow : Window
         };
         var hintText = new TextBlock
         {
-            Text = "使用当前参数连续发送请求，种子每次自动随机。",
+            Text = L("generate.continuous.hint"),
             TextWrapping = TextWrapping.Wrap,
             Opacity = 0.72,
             FontSize = 12,
@@ -869,8 +868,8 @@ public sealed partial class MainWindow : Window
             foreach (var button in buttons)
                 button.IsEnabled = canStart;
             hintText.Text = canStart
-                ? "使用当前参数连续发送请求，种子每次自动随机。"
-                : "当前状态下不可启动连续生成。";
+                ? L("generate.continuous.hint")
+                : L("generate.continuous.unavailable");
         };
         BtnGenerate.ContextFlyout = flyout;
     }
@@ -888,7 +887,7 @@ public sealed partial class MainWindow : Window
         if (_continuousStopRequested)
             return;
         _continuousStopRequested = true;
-        TxtStatus.Text = "正在停止连续生成...";
+        TxtStatus.Text = L("generate.continuous.stopping");
         _continuousGenCts?.Cancel();
         UpdateAutoGenUI();
     }
@@ -1186,7 +1185,7 @@ public sealed partial class MainWindow : Window
         RefreshEffectsPanel();
         QueueEffectsPreviewRefresh(immediate: true);
         UpdateDynamicMenuStates();
-        TxtStatus.Text = "已调整效果顺序";
+        TxtStatus.Text = L("post.status.effects_reordered");
     }
 
     private EffectEntry? GetSelectedEffect()
@@ -1202,7 +1201,7 @@ public sealed partial class MainWindow : Window
             var bytes = await GetEffectsSaveBytesAsync();
             if (bytes == null || bytes.Length == 0)
             {
-                TxtStatus.Text = "没有图像可发送到重绘";
+                TxtStatus.Text = L("inpaint.error.no_image_to_send");
                 return;
             }
 
@@ -1210,7 +1209,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"发送到重绘失败: {ex.Message}";
+            TxtStatus.Text = Lf("inpaint.send_failed", ex.Message);
         }
     }
 
@@ -1772,7 +1771,7 @@ public sealed partial class MainWindow : Window
         _settings.Save();
         SyncParamsToUI();
         UpdateModelDependentUI();
-        TxtStatus.Text = "已重置生成参数为默认值";
+        TxtStatus.Text = L("status.generation_params_reset");
     }
 
     private void OnClearAllPrompts(object sender, RoutedEventArgs e)
@@ -1799,7 +1798,7 @@ public sealed partial class MainWindow : Window
         TxtStylePrompt.Text = "";
         UpdatePromptHighlights();
         UpdateStyleHighlights();
-        TxtStatus.Text = "已清空所有提示词";
+        TxtStatus.Text = L("status.prompts_cleared");
     }
 
     private void BuildInpaintEditMenuItems(MenuBarItem menu)
@@ -2048,7 +2047,12 @@ public sealed partial class MainWindow : Window
             const double panelWidth = 350;
             const double panelGap = 20;
             const double swapColumnWidth = 56;
-            string[] formatLabels = { "SD-WebUI (小括号内冒号数字权重)", "NovelAI 1~3 (大/中括号嵌套)", "NovelAI 4+ (数字权重+封闭双冒号)" };
+            string[] formatLabels =
+            {
+                L("dialog.weight_converter.format.sd_webui"),
+                L("dialog.weight_converter.format.nai_classic"),
+                L("dialog.weight_converter.format.nai_numeric")
+            };
 
             SaveCurrentPromptToBuffer();
             string initialText = _currentMode switch
@@ -2090,7 +2094,7 @@ public sealed partial class MainWindow : Window
                 VerticalAlignment = VerticalAlignment.Center,
                 Padding = new Thickness(0),
             };
-            ToolTipService.SetToolTip(swapBtn, "交换源格式与目标格式");
+            ToolTipService.SetToolTip(swapBtn, L("dialog.weight_converter.swap_formats"));
 
             var topGrid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
             topGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(panelWidth) });
@@ -2110,7 +2114,7 @@ public sealed partial class MainWindow : Window
                 MaxWidth = panelWidth,
                 AcceptsReturn = true,
                 TextWrapping = TextWrapping.Wrap,
-                PlaceholderText = "输入提示词...",
+                PlaceholderText = L("dialog.weight_converter.input_placeholder"),
                 MinHeight = 240,
                 MaxHeight = 240,
                 VerticalAlignment = VerticalAlignment.Stretch,
@@ -2125,7 +2129,7 @@ public sealed partial class MainWindow : Window
                 AcceptsReturn = true,
                 TextWrapping = TextWrapping.Wrap,
                 IsReadOnly = true,
-                PlaceholderText = "转换结果...",
+                PlaceholderText = L("dialog.weight_converter.result_placeholder"),
                 MinHeight = 240,
                 MaxHeight = 240,
                 VerticalAlignment = VerticalAlignment.Stretch,
@@ -2167,15 +2171,15 @@ public sealed partial class MainWindow : Window
             bool canApply = CanApplyWeightConversionToCurrentWorkspace();
             var dialog = new ContentDialog
             {
-                Title = "权重转换",
+                Title = L("dialog.weight_converter.title"),
                 Content = mainPanel,
-                CloseButtonText = "关闭",
+                CloseButtonText = L("button.close"),
                 XamlRoot = this.Content.XamlRoot,
                 RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
             };
             if (canApply)
             {
-                dialog.PrimaryButtonText = "发送到当前工作区";
+                dialog.PrimaryButtonText = L("dialog.weight_converter.send_to_current");
                 dialog.DefaultButton = ContentDialogButton.Primary;
             }
             else
@@ -2219,7 +2223,7 @@ public sealed partial class MainWindow : Window
 
             var fileNameBlock = new TextBlock
             {
-                Text = "未选择图片",
+                Text = L("dialog.vibe_encode.no_image_selected"),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxWidth = 260,
@@ -2228,7 +2232,7 @@ public sealed partial class MainWindow : Window
 
             var browseBtn = new Button
             {
-                Content = "选择图片...",
+                Content = L("dialog.vibe_encode.select_image"),
                 MinWidth = 100,
             };
 
@@ -2272,7 +2276,7 @@ public sealed partial class MainWindow : Window
 
             var encodeBtn = new Button
             {
-                Content = CreateAnlasActionButtonContent("开始编码", 2),
+                Content = CreateAnlasActionButtonContent(L("dialog.vibe_encode.start_encoding"), 2),
                 HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
                 Style = (Style)Application.Current.Resources["AccentButtonStyle"],
                 IsEnabled = false,
@@ -2297,7 +2301,7 @@ public sealed partial class MainWindow : Window
                 byte[]? pngBytes = await ReadImageFileAsPngAsync(file);
                 if (pngBytes == null || pngBytes.Length == 0)
                 {
-                    statusBlock.Text = $"无法读取图像：{file.Name}";
+                    statusBlock.Text = Lf("dialog.vibe_encode.read_failed", file.Name);
                     return;
                 }
 
@@ -2326,7 +2330,7 @@ public sealed partial class MainWindow : Window
             {
                 if (selectedImageBytes == null)
                 {
-                    statusBlock.Text = "请先选择图片。";
+                    statusBlock.Text = L("dialog.vibe_encode.select_image_first");
                     return;
                 }
 
@@ -2334,9 +2338,9 @@ public sealed partial class MainWindow : Window
                 {
                     var warnDialog = new ContentDialog
                     {
-                        Title = "需要 Max 模式",
-                        Content = "氛围预编码功能会消耗 Anlas（每次 2 Anlas）。\n请在 设置 → 网络/API设置 中启用 Max 模式后使用。",
-                        CloseButtonText = "确定",
+                        Title = L("dialog.vibe_encode.max_mode_required"),
+                        Content = L("dialog.vibe_encode.max_mode_required_message"),
+                        CloseButtonText = L("button.close"),
                         DefaultButton = ContentDialogButton.Close,
                         XamlRoot = this.Content.XamlRoot,
                         RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -2352,13 +2356,13 @@ public sealed partial class MainWindow : Window
                 string? cached = VibeCacheService.TryGetCachedVibe(cacheDir, selectedImageBytes, ie);
                 if (cached != null)
                 {
-                    statusBlock.Text = $"缓存命中！已有该图片在 IE={ie:0.00} 下的编码，无需重复请求。\n保存位置: {cacheDir}";
+                    statusBlock.Text = Lf("dialog.vibe_encode.cache_hit", ie, cacheDir);
                     return;
                 }
 
                 encodeBtn.IsEnabled = false;
                 browseBtn.IsEnabled = false;
-                statusBlock.Text = "正在编码，请稍候...（消耗 2 Anlas）";
+                statusBlock.Text = L("dialog.vibe_encode.encoding");
 
                 string imageBase64 = Convert.ToBase64String(selectedImageBytes);
                 DebugLog($"[VibeEncode] Start | Model={model} | IE={ie:0.00}");
@@ -2368,13 +2372,13 @@ public sealed partial class MainWindow : Window
                 {
                     string savePath = VibeCacheService.SaveVibe(cacheDir, selectedImageBytes, vibeData, ie, model);
                     DebugLog($"[VibeEncode] Completed | Saved={savePath}");
-                    statusBlock.Text = $"编码成功！已保存到:\n{savePath}";
+                    statusBlock.Text = Lf("dialog.vibe_encode.success", savePath);
                     _ = RefreshAnlasInfoAsync(forceRefresh: true);
                 }
                 else
                 {
                     DebugLog($"[VibeEncode] Failed: {error ?? "Unknown error"}");
-                    statusBlock.Text = $"编码失败: {error ?? "未知错误"}";
+                    statusBlock.Text = Lf("dialog.vibe_encode.failed", error ?? L("dialog.vibe_encode.unknown_error"));
                 }
 
                 encodeBtn.IsEnabled = true;
@@ -2385,7 +2389,7 @@ public sealed partial class MainWindow : Window
 
             var panel = new StackPanel { Spacing = 10, MinWidth = 400 };
 
-            panel.Children.Add(CreateThemedSubLabel("模型"));
+            panel.Children.Add(CreateThemedSubLabel(L("panel.model")));
             panel.Children.Add(modelCombo);
 
             var fileRow = new Grid { ColumnSpacing = 8 };
@@ -2396,11 +2400,11 @@ public sealed partial class MainWindow : Window
             fileRow.Children.Add(fileNameBlock);
             fileRow.Children.Add(browseBtn);
 
-            panel.Children.Add(CreateThemedSubLabel("参考图片"));
+            panel.Children.Add(CreateThemedSubLabel(L("dialog.vibe_encode.reference_image")));
             panel.Children.Add(fileRow);
             panel.Children.Add(thumbImage);
 
-            panel.Children.Add(CreateThemedSubLabel("信息提取强度（影响编码结果）"));
+            panel.Children.Add(CreateThemedSubLabel(L("dialog.vibe_encode.ie_label")));
             var ieGrid = new Grid();
             ieGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             ieGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -2415,7 +2419,7 @@ public sealed partial class MainWindow : Window
 
             var hintBlock = new TextBlock
             {
-                Text = "提示: 编码结果按 图片SHA256+IE值 缓存，相同图片和参数不会重复请求。",
+                Text = L("dialog.vibe_encode.cache_hint"),
                 TextWrapping = TextWrapping.WrapWholeWords,
                 Opacity = 0.5,
                 FontSize = 12,
@@ -2425,9 +2429,9 @@ public sealed partial class MainWindow : Window
 
             var dialog = new ContentDialog
             {
-                Title = "氛围预编码",
+                Title = L("dialog.vibe_encode.title"),
                 Content = panel,
-                CloseButtonText = "关闭",
+                CloseButtonText = L("button.close"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.Content.XamlRoot,
                 RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -2498,7 +2502,7 @@ public sealed partial class MainWindow : Window
                 MinHeight = 0,
                 IsSpellCheckEnabled = false,
                 IsEnabled = false,
-                PlaceholderText = "选择一个条目后在此编辑内容",
+                PlaceholderText = L("wildcards.editor_placeholder"),
             };
             ScrollViewer.SetVerticalScrollBarVisibility(editorBox, ScrollBarVisibility.Auto);
             ScrollViewer.SetHorizontalScrollBarVisibility(editorBox, ScrollBarVisibility.Auto);
@@ -2563,7 +2567,7 @@ public sealed partial class MainWindow : Window
             void UpdateBreadcrumbItems()
             {
                 breadcrumbItems.Clear();
-                breadcrumbItems.Add("wildcards");
+                breadcrumbItems.Add(L("wildcards.root"));
                 if (!string.IsNullOrEmpty(currentRelativePath))
                 {
                     foreach (string part in currentRelativePath.Split('/'))
@@ -2576,11 +2580,11 @@ public sealed partial class MainWindow : Window
 
             void UpdateDirectoryMeta(string? detail = null)
             {
-                string dirLabel = string.IsNullOrEmpty(currentRelativePath) ? "wildcards" : currentRelativePath.Replace('/', '/');
+                string dirLabel = string.IsNullOrEmpty(currentRelativePath) ? L("wildcards.root") : currentRelativePath.Replace('/', '/');
                 metaBlock.Text = string.IsNullOrWhiteSpace(detail)
-                    ? $"当前目录: {dirLabel}"
+                    ? Lf("wildcards.current_directory", dirLabel)
                     : detail;
-                statsBlock.Text = $"已索引文件: {_wildcardService.FileCount}  |  候选总数: {_wildcardService.OptionCount}";
+                statsBlock.Text = Lf("wildcards.stats", _wildcardService.FileCount, _wildcardService.OptionCount);
             }
 
             void SelectEntry(WildcardIndexEntry entry)
@@ -2592,8 +2596,7 @@ public sealed partial class MainWindow : Window
                 editorBox.Text = File.Exists(entry.FilePath)
                     ? File.ReadAllText(entry.FilePath, Encoding.UTF8) : "";
                 UpdateDirectoryMeta(
-                    $"条目: {entry.Name}  |  候选数: {entry.OptionCount}  |  " +
-                    $"更新: {entry.LastWriteTime:yyyy-MM-dd HH:mm:ss}");
+                    Lf("wildcards.entry_meta", entry.Name, entry.OptionCount, entry.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")));
             }
 
             void ClearEntrySelectionForDirectory(string relativePath)
@@ -2603,7 +2606,7 @@ public sealed partial class MainWindow : Window
                 UpdateBreadcrumbItems();
                 editorBox.IsEnabled = false;
                 editorBox.Text = "";
-                UpdateDirectoryMeta("浏览或选择一个条目进行编辑。");
+                UpdateDirectoryMeta(L("wildcards.browse_or_select"));
             }
 
             void PopulateDirectoryRecursive(string relativePath, int depth)
@@ -2628,7 +2631,7 @@ public sealed partial class MainWindow : Window
                     string shortName = entry.Name.Contains('/')
                         ? entry.Name[(entry.Name.LastIndexOf('/') + 1)..]
                         : entry.Name;
-                    var row = (FrameworkElement)CreateListRow("\uE8A5", shortName + ".txt", $"{entry.OptionCount} 项", depth, isBold: false);
+                    var row = (FrameworkElement)CreateListRow("\uE8A5", shortName + ".txt", Lf("wildcards.option_count", entry.OptionCount), depth, isBold: false);
                     listItemEntryMap[row] = entry;
                     browserList.Items.Add(row);
                 }
@@ -2703,7 +2706,7 @@ public sealed partial class MainWindow : Window
                 }
             };
 
-            var openBtn = new Button { Content = "打开目录", MinWidth = 96 };
+            var openBtn = new Button { Content = L("wildcards.open_folder"), MinWidth = 96 };
             openBtn.Click += (_, _) =>
             {
                 string targetDir = string.IsNullOrEmpty(currentRelativePath)
@@ -2712,12 +2715,12 @@ public sealed partial class MainWindow : Window
                 System.Diagnostics.Process.Start("explorer.exe", targetDir);
             };
 
-            var reloadBtn = new Button { Content = "重新扫描", MinWidth = 96 };
+            var reloadBtn = new Button { Content = L("wildcards.rescan"), MinWidth = 96 };
             reloadBtn.Click += (_, _) =>
             {
                 LoadWildcards();
                 RebuildBrowserTree(selectedEntry?.Name, currentRelativePath);
-                TxtStatus.Text = "抽卡器索引已重载";
+                TxtStatus.Text = L("wildcards.reloaded");
             };
 
             var saveBtn = new Button
@@ -2726,19 +2729,19 @@ public sealed partial class MainWindow : Window
                 Padding = new Thickness(0),
                 Content = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74E" },
             };
-            ToolTipService.SetToolTip(saveBtn, "保存当前条目");
+            ToolTipService.SetToolTip(saveBtn, L("menu.file.save"));
             saveBtn.Click += (_, _) =>
             {
                 if (selectedEntry == null)
                 {
-                    TxtStatus.Text = "当前没有可保存的抽卡器条目";
+                    TxtStatus.Text = L("wildcards.nothing_to_save");
                     return;
                 }
                 Directory.CreateDirectory(Path.GetDirectoryName(selectedEntry.FilePath)!);
                 File.WriteAllText(selectedEntry.FilePath, editorBox.Text ?? "", Encoding.UTF8);
                 LoadWildcards();
                 RebuildBrowserTree(selectedEntry.Name, currentRelativePath);
-                TxtStatus.Text = $"已保存抽卡器：{selectedEntry.Name}";
+                TxtStatus.Text = Lf("wildcards.saved", selectedEntry.Name);
             };
 
             var rightPanel = new Grid { RowSpacing = 8 };
@@ -2749,7 +2752,7 @@ public sealed partial class MainWindow : Window
             editorHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var editorLabel = new TextBlock
             {
-                Text = "条目编辑",
+                Text = L("wildcards.entry_editor"),
                 FontSize = 17,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -2806,9 +2809,9 @@ public sealed partial class MainWindow : Window
 
             var dialog = new ContentDialog
             {
-                Title = "抽卡器",
+                Title = L("wildcards.title"),
                 Content = panel,
-                CloseButtonText = "关闭",
+                CloseButtonText = L("button.close"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.Content.XamlRoot,
                 RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -2827,13 +2830,13 @@ public sealed partial class MainWindow : Window
     {
         if (source == target)
         {
-            TxtStatus.Text = "源格式与目标格式相同，无需转换";
+            TxtStatus.Text = L("dialog.weight_converter.same_format");
             return;
         }
 
         if (_currentMode == AppMode.Effects)
         {
-            TxtStatus.Text = "当前工作区没有可转换的提示词";
+            TxtStatus.Text = L("dialog.weight_converter.no_prompt_current");
             return;
         }
 
@@ -2841,7 +2844,7 @@ public sealed partial class MainWindow : Window
         {
             if (_inspectMetadata == null || (!_inspectMetadata.IsNaiParsed && !_inspectMetadata.IsSdFormat && !_inspectMetadata.IsModelInference))
             {
-                TxtStatus.Text = "检视工作区没有可转换的提示词";
+                TxtStatus.Text = L("dialog.weight_converter.no_prompt_inspect");
                 return;
             }
 
@@ -2857,7 +2860,7 @@ public sealed partial class MainWindow : Window
 
             DisplayInspectMetadata(_inspectMetadata);
             UpdateDynamicMenuStates();
-            TxtStatus.Text = $"已将检视工作区提示词从 {GetPromptWeightFormatLabel(source)} 转为 {GetPromptWeightFormatLabel(target)}";
+            TxtStatus.Text = Lf("dialog.weight_converter.converted_inspect", GetPromptWeightFormatLabel(source), GetPromptWeightFormatLabel(target));
             return;
         }
 
@@ -2888,7 +2891,7 @@ public sealed partial class MainWindow : Window
         RefreshCharacterPanel();
         UpdatePromptHighlights();
         UpdateStyleHighlights();
-        TxtStatus.Text = $"已将当前工作区提示词从 {GetPromptWeightFormatLabel(source)} 转为 {GetPromptWeightFormatLabel(target)}";
+        TxtStatus.Text = Lf("dialog.weight_converter.converted_current", GetPromptWeightFormatLabel(source), GetPromptWeightFormatLabel(target));
     }
 
     private static string ConvertPromptWeightSyntax(string text, PromptWeightFormat source, PromptWeightFormat target)
@@ -3148,12 +3151,12 @@ public sealed partial class MainWindow : Window
         return rounded.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private static string GetPromptWeightFormatLabel(PromptWeightFormat format) => format switch
+    private string GetPromptWeightFormatLabel(PromptWeightFormat format) => format switch
     {
-        PromptWeightFormat.StableDiffusion => "SD",
-        PromptWeightFormat.NaiClassic => "NAI3经典",
-        PromptWeightFormat.NaiNumeric => "NAI4+新权重",
-        _ => "未知格式",
+        PromptWeightFormat.StableDiffusion => L("dialog.weight_converter.short.sd"),
+        PromptWeightFormat.NaiClassic => L("dialog.weight_converter.short.nai_classic"),
+        PromptWeightFormat.NaiNumeric => L("dialog.weight_converter.short.nai_numeric"),
+        _ => L("dialog.weight_converter.short.unknown"),
     };
 
     // ═══════════════════════════════════════════════════════════
@@ -3177,21 +3180,21 @@ public sealed partial class MainWindow : Window
         _ => new EffectEntry { Type = type },
     };
 
-    private static string GetEffectTitle(EffectType type) => type switch
+    private string GetEffectTitle(EffectType type) => type switch
     {
-        EffectType.BrightnessContrast => "亮度 / 对比度",
-        EffectType.SaturationVibrance => "饱和度 / 自然饱和度",
-        EffectType.Temperature => "色温",
-        EffectType.Glow => "泛光",
-        EffectType.RadialBlur => "径向模糊",
-        EffectType.Vignette => "暗角",
-        EffectType.ChromaticAberration => "镜头色散",
-        EffectType.Noise => "杂色",
+        EffectType.BrightnessContrast => L("post.effect.brightness_contrast"),
+        EffectType.SaturationVibrance => L("post.effect.saturation_vibrance"),
+        EffectType.Temperature => L("post.effect.temperature"),
+        EffectType.Glow => L("post.effect.glow"),
+        EffectType.RadialBlur => L("post.effect.radial_blur"),
+        EffectType.Vignette => L("post.effect.vignette"),
+        EffectType.ChromaticAberration => L("post.effect.chromatic_aberration"),
+        EffectType.Noise => L("post.effect.noise"),
         EffectType.Gamma => "Gamma",
-        EffectType.Pixelate => "像素化",
-        EffectType.SolidBlock => "实色遮挡",
-        EffectType.Scanline => "扫描线",
-        _ => "效果",
+        EffectType.Pixelate => L("post.effect.pixelate"),
+        EffectType.SolidBlock => L("post.effect.solid_block"),
+        EffectType.Scanline => L("post.effect.scanline"),
+        _ => L("post.effect.unknown"),
     };
 
     private static EffectEntry CloneEffect(EffectEntry x) => new()
@@ -3368,8 +3371,8 @@ public sealed partial class MainWindow : Window
                 RefreshEffectsPanel();
                 RefreshEffectsOverlay();
                 TxtStatus.Text = IsRegionEffect(effect.Type)
-                    ? "已选择区域效果，可在预览区直接拖动编辑"
-                    : $"已选中特效：{GetEffectTitle(effect.Type)}";
+                    ? L("post.status.region_selected")
+                    : Lf("post.status.selected_effect", GetEffectTitle(effect.Type));
             };
 
             var stack = new StackPanel { Spacing = 10 };
@@ -3390,14 +3393,14 @@ public sealed partial class MainWindow : Window
             };
             header.Children.Add(title);
 
-            var upBtn = CreateEffectsCardIconButton("\uE70E", GetEffectsSecondaryTextBrush(), i > 0, "上移");
+            var upBtn = CreateEffectsCardIconButton("\uE70E", GetEffectsSecondaryTextBrush(), i > 0, L("references.action.move_up"));
             ApplyEffectsButtonTheme(upBtn);
             upBtn.Margin = new Thickness(0, 0, 4, 0);
             upBtn.Click += (_, _) => MoveEffect(effect.Id, -1);
             Grid.SetColumn(upBtn, 1);
             header.Children.Add(upBtn);
 
-            var downBtn = CreateEffectsCardIconButton("\uE70D", GetEffectsSecondaryTextBrush(), i < _effects.Count - 1, "下移");
+            var downBtn = CreateEffectsCardIconButton("\uE70D", GetEffectsSecondaryTextBrush(), i < _effects.Count - 1, L("references.action.move_down"));
             ApplyEffectsButtonTheme(downBtn);
             downBtn.Margin = new Thickness(0, 0, 4, 0);
             downBtn.Click += (_, _) => MoveEffect(effect.Id, 1);
@@ -3406,7 +3409,7 @@ public sealed partial class MainWindow : Window
 
             var deleteBtn = CreateEffectsCardIconButton("\uE74D",
                 new SolidColorBrush(Windows.UI.Color.FromArgb(255, 232, 72, 86)),
-                true, "删除");
+                true, L("button.delete"));
             ApplyEffectsButtonTheme(deleteBtn);
             deleteBtn.Click += (_, _) =>
             {
@@ -3418,7 +3421,7 @@ public sealed partial class MainWindow : Window
                 UpdateDynamicMenuStates();
                 UpdateFileMenuState();
                 RefreshEffectsOverlay();
-                TxtStatus.Text = "已移除效果";
+                TxtStatus.Text = L("post.status.removed_effect");
             };
             Grid.SetColumn(deleteBtn, 3);
             header.Children.Add(deleteBtn);
@@ -3428,50 +3431,50 @@ public sealed partial class MainWindow : Window
             switch (effect.Type)
             {
                 case EffectType.BrightnessContrast:
-                    AddEffectSlider(stack, "亮度", -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddEffectSlider(stack, "对比度", -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                    AddEffectSlider(stack, L("post.slider.brightness"), -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.contrast"), -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
                 case EffectType.SaturationVibrance:
-                    AddEffectSlider(stack, "饱和度", -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddEffectSlider(stack, "自然饱和度", -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                    AddEffectSlider(stack, L("post.slider.saturation"), -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.vibrance"), -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
                 case EffectType.Temperature:
-                    AddEffectSlider(stack, "色温（冷/暖）", -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddEffectSlider(stack, "色调（绿/紫）", -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                    AddEffectSlider(stack, L("post.slider.temperature"), -100, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.tint"), -100, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
                 case EffectType.Glow:
-                    AddEffectSlider(stack, "泛光尺寸", 1, 120, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddEffectSlider(stack, "泛光阈值", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
-                    AddEffectSlider(stack, "泛光强度", 0, 200, 1, effect.Value3, "F0", v => effect.Value3 = v);
-                    AddEffectCenteredLogSlider(stack, "泛光纵横比", 0.05, 1.0, 8.0, effect.Value4, "F2", v => effect.Value4 = v);
-                    AddEffectSlider(stack, "泛光倾斜", -90, 90, 1, effect.Value6, "F0", v => effect.Value6 = v);
-                    AddEffectSlider(stack, "泛光饱和度", -100, 100, 1, effect.Value5, "F0", v => effect.Value5 = v);
+                    AddEffectSlider(stack, L("post.slider.glow_size"), 1, 120, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.glow_threshold"), 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                    AddEffectSlider(stack, L("post.slider.glow_intensity"), 0, 200, 1, effect.Value3, "F0", v => effect.Value3 = v);
+                    AddEffectCenteredLogSlider(stack, L("post.slider.glow_aspect"), 0.05, 1.0, 8.0, effect.Value4, "F2", v => effect.Value4 = v);
+                    AddEffectSlider(stack, L("post.slider.glow_tilt"), -90, 90, 1, effect.Value6, "F0", v => effect.Value6 = v);
+                    AddEffectSlider(stack, L("post.slider.glow_saturation"), -100, 100, 1, effect.Value5, "F0", v => effect.Value5 = v);
                     break;
                 case EffectType.RadialBlur:
-                    AddEffectCombo(stack, "算法",
-                        new[] { "放射", "旋转", "渐进" },
+                    AddEffectCombo(stack, L("post.slider.algorithm"),
+                        new[] { L("post.slider.algorithm_radial"), L("post.slider.algorithm_spin"), L("post.slider.algorithm_progressive") },
                         (int)Math.Clamp(effect.Value4, 0, 2),
                         v => effect.Value4 = v);
-                    AddEffectSlider(stack, "强度", 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddEffectSlider(stack, "中心 X", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
-                    AddEffectSlider(stack, "中心 Y", 0, 100, 1, effect.Value3, "F0", v => effect.Value3 = v);
+                    AddEffectSlider(stack, L("post.slider.strength"), 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.center_x"), 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                    AddEffectSlider(stack, L("post.slider.center_y"), 0, 100, 1, effect.Value3, "F0", v => effect.Value3 = v);
                     break;
                 case EffectType.Vignette:
-                    AddEffectSlider(stack, "暗角强度", 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddEffectSlider(stack, "羽化", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                    AddEffectSlider(stack, L("post.slider.vignette_strength"), 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.feather"), 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
                 case EffectType.ChromaticAberration:
-                    AddEffectSlider(stack, "色散强度", 0, 20, 0.1, effect.Value1, "F1", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.aberration_strength"), 0, 20, 0.1, effect.Value1, "F1", v => effect.Value1 = v);
                     break;
                 case EffectType.Noise:
-                    AddEffectSlider(stack, "单色杂色", 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
-                    AddEffectSlider(stack, "彩色杂色", 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
+                    AddEffectSlider(stack, L("post.slider.mono_noise"), 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.color_noise"), 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
                 case EffectType.Gamma:
                     AddEffectSlider(stack, "Gamma", 0.2, 3.0, 0.05, effect.Value1, "F2", v => effect.Value1 = v);
                     break;
                 case EffectType.Pixelate:
-                    AddEffectSlider(stack, "像素粒度", 1, 64, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.pixel_size"), 1, 64, 1, effect.Value1, "F0", v => effect.Value1 = v);
                     AddEffectRegionSliders(stack,
                         centerX: effect.Value2,
                         centerY: effect.Value3,
@@ -3483,7 +3486,7 @@ public sealed partial class MainWindow : Window
                         heightSetter: v => effect.Value5 = v);
                     break;
                 case EffectType.SolidBlock:
-                    AddEffectColorTextBox(stack, "颜色 Hex", effect.TextValue, v => effect.TextValue = v);
+                    AddEffectColorTextBox(stack, L("post.slider.color_hex"), effect.TextValue, v => effect.TextValue = v);
                     AddEffectRegionSliders(stack,
                         centerX: effect.Value1,
                         centerY: effect.Value2,
@@ -3495,11 +3498,11 @@ public sealed partial class MainWindow : Window
                         heightSetter: v => effect.Value4 = v);
                     break;
                 case EffectType.Scanline:
-                    AddEffectSlider(stack, "线宽", 0.5, 10, 0.1, effect.Value1, "F1", v => effect.Value1 = v);
-                    AddEffectSlider(stack, "间距", 0.5, 20, 0.1, effect.Value2, "F1", v => effect.Value2 = v);
-                    AddEffectSlider(stack, "柔和度", 0, 100, 1, effect.Value3, "F0", v => effect.Value3 = v);
-                    AddEffectSlider(stack, "旋转角度", -90, 90, 1, effect.Value4, "F0", v => effect.Value4 = v);
-                    AddEffectSlider(stack, "透明度", 0, 100, 1, effect.Value5, "F0", v => effect.Value5 = v);
+                    AddEffectSlider(stack, L("post.slider.line_width"), 0.5, 10, 0.1, effect.Value1, "F1", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.spacing"), 0.5, 20, 0.1, effect.Value2, "F1", v => effect.Value2 = v);
+                    AddEffectSlider(stack, L("post.slider.softness"), 0, 100, 1, effect.Value3, "F0", v => effect.Value3 = v);
+                    AddEffectSlider(stack, L("post.slider.rotation"), -90, 90, 1, effect.Value4, "F0", v => effect.Value4 = v);
+                    AddEffectSlider(stack, L("post.slider.opacity"), 0, 100, 1, effect.Value5, "F0", v => effect.Value5 = v);
                     break;
             }
 
@@ -3674,10 +3677,10 @@ public sealed partial class MainWindow : Window
         Action<double> widthSetter,
         Action<double> heightSetter)
     {
-        AddEffectSlider(parent, "中心 X", 0, 100, 1, centerX, "F0", centerXSetter);
-        AddEffectSlider(parent, "中心 Y", 0, 100, 1, centerY, "F0", centerYSetter);
-        AddEffectSlider(parent, "区域宽度", 1, 100, 1, width, "F0", widthSetter);
-        AddEffectSlider(parent, "区域高度", 1, 100, 1, height, "F0", heightSetter);
+        AddEffectSlider(parent, L("post.slider.center_x"), 0, 100, 1, centerX, "F0", centerXSetter);
+        AddEffectSlider(parent, L("post.slider.center_y"), 0, 100, 1, centerY, "F0", centerYSetter);
+        AddEffectSlider(parent, L("post.slider.region_width"), 1, 100, 1, width, "F0", widthSetter);
+        AddEffectSlider(parent, L("post.slider.region_height"), 1, 100, 1, height, "F0", heightSetter);
     }
 
     private void AddEffectColorTextBox(Panel parent, string label, string value, Action<string> setValue)
@@ -3746,7 +3749,7 @@ public sealed partial class MainWindow : Window
         var flyout = new Flyout { Content = picker };
         var pickerBtn = new Button
         {
-            Content = "调色盘",
+            Content = L("post.button.color_picker"),
             Margin = new Thickness(8, 0, 0, 0),
         };
         ApplyEffectsButtonTheme(pickerBtn);
@@ -3763,7 +3766,7 @@ public sealed partial class MainWindow : Window
     {
         var btn = new Button
         {
-            Content = "添加效果",
+            Content = L("post.button.add_effect"),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             IsEnabled = _effects.Count < 10,
         };
@@ -3781,7 +3784,7 @@ public sealed partial class MainWindow : Window
             {
                 if (_effects.Count >= 10)
                 {
-                    TxtStatus.Text = "最多只能添加 10 个效果";
+                    TxtStatus.Text = L("post.status.max_effects");
                     return;
                 }
 
@@ -3795,7 +3798,7 @@ public sealed partial class MainWindow : Window
                 UpdateDynamicMenuStates();
                 UpdateFileMenuState();
                 RefreshEffectsOverlay();
-                TxtStatus.Text = $"已添加效果：{GetEffectTitle(type)}";
+                TxtStatus.Text = Lf("post.status.added_effect", GetEffectTitle(type));
             };
             flyout.Items.Add(item);
         }
@@ -3859,31 +3862,31 @@ public sealed partial class MainWindow : Window
     {
         if (_effects.Count == 0)
         {
-            TxtStatus.Text = "当前没有效果可保存为预设";
+            TxtStatus.Text = L("post.preset.none_to_save");
             return;
         }
 
         var nameBox = new TextBox
         {
-            PlaceholderText = "请输入预设名称",
-            Text = $"预设_{DateTime.Now:MMdd_HHmm}",
+            PlaceholderText = L("post.preset.enter_name_hint"),
+            Text = Lf("post.preset.default_name", DateTime.Now.ToString("MMdd_HHmm")),
             MinWidth = 260,
         };
 
         var dialog = new ContentDialog
         {
-            Title = "添加预设",
+            Title = L("menu.edit.add_preset"),
             Content = new StackPanel
             {
                 Spacing = 8,
                 Children =
                 {
-                    new TextBlock { Text = "请输入预设名称..." },
+                    new TextBlock { Text = L("post.preset.enter_name") },
                     nameBox,
                 },
             },
-            PrimaryButtonText = "保存",
-            CloseButtonText = "取消",
+            PrimaryButtonText = L("common.save"),
+            CloseButtonText = L("common.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -3894,14 +3897,14 @@ public sealed partial class MainWindow : Window
         string presetName = (nameBox.Text ?? "").Trim();
         if (string.IsNullOrWhiteSpace(presetName))
         {
-            TxtStatus.Text = "预设名称不能为空";
+            TxtStatus.Text = L("post.preset.name_required");
             return;
         }
 
         string fileName = SanitizePresetFileName(presetName);
         if (string.IsNullOrWhiteSpace(fileName))
         {
-            TxtStatus.Text = "预设名称不合法";
+            TxtStatus.Text = L("post.preset.name_invalid");
             return;
         }
 
@@ -3918,12 +3921,12 @@ public sealed partial class MainWindow : Window
             string path = Path.Combine(FxPresetsDir, $"{fileName}.json");
             string json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(path, json);
-            TxtStatus.Text = $"已保存预设：{presetName}";
+            TxtStatus.Text = Lf("post.preset.saved", presetName);
             UpdateDynamicMenuStates();
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"保存预设失败: {ex.Message}";
+            TxtStatus.Text = Lf("post.preset.save_failed", ex.Message);
         }
     }
 
@@ -3932,7 +3935,7 @@ public sealed partial class MainWindow : Window
         EnsureDefaultFxPresets();
         if (!Directory.Exists(FxPresetsDir))
         {
-            TxtStatus.Text = "没有可用预设";
+            TxtStatus.Text = L("post.preset.none_available");
             return;
         }
 
@@ -3941,7 +3944,7 @@ public sealed partial class MainWindow : Window
             .ToList();
         if (files.Count == 0)
         {
-            TxtStatus.Text = "没有可用预设";
+            TxtStatus.Text = L("post.preset.none_available");
             return;
         }
 
@@ -3973,18 +3976,18 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "使用预设",
+            Title = L("menu.edit.use_preset"),
             Content = new StackPanel
             {
                 Spacing = 8,
                 Children =
                 {
-                    new TextBlock { Text = "选择一个预设并整体应用到效果链" },
+                    new TextBlock { Text = L("post.preset.use_hint") },
                     presetCombo,
                 },
             },
-            PrimaryButtonText = "应用",
-            CloseButtonText = "取消",
+            PrimaryButtonText = L("button.apply"),
+            CloseButtonText = L("common.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -4002,7 +4005,7 @@ public sealed partial class MainWindow : Window
             var loadedEffects = parsed?.Effects ?? new List<EffectEntry>();
             if (loadedEffects.Count == 0)
             {
-                TxtStatus.Text = "预设为空，未应用";
+                TxtStatus.Text = L("post.preset.empty");
                 return;
             }
 
@@ -4017,11 +4020,11 @@ public sealed partial class MainWindow : Window
             QueueEffectsPreviewRefresh(immediate: true);
             UpdateDynamicMenuStates();
             UpdateFileMenuState();
-            TxtStatus.Text = $"已应用预设：{selectedName}";
+            TxtStatus.Text = Lf("post.preset.applied", selectedName);
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"读取预设失败: {ex.Message}";
+            TxtStatus.Text = Lf("post.preset.load_failed", ex.Message);
         }
     }
 
@@ -4036,7 +4039,7 @@ public sealed partial class MainWindow : Window
         UpdateDynamicMenuStates();
         UpdateFileMenuState();
         RefreshEffectsOverlay();
-        TxtStatus.Text = "已清空所有效果";
+        TxtStatus.Text = L("post.status.effects_cleared");
     }
 
     private async void OnApplyEffects(object sender, RoutedEventArgs e)
@@ -4047,7 +4050,7 @@ public sealed partial class MainWindow : Window
         var bytes = await GetEffectsSaveBytesAsync();
         if (bytes == null)
         {
-            TxtStatus.Text = "没有可应用的图片";
+            TxtStatus.Text = L("post.status.no_image_to_apply");
             return;
         }
 
@@ -4061,7 +4064,7 @@ public sealed partial class MainWindow : Window
         await ShowEffectsPreviewAsync(bytes, fitToScreen: false);
         UpdateDynamicMenuStates();
         UpdateFileMenuState();
-        TxtStatus.Text = "已应用效果";
+        TxtStatus.Text = L("post.status.effects_applied");
     }
 
     private async Task LoadEffectsImageAsync(string filePath)
@@ -4070,11 +4073,11 @@ public sealed partial class MainWindow : Window
         {
             var bytes = await File.ReadAllBytesAsync(filePath);
             await LoadEffectsImageFromBytesAsync(bytes, filePath);
-            TxtStatus.Text = $"已加载: {Path.GetFileName(filePath)}";
+            TxtStatus.Text = Lf("post.status.loaded_source", Path.GetFileName(filePath));
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"加载失败: {ex.Message}";
+            TxtStatus.Text = Lf("common.load_failed", ex.Message);
         }
     }
 
@@ -4111,8 +4114,8 @@ public sealed partial class MainWindow : Window
         SwitchMode(AppMode.Effects);
         await LoadEffectsImageFromBytesAsync(bytes, sourcePath);
         TxtStatus.Text = sourcePath != null
-            ? $"已发送到效果: {Path.GetFileName(sourcePath)}"
-            : "已发送到效果";
+            ? Lf("post.status.sent_to_post_with_name", Path.GetFileName(sourcePath))
+            : L("post.status.sent_to_post");
     }
 
     private void QueueEffectsPreviewRefresh(bool fitToScreen = false, bool immediate = false)
@@ -4173,7 +4176,7 @@ public sealed partial class MainWindow : Window
         {
             if (version != _effectsPreviewVersion) return;
             DebugLog($"[Effects] Preview failed: {ex}");
-            TxtStatus.Text = $"效果预览失败: {ex.Message}";
+            TxtStatus.Text = Lf("post.error.preview_failed", ex.Message);
         }
     }
 
@@ -4327,7 +4330,7 @@ public sealed partial class MainWindow : Window
     {
         SKBitmap? baseBitmap = cachedSourceBitmap?.Copy() ?? SKBitmap.Decode(sourceBytes);
         if (baseBitmap == null)
-            throw new InvalidOperationException("无法解码效果源图像");
+            throw new InvalidOperationException(LocalizationService.Instance.GetString("post.error.decode_source_failed"));
 
         foreach (var effect in effects)
         {
@@ -5095,7 +5098,7 @@ public sealed partial class MainWindow : Window
     {
         flyout.Items.Clear();
 
-        var undoItem = new MenuFlyoutItem { Text = "撤销", IsEnabled = textBox.CanUndo, Icon = new SymbolIcon(Symbol.Undo) };
+        var undoItem = new MenuFlyoutItem { Text = L("prompt.context.undo"), IsEnabled = textBox.CanUndo, Icon = new SymbolIcon(Symbol.Undo) };
         undoItem.Click += (_, _) =>
         {
             textBox.Focus(FocusState.Programmatic);
@@ -5104,7 +5107,7 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(undoItem);
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        var cutItem = new MenuFlyoutItem { Text = "剪切", IsEnabled = textBox.SelectionLength > 0, Icon = new SymbolIcon(Symbol.Cut) };
+        var cutItem = new MenuFlyoutItem { Text = L("prompt.context.cut"), IsEnabled = textBox.SelectionLength > 0, Icon = new SymbolIcon(Symbol.Cut) };
         cutItem.Click += (_, _) =>
         {
             textBox.Focus(FocusState.Programmatic);
@@ -5112,7 +5115,7 @@ public sealed partial class MainWindow : Window
         };
         flyout.Items.Add(cutItem);
 
-        var copyItem = new MenuFlyoutItem { Text = "复制", IsEnabled = textBox.SelectionLength > 0, Icon = new SymbolIcon(Symbol.Copy) };
+        var copyItem = new MenuFlyoutItem { Text = L("common.copy"), IsEnabled = textBox.SelectionLength > 0, Icon = new SymbolIcon(Symbol.Copy) };
         copyItem.Click += (_, _) =>
         {
             textBox.Focus(FocusState.Programmatic);
@@ -5120,7 +5123,7 @@ public sealed partial class MainWindow : Window
         };
         flyout.Items.Add(copyItem);
 
-        var pasteItem = new MenuFlyoutItem { Text = "粘贴", Icon = new SymbolIcon(Symbol.Paste) };
+        var pasteItem = new MenuFlyoutItem { Text = L("prompt.context.paste"), Icon = new SymbolIcon(Symbol.Paste) };
         pasteItem.Click += (_, _) =>
         {
             textBox.Focus(FocusState.Programmatic);
@@ -5128,7 +5131,7 @@ public sealed partial class MainWindow : Window
         };
         flyout.Items.Add(pasteItem);
 
-        var deleteItem = new MenuFlyoutItem { Text = "删除", IsEnabled = textBox.SelectionLength > 0, Icon = new SymbolIcon(Symbol.Delete) };
+        var deleteItem = new MenuFlyoutItem { Text = L("button.delete"), IsEnabled = textBox.SelectionLength > 0, Icon = new SymbolIcon(Symbol.Delete) };
         deleteItem.Click += (_, _) =>
         {
             textBox.Focus(FocusState.Programmatic);
@@ -5140,7 +5143,7 @@ public sealed partial class MainWindow : Window
 
         var selectAllItem = new MenuFlyoutItem
         {
-            Text = "全选",
+            Text = L("prompt.context.select_all"),
             IsEnabled = !string.IsNullOrEmpty(textBox.Text),
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B3" },
         };
@@ -5157,7 +5160,7 @@ public sealed partial class MainWindow : Window
 
             var actionInteractionSub = new MenuFlyoutSubItem
             {
-                Text = "动作交互",
+                Text = L("prompt.context.interaction"),
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE805" },
             };
 
@@ -5172,9 +5175,9 @@ public sealed partial class MainWindow : Window
                 actionInteractionSub.Items.Add(item);
             }
 
-            AddActionInteractionItem("发起方", "source#", "\uE87B");
-            AddActionInteractionItem("被动方", "target#", "\uE879");
-            AddActionInteractionItem("对等交互", "mutual#", "\uE7FD");
+            AddActionInteractionItem(L("prompt.context.interaction.source"), "source#", "\uE87B");
+            AddActionInteractionItem(L("prompt.context.interaction.target"), "target#", "\uE879");
+            AddActionInteractionItem(L("prompt.context.interaction.mutual"), "mutual#", "\uE7FD");
             flyout.Items.Add(actionInteractionSub);
         }
 
@@ -5193,7 +5196,7 @@ public sealed partial class MainWindow : Window
         flyout.Items.Add(new MenuFlyoutSeparator());
         var quickItem = new MenuFlyoutItem
         {
-            Text = "快速插入随机风格词",
+            Text = L("random_style.quick_insert"),
             Icon = new SymbolIcon(Symbol.Shuffle),
         };
         quickItem.Click += OnQuickRandomStylePrompt;
@@ -5231,8 +5234,8 @@ public sealed partial class MainWindow : Window
         }
 
         TxtStatus.Text = selectionLength > 0
-            ? $"已在选区前插入动作交互前缀：{prefix}"
-            : $"已在光标处插入动作交互前缀：{prefix}";
+            ? Lf("prompt.context.inserted_before_selection", prefix)
+            : Lf("prompt.context.inserted_at_cursor", prefix);
     }
 
     private RandomStyleOptions GetRandomStyleOptions() => new(
@@ -5262,14 +5265,14 @@ public sealed partial class MainWindow : Window
 
         if (!_tagService.IsLoaded)
         {
-            TxtStatus.Text = "无可用 Tag 表格数据。请将可用 CSV 文件放入 assets/tagsheet 目录。";
+            TxtStatus.Text = L("random_style.no_tagsheet");
             return false;
         }
 
         var tags = _tagService.GetRandomTags(options.TagCount, 1, options.MinCount);
         if (tags.Count == 0)
         {
-            TxtStatus.Text = "最小数量设置过高，无法找到符合条件的风格标签。";
+            TxtStatus.Text = L("random_style.min_count_too_high");
             return false;
         }
 
@@ -5315,7 +5318,7 @@ public sealed partial class MainWindow : Window
             TxtPrompt.Focus(FocusState.Programmatic);
         }
 
-        TxtStatus.Text = $"已插入 {tagCount} 个随机风格标签";
+        TxtStatus.Text = Lf("random_style.inserted", tagCount);
         return true;
     }
 
@@ -5325,9 +5328,9 @@ public sealed partial class MainWindow : Window
         {
             var noTagDlg = new ContentDialog
             {
-                Title = "随机风格提示词",
-                Content = new TextBlock { Text = "无可用 Tag 表格数据。请将可用 CSV 文件放入 assets/tagsheet 目录。" },
-                CloseButtonText = "确定",
+                Title = L("random_style.title"),
+                Content = new TextBlock { Text = L("random_style.no_tagsheet") },
+                CloseButtonText = L("common.ok"),
                 XamlRoot = this.Content.XamlRoot,
                 RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
             };
@@ -5339,14 +5342,14 @@ public sealed partial class MainWindow : Window
         var sliderCount = new Slider
         {
             Minimum = 1, Maximum = 10, Value = lastOptions.TagCount, StepFrequency = 1,
-            Header = "随机选择标签数量",
+            Header = L("random_style.tag_count"),
         };
         var nbMinCount = new NumberBox
         {
-            Header = "最小Booru排名数量", Minimum = 0, Value = lastOptions.MinCount,
+            Header = L("random_style.min_booru_count"), Minimum = 0, Value = lastOptions.MinCount,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
         };
-        var chkRandomWeight = new CheckBox { Content = "随机添加权重", IsChecked = lastOptions.UseWeight };
+        var chkRandomWeight = new CheckBox { Content = L("random_style.random_weight"), IsChecked = lastOptions.UseWeight };
 
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(sliderCount);
@@ -5355,10 +5358,10 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "随机风格提示词",
+            Title = L("random_style.title"),
             Content = panel,
-            PrimaryButtonText = "生成",
-            CloseButtonText = "取消",
+            PrimaryButtonText = L("button.generate_now"),
+            CloseButtonText = L("common.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -5402,13 +5405,13 @@ public sealed partial class MainWindow : Window
             {
                 var left = new TextBlock
                 {
-                    Text = "快捷提示词",
+                    Text = L("prompt_shortcuts.shortcut"),
                     Style = (Style)((Grid)this.Content).Resources["InspectCaptionStyle"],
                     VerticalAlignment = VerticalAlignment.Center,
                 };
                 var right = new TextBlock
                 {
-                    Text = "完整提示词",
+                    Text = L("prompt_shortcuts.full_prompt"),
                     Style = (Style)((Grid)this.Content).Resources["InspectCaptionStyle"],
                     VerticalAlignment = VerticalAlignment.Center,
                 };
@@ -5420,12 +5423,12 @@ public sealed partial class MainWindow : Window
             {
                 var shortcutBox = new TextBox
                 {
-                    PlaceholderText = "如: 角色光影",
+                    PlaceholderText = L("prompt_shortcuts.shortcut_placeholder"),
                     Text = shortcut,
                 };
                 var promptBox = new TextBox
                 {
-                    PlaceholderText = "如: cinematic lighting, dramatic shadow",
+                    PlaceholderText = L("prompt_shortcuts.prompt_placeholder"),
                     Text = prompt,
                 };
                 Grid.SetColumn(promptBox, 1);
@@ -5479,13 +5482,13 @@ public sealed partial class MainWindow : Window
 
         var tips = new TextBlock
         {
-            Text = "当任意提示词区域中输入左侧快捷提示词时，发送请求前会自动替换为右侧完整提示词。按逗号分隔进行匹配。",
+            Text = L("prompt_shortcuts.hint"),
             TextWrapping = TextWrapping.Wrap,
             Opacity = 0.75,
         };
         var addBtn = new Button
         {
-            Content = "添加一行",
+            Content = L("prompt_shortcuts.add_row"),
             HorizontalAlignment = HorizontalAlignment.Left,
         };
         addBtn.Click += (_, _) => AddShortcutRow();
@@ -5518,10 +5521,10 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "快捷提示词",
+            Title = L("prompt_shortcuts.title"),
             Content = panel,
-            PrimaryButtonText = "保存",
-            CloseButtonText = "取消",
+            PrimaryButtonText = L("common.save"),
+            CloseButtonText = L("common.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -5539,11 +5542,11 @@ public sealed partial class MainWindow : Window
                 Prompt = x.Prompt.Text.Trim(),
             }).ToList();
             SavePromptShortcuts(items);
-            TxtStatus.Text = $"已保存 {_promptShortcuts.Count} 条快捷提示词";
+            TxtStatus.Text = Lf("prompt_shortcuts.saved", _promptShortcuts.Count);
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"保存快捷提示词失败: {ex.Message}";
+            TxtStatus.Text = Lf("prompt_shortcuts.save_failed", ex.Message);
         }
     }
 
@@ -5576,7 +5579,7 @@ public sealed partial class MainWindow : Window
                     MaskCanvas.InitializeCanvas(_customWidth, _customHeight);
             MaskCanvas.FitToScreen();
                 }
-                TxtStatus.Text = $"已应用预设分辨率 {w} × {h}";
+                TxtStatus.Text = Lf("size.preset_applied", w, h);
                 UpdateSizeWarningVisuals();
             }
             finally
@@ -5589,13 +5592,13 @@ public sealed partial class MainWindow : Window
     private void OnSwapSizeDimensions(object sender, RoutedEventArgs e)
     {
         ApplyMaxSizeInput(_customHeight, _customWidth, fromAdvancedPanel: false, changedBox: NbMaxWidth);
-        TxtStatus.Text = $"已交换尺寸为 {_customWidth} × {_customHeight}";
+        TxtStatus.Text = Lf("size.swapped", _customWidth, _customHeight);
     }
 
     private void OnAdvSwapSizeDimensions(object sender, RoutedEventArgs e)
     {
         ApplyMaxSizeInput(_customHeight, _customWidth, fromAdvancedPanel: true, changedBox: _advNbMaxWidth);
-        TxtStatus.Text = $"已交换尺寸为 {_customWidth} × {_customHeight}";
+        TxtStatus.Text = Lf("size.swapped", _customWidth, _customHeight);
     }
 
     private static int SnapToMultipleOf64(double rawValue)
@@ -5642,11 +5645,11 @@ public sealed partial class MainWindow : Window
             {
                 MaskCanvas.InitializeCanvas(_customWidth, _customHeight);
                 MaskCanvas.FitToScreen();
-                TxtStatus.Text = $"画布大小已更改为 {_customWidth} × {_customHeight}";
+                TxtStatus.Text = Lf("size.canvas_resized", _customWidth, _customHeight);
             }
             else if (fromAdvancedPanel)
             {
-                TxtStatus.Text = $"尺寸已更新为 {_customWidth} × {_customHeight}";
+                TxtStatus.Text = Lf("size.updated", _customWidth, _customHeight);
             }
 
             UpdateSizeWarningVisuals();
@@ -5736,7 +5739,7 @@ public sealed partial class MainWindow : Window
         bool maxMode = _settings.Settings.MaxMode;
 
         var window = new Window();
-        window.Title = "高级参数";
+        window.Title = L("dialog.advanced.title");
         if (IsWindows11OrGreater())
         window.SystemBackdrop = new DesktopAcrylicBackdrop();
         window.ExtendsContentIntoTitleBar = true;
@@ -5748,11 +5751,11 @@ public sealed partial class MainWindow : Window
             Visibility = Visibility.Collapsed,
             FontFamily = UiTextFontFamily,
         };
-        _advCboSampler = new ComboBox { Header = "采样器", HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 32, FontFamily = UiTextFontFamily };
-        _advCboSchedule = new ComboBox { Header = "调度器", HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 32, FontFamily = UiTextFontFamily };
+        _advCboSampler = new ComboBox { Header = L("panel.sampler"), HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 32, FontFamily = UiTextFontFamily };
+        _advCboSchedule = new ComboBox { Header = L("panel.scheduler"), HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 32, FontFamily = UiTextFontFamily };
         _advNbSteps = new NumberBox
         {
-            Header = "步数", Minimum = 1,
+            Header = L("panel.steps"), Minimum = 1,
             Maximum = maxMode ? 50 : 28,
             Value = Math.Min(p.Steps, maxMode ? 50 : 28),
             MinHeight = 32,
@@ -5760,13 +5763,13 @@ public sealed partial class MainWindow : Window
         };
         _advNbSeed = new NumberBox
         {
-            Header = "种子 (0=随机)", Minimum = 0, Value = p.Seed,
+            Header = L("panel.seed"), Minimum = 0, Value = p.Seed,
             MinHeight = 32,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
         };
         _advNbScale = new NumberBox
         {
-            Header = "CFG 缩放", Minimum = 0, Maximum = 10, Value = p.Scale,
+            Header = L("dialog.advanced.cfg_scale"), Minimum = 0, Maximum = 10, Value = p.Scale,
             SmallChange = 0.1, LargeChange = 1,
             MinHeight = 32,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
@@ -5787,7 +5790,7 @@ public sealed partial class MainWindow : Window
         };
         _advSliderCfgRescale.ValueChanged += (_, args) => _advTxtCfgRescale.Text = $"{args.NewValue:F2}";
 
-        _advChkVariety = new CheckBox { Content = "多样化 (Variety+)", IsChecked = p.Variety };
+        _advChkVariety = new CheckBox { Content = L("dialog.advanced.variety"), IsChecked = p.Variety };
         _advChkVariety.Visibility = Visibility.Visible;
         _advChkSmea = new CheckBox
         {
@@ -5811,15 +5814,15 @@ public sealed partial class MainWindow : Window
             _isSyncingSidebarAdv = false;
         };
 
-        _advCboQuality = new ComboBox { Header = "添加质量词", HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 32, FontFamily = UiTextFontFamily };
-        _advCboQuality.Items.Add(CreateTextComboBoxItem("是"));
-        _advCboQuality.Items.Add(CreateTextComboBoxItem("否"));
+        _advCboQuality = new ComboBox { Header = L("dialog.advanced.quality"), HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 32, FontFamily = UiTextFontFamily };
+        _advCboQuality.Items.Add(CreateTextComboBoxItem(L("common.yes")));
+        _advCboQuality.Items.Add(CreateTextComboBoxItem(L("common.no")));
         _advCboQuality.SelectedIndex = p.QualityToggle ? 0 : 1;
         if (_advCboQuality.SelectedIndex < 0) _advCboQuality.SelectedIndex = 0;
-        _advCboUcPreset = new ComboBox { Header = "添加负面质量词", HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 32, FontFamily = UiTextFontFamily };
-        _advCboUcPreset.Items.Add(CreateTextComboBoxItem("全面"));
-        _advCboUcPreset.Items.Add(CreateTextComboBoxItem("简略"));
-        _advCboUcPreset.Items.Add(CreateTextComboBoxItem("不添加"));
+        _advCboUcPreset = new ComboBox { Header = L("dialog.advanced.negative_quality"), HorizontalAlignment = HorizontalAlignment.Stretch, MinHeight = 32, FontFamily = UiTextFontFamily };
+        _advCboUcPreset.Items.Add(CreateTextComboBoxItem(L("dialog.advanced.uc_preset.full")));
+        _advCboUcPreset.Items.Add(CreateTextComboBoxItem(L("dialog.advanced.uc_preset.light")));
+        _advCboUcPreset.Items.Add(CreateTextComboBoxItem(L("dialog.advanced.uc_preset.none")));
         _advCboUcPreset.SelectedIndex = p.UcPreset;
         if (_advCboUcPreset.SelectedIndex < 0) _advCboUcPreset.SelectedIndex = 0;
 
@@ -5861,7 +5864,7 @@ public sealed partial class MainWindow : Window
         SuppressNumberBoxClearButton(_advNbMaxWidth);
         SuppressNumberBoxClearButton(_advNbMaxHeight);
 
-        var sizeLabel = new TextBlock { Text = "尺寸", Margin = new Thickness(0, 0, 0, 8) };
+        var sizeLabel = new TextBlock { Text = L("panel.size"), Margin = new Thickness(0, 0, 0, 8) };
 
         _advMaxSizePanel = new Grid { Visibility = Visibility.Visible };
         _advMaxSizePanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -5902,7 +5905,7 @@ public sealed partial class MainWindow : Window
         Grid.SetColumn(gripIcon, 0);
         var titleText = new TextBlock
         {
-            Text = "高级参数", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, FontSize = 13,
+            Text = L("dialog.advanced.title"), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, FontSize = 13,
             VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0),
         };
         Grid.SetColumn(titleText, 1);
@@ -5932,7 +5935,7 @@ public sealed partial class MainWindow : Window
         Grid.SetRow(rescaleStack, 4); Grid.SetColumn(rescaleStack, 0); Grid.SetColumnSpan(rescaleStack, 2);
         var rescaleLabel = new TextBlock
         {
-            Text = "CFG 再缩放 (0=关闭)", FontSize = 12, Margin = new Thickness(0, 0, 0, 4),
+            Text = L("dialog.advanced.cfg_rescale"), FontSize = 12, Margin = new Thickness(0, 0, 0, 4),
         };
         var rescaleGrid = new Grid();
         rescaleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -6092,11 +6095,11 @@ public sealed partial class MainWindow : Window
         {
             NbSeed.Value = _lastUsedSeed;
             if (IsAdvancedWindowOpen) _advNbSeed.Value = _lastUsedSeed;
-            TxtStatus.Text = $"已还原种子: {_lastUsedSeed}";
+            TxtStatus.Text = Lf("seed.restored", _lastUsedSeed);
         }
         else
         {
-            TxtStatus.Text = "尚无可还原的种子";
+            TxtStatus.Text = L("seed.none_to_restore");
         }
     }
 
@@ -6388,12 +6391,12 @@ public sealed partial class MainWindow : Window
 
         if (warn)
         {
-            BtnRedoGenerate.Content = CreateAnlasActionButtonContent("重做", EstimateCurrentRequestAnlasCost());
+            BtnRedoGenerate.Content = CreateAnlasActionButtonContent(L("button.regenerate"), EstimateCurrentRequestAnlasCost());
             ApplyGoldAccentButtonStyle(BtnRedoGenerate);
         }
         else
         {
-            BtnRedoGenerate.Content = CreateSymbolActionButtonContent(Symbol.Refresh, "重做");
+            BtnRedoGenerate.Content = CreateSymbolActionButtonContent(Symbol.Refresh, L("button.regenerate"));
             ClearGoldAccentButtonStyle(BtnRedoGenerate);
         }
     }
@@ -6407,7 +6410,7 @@ public sealed partial class MainWindow : Window
         if (hasKey && _anlasRefreshRunning && !_anlasInitialFetchDone)
         {
             content.Children.Add(new SymbolIcon(Symbol.Sync));
-            content.Children.Add(new TextBlock { Text = "正在同步账户信息" });
+            content.Children.Add(new TextBlock { Text = L("status.syncing_account") });
             BtnGenerate.Content = content;
             BtnGenerate.IsEnabled = false;
             return;
@@ -6437,12 +6440,12 @@ public sealed partial class MainWindow : Window
             {
                 content.Children.Add(new SymbolIcon(Symbol.Send));
             }
-            content.Children.Add(new TextBlock { Text = "发送" });
+            content.Children.Add(new TextBlock { Text = L("button.send") });
         }
         else
         {
             content.Children.Add(new SymbolIcon(Symbol.Globe));
-            content.Children.Add(new TextBlock { Text = "设置 API" });
+            content.Children.Add(new TextBlock { Text = L("button.setup_api") });
         }
         BtnGenerate.Content = content;
     }
@@ -6499,7 +6502,7 @@ public sealed partial class MainWindow : Window
                     if (automationSettings.Generation.FailureRetryLimit > 0 &&
                         consecutiveFailures >= automationSettings.Generation.FailureRetryLimit)
                     {
-                        TxtStatus.Text = $"自动生成已停止：连续失败 {consecutiveFailures} 次";
+                        TxtStatus.Text = Lf("generate.continuous.stopped_failures", consecutiveFailures);
                         break;
                     }
                 }
@@ -6507,7 +6510,7 @@ public sealed partial class MainWindow : Window
                 if (automationSettings.Generation.RequestLimit > 0 &&
                     requestCount >= automationSettings.Generation.RequestLimit)
                 {
-                    TxtStatus.Text = $"自动生成已停止：已发送 {requestCount} 次请求";
+                    TxtStatus.Text = Lf("generate.continuous.stopped_requests", requestCount);
                     break;
                 }
 
@@ -6516,7 +6519,7 @@ public sealed partial class MainWindow : Window
                 var delay = automationSettings.Generation.MinDelaySeconds +
                             Random.Shared.NextDouble() *
                             (automationSettings.Generation.MaxDelaySeconds - automationSettings.Generation.MinDelaySeconds);
-                TxtStatus.Text = $"自动生成: 等待 {delay:F1} 秒后继续...";
+                TxtStatus.Text = Lf("automation.status.waiting", delay);
 
                 try { await Task.Delay(TimeSpan.FromSeconds(delay), _autoGenCts.Token); }
                 catch (OperationCanceledException) { break; }
@@ -6529,8 +6532,8 @@ public sealed partial class MainWindow : Window
             _activeAutomationSettings = null;
             _automationRunContext = null;
             UpdateAutoGenUI();
-            if (!TxtStatus.Text.StartsWith("自动生成已停止"))
-                TxtStatus.Text = "自动生成已停止";
+            if (!TxtStatus.Text.StartsWith(L("automation.status.stopped_prefix"), StringComparison.CurrentCulture))
+                TxtStatus.Text = L("automation.status.stopped");
         }
     }
 
@@ -6556,12 +6559,12 @@ public sealed partial class MainWindow : Window
 
                 _continuousGenRemaining = totalCount - i;
                 UpdateAutoGenUI();
-                TxtStatus.Text = $"连续生成: 正在执行第 {i + 1}/{totalCount} 次请求...";
+                TxtStatus.Text = Lf("generate.continuous.progress", i + 1, totalCount);
 
                 bool success = await ExecuteCurrentGenerationAsync(forceRandomSeed: true);
                 if (!success)
                 {
-                    TxtStatus.Text = $"连续生成已停止：第 {i + 1} 次请求失败";
+                    TxtStatus.Text = Lf("generate.continuous.stopped_failed_request", i + 1);
                     break;
                 }
 
@@ -6578,9 +6581,9 @@ public sealed partial class MainWindow : Window
             UpdateAutoGenUI();
 
             if (wasCancelled)
-                TxtStatus.Text = "连续生成已停止";
+                TxtStatus.Text = L("generate.continuous.stopped");
             else if (completedCount == totalCount)
-                TxtStatus.Text = $"连续生成完成：共 {completedCount} 次";
+                TxtStatus.Text = Lf("generate.continuous.completed", completedCount);
         }
     }
 
@@ -6598,7 +6601,7 @@ public sealed partial class MainWindow : Window
             {
                 FontFamily = SymbolFontFamily, Glyph = "\uE71A", FontSize = 16,
             });
-            content.Children.Add(new TextBlock { Text = "停止自动生成" });
+            content.Children.Add(new TextBlock { Text = L("automation.button.stop") });
             BtnGenerate.Content = content;
             BtnGenerate.Resources["AccentButtonBackground"] = new SolidColorBrush(
                 Windows.UI.Color.FromArgb(255, 196, 43, 28));
@@ -6620,8 +6623,10 @@ public sealed partial class MainWindow : Window
             content.Children.Add(new TextBlock
             {
                 Text = _continuousStopRequested
-                    ? "正在停止..."
-                    : (_continuousGenRemaining > 0 ? $"停止连续生成 ({_continuousGenRemaining})" : "停止连续生成")
+                    ? L("common.stopping")
+                    : (_continuousGenRemaining > 0
+                        ? Lf("generate.continuous.stop_button_with_remaining", _continuousGenRemaining)
+                        : L("generate.continuous.stop_button"))
             });
             BtnGenerate.Content = content;
             BtnGenerate.Resources["AccentButtonBackground"] = new SolidColorBrush(
@@ -6751,7 +6756,7 @@ public sealed partial class MainWindow : Window
             string curStyle = _currentMode == AppMode.ImageGeneration
                 ? _genStylePrompt : _inpaintStylePrompt;
             TxtStylePrompt.Text = curStyle;
-            TxtPrompt.PlaceholderText = "输入正向提示词...";
+        TxtPrompt.PlaceholderText = L("prompt.enter_positive");
         }
         else
         {
@@ -6795,7 +6800,7 @@ public sealed partial class MainWindow : Window
             if (_isPositiveTab && _isSplitPrompt) TxtStylePrompt.Text = _inpaintStylePrompt;
         }
         BtnSplitPrompt.IsChecked = _isSplitPrompt;
-        TxtPrompt.PlaceholderText = _isPositiveTab ? "输入正向提示词..." : "输入负向提示词...";
+        TxtPrompt.PlaceholderText = _isPositiveTab ? L("prompt.enter_positive") : L("prompt.enter_negative");
     }
 
     private void SaveCurrentPromptToBuffer()
@@ -6858,7 +6863,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"加载快捷提示词失败: {ex.Message}";
+            TxtStatus.Text = Lf("prompt_shortcuts.load_failed", ex.Message);
         }
     }
 
@@ -6973,7 +6978,7 @@ public sealed partial class MainWindow : Window
 
         var label = new TextBlock
         {
-            Text = $"角色 {index + 1}",
+            Text = Lf("character.label", index + 1),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
             Style = (Style)rootGrid.Resources["InspectCaptionStyle"],
@@ -6982,14 +6987,14 @@ public sealed partial class MainWindow : Window
 
         var tabPos = new Microsoft.UI.Xaml.Controls.Primitives.ToggleButton
         {
-            Content = "正向", IsChecked = entry.IsPositiveTab,
+            Content = L("prompt.positive_compact_character"), IsChecked = entry.IsPositiveTab,
             CornerRadius = new CornerRadius(4, 0, 0, 4),
             MinWidth = 0, Height = 26, Padding = new Thickness(8, 2, 8, 2),
             FontSize = 11,
         };
         var tabNeg = new Microsoft.UI.Xaml.Controls.Primitives.ToggleButton
         {
-            Content = "负向", IsChecked = !entry.IsPositiveTab,
+            Content = L("prompt.negative_compact_character"), IsChecked = !entry.IsPositiveTab,
             CornerRadius = new CornerRadius(0, 4, 4, 0),
             MinWidth = 0, Height = 26, Padding = new Thickness(8, 2, 8, 2),
             FontSize = 11,
@@ -7000,8 +7005,8 @@ public sealed partial class MainWindow : Window
         headerGrid.Children.Add(tabPanel);
 
         var movePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        var upBtn = CreateCharacterActionButton("\uE70E", "上移", index > 0);
-        var downBtn = CreateCharacterActionButton("\uE70D", "下移", index < _genCharacters.Count - 1);
+        var upBtn = CreateCharacterActionButton("\uE70E", L("references.action.move_up"), index > 0);
+        var downBtn = CreateCharacterActionButton("\uE70D", L("references.action.move_down"), index < _genCharacters.Count - 1);
         movePanel.Children.Add(upBtn);
         movePanel.Children.Add(downBtn);
         Grid.SetColumn(movePanel, 2);
@@ -7011,12 +7016,12 @@ public sealed partial class MainWindow : Window
         upBtn.Click += (_, _) => MoveCharacter(capturedMoveIdx, -1);
         downBtn.Click += (_, _) => MoveCharacter(capturedMoveIdx, 1);
 
-        var posBtn = CreateCharacterActionButton("\uE819", "角色位置", true);
+        var posBtn = CreateCharacterActionButton("\uE819", L("character.position"), true);
         posBtn.Margin = new Thickness(2, 0, 0, 0);
         Grid.SetColumn(posBtn, 3);
         headerGrid.Children.Add(posBtn);
 
-        var delBtn = CreateCharacterActionButton("\uE74D", "删除角色", true, isDelete: true);
+        var delBtn = CreateCharacterActionButton("\uE74D", L("character.delete"), true, isDelete: true);
         delBtn.Margin = new Thickness(2, 0, 0, 0);
         Grid.SetColumn(delBtn, 4);
         headerGrid.Children.Add(delBtn);
@@ -7027,7 +7032,7 @@ public sealed partial class MainWindow : Window
         {
             AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
             IsSpellCheckEnabled = false,
-            PlaceholderText = entry.IsPositiveTab ? "角色正向提示词..." : "角色负向提示词...",
+            PlaceholderText = entry.IsPositiveTab ? L("character.prompt_positive_placeholder") : L("character.prompt_negative_placeholder"),
             Text = entry.IsPositiveTab ? entry.PositivePrompt : entry.NegativePrompt,
             MinHeight = 50, MaxHeight = 120,
             FontSize = 12,
@@ -7057,7 +7062,7 @@ public sealed partial class MainWindow : Window
             entry.IsPositiveTab = true;
             tabPos.IsChecked = true; tabNeg.IsChecked = false;
             textBox.Text = entry.PositivePrompt;
-            textBox.PlaceholderText = "角色正向提示词...";
+            textBox.PlaceholderText = L("character.prompt_positive_placeholder");
         };
         tabNeg.Click += (_, _) =>
         {
@@ -7066,7 +7071,7 @@ public sealed partial class MainWindow : Window
             entry.IsPositiveTab = false;
             tabNeg.IsChecked = true; tabPos.IsChecked = false;
             textBox.Text = entry.NegativePrompt;
-            textBox.PlaceholderText = "角色负向提示词...";
+            textBox.PlaceholderText = L("character.prompt_negative_placeholder");
         };
 
         posBtn.Click += (_, _) => ShowCharacterPositionFlyout(posBtn, entry);
@@ -7134,7 +7139,7 @@ public sealed partial class MainWindow : Window
         button.BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0x00, 0x00, 0x00, 0x00));
         button.BorderThickness = new Thickness(0);
 
-        ToolTipService.SetToolTip(button, isCollapsed ? "展开角色提示词" : "折叠角色提示词");
+        ToolTipService.SetToolTip(button, isCollapsed ? L("character.expand") : L("character.collapse"));
         return button;
     }
 
@@ -7202,14 +7207,14 @@ public sealed partial class MainWindow : Window
         var rootGrid = (Grid)this.Content;
         var titleText = new TextBlock
         {
-            Text = "角色位置",
+            Text = L("character.position"),
             Style = (Style)rootGrid.Resources["InspectCaptionStyle"],
         };
         panel.Children.Add(titleText);
 
         var customPosToggle = new Microsoft.UI.Xaml.Controls.ToggleSwitch
         {
-            Header = "自定义位置",
+            Header = L("character.custom_position"),
             IsOn = entry.UseCustomPosition,
             FontSize = 12,
         };
@@ -7246,7 +7251,7 @@ public sealed partial class MainWindow : Window
 
         var resetBtn = new Button
         {
-            Content = "重置为中心", HorizontalAlignment = HorizontalAlignment.Stretch,
+            Content = L("character.reset_to_center"), HorizontalAlignment = HorizontalAlignment.Stretch,
             FontSize = 11,
         };
         resetBtn.Click += (_, _) =>
@@ -7480,14 +7485,14 @@ public sealed partial class MainWindow : Window
     private async void OnNormalizePrompts(object sender, RoutedEventArgs e)
     {
         var options = new NormalizeOptions();
-        var chkLower = new CheckBox { Content = "转为小写", IsChecked = options.Lowercase };
-        var chkHalf = new CheckBox { Content = "使用半角标点", IsChecked = options.HalfWidth };
-        var chkSpecial = new CheckBox { Content = "移除特殊符号（【】）", IsChecked = options.RemoveSpecial };
-        var chkUnderscore = new CheckBox { Content = "下划线转空格", IsChecked = options.UnderscoreToSpace };
-        var chkNewlines = new CheckBox { Content = "换行转逗号", IsChecked = options.RemoveNewlines };
-        var chkJunk = new CheckBox { Content = "移除常见质量/artist前缀", IsChecked = options.RemoveJunk };
-        var chkAscii = new CheckBox { Content = "移除非 ASCII 字符", IsChecked = options.RemoveNonAscii };
-        var chkPreserveWild = new CheckBox { Content = "保留 Wildcards 语法", IsChecked = options.PreserveWildcards };
+        var chkLower = new CheckBox { Content = L("normalize.lowercase"), IsChecked = options.Lowercase };
+        var chkHalf = new CheckBox { Content = L("normalize.half_width"), IsChecked = options.HalfWidth };
+        var chkSpecial = new CheckBox { Content = L("normalize.remove_special"), IsChecked = options.RemoveSpecial };
+        var chkUnderscore = new CheckBox { Content = L("normalize.underscore_to_space"), IsChecked = options.UnderscoreToSpace };
+        var chkNewlines = new CheckBox { Content = L("normalize.newlines_to_commas"), IsChecked = options.RemoveNewlines };
+        var chkJunk = new CheckBox { Content = L("normalize.remove_junk"), IsChecked = options.RemoveJunk };
+        var chkAscii = new CheckBox { Content = L("normalize.remove_non_ascii"), IsChecked = options.RemoveNonAscii };
+        var chkPreserveWild = new CheckBox { Content = L("normalize.preserve_wildcards"), IsChecked = options.PreserveWildcards };
 
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(chkLower);
@@ -7501,10 +7506,10 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "提示词标准化",
+            Title = L("normalize.title"),
             Content = panel,
-            PrimaryButtonText = "应用",
-            CloseButtonText = "取消",
+            PrimaryButtonText = L("button.apply"),
+            CloseButtonText = L("common.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -7553,7 +7558,7 @@ public sealed partial class MainWindow : Window
         RefreshCharacterPanel();
         UpdatePromptHighlights();
         UpdateStyleHighlights();
-        TxtStatus.Text = "已完成提示词标准化";
+        TxtStatus.Text = L("prompt.normalize.completed");
     }
 
     private static readonly Regex WildcardTokenPreserveRegex = new(@"__(.+?)__", RegexOptions.Compiled);
@@ -7893,9 +7898,9 @@ public sealed partial class MainWindow : Window
                     await bitmapImage.SetSourceAsync(stream);
                     GenPreviewImage.Source = bitmapImage;
                     GenPlaceholder.Visibility = Visibility.Collapsed;
-                    TxtStatus.Text = $"已加载: {file.Path}";
+                    TxtStatus.Text = Lf("file.loaded_path", file.Path);
                 }
-                catch (Exception ex) { TxtStatus.Text = $"加载失败: {ex.Message}"; }
+                catch (Exception ex) { TxtStatus.Text = Lf("common.load_failed", ex.Message); }
             }
         }
     }
@@ -7917,14 +7922,14 @@ public sealed partial class MainWindow : Window
         else
         {
             if (_currentGenImageBytes == null)
-            { TxtStatus.Text = "没有生成结果可保存"; return; }
+            { TxtStatus.Text = L("file.error.no_generated_result_to_save"); return; }
             if (!string.IsNullOrEmpty(_currentGenImagePath) && File.Exists(_currentGenImagePath))
             {
-                TxtStatus.Text = $"已保存: {_currentGenImagePath}";
+                TxtStatus.Text = Lf("file.saved_path", _currentGenImagePath);
             }
             else
             {
-                TxtStatus.Text = "生图结果已自动保存到 output 文件夹";
+                TxtStatus.Text = L("generate.status.auto_saved_output");
             }
         }
     }
@@ -7933,13 +7938,13 @@ public sealed partial class MainWindow : Window
     {
         var filePath = MaskCanvas.LoadedFilePath;
         if (string.IsNullOrEmpty(filePath))
-        { TxtStatus.Text = "未导入图片，无法保存"; return; }
+        { TxtStatus.Text = L("inpaint.error.no_image_to_save"); return; }
 
         byte[]? bytesToSave = null;
         if (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null)
         {
             try { bytesToSave = await CreatePreviewCompositeBytes(); }
-            catch (Exception ex) { TxtStatus.Text = $"合成预览图失败: {ex.Message}"; return; }
+            catch (Exception ex) { TxtStatus.Text = Lf("inpaint.error.compose_preview_failed", ex.Message); return; }
         }
         else
         {
@@ -7947,7 +7952,7 @@ public sealed partial class MainWindow : Window
         }
 
         if (bytesToSave == null || bytesToSave.Length == 0)
-        { TxtStatus.Text = "没有可保存的图像内容"; return; }
+        { TxtStatus.Text = L("file.error.no_image_content_to_save"); return; }
 
         string sizeWarning = "";
         try
@@ -7962,7 +7967,7 @@ public sealed partial class MainWindow : Window
                     using var newStream = new MemoryStream(bytesToSave);
                     using var newBmp = SkiaSharp.SKBitmap.Decode(newStream);
                     if (newBmp != null && (skBmp.Width != newBmp.Width || skBmp.Height != newBmp.Height))
-                        sizeWarning = $"\n\n注意：图像尺寸已从 {skBmp.Width}×{skBmp.Height} 变为 {newBmp.Width}×{newBmp.Height}。";
+                        sizeWarning = Lf("file.confirm_save.size_warning", skBmp.Width, skBmp.Height, newBmp.Width, newBmp.Height);
                 }
             }
         }
@@ -7970,10 +7975,10 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "确认保存",
-            Content = $"将覆盖原始文件：\n{filePath}{sizeWarning}",
-            PrimaryButtonText = "保存",
-            CloseButtonText = "取消",
+            Title = L("file.confirm_save.title"),
+            Content = Lf("file.confirm_save.overwrite", filePath, sizeWarning),
+            PrimaryButtonText = L("common.save"),
+            CloseButtonText = L("common.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -7984,9 +7989,9 @@ public sealed partial class MainWindow : Window
         try
         {
             await File.WriteAllBytesAsync(filePath, bytesToSave);
-            TxtStatus.Text = $"已保存: {filePath}";
+            TxtStatus.Text = Lf("file.saved_path", filePath);
         }
-        catch (Exception ex) { TxtStatus.Text = $"保存失败: {ex.Message}"; }
+        catch (Exception ex) { TxtStatus.Text = Lf("common.save_failed", ex.Message); }
     }
 
     private async Task<byte[]?> CreateCurrentFullImageBytes()
@@ -8053,7 +8058,7 @@ public sealed partial class MainWindow : Window
             if (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null)
             {
                 try { bytesToSave = await CreatePreviewCompositeBytes(); }
-                catch (Exception ex) { TxtStatus.Text = $"合成预览图失败: {ex.Message}"; return; }
+                catch (Exception ex) { TxtStatus.Text = Lf("inpaint.error.compose_preview_failed", ex.Message); return; }
             }
             else
             {
@@ -8068,10 +8073,10 @@ public sealed partial class MainWindow : Window
         }
 
         if (bytesToSave == null || bytesToSave.Length == 0)
-        { TxtStatus.Text = "没有可保存的图片"; return; }
+        { TxtStatus.Text = L("file.error.no_image_to_save"); return; }
 
         var picker = new FileSavePicker();
-        picker.FileTypeChoices.Add("PNG 图片", new List<string> { ".png" });
+        picker.FileTypeChoices.Add(L("file.png_image"), new List<string> { ".png" });
         picker.SuggestedFileName = $"nai_{DateTime.Now:yyyyMMdd_HHmmss}";
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
         var file = await picker.PickSaveFileAsync();
@@ -8081,10 +8086,10 @@ public sealed partial class MainWindow : Window
             {
                 await Windows.Storage.FileIO.WriteBytesAsync(file, bytesToSave);
                 TxtStatus.Text = stripMetadata
-                    ? $"已保存（已抹除元数据）: {file.Path}"
-                    : $"已保存: {file.Path}";
+                    ? Lf("file.saved_path_stripped", file.Path)
+                    : Lf("file.saved_path", file.Path);
             }
-            catch (Exception ex) { TxtStatus.Text = $"保存失败: {ex.Message}"; }
+            catch (Exception ex) { TxtStatus.Text = Lf("common.save_failed", ex.Message); }
         }
     }
 
@@ -8142,26 +8147,26 @@ public sealed partial class MainWindow : Window
                 System.Diagnostics.Process.Start("explorer.exe", outputDir);
                 return;
             }
-            TxtStatus.Text = "尚无输出文件夹";
+            TxtStatus.Text = L("file.error.no_output_folder");
             return;
         }
 
         if (_currentMode == AppMode.Effects)
         {
             if (string.IsNullOrEmpty(_effectsImagePath) || !File.Exists(_effectsImagePath))
-            { TxtStatus.Text = "尚未加载图片，无法打开文件夹"; return; }
+            { TxtStatus.Text = L("file.error.no_image_for_folder"); return; }
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{_effectsImagePath}\"");
             return;
         }
 
         var path = MaskCanvas.LoadedFilePath;
         if (string.IsNullOrEmpty(path))
-        { TxtStatus.Text = "尚未加载图片，无法打开文件夹"; return; }
+        { TxtStatus.Text = L("file.error.no_image_for_folder"); return; }
         var dir = Path.GetDirectoryName(path);
         if (dir != null && Directory.Exists(dir))
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\"");
         else
-            TxtStatus.Text = "文件夹不存在或路径无效";
+            TxtStatus.Text = L("file.error.folder_not_found");
     }
 
     private void OnExit(object sender, RoutedEventArgs e)
@@ -8183,7 +8188,7 @@ public sealed partial class MainWindow : Window
             _effectsRedoStack.Push(CaptureEffectsWorkspaceState());
             var state = _effectsUndoStack.Pop();
             await RestoreEffectsWorkspaceStateAsync(state);
-            TxtStatus.Text = "已撤销效果操作";
+            TxtStatus.Text = L("post.status.undo");
         }
     }
 
@@ -8200,7 +8205,7 @@ public sealed partial class MainWindow : Window
             _effectsUndoStack.Push(CaptureEffectsWorkspaceState());
             var state = _effectsRedoStack.Pop();
             await RestoreEffectsWorkspaceStateAsync(state);
-            TxtStatus.Text = "已重做效果操作";
+            TxtStatus.Text = L("post.status.redo");
         }
     }
 
@@ -8211,38 +8216,38 @@ public sealed partial class MainWindow : Window
     {
         if (_currentMode != AppMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.FillEmptyAreas();
-        TxtStatus.Text = "已填充空白区域";
+        TxtStatus.Text = L("inpaint.mask.fill_empty_done");
     }
 
     private void OnInvertMask(object sender, RoutedEventArgs e)
     {
         if (_currentMode != AppMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.InvertMask();
-        TxtStatus.Text = "已反转遮罩";
+        TxtStatus.Text = L("inpaint.mask.inverted");
     }
 
     private void OnExpandMask(object sender, RoutedEventArgs e)
     {
         if (_currentMode != AppMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.ExpandMask();
-        TxtStatus.Text = "已扩展遮罩 (边缘+1px)";
+        TxtStatus.Text = L("inpaint.mask.expanded");
     }
 
     private void OnShrinkMask(object sender, RoutedEventArgs e)
     {
         if (_currentMode != AppMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.ShrinkMask();
-        TxtStatus.Text = "已收缩遮罩 (边缘-1px)";
+        TxtStatus.Text = L("inpaint.mask.shrunk");
     }
 
     private void OnTrimCanvas(object sender, RoutedEventArgs e)
     {
         if (_currentMode != AppMode.Inpaint) return;
-        if (MaskCanvas.IsInPreviewMode) { TxtStatus.Text = "预览模式下无法修剪画布"; return; }
+        if (MaskCanvas.IsInPreviewMode) { TxtStatus.Text = L("inpaint.canvas.trim_blocked_preview"); return; }
         if (MaskCanvas.TrimCanvas())
-            TxtStatus.Text = $"画布已修剪至 {MaskCanvas.CanvasW} × {MaskCanvas.CanvasH}";
+            TxtStatus.Text = Lf("inpaint.canvas.trimmed", MaskCanvas.CanvasW, MaskCanvas.CanvasH);
         else
-            TxtStatus.Text = "无可修剪内容（画布为空或已是最小）";
+            TxtStatus.Text = L("inpaint.canvas.trim_empty");
     }
 
     private void OnFitToScreen(object sender, RoutedEventArgs e)
@@ -8419,7 +8424,7 @@ public sealed partial class MainWindow : Window
         if (!ctrl.HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)) return;
         if (_currentGenImageBytes == null) return;
 
-        await ApplyDroppedImageMetadata(_currentGenImageBytes, "预览图片", skipSeed: true);
+        await ApplyDroppedImageMetadata(_currentGenImageBytes, L("image.preview_label"), skipSeed: true);
         e.Handled = true;
     }
 
@@ -8429,7 +8434,7 @@ public sealed partial class MainWindow : Window
         if (sender is MenuFlyoutItem item && item.Tag is string tag)
         {
             MaskCanvas.AlignImage(tag);
-            TxtStatus.Text = "图像已对齐";
+            TxtStatus.Text = L("image.aligned");
         }
     }
 
@@ -8447,9 +8452,9 @@ public sealed partial class MainWindow : Window
             _settings.Save();
             TxtStatus.Text = mode switch
             {
-                "Light" => "已切换为亮色模式",
-                "Dark" => "已切换为暗色模式",
-                _ => "已切换为跟随系统",
+                "Light" => L("status.theme_light"),
+                "Dark" => L("status.theme_dark"),
+                _ => L("status.theme_system"),
             };
         }
     }
@@ -8504,59 +8509,33 @@ public sealed partial class MainWindow : Window
         var pages = new (string Title, string Body, string Glyph)[]
         {
             (
-                "生图模式",
-                "1. 在左侧栏选择模型、输入提示词、调整参数。\n" +
-                "2. 点击“生成”或按 Ctrl+Enter 发送请求。\n" +
-                "3. 生成结果会自动保存到 output/ 文件夹。\n" +
-                "4. 可将结果继续发送到重绘或效果工作区。",
+                L("help.overview.image.title"),
+                L("help.overview.image.body"),
                 "\uE768"
             ),
             (
-                "重绘模式",
-                "1. 导入图像后，使用笔刷、橡皮擦或矩形工具编辑遮罩。\n" +
-                "2. 点击“生成”发送重绘请求。\n" +
-                "3. 在结果栏中可选择应用、对比、重做或舍弃当前结果。",
+                L("help.overview.inpaint.title"),
+                L("help.overview.inpaint.body"),
                 "\uE70F"
             ),
             (
-                "绘图工具",
-                "B：笔刷\n" +
-                "E：橡皮擦\n" +
-                "R：矩形选区\n" +
-                "滚轮：调整笔刷大小",
+                L("help.overview.tools.title"),
+                L("help.overview.tools.body"),
                 "\uEDFB"
             ),
             (
-                "视图操作",
-                "鼠标中键拖动：平移视口\n" +
-                "Ctrl+滚轮：缩放视口\n" +
-                "右键拖动 / Alt+左键拖动：移动底图位置\n" +
-                "A+方向键：对齐图像\n" +
-                "A+Num0：图像居中",
+                L("help.overview.view.title"),
+                L("help.overview.view.body"),
                 "\uE7C3"
             ),
             (
-                "抽卡器语法",
-                "1. `__name__`：抽取一项\n" +
-                "2. `__folder/name__`：抽取子目录条目\n" +
-                "3. `__name@3__`：一次抽取 3 项并用逗号拼接\n" +
-                "4. `__name@var__`：抽取一项并保存到变量 var\n" +
-                "5. `__@var__`：引用当前请求里已经抽到的变量\n" +
-                "6. `.txt` 里写成 `内容|1.2` 时，会按当前模型转成对应权重语法\n" +
-                "7. 若在“使用设置”中关闭双下划线触发，则可直接使用条目名本体触发抽卡器",
+                L("help.overview.wildcards.title"),
+                L("help.overview.wildcards.body"),
                 "\uE74C"
             ),
             (
-                "快捷键",
-                "Ctrl+Z / Ctrl+Y：撤销 / 重做遮罩\n" +
-                "Ctrl+I：反转遮罩\n" +
-                "Ctrl+Shift+I：填充空白区域\n" +
-                "Ctrl+D：清空遮罩\n" +
-                "Ctrl++：扩展遮罩\n" +
-                "Ctrl+-：收缩遮罩\n" +
-                "Ctrl+Enter：发送生成请求\n" +
-                "Ctrl+S：保存\n" +
-                "Ctrl+Shift+S：另存为",
+                L("help.overview.shortcuts.title"),
+                L("help.overview.shortcuts.body"),
                 "\uE765"
             ),
         };
@@ -8636,9 +8615,9 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "操作概览",
+            Title = L("help.overview.dialog_title"),
             Content = nav,
-            CloseButtonText = "关闭",
+            CloseButtonText = L("common.close"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -8653,64 +8632,52 @@ public sealed partial class MainWindow : Window
         var pages = new (string Title, string Body)[]
         {
             (
-                "自动化生图",
-                "支持常规单次生成，也支持自动化连续出图。\n\n" +
-                "你可以先固定基础提示词与参数，再让工具自动循环发送请求，并配合已有的随机风格提示词功能持续产出变体，适合批量试风格、试构图和刷灵感。"
+                L("help.highlights.automation.title"),
+                L("help.highlights.automation.body")
             ),
             (
-                "提示词标准化",
-                "内置提示词标准化与整理能力，可以统一标签写法、清理格式细节，减少提示词越写越乱的问题。\n\n" +
-                "在长期使用中，这能明显降低重复编辑成本，也更方便把不同来源的提示词整理成稳定可复用的格式。"
+                L("help.highlights.prompt_normalization.title"),
+                L("help.highlights.prompt_normalization.body")
             ),
             (
-                "随机风格提示词",
-                "工具可以基于内置标签表，自动抽取随机风格提示词，帮助你快速探索画风方向。\n\n" +
-                "当你没有明确风格目标，或者想让同一主题快速扩散出更多审美路线时，这个功能会很高效。"
+                L("help.highlights.random_style.title"),
+                L("help.highlights.random_style.body")
             ),
             (
-                "快捷提示词",
-                "支持维护自己的快捷提示词库，把常用片段保存下来，随时插入。\n\n" +
-                "无论是人物模板、质量词、镜头语言还是常用负面词，都可以沉淀成个人工作流的一部分。"
+                L("help.highlights.quick_prompts.title"),
+                L("help.highlights.quick_prompts.body")
             ),
             (
-                "提示词抽卡器",
-                "支持把常用可变提示词片段整理为 `user/wildcards/` 下的 txt 条目，并在发送前自动按 seed 展开。\n\n" +
-                "它可以和现有自动补全联动，也支持变量复用与权重写法，适合做服装、发色、构图元素、风格碎片等可复用抽卡模板。"
+                L("help.highlights.wildcards.title"),
+                L("help.highlights.wildcards.body")
             ),
             (
-                "权重转换",
-                "工具菜单中提供独立的权重转换窗口，可在 Stable Diffusion、NovelAI 1~3 经典括号权重，以及 NovelAI 4+ 数字双冒号权重之间互相转换。\n\n" +
-                "窗口采用左右对照结构，方便你先预览输入输出，再决定是否发送回当前工作区，特别适合整理旧 Prompt 或在不同生态之间迁移提示词格式。"
+                L("help.highlights.weight_converter.title"),
+                L("help.highlights.weight_converter.body")
             ),
             (
-                "动作交互",
-                "用户可以在主 Prompt 和角色 Prompt 中通过右键菜单里的“动作交互”快速插入交互前缀。\n\n" +
-                "发起方会在当前选区前加入 source#，被动方加入 target#，对等交互加入 mutual#；如果没有框选内容，则会直接插入到当前光标位置。这是 NAI4 之后版本的标准格式，适合在角色互动、视线关系、动作指向等场景里快速标注不同角色的交互方式。"
+                L("help.highlights.actions.title"),
+                L("help.highlights.actions.body")
             ),
             (
-                "大图免费重绘",
-                "工具利用局部裁剪思路处理大图重绘，把需要修改的区域尽可能放在合理的生成范围内。\n\n" +
-                "这样能在不直接整张放大重绘的前提下，对大尺寸作品进行更精细、更节省成本的修改。"
+                L("help.highlights.large_inpaint.title"),
+                L("help.highlights.large_inpaint.body")
             ),
             (
-                "本地超分",
-                "内置本地超分工作区，使用 ONNX 模型（如 Real-ESRGAN Anime 6B）在本地对图片进行放大。\n\n" +
-                "支持多种倍率选择，无需联网，不消耗 Anlas。处理完成后可自适应缩放预览，或直接发送到其他工作区继续效果处理。"
+                L("help.highlights.upscale.title"),
+                L("help.highlights.upscale.body")
             ),
             (
-                "效果滤镜",
-                "内置效果处理工作区，可以在生成完成后继续做轻量修整。\n\n" +
-                "适合做一些统一风格、增强观感或快速试效果的操作，让整个流程不用频繁切到外部软件。"
+                L("help.highlights.post.title"),
+                L("help.highlights.post.body")
             ),
             (
-                "检视 NAI / SD 图片",
-                "支持读取 NovelAI 和 Stable Diffusion 图片里的常见参数与提示词信息。\n\n" +
-                "这让你可以直接从已有图片回看生成设置，快速复现、继续修改，或把参数重新送回当前工作流。"
+                L("help.highlights.inspect.title"),
+                L("help.highlights.inspect.body")
             ),
             (
-                "图片反推",
-                "当图片没有可用生成元数据时，工具可以调用外部反推模型，从图像内容反向推测标签。\n\n" +
-                "结果会直接回填到检视工作区，便于继续转到生图模式中微调，也支持按需附加角色 tag、作品 tag 和阈值控制。"
+                L("help.highlights.reverse.title"),
+                L("help.highlights.reverse.body")
             ),
         };
 
@@ -8751,7 +8718,7 @@ public sealed partial class MainWindow : Window
         void ShowPage(int index)
         {
             var page = pages[index];
-            pageIndexText.Text = $"第 {index + 1} / {pages.Length} 项";
+            pageIndexText.Text = Lf("help.highlights.index", index + 1, pages.Length);
             pageTitleText.Text = page.Title;
             pageBodyText.Text = page.Body;
             contentScrollViewer.ChangeView(null, 0, null, true);
@@ -8795,9 +8762,9 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "工具亮点",
+            Title = L("help.highlights.dialog_title"),
             Content = nav,
-            CloseButtonText = "关闭",
+            CloseButtonText = L("common.close"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -8817,18 +8784,18 @@ public sealed partial class MainWindow : Window
 
         panel.Children.Add(new TextBlock
         {
-            Text = "点击下方按钮即可在系统默认浏览器中打开对应网站。",
+            Text = L("help.links.description"),
             TextWrapping = TextWrapping.Wrap,
             Opacity = 0.8,
         });
 
         var links = new (string Name, string Url, string Description)[]
         {
-            ("NovelAI 官方网站", "https://novelai.net/", "NovelAI 官方主页"),
-            ("Danbooru", "https://danbooru.donmai.us/", "标签检索与参考图库"),
-            ("Google AI Studio", "https://aistudio.google.com/", "Google AI Studio 官方入口"),
-            ("GitHub 官网", "https://github.com/", "代码托管与开源项目平台"),
-            ("HuggingFace 官网", "https://huggingface.co/", "模型与数据集社区"),
+            (L("help.links.novelai.name"), "https://novelai.net/", L("help.links.novelai.description")),
+            (L("help.links.danbooru.name"), "https://danbooru.donmai.us/", L("help.links.danbooru.description")),
+            (L("help.links.aistudio.name"), "https://aistudio.google.com/", L("help.links.aistudio.description")),
+            (L("help.links.github.name"), "https://github.com/", L("help.links.github.description")),
+            (L("help.links.huggingface.name"), "https://huggingface.co/", L("help.links.huggingface.description")),
         };
 
         foreach (var link in links)
@@ -8852,7 +8819,7 @@ public sealed partial class MainWindow : Window
 
             var openBtn = new Button
             {
-                Content = "打开",
+                Content = L("common.open"),
                 MinWidth = 76,
                 VerticalAlignment = VerticalAlignment.Center,
                 Tag = link.Url,
@@ -8868,9 +8835,9 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "常用网址",
+            Title = L("help.links.dialog_title"),
             Content = panel,
-            CloseButtonText = "关闭",
+            CloseButtonText = L("common.close"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -8892,7 +8859,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"打开网址失败：{ex.Message}";
+            TxtStatus.Text = Lf("help.links.open_failed", ex.Message);
         }
     }
 
@@ -8912,12 +8879,12 @@ public sealed partial class MainWindow : Window
         });
         aboutPanel.Children.Add(new TextBlock
         {
-            Text = "版本 Pre-Release 13",
+            Text = L("about.version"),
             Opacity = 0.7
         });
         aboutPanel.Children.Add(new TextBlock
         {
-            Text = "本工具完全免费，目前位于开发阶段，若付费购得此工具请举报商家。\n\n本工具在特定参数下发送生成请求可能会消耗Opus订阅账户的 Anlas，此类操作会以黄色高亮显示，Anlas 由 NovelAI 官方计算扣除，与本工具及作者无关。\n\n本工具是基于 Opus 订阅用户设计习惯进行开发的，注意，低档位订阅用户及订阅过期用户的任何生成请求都会扣除账号 Anlas。\n\n本工具仅与 NovelAI 官方 API 对接，不会收集、上传或保存任何用户数据至作者或任何第三方。\n\n注意：程序仍为开发阶段，为方便调试，API Key 会以明文形式储存在 user/config/apiconfig.json 中，若分享给他人使用，请在打包前移除该文件。",
+            Text = L("about.description"),
             TextWrapping = TextWrapping.Wrap
         });
 
@@ -8934,20 +8901,20 @@ public sealed partial class MainWindow : Window
 
         var thanksItems = new (string Name, string Description, string Glyph)[]
         {
-            ("Aeka", "NAI Utility Tool 项目作者", "\uE77B"),
-            ("Dominik Reh", "tag 自动补全功能作者", "\uE8D2"),
-            ("SmilingWolf", "WD14 tagger 反推模型及范式作者", "\uE8BA"),
-            ("pixai-labs 团队", "pixai-tagger 反推模型作者", "\uE8BA"),
-            ("DeepGHS 团队", "ONNX 模型量化支持", "\uE835"),
-            ("xinntao", "超分模型作者", "\uE740"),
-            ("EinAeffchen", "Wildcards 原作者", "\uE74C"),
-            ("青龙圣者", "Wildcards 维护与贡献者", "\uE74C"),
-            ("jiarandiana0307", "图片混淆算法源码提供者", "\uF404"),
+            ("Aeka", L("about.thanks.aeka"), "\uE77B"),
+            ("Dominik Reh", L("about.thanks.dominik_reh"), "\uE8D2"),
+            ("SmilingWolf", L("about.thanks.smilingwolf"), "\uE8BA"),
+            ("pixai-labs", L("about.thanks.pixai_labs"), "\uE8BA"),
+            ("DeepGHS", L("about.thanks.deepghs"), "\uE835"),
+            ("xinntao", L("about.thanks.xinntao"), "\uE740"),
+            ("EinAeffchen", L("about.thanks.einaeffchen"), "\uE74C"),
+            (L("about.name.qinglong"), L("about.thanks.qinglong"), "\uE74C"),
+            ("jiarandiana0307", L("about.thanks.jiarandiana0307"), "\uF404"),
         };
 
         var thanksHeader = new TextBlock
         {
-            Text = "以下项目、作者与团队为本工具的相关能力提供了直接或间接支持：",
+            Text = L("about.thanks.header"),
             TextWrapping = TextWrapping.Wrap,
             Opacity = 0.8,
             Margin = new Thickness(4, 8, 4, 4),
@@ -9066,8 +9033,8 @@ public sealed partial class MainWindow : Window
         {
             Margin = new Thickness(0, 0, 0, 8),
         };
-        selectorBar.Items.Add(new SelectorBarItem { Text = "工具说明" });
-        selectorBar.Items.Add(new SelectorBarItem { Text = "特别鸣谢" });
+        selectorBar.Items.Add(new SelectorBarItem { Text = L("about.tab.description") });
+        selectorBar.Items.Add(new SelectorBarItem { Text = L("about.tab.thanks") });
         selectorBar.SelectionChanged += (_, _) =>
         {
             int selectedIndex = selectorBar.Items.IndexOf(selectorBar.SelectedItem);
@@ -9085,9 +9052,9 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "关于",
+            Title = L("about.dialog_title"),
             Content = panel,
-            PrimaryButtonText = "确定",
+            PrimaryButtonText = L("common.ok"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -9201,7 +9168,7 @@ public sealed partial class MainWindow : Window
         if (key == Windows.System.VirtualKey.NumberPad0)
         {
             MaskCanvas.AlignImage("CC");
-            TxtStatus.Text = "图像已对齐: 居中";
+            TxtStatus.Text = L("image.aligned_center");
             return true;
         }
 
@@ -9219,7 +9186,7 @@ public sealed partial class MainWindow : Window
 
         var tag = $"{row}{col}";
         MaskCanvas.AlignImage(tag);
-        TxtStatus.Text = "图像已对齐";
+        TxtStatus.Text = L("image.aligned");
         return true;
     }
 
@@ -9442,8 +9409,8 @@ public sealed partial class MainWindow : Window
                 TagName = r.Entry.Name,
                 InsertText = BuildWildcardInsertText(r.Entry.Name),
                 Category = -1,
-                CountText = "抽卡器",
-                AliasText = $"{r.Entry.OptionCount} 条 · {r.Entry.RelativePath.Replace('\\', '/')}",
+                CountText = L("wildcards.title"),
+                AliasText = Lf("wildcards.autocomplete_meta", r.Entry.OptionCount, r.Entry.RelativePath.Replace('\\', '/')),
                 AliasVisibility = Visibility.Visible,
                 CategoryBrush = GetCategoryBrush(-1),
             });
@@ -9537,27 +9504,27 @@ public sealed partial class MainWindow : Window
     {
         var chkWeightHighlight = new CheckBox
         {
-            Content = "权重高亮",
+            Content = L("settings.usage.weight_highlight"),
             IsChecked = _settings.Settings.WeightHighlight,
         };
         var chkAutoComplete = new CheckBox
         {
-            Content = "自动补全",
+            Content = L("settings.usage.auto_complete"),
             IsChecked = _settings.Settings.AutoComplete,
         };
         var chkRememberPromptAndParameters = new CheckBox
         {
-            Content = "记住上次的提示词和参数",
+            Content = L("settings.usage.remember_prompt"),
             IsChecked = _settings.Settings.RememberPromptAndParameters,
         };
         var chkWildcardsEnabled = new CheckBox
         {
-            Content = "启用抽卡器（正向 / 负向 / 角色提示词统一生效）",
+            Content = L("settings.usage.wildcards_enabled"),
             IsChecked = _settings.Settings.WildcardsEnabled,
         };
         var chkWildcardExplicitSyntax = new CheckBox
         {
-            Content = "抽卡器需要使用 __name__ 语法触发",
+            Content = L("settings.usage.wildcards_explicit"),
             IsChecked = _settings.Settings.WildcardsRequireExplicitSyntax,
         };
 
@@ -9570,10 +9537,10 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "使用设置",
+            Title = L("settings.usage.title"),
             Content = panel,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
+            PrimaryButtonText = L("common.ok"),
+            CloseButtonText = L("common.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -9599,7 +9566,7 @@ public sealed partial class MainWindow : Window
             }
             _settings.Save();
             UpdatePromptHighlights();
-            TxtStatus.Text = "使用设置已保存";
+            TxtStatus.Text = L("settings.usage.saved");
         }
     }
 
@@ -9654,34 +9621,34 @@ public sealed partial class MainWindow : Window
         var pathBox = new TextBox
         {
             Text = settings.ModelPath ?? "",
-            PlaceholderText = "选择包含 .onnx 与 selected_tags.csv 的模型目录",
+            PlaceholderText = L("settings.reverse.model_path_placeholder"),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             MinWidth = 300,
         };
 
         var browseButton = new Button
         {
-            Content = "选择文件夹",
+            Content = L("common.choose_folder"),
         };
 
         var addCharacterCheck = new CheckBox
         {
-            Content = "添加角色 tag",
+            Content = L("settings.reverse.add_character_tags"),
             IsChecked = settings.AddCharacterTags,
         };
         var addCopyrightCheck = new CheckBox
         {
-            Content = "添加作品 tag",
+            Content = L("settings.reverse.add_copyright_tags"),
             IsChecked = settings.AddCopyrightTags,
         };
         var replaceUnderscoreCheck = new CheckBox
         {
-            Content = "空格代替下划线",
+            Content = L("settings.reverse.replace_underscores"),
             IsChecked = settings.ReplaceUnderscoresWithSpaces,
         };
         var unloadAfterInferenceCheck = new CheckBox
         {
-            Content = "反推结束后从内存/显存卸载模型",
+            Content = L("settings.reverse.unload_after_inference"),
             IsChecked = settings.UnloadModelAfterInference,
         };
 
@@ -9763,11 +9730,11 @@ public sealed partial class MainWindow : Window
             MinWidth = 480,
             Padding = new Thickness(0, 0, 4, 0),
         };
-        panel.Children.Add(new TextBlock { Text = "反推模型路径" });
+        panel.Children.Add(new TextBlock { Text = L("settings.reverse.model_path") });
         panel.Children.Add(pathPanel);
         panel.Children.Add(new TextBlock
         {
-            Text = "请手动下载pixai-tagger-v0.9-onnx后将目录指向模型文件夹，或将模型放入 models/tagger 目录下自动检测。",
+            Text = L("settings.reverse.model_path_hint"),
             TextWrapping = TextWrapping.Wrap,
             FontSize = 12,
             Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
@@ -9781,14 +9748,14 @@ public sealed partial class MainWindow : Window
         tagOptionRow.Children.Add(addCopyrightCheck);
         panel.Children.Add(tagOptionRow);
         panel.Children.Add(replaceUnderscoreCheck);
-        panel.Children.Add(new TextBlock { Text = "通用置信度阈值" });
+        panel.Children.Add(new TextBlock { Text = L("settings.reverse.general_threshold") });
         panel.Children.Add(BuildSliderRow(generalSlider, generalValue));
-        panel.Children.Add(new TextBlock { Text = "角色置信度阈值" });
+        panel.Children.Add(new TextBlock { Text = L("settings.reverse.character_threshold") });
         panel.Children.Add(BuildSliderRow(characterSlider, characterValue));
         panel.Children.Add(unloadAfterInferenceCheck);
         panel.Children.Add(new TextBlock
         {
-            Text = "启用后，每次反推完成后都会释放模型，以回收内存及显存空间。",
+            Text = L("settings.reverse.unload_after_inference_hint"),
             TextWrapping = TextWrapping.Wrap,
             FontSize = 12,
             Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
@@ -9797,15 +9764,15 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "反推模型设置",
+            Title = L("settings.reverse.title"),
             Content = new ScrollViewer
             {
                 Content = panel,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 MaxHeight = 520,
             },
-            PrimaryButtonText = "保存",
-            CloseButtonText = "取消",
+            PrimaryButtonText = L("common.save"),
+            CloseButtonText = L("common.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -9817,7 +9784,7 @@ public sealed partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(modelPath) && !Directory.Exists(modelPath))
             {
                 args.Cancel = true;
-                TxtStatus.Text = "反推模型路径不存在，请重新选择";
+                TxtStatus.Text = L("settings.reverse.model_path_not_found");
                 return;
             }
 
@@ -9833,7 +9800,7 @@ public sealed partial class MainWindow : Window
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
         {
             _settings.Save();
-            TxtStatus.Text = "反推模型设置已保存";
+            TxtStatus.Text = L("settings.reverse.saved");
         }
     }
 
@@ -9841,12 +9808,12 @@ public sealed partial class MainWindow : Window
     {
         var chkLog = new CheckBox
         {
-            Content = "日志记录",
+            Content = L("settings.dev.log_enabled"),
             IsChecked = _settings.Settings.DevLogEnabled,
         };
         var hintText = new TextBlock
         {
-            Text = "启用后，程序运行日志会保存到程序目录下的 logs 文件夹中。\n会记录每次生图/重绘请求的详细参数、响应状态和返回图像元数据，便于实测接口响应。",
+            Text = L("settings.dev.log_hint"),
             TextWrapping = TextWrapping.Wrap,
             FontSize = 12,
             Margin = new Thickness(0, 4, 0, 0),
@@ -9862,10 +9829,10 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "开发者选项",
+            Title = L("settings.dev.title"),
             Content = panel,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
+            PrimaryButtonText = L("common.ok"),
+            CloseButtonText = L("common.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -9876,7 +9843,7 @@ public sealed partial class MainWindow : Window
             _settings.Settings.DevLogEnabled = chkLog.IsChecked == true;
             _settings.Save();
             TxtStatus.Text = _settings.Settings.DevLogEnabled
-                ? "已启用日志记录" : "已关闭日志记录";
+                ? L("settings.dev.log_enabled_status") : L("settings.dev.log_disabled_status");
         }
     }
 
@@ -9888,44 +9855,44 @@ public sealed partial class MainWindow : Window
             Password = _settings.Settings.ApiToken ?? "", Width = 360,
         };
 
-        var maxModeCheck = new CheckBox { Content = "启用 Max 模式", IsChecked = _settings.Settings.MaxMode };
+        var maxModeCheck = new CheckBox { Content = L("settings.network.max_mode"), IsChecked = _settings.Settings.MaxMode };
         var maxModeHint = new TextBlock
         {
-            Text = "允许可能会扣除 Opus Tier 订阅账户的 Anlas 的操作。",
+            Text = L("settings.network.max_mode_hint"),
             FontSize = 12,
             Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(28, -8, 0, 0),
         };
 
-        var proxyCheck = new CheckBox { Content = "自定义代理", IsChecked = _settings.Settings.UseProxy };
+        var proxyCheck = new CheckBox { Content = L("settings.network.use_proxy"), IsChecked = _settings.Settings.UseProxy };
         var proxyHint = new TextBlock
         {
-            Text = "该程序默认跟随系统http代理，一般无需特别设置。",
+            Text = L("settings.network.proxy_hint"),
             FontSize = 12,
             Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(28, -8, 0, 0),
         };
-        var proxyPortBox = new TextBox { PlaceholderText = "代理端口", Text = _settings.Settings.ProxyPort, Width = 120 };
+        var proxyPortBox = new TextBox { PlaceholderText = L("settings.network.proxy_port_placeholder"), Text = _settings.Settings.ProxyPort, Width = 120 };
 
         var panel = new StackPanel { Spacing = 12 };
-        panel.Children.Add(new TextBlock { Text = "API Token:" });
+        panel.Children.Add(new TextBlock { Text = L("settings.network.api_token") });
         panel.Children.Add(tokenBox);
         panel.Children.Add(maxModeCheck);
         panel.Children.Add(maxModeHint);
         panel.Children.Add(proxyCheck);
         panel.Children.Add(proxyHint);
         var pp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        pp.Children.Add(new TextBlock { Text = "端口:", VerticalAlignment = VerticalAlignment.Center });
+        pp.Children.Add(new TextBlock { Text = L("settings.network.port"), VerticalAlignment = VerticalAlignment.Center });
         pp.Children.Add(proxyPortBox);
         panel.Children.Add(pp);
 
         var dialog = new ContentDialog
         {
-            Title = "网络/API设置", Content = panel,
-            PrimaryButtonText = "保存", SecondaryButtonText = "测试连接",
-            CloseButtonText = "取消", XamlRoot = this.Content.XamlRoot,
+            Title = L("settings.network.title"), Content = panel,
+            PrimaryButtonText = L("common.save"), SecondaryButtonText = L("settings.network.test_connection"),
+            CloseButtonText = L("common.cancel"), XamlRoot = this.Content.XamlRoot,
             DefaultButton = ContentDialogButton.Primary,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
         };
@@ -9950,13 +9917,13 @@ public sealed partial class MainWindow : Window
 
             if (result == ContentDialogResult.Secondary)
             {
-                TxtStatus.Text = "正在测试连接...";
+                TxtStatus.Text = L("settings.network.testing");
                 var (success, msg) = await _naiService.TestConnectionAsync(tokenBox.Password);
                 TxtStatus.Text = msg;
                 if (success)
                     _ = RefreshAnlasInfoAsync(forceRefresh: true);
             }
-            else TxtStatus.Text = "网络/API设置已保存";
+            else TxtStatus.Text = L("settings.network.saved");
         }
     }
 
@@ -10018,7 +9985,7 @@ public sealed partial class MainWindow : Window
         if (GetSizeWarningLevel() == SizeWarningLevel.Red)
         {
             long limit = _settings.Settings.MaxMode ? 2048L : 1024L;
-            TxtStatus.Text = $"尺寸总像素超过 {limit}²，已禁止生成。请减小宽度或高度。";
+            TxtStatus.Text = Lf("generate.error.size_limit_exceeded", limit);
             return;
         }
 
@@ -10044,7 +10011,7 @@ public sealed partial class MainWindow : Window
         if (!keepGenerateButtonInteractive) BtnGenerate.IsEnabled = false;
         _generateRequestRunning = true;
         UpdateBtnGenerateForApiKey();
-        TxtStatus.Text = "正在生成...";
+        TxtStatus.Text = L("generate.status.generating");
         var p = _settings.Settings.GenParameters;
         int origSeed = p.Seed;
 
@@ -10077,7 +10044,7 @@ public sealed partial class MainWindow : Window
             string negPrompt = ExpandPromptFeatures(negativeRaw, wildcardContext, isNegativeText: true);
             if (string.IsNullOrWhiteSpace(prompt))
             {
-                TxtStatus.Text = "请输入提示词";
+                TxtStatus.Text = L("generate.error.prompt_required");
                 return false;
             }
 
@@ -10093,7 +10060,7 @@ public sealed partial class MainWindow : Window
             _lastUsedSeed = actualSeed;
 
             if (error != null) { DebugLog($"[Generate] API error: {error}"); TxtStatus.Text = error; return false; }
-            if (imageBytes == null) { DebugLog("[Generate] API returned no image"); TxtStatus.Text = "API 返回为空"; return false; }
+            if (imageBytes == null) { DebugLog("[Generate] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); return false; }
 
             byte[] finalBytes = imageBytes;
             string? originalSavedPath = await SaveToOutputAsync(imageBytes);
@@ -10126,12 +10093,12 @@ public sealed partial class MainWindow : Window
             UpdateDynamicMenuStates();
             DebugLog($"[Generate] Completed | Seed={actualSeed} | Saved={finalSavedPath}");
             TxtStatus.Text = string.IsNullOrWhiteSpace(postSummary)
-                ? $"生成完成！已保存到: {finalSavedPath}"
-                : $"生成完成！已执行 {postSummary}，保存到: {finalSavedPath}";
+                ? Lf("generate.status.completed_saved", finalSavedPath)
+                : Lf("generate.status.completed_post_saved", postSummary, finalSavedPath);
             return true;
         }
-        catch (OperationCanceledException) { DebugLog("[Generate] Cancelled"); TxtStatus.Text = "生成已取消"; return false; }
-        catch (Exception ex) { DebugLog($"[Generate] Failed: {ex}"); TxtStatus.Text = $"生成失败: {ex.Message}"; return false; }
+        catch (OperationCanceledException) { DebugLog("[Generate] Cancelled"); TxtStatus.Text = L("generate.status.cancelled"); return false; }
+        catch (Exception ex) { DebugLog($"[Generate] Failed: {ex}"); TxtStatus.Text = Lf("generate.status.failed", ex.Message); return false; }
         finally
         {
             _generateRequestRunning = false;
@@ -10188,7 +10155,7 @@ public sealed partial class MainWindow : Window
     private void OnSendToInpaint(object sender, RoutedEventArgs e)
     {
         if (_currentGenImageBytes == null)
-        { TxtStatus.Text = "没有生成结果可发送"; return; }
+        { TxtStatus.Text = L("generate.error.no_result_to_send"); return; }
 
         GenResultBar.Visibility = Visibility.Collapsed;
         SendImageToInpaint(_currentGenImageBytes);
@@ -10198,7 +10165,7 @@ public sealed partial class MainWindow : Window
     {
         if (_currentGenImageBytes == null)
         {
-            TxtStatus.Text = "没有生成结果可发送";
+            TxtStatus.Text = L("generate.error.no_result_to_send");
             return;
         }
 
@@ -10223,7 +10190,7 @@ public sealed partial class MainWindow : Window
 
             if (bytesToSend == null || bytesToSend.Length == 0)
             {
-                TxtStatus.Text = "没有图像可发送到效果";
+                TxtStatus.Text = L("post.error.no_image_to_send");
                 return;
             }
 
@@ -10231,14 +10198,14 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"发送到效果失败: {ex.Message}";
+            TxtStatus.Text = Lf("post.error.send_failed", ex.Message);
         }
     }
 
     private async void OnGenSendToInspect(object sender, RoutedEventArgs e)
     {
         if (_currentGenImageBytes == null)
-        { TxtStatus.Text = "没有生成结果可发送"; return; }
+        { TxtStatus.Text = L("generate.error.no_result_to_send"); return; }
         GenResultBar.Visibility = Visibility.Collapsed;
         SwitchMode(AppMode.Inspect);
         await LoadInspectImageFromBytesAsync(_currentGenImageBytes, _currentGenImagePath != null ? Path.GetFileName(_currentGenImagePath) : null);
@@ -10277,12 +10244,12 @@ public sealed partial class MainWindow : Window
                 if (nextPath != null)
                 {
                     await ShowHistoryImageAsync(nextPath);
-                    TxtStatus.Text = "已删除图片";
+                    TxtStatus.Text = L("common.deleted");
                     return;
                 }
-                TxtStatus.Text = "已删除生成结果";
+                TxtStatus.Text = L("history.generated_result_deleted");
             }
-            catch (Exception ex) { TxtStatus.Text = $"删除失败: {ex.Message}"; }
+            catch (Exception ex) { TxtStatus.Text = Lf("common.delete_failed", ex.Message); }
         }
 
         _currentGenImageBytes = null;
@@ -10307,11 +10274,11 @@ public sealed partial class MainWindow : Window
                     var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
                     dp.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream));
                     Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
-                    TxtStatus.Text = "已复制图像到剪贴板";
+                    TxtStatus.Text = L("image.copied_to_clipboard");
                 });
             });
         }
-        catch (Exception ex) { TxtStatus.Text = $"复制失败: {ex.Message}"; }
+        catch (Exception ex) { TxtStatus.Text = Lf("common.copy_failed", ex.Message); }
     }
 
     private async void OnHistoryCopyImage(object sender, RoutedEventArgs e)
@@ -10323,7 +10290,7 @@ public sealed partial class MainWindow : Window
                 var bytes = await File.ReadAllBytesAsync(filePath);
                 CopyImageToClipboard(bytes);
             }
-            catch (Exception ex) { TxtStatus.Text = $"复制失败: {ex.Message}"; }
+            catch (Exception ex) { TxtStatus.Text = Lf("common.copy_failed", ex.Message); }
         }
     }
 
@@ -10352,7 +10319,7 @@ public sealed partial class MainWindow : Window
 
             var copyItem = new MenuFlyoutItem
             {
-                Text = "复制",
+                Text = L("common.copy"),
                 Icon = new SymbolIcon(Symbol.Copy),
                 IsEnabled = hasImage,
             };
@@ -10367,7 +10334,7 @@ public sealed partial class MainWindow : Window
 
             var readerItem = new MenuFlyoutItem
             {
-                Text = "发送到检视",
+                Text = L("action.send_to_inspect"),
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEE6F" },
                 IsEnabled = hasImage,
             };
@@ -10382,7 +10349,7 @@ public sealed partial class MainWindow : Window
 
             var postItem = new MenuFlyoutItem
             {
-                Text = "发送到效果",
+                Text = L("action.send_to_post"),
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" },
                 IsEnabled = hasImage,
             };
@@ -10395,7 +10362,7 @@ public sealed partial class MainWindow : Window
 
             var inpaintItem = new MenuFlyoutItem
             {
-                Text = "发送到重绘",
+                Text = L("action.send_to_inpaint"),
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" },
                 IsEnabled = hasImage,
             };
@@ -10407,7 +10374,7 @@ public sealed partial class MainWindow : Window
 
             var upscaleItem = new MenuFlyoutItem
             {
-                Text = "发送到超分",
+                Text = L("action.send_to_upscale"),
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uECE9" },
                 IsEnabled = hasImage,
             };
@@ -10422,7 +10389,7 @@ public sealed partial class MainWindow : Window
             {
                 var folderItem = new MenuFlyoutItem
                 {
-                    Text = "打开所在文件夹",
+                    Text = L("action.open_containing_folder"),
                     Icon = new SymbolIcon(Symbol.OpenLocal),
                 };
                 folderItem.Click += (_, _) =>
@@ -10441,27 +10408,27 @@ public sealed partial class MainWindow : Window
 
             var useParamsItem = new MenuFlyoutItem
             {
-                Text = "使用参数",
+                Text = L("action.use_parameters"),
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B6" },
                 IsEnabled = hasImage,
             };
             useParamsItem.Click += async (_, _) =>
             {
                 if (_currentGenImageBytes != null)
-                    await ApplyDroppedImageMetadata(_currentGenImageBytes, "预览图片");
+                    await ApplyDroppedImageMetadata(_currentGenImageBytes, L("image.preview_label"));
             };
             flyout.Items.Add(useParamsItem);
 
             var useParamsNoSeedItem = new MenuFlyoutItem
             {
-                Text = "使用参数（不包含种子）",
+                Text = L("action.use_parameters_no_seed"),
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B5" },
                 IsEnabled = hasImage,
             };
             useParamsNoSeedItem.Click += async (_, _) =>
             {
                 if (_currentGenImageBytes != null)
-                    await ApplyDroppedImageMetadata(_currentGenImageBytes, "预览图片", skipSeed: true);
+                    await ApplyDroppedImageMetadata(_currentGenImageBytes, L("image.preview_label"), skipSeed: true);
             };
             flyout.Items.Add(useParamsNoSeedItem);
             foreach (var item in flyout.Items)
@@ -10502,7 +10469,7 @@ public sealed partial class MainWindow : Window
         var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
         if (meta == null || !meta.IsNaiParsed)
         {
-            TxtStatus.Text = $"已拖入 {fileName}，但未找到可用的 NAI 元数据";
+            TxtStatus.Text = Lf("metadata.drop_no_nai_data", fileName);
             return;
         }
 
@@ -10534,7 +10501,7 @@ public sealed partial class MainWindow : Window
         if (meta.Steps > 0)
         {
             if (!maxMode && meta.Steps > 28)
-                skipped.Add($"步数 ({meta.Steps}>28)");
+                skipped.Add(Lf("metadata.skipped.steps", meta.Steps));
             else
                 p.Steps = meta.Steps;
         }
@@ -10548,7 +10515,7 @@ public sealed partial class MainWindow : Window
         if (meta.Width > 0 && meta.Height > 0)
         {
             if (!maxMode && (long)meta.Width * meta.Height > 1024L * 1024)
-                skipped.Add($"尺寸 ({meta.Width}×{meta.Height} 超过 1024²)");
+                skipped.Add(Lf("metadata.skipped.size", meta.Width, meta.Height));
             else
             {
                 _customWidth = meta.Width;
@@ -10577,14 +10544,14 @@ public sealed partial class MainWindow : Window
         if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();
 
         var notes = new List<string>();
-        if (strippedQuality) notes.Add("已提取质量词并启用「添加质量词」");
-        if (skipSeed) notes.Add("已跳过种子");
-        if (skipped.Count > 0) notes.Add($"已跳过: {string.Join(", ", skipped)}");
+        if (strippedQuality) notes.Add(L("metadata.note.quality_extracted"));
+        if (skipSeed) notes.Add(L("metadata.note.seed_skipped"));
+        if (skipped.Count > 0) notes.Add(Lf("metadata.note.skipped", string.Join(", ", skipped)));
         AppendReferenceImportNotes(meta, notes);
 
         TxtStatus.Text = notes.Count > 0
-            ? $"已从 {fileName} 应用元数据（{string.Join("; ", notes)}）"
-            : $"已从 {fileName} 应用元数据";
+            ? Lf("metadata.applied_with_notes", fileName, string.Join("; ", notes))
+            : Lf("metadata.applied", fileName);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -10694,10 +10661,10 @@ public sealed partial class MainWindow : Window
             UpdatePromptHighlights();
 
             TxtStatus.Text = sizeApplied
-                ? $"已发送到重绘 ({imgW} × {imgH})，已同步提示词与尺寸"
-                : $"已发送到重绘 ({imgW} × {imgH})，画布 {canvasW}×{canvasH}，已同步提示词";
+                ? Lf("inpaint.sent_with_synced_size", imgW, imgH)
+                : Lf("inpaint.sent_with_canvas_size", imgW, imgH, canvasW, canvasH);
         }
-        catch (Exception ex) { TxtStatus.Text = $"发送到重绘失败: {ex.Message}"; }
+        catch (Exception ex) { TxtStatus.Text = Lf("inpaint.send_failed", ex.Message); }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -10711,16 +10678,16 @@ public sealed partial class MainWindow : Window
             return await RedoInpaintGenerateAsync(forceRandomSeed);
         }
         if (MaskCanvas.Document.MaskTarget == null || MaskCanvas.GetDevice() == null)
-        { TxtStatus.Text = "画布未初始化"; return false; }
+        { TxtStatus.Text = L("inpaint.error.canvas_not_initialized"); return false; }
         if (!MaskCanvas.HasMaskContent())
-        { TxtStatus.Text = "未绘制遮罩，无法发送请求"; return false; }
+        { TxtStatus.Text = L("inpaint.error.mask_required"); return false; }
 
         bool keepGenerateButtonInteractive = _continuousGenRunning;
         if (!keepGenerateButtonInteractive)
             BtnGenerate.IsEnabled = false;
         _generateRequestRunning = true;
         UpdateBtnGenerateForApiKey();
-        TxtStatus.Text = "正在生成...";
+        TxtStatus.Text = L("generate.status.generating");
         var ip = _settings.Settings.InpaintParameters;
         int origSeed = ip.Seed;
 
@@ -10732,7 +10699,7 @@ public sealed partial class MainWindow : Window
             var device = MaskCanvas.GetDevice()!;
 
             var exportImage = MaskCanvas.Document.CreateCompositeForExport(device);
-            if (exportImage == null) { TxtStatus.Text = "无法创建导出图片"; BtnGenerate.IsEnabled = true; return false; }
+            if (exportImage == null) { TxtStatus.Text = L("inpaint.error.export_image_failed"); BtnGenerate.IsEnabled = true; return false; }
 
             var imageBase64 = await NovelAIService.EncodeRenderTargetAsync(exportImage, isMask: false);
             var maskBase64 = await NovelAIService.EncodeRenderTargetAsync(MaskCanvas.Document.MaskTarget!, isMask: true);
@@ -10761,13 +10728,13 @@ public sealed partial class MainWindow : Window
                 BtnGenerate.IsEnabled = true;
             _ = RefreshAnlasInfoAsync(forceRefresh: true);
             DebugLog($"[Inpaint] Completed | Seed={actualSeed}");
-            TxtStatus.Text = "生成完成！";
+            TxtStatus.Text = L("generate.status.completed");
             return true;
         }
         catch (OperationCanceledException)
         {
             DebugLog("[Inpaint] Cancelled");
-            TxtStatus.Text = "生成已取消";
+            TxtStatus.Text = L("generate.status.cancelled");
             if (!keepGenerateButtonInteractive)
                 BtnGenerate.IsEnabled = true;
             return false;
@@ -10775,7 +10742,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             DebugLog($"[Inpaint] Failed: {ex}");
-            TxtStatus.Text = $"生成失败: {ex.Message}";
+            TxtStatus.Text = Lf("generate.status.failed", ex.Message);
             if (!keepGenerateButtonInteractive)
                 BtnGenerate.IsEnabled = true;
             return false;
@@ -10809,7 +10776,7 @@ public sealed partial class MainWindow : Window
             prompt, negPrompt, chars, vibes, preciseReferences, ct);
 
         if (error != null) { DebugLog($"[Inpaint] API error: {error}"); TxtStatus.Text = error; BtnGenerate.IsEnabled = true; return null; }
-        if (imageBytes == null) { DebugLog("[Inpaint] API returned no image"); TxtStatus.Text = "API 返回为空"; BtnGenerate.IsEnabled = true; return null; }
+        if (imageBytes == null) { DebugLog("[Inpaint] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); BtnGenerate.IsEnabled = true; return null; }
 
         _pendingResultBytes = imageBytes;
         _pendingResultBitmap?.Dispose();
@@ -10833,9 +10800,9 @@ public sealed partial class MainWindow : Window
         try
         {
             await ApplyInpaintResultAsync();
-            TxtStatus.Text = "已应用重绘结果。文件→另存为 可保存完整图片。";
+            TxtStatus.Text = L("inpaint.result_applied");
         }
-        catch (Exception ex) { TxtStatus.Text = $"应用失败: {ex.Message}"; }
+        catch (Exception ex) { TxtStatus.Text = Lf("inpaint.apply_failed", ex.Message); }
     }
 
     private async Task<bool> RedoInpaintGenerateAsync(bool forceRandomSeed = false)
@@ -10845,7 +10812,7 @@ public sealed partial class MainWindow : Window
         _generateRequestRunning = true;
         UpdateBtnGenerateForApiKey();
         SetResultBarEnabled(false);
-        TxtStatus.Text = "正在重新生成...";
+        TxtStatus.Text = L("generate.status.regenerating");
         var ip = _settings.Settings.InpaintParameters;
         int origSeed = ip.Seed;
 
@@ -10871,12 +10838,12 @@ public sealed partial class MainWindow : Window
             {
                 MaskCanvas.SetPreview(resultBitmap);
                 _ = RefreshAnlasInfoAsync(forceRefresh: true);
-                TxtStatus.Text = "重新生成完成！请选择：应用 / 重做 / 舍弃";
+                TxtStatus.Text = L("generate.status.regenerated");
                 return true;
             }
         }
-        catch (OperationCanceledException) { TxtStatus.Text = "生成已取消"; }
-        catch (Exception ex) { TxtStatus.Text = $"重新生成失败: {ex.Message}"; }
+        catch (OperationCanceledException) { TxtStatus.Text = L("generate.status.cancelled"); }
+        catch (Exception ex) { TxtStatus.Text = Lf("generate.status.regenerate_failed", ex.Message); }
         finally
         {
             _generateRequestRunning = false;
@@ -10897,7 +10864,7 @@ public sealed partial class MainWindow : Window
     {
         ExitPreviewMode();
         UpdateInpaintRedoButtonWarning();
-        TxtStatus.Text = "已舍弃生成结果";
+        TxtStatus.Text = L("generate.status.discarded");
     }
 
     private void ExitPreviewMode()
@@ -11043,13 +11010,13 @@ public sealed partial class MainWindow : Window
         {
             case InspectPrimaryAction.InferTags:
                 BtnSendToGenIcon.Symbol = Symbol.Tag;
-                BtnSendToGenText.Text = "使用模型进行反推";
+                BtnSendToGenText.Text = L("inspect.action.infer");
                 break;
             case InspectPrimaryAction.DisabledSend:
             case InspectPrimaryAction.SendMetadata:
             default:
                 BtnSendToGenIcon.Symbol = Symbol.Send;
-                BtnSendToGenText.Text = "发送生成参数";
+                BtnSendToGenText.Text = L("inspect.action.send_metadata");
                 break;
         }
     }
@@ -11106,19 +11073,19 @@ public sealed partial class MainWindow : Window
         var imageBytes = await GetInpaintPromptInferenceImageBytesAsync(canvasOnly);
         if (imageBytes == null || imageBytes.Length == 0)
         {
-            TxtStatus.Text = canvasOnly ? "没有可用于画布推理的图像" : "没有可用于全局推理的图像";
+            TxtStatus.Text = canvasOnly ? L("inspect.infer.no_canvas_image") : L("inspect.infer.no_global_image");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_settings.Settings.ReverseTagger.ModelPath))
         {
-            TxtStatus.Text = "请先在设置中配置反推模型路径";
+            TxtStatus.Text = L("reverse.error.model_path_not_set");
             await ShowReverseTaggerSettingsDialogAsync();
             return;
         }
 
-        string modeLabel = canvasOnly ? "画布推理" : "全局推理";
-        TxtStatus.Text = $"正在执行{modeLabel}...";
+        string modeLabel = canvasOnly ? L("inspect.infer.canvas_mode") : L("inspect.infer.global_mode");
+        TxtStatus.Text = Lf("inspect.infer.running", modeLabel);
         DebugLog($"[InpaintPromptInfer] Start | Mode={modeLabel}");
 
         try
@@ -11137,12 +11104,12 @@ public sealed partial class MainWindow : Window
                             (_settings.Settings.ReverseTagger.AddCharacterTags ? result.CharacterTags.Count : 0) +
                             (_settings.Settings.ReverseTagger.AddCopyrightTags ? result.CopyrightTags.Count : 0);
             DebugLog($"[InpaintPromptInfer] Completed | Mode={modeLabel} | PreservedStyleTags={preservedArtistTags.Count} | TagCount={totalTags}");
-            TxtStatus.Text = $"{modeLabel}完成，已替换主提示词中的非风格标签";
+            TxtStatus.Text = Lf("inspect.infer.completed", modeLabel);
         }
         catch (Exception ex)
         {
             DebugLog($"[InpaintPromptInfer] Failed: {ex}");
-            TxtStatus.Text = $"{modeLabel}失败: {ex.Message}";
+            TxtStatus.Text = Lf("inspect.infer.failed", modeLabel, ex.Message);
         }
         finally
         {
@@ -11290,20 +11257,20 @@ public sealed partial class MainWindow : Window
     {
         if (_inspectImageBytes == null)
         {
-            TxtStatus.Text = "没有可用于反推的图片";
+            TxtStatus.Text = L("inspect.reverse.no_image");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_settings.Settings.ReverseTagger.ModelPath))
         {
-            TxtStatus.Text = "请先在设置中配置反推模型路径";
+            TxtStatus.Text = L("reverse.error.model_path_not_set");
             await ShowReverseTaggerSettingsDialogAsync();
             return;
         }
 
         SetInspectPrimaryAction(InspectPrimaryAction.InferTags, false);
-        BtnSendToGenText.Text = "正在反推...";
-        TxtStatus.Text = "正在使用反推模型分析图片...";
+        BtnSendToGenText.Text = L("inspect.reverse.running_short");
+        TxtStatus.Text = L("inspect.reverse.running");
         DebugLog($"[ReverseTagger] Start | Model={_settings.Settings.ReverseTagger.ModelPath}");
 
         try
@@ -11326,13 +11293,13 @@ public sealed partial class MainWindow : Window
                             (_settings.Settings.ReverseTagger.AddCharacterTags ? result.CharacterTags.Count : 0) +
                             (_settings.Settings.ReverseTagger.AddCopyrightTags ? result.CopyrightTags.Count : 0);
             DebugLog($"[ReverseTagger] Completed | Provider={result.ExecutionProvider} | TagCount={totalTags}");
-            TxtStatus.Text = $"反推完成，已使用 {result.ExecutionProvider}，共识别 {totalTags} 个标签";
+            TxtStatus.Text = Lf("inspect.reverse.completed", result.ExecutionProvider, totalTags);
         }
         catch (Exception ex)
         {
             DebugLog($"[ReverseTagger] Failed: {ex}");
             SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
-            TxtStatus.Text = $"反推失败: {ex.Message}";
+            TxtStatus.Text = Lf("inspect.reverse.failed", ex.Message);
         }
         finally
         {
@@ -11348,8 +11315,8 @@ public sealed partial class MainWindow : Window
         try
         {
             TxtStatus.Text = processType == ImageScrambleService.ProcessType.Encrypt
-                ? "正在混淆图片..."
-                : "正在反混淆图片...";
+                ? L("inspect.scramble.encrypting")
+                : L("inspect.scramble.decrypting");
 
             byte[]? resultBytes = await Task.Run(() =>
             {
@@ -11364,7 +11331,7 @@ public sealed partial class MainWindow : Window
 
             if (resultBytes == null)
             {
-                TxtStatus.Text = "处理图片失败";
+                TxtStatus.Text = L("inspect.scramble.process_failed");
                 return;
             }
 
@@ -11377,15 +11344,15 @@ public sealed partial class MainWindow : Window
             InspectPreviewImage.Source = bmp;
 
             TxtStatus.Text = processType == ImageScrambleService.ProcessType.Encrypt
-                ? "图片混淆完成"
-                : "图片反混淆完成";
+                ? L("inspect.scramble.encrypt_done")
+                : L("inspect.scramble.decrypt_done");
 
             UpdateFileMenuState();
             if (_currentMode == AppMode.Inspect) ReplaceEditMenu();
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"图片处理失败: {ex.Message}";
+            TxtStatus.Text = Lf("inspect.scramble.failed", ex.Message);
         }
     }
 
@@ -11423,12 +11390,12 @@ public sealed partial class MainWindow : Window
             }
 
             TxtStatus.Text = meta != null
-                ? $"已加载: {Path.GetFileName(filePath)} (含元数据)"
-                : $"已加载: {Path.GetFileName(filePath)} (无元数据)";
+                ? Lf("inspect.loaded_with_metadata", Path.GetFileName(filePath))
+                : Lf("inspect.loaded_without_metadata", Path.GetFileName(filePath));
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"加载失败: {ex.Message}";
+            TxtStatus.Text = Lf("common.load_failed", ex.Message);
         }
     }
 
@@ -11461,12 +11428,12 @@ public sealed partial class MainWindow : Window
             if (_currentMode == AppMode.Inspect) ReplaceEditMenu();
 
             TxtStatus.Text = meta != null
-                ? $"已加载图像 (含元数据)"
-                : $"已加载图像 (无元数据)";
+                ? Lf("inspect.loaded_with_metadata", sourceName ?? L("image.preview_label"))
+                : Lf("inspect.loaded_without_metadata", sourceName ?? L("image.preview_label"));
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"加载失败: {ex.Message}";
+            TxtStatus.Text = Lf("common.load_failed", ex.Message);
         }
     }
 
@@ -11490,7 +11457,7 @@ public sealed partial class MainWindow : Window
 
         if (meta == null)
         {
-            InspectPlaceholder.Text = "此图片不包含可识别的元数据";
+            InspectPlaceholder.Text = L("inspect.no_recognized_metadata");
             InspectPlaceholder.Visibility = Visibility.Visible;
             InspectContent.Visibility = Visibility.Collapsed;
             SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
@@ -11522,10 +11489,10 @@ public sealed partial class MainWindow : Window
         if (!meta.IsModelInference && meta.CharacterPrompts.Count > 0)
         {
             InspectCharPanel.Visibility = Visibility.Visible;
-            InspectCharPanel.Children.Add(CreateThemedCaption("角色提示词"));
+            InspectCharPanel.Children.Add(CreateThemedCaption(L("inspect.character_prompts")));
             for (int i = 0; i < meta.CharacterPrompts.Count; i++)
             {
-                InspectCharPanel.Children.Add(CreateThemedSubLabel($"角色 {i + 1}"));
+                InspectCharPanel.Children.Add(CreateThemedSubLabel(Lf("character.label", i + 1)));
                 InspectCharPanel.Children.Add(new TextBox
                 {
                     Text = meta.CharacterPrompts[i],
@@ -11542,10 +11509,10 @@ public sealed partial class MainWindow : Window
         if (!meta.IsModelInference && meta.CharacterNegativePrompts.Count > 0)
         {
             InspectCharNegPanel.Visibility = Visibility.Visible;
-            InspectCharNegPanel.Children.Add(CreateThemedCaption("角色负面提示词"));
+            InspectCharNegPanel.Children.Add(CreateThemedCaption(L("inspect.character_negative_prompts")));
             for (int i = 0; i < meta.CharacterNegativePrompts.Count; i++)
             {
-                InspectCharNegPanel.Children.Add(CreateThemedSubLabel($"角色 {i + 1}"));
+                InspectCharNegPanel.Children.Add(CreateThemedSubLabel(Lf("character.label", i + 1)));
                 InspectCharNegPanel.Children.Add(new TextBox
                 {
                     Text = meta.CharacterNegativePrompts[i],
@@ -11566,7 +11533,7 @@ public sealed partial class MainWindow : Window
         TxtInspectScale.Text = FormatInspectNumber(meta.Scale);
         TxtInspectCfgRescale.Text = meta.IsSdFormat || meta.IsModelInference ? "-" : FormatInspectNumber(meta.CfgRescale);
         TxtInspectSeed.Text = meta.Seed > 0 ? meta.Seed.ToString() : "-";
-        TxtInspectVariety.Text = meta.IsSdFormat || meta.IsModelInference ? "-" : ((meta.SmDyn || meta.Sm) ? "是" : "否");
+        TxtInspectVariety.Text = meta.IsSdFormat || meta.IsModelInference ? "-" : ((meta.SmDyn || meta.Sm) ? L("common.yes") : L("common.no"));
         UpdateDynamicMenuStates();
     }
 
@@ -11616,10 +11583,10 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "编辑 Raw 元数据",
+            Title = L("inspect.raw.edit_title"),
             Content = textBox,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
+            PrimaryButtonText = L("common.ok"),
+            CloseButtonText = L("common.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -11638,14 +11605,14 @@ public sealed partial class MainWindow : Window
                 DisplayInspectMetadata(newMeta);
                 UpdateInspectSaveState();
                 ReplaceEditMenu();
-                TxtStatus.Text = "Raw 数据已更新";
+                TxtStatus.Text = L("inspect.raw.updated");
             }
             else
             {
                 _inspectMetadata.RawJson = compactJson;
                 _inspectRawModified = true;
                 UpdateInspectSaveState();
-                TxtStatus.Text = "Raw 数据已保存（JSON 解析失败，参数显示可能不准确）";
+                TxtStatus.Text = L("inspect.raw.saved_json_parse_failed");
             }
         }
     }
@@ -11668,11 +11635,11 @@ public sealed partial class MainWindow : Window
     private async Task SaveInspectOverwriteAsync()
     {
         if (!_inspectRawModified)
-        { TxtStatus.Text = "Raw 数据未修改，无需保存"; return; }
+        { TxtStatus.Text = L("inspect.raw.unchanged"); return; }
 
         var bytesToSave = GetInspectSaveBytes(stripMetadata: false);
         if (bytesToSave == null)
-        { TxtStatus.Text = "没有可保存的图片"; return; }
+        { TxtStatus.Text = L("file.error.no_image_to_save"); return; }
 
         if (!string.IsNullOrEmpty(_inspectImagePath) && File.Exists(_inspectImagePath))
         {
@@ -11682,9 +11649,9 @@ public sealed partial class MainWindow : Window
                 _inspectImageBytes = bytesToSave;
                 _inspectRawModified = false;
                 UpdateInspectSaveState();
-                TxtStatus.Text = $"已保存: {_inspectImagePath}";
+                TxtStatus.Text = Lf("file.saved_path", _inspectImagePath);
             }
-            catch (Exception ex) { TxtStatus.Text = $"保存失败: {ex.Message}"; }
+            catch (Exception ex) { TxtStatus.Text = Lf("common.save_failed", ex.Message); }
         }
         else
         {
@@ -11697,7 +11664,7 @@ public sealed partial class MainWindow : Window
         var bytesToSave = await GetEffectsSaveBytesAsync();
         if (bytesToSave == null)
         {
-            TxtStatus.Text = "没有可保存的图片";
+            TxtStatus.Text = L("file.error.no_image_to_save");
             return;
         }
 
@@ -11710,11 +11677,11 @@ public sealed partial class MainWindow : Window
                 _effectsPreviewImageBytes = bytesToSave;
                 ReplaceEffectsSourceBitmap(bytesToSave);
                 UpdateFileMenuState();
-                TxtStatus.Text = $"已保存: {_effectsImagePath}";
+                TxtStatus.Text = Lf("file.saved_path", _effectsImagePath);
             }
             catch (Exception ex)
             {
-                TxtStatus.Text = $"保存失败: {ex.Message}";
+                TxtStatus.Text = Lf("common.save_failed", ex.Message);
             }
         }
         else
@@ -11784,7 +11751,7 @@ public sealed partial class MainWindow : Window
         {
             positivePrompt = ImageMetadataService.ConvertSdPromptToNai(positivePrompt);
             negativePrompt = ImageMetadataService.ConvertSdPromptToNai(negativePrompt);
-            notes.Add("已转换 SD 格式提示词");
+            notes.Add(L("metadata.note.sd_converted"));
         }
 
         bool strippedQuality = false;
@@ -11810,7 +11777,7 @@ public sealed partial class MainWindow : Window
             UpdateSplitVisibility();
             UpdateSizeWarningVisuals();
             if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();
-            TxtStatus.Text = "已将模型反推结果发送到生图模式";
+            TxtStatus.Text = L("inspect.sent_reverse_result_to_generate");
             return;
         }
 
@@ -11825,7 +11792,7 @@ public sealed partial class MainWindow : Window
         if (meta.Steps > 0)
         {
             if (!maxMode && meta.Steps > 28)
-                skipped.Add($"步数 ({meta.Steps}>28)");
+                skipped.Add(Lf("metadata.skipped.steps", meta.Steps));
             else
                 p.Steps = meta.Steps;
         }
@@ -11839,7 +11806,7 @@ public sealed partial class MainWindow : Window
         if (meta.Width > 0 && meta.Height > 0)
         {
             if (!maxMode && (long)meta.Width * meta.Height > 1024L * 1024)
-                skipped.Add($"尺寸 ({meta.Width}×{meta.Height} 超过 1024²)");
+                skipped.Add(Lf("metadata.skipped.size", meta.Width, meta.Height));
             else
             {
                 _customWidth = meta.Width;
@@ -11866,14 +11833,14 @@ public sealed partial class MainWindow : Window
         UpdateSplitVisibility();
         UpdateSizeWarningVisuals();
 
-        if (strippedQuality) notes.Add("已提取质量词并启用「添加质量词」");
-        if (skipped.Count > 0) notes.Add($"已跳过不兼容项: {string.Join(", ", skipped)}");
-        if (meta.CharacterPrompts.Count > 0) notes.Add($"已导入 {meta.CharacterPrompts.Count} 个角色");
+        if (strippedQuality) notes.Add(L("metadata.note.quality_extracted"));
+        if (skipped.Count > 0) notes.Add(Lf("metadata.note.incompatible_skipped", string.Join(", ", skipped)));
+        if (meta.CharacterPrompts.Count > 0) notes.Add(Lf("metadata.note.characters_imported", meta.CharacterPrompts.Count));
         AppendReferenceImportNotes(meta, notes);
 
         TxtStatus.Text = notes.Count > 0
-            ? $"已发送生成参数（{string.Join("; ", notes)}）"
-            : "已将生成参数发送到生图模式";
+            ? Lf("inspect.sent_parameters_with_notes", string.Join("; ", notes))
+            : L("inspect.sent_parameters_to_generate");
     }
 
     private void OnInspectDragOver(object sender, DragEventArgs e)
@@ -11900,7 +11867,7 @@ public sealed partial class MainWindow : Window
                 return;
             }
         }
-        TxtStatus.Text = "不支持的文件格式，请拖入 PNG/JPG/WebP 图片";
+        TxtStatus.Text = L("common.unsupported_file_format_inspect");
     }
 
     private void OnEffectsDragOver(object sender, DragEventArgs e)
@@ -11928,7 +11895,7 @@ public sealed partial class MainWindow : Window
                 return;
             }
         }
-        TxtStatus.Text = "不支持的文件格式，请拖入 PNG/JPG/WebP/BMP 图片";
+        TxtStatus.Text = L("common.unsupported_file_format_post");
     }
 
     private void OnEffectsOverlayPointerPressed(object sender, PointerRoutedEventArgs e)
@@ -12233,7 +12200,7 @@ public sealed partial class MainWindow : Window
         {
             HistoryPanel.Children.Add(new TextBlock
             {
-                Text = "暂无历史记录",
+                Text = L("history.empty"),
                 Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 20, 0, 0),
@@ -12250,7 +12217,7 @@ public sealed partial class MainWindow : Window
             if (fileDate != lastDate)
             {
                 if (lastDate != null)
-                    HistoryPanel.Children.Add(CreateDateSeparator(fileDate ?? "未知"));
+                    HistoryPanel.Children.Add(CreateDateSeparator(fileDate ?? L("history.unknown_date")));
                 lastDate = fileDate;
             }
             var border = CreateHistoryThumbnail(filePath);
@@ -12283,7 +12250,7 @@ public sealed partial class MainWindow : Window
                 var fileDate = GetDateFromFilePath(filePath);
                 if (fileDate != lastDate)
                 {
-                    HistoryPanel.Children.Add(CreateDateSeparator(fileDate ?? "未知"));
+                    HistoryPanel.Children.Add(CreateDateSeparator(fileDate ?? L("history.unknown_date")));
                     lastDate = fileDate;
                 }
                 var border = CreateHistoryThumbnail(filePath);
@@ -12321,7 +12288,7 @@ public sealed partial class MainWindow : Window
         var menu = new MenuFlyout();
         var copyItem = new MenuFlyoutItem
         {
-            Text = "复制", Tag = filePath,
+            Text = L("common.copy"), Tag = filePath,
             Icon = new SymbolIcon(Symbol.Copy),
         };
         copyItem.Click += OnHistoryCopyImage;
@@ -12329,35 +12296,35 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(new MenuFlyoutSeparator());
         var readerItem = new MenuFlyoutItem
         {
-            Text = "发送到检视", Tag = filePath,
+            Text = L("action.send_to_inspect"), Tag = filePath,
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEE6F" },
         };
         readerItem.Click += OnHistorySendToInspect;
         menu.Items.Add(readerItem);
         var postItem = new MenuFlyoutItem
         {
-            Text = "发送到效果", Tag = filePath,
+            Text = L("action.send_to_post"), Tag = filePath,
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" },
         };
         postItem.Click += OnHistorySendToEffects;
         menu.Items.Add(postItem);
         var sendItem = new MenuFlyoutItem
         {
-            Text = "发送到重绘", Tag = filePath,
+            Text = L("action.send_to_inpaint"), Tag = filePath,
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" },
         };
         sendItem.Click += OnHistorySendToInpaint;
         menu.Items.Add(sendItem);
         var upscaleItem = new MenuFlyoutItem
         {
-            Text = "发送到超分", Tag = filePath,
+            Text = L("action.send_to_upscale"), Tag = filePath,
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uECE9" },
         };
         upscaleItem.Click += OnHistorySendToUpscale;
         menu.Items.Add(upscaleItem);
         var openFolderItem = new MenuFlyoutItem
         {
-            Text = "打开所在文件夹", Tag = filePath,
+            Text = L("action.open_containing_folder"), Tag = filePath,
             Icon = new SymbolIcon(Symbol.OpenLocal),
         };
         openFolderItem.Click += OnHistoryOpenFolder;
@@ -12365,14 +12332,14 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(new MenuFlyoutSeparator());
         var useParamsItem = new MenuFlyoutItem
         {
-            Text = "使用参数", Tag = filePath,
+            Text = L("action.use_parameters"), Tag = filePath,
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B6" },
         };
         useParamsItem.Click += OnHistoryUseParams;
         menu.Items.Add(useParamsItem);
         var useParamsNoSeedItem = new MenuFlyoutItem
         {
-            Text = "使用参数（不包含种子）", Tag = filePath,
+            Text = L("action.use_parameters_no_seed"), Tag = filePath,
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B5" },
         };
         useParamsNoSeedItem.Click += OnHistoryUseParamsNoSeed;
@@ -12380,7 +12347,7 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(new MenuFlyoutSeparator());
         var deleteItem = new MenuFlyoutItem
         {
-            Text = "删除", Tag = filePath,
+            Text = L("common.delete"), Tag = filePath,
             Icon = new SymbolIcon(Symbol.Delete),
             Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 196, 43, 28)),
         };
@@ -12434,7 +12401,7 @@ public sealed partial class MainWindow : Window
             var bytes = await File.ReadAllBytesAsync(filePath);
             await ApplyDroppedImageMetadata(bytes, Path.GetFileName(filePath), skipSeed: true);
         }
-        catch (Exception ex) { TxtStatus.Text = $"读取失败: {ex.Message}"; }
+        catch (Exception ex) { TxtStatus.Text = Lf("common.read_failed", ex.Message); }
     }
 
     private async Task ShowHistoryImageAsync(string filePath)
@@ -12448,7 +12415,7 @@ public sealed partial class MainWindow : Window
             await ShowGenPreviewAsync(bytes);
             UpdateDynamicMenuStates();
         }
-        catch (Exception ex) { TxtStatus.Text = $"加载失败: {ex.Message}"; }
+        catch (Exception ex) { TxtStatus.Text = Lf("common.load_failed", ex.Message); }
     }
 
     private void OnHistorySendToInpaint(object sender, RoutedEventArgs e)
@@ -12466,7 +12433,7 @@ public sealed partial class MainWindow : Window
             var bytes = await File.ReadAllBytesAsync(filePath);
             SendImageToInpaint(bytes);
         }
-        catch (Exception ex) { TxtStatus.Text = $"发送到重绘失败: {ex.Message}"; }
+        catch (Exception ex) { TxtStatus.Text = Lf("inpaint.send_failed", ex.Message); }
     }
 
     private void OnHistoryOpenFolder(object sender, RoutedEventArgs e)
@@ -12486,7 +12453,7 @@ public sealed partial class MainWindow : Window
                 var bytes = await File.ReadAllBytesAsync(filePath);
                 await ApplyDroppedImageMetadata(bytes, Path.GetFileName(filePath));
             }
-            catch (Exception ex) { TxtStatus.Text = $"读取失败: {ex.Message}"; }
+            catch (Exception ex) { TxtStatus.Text = Lf("common.read_failed", ex.Message); }
         }
     }
 
@@ -12499,7 +12466,7 @@ public sealed partial class MainWindow : Window
                 var bytes = await File.ReadAllBytesAsync(filePath);
                 await ApplyDroppedImageMetadata(bytes, Path.GetFileName(filePath), skipSeed: true);
             }
-            catch (Exception ex) { TxtStatus.Text = $"读取失败: {ex.Message}"; }
+            catch (Exception ex) { TxtStatus.Text = Lf("common.read_failed", ex.Message); }
         }
     }
 
@@ -12535,7 +12502,7 @@ public sealed partial class MainWindow : Window
                     if (nextPath != null)
                     {
                         await ShowHistoryImageAsync(nextPath);
-                        TxtStatus.Text = "已删除，已切换到相邻图片";
+                        TxtStatus.Text = L("history.deleted_switched_adjacent");
                     }
                     else
                     {
@@ -12545,15 +12512,15 @@ public sealed partial class MainWindow : Window
                         GenPlaceholder.Visibility = Visibility.Visible;
                         GenResultBar.Visibility = Visibility.Collapsed;
                         UpdateDynamicMenuStates();
-                TxtStatus.Text = "已删除";
+                        TxtStatus.Text = L("common.deleted");
                     }
                 }
                 else
                 {
-                    TxtStatus.Text = "已删除";
+                    TxtStatus.Text = L("common.deleted");
                 }
             }
-            catch (Exception ex) { TxtStatus.Text = $"删除失败: {ex.Message}"; }
+            catch (Exception ex) { TxtStatus.Text = Lf("common.delete_failed", ex.Message); }
         }
     }
 
@@ -12571,11 +12538,11 @@ public sealed partial class MainWindow : Window
 
         if (_upscaleModelInfos.Count == 0)
         {
-            CboUpscaleModel.Items.Add(CreateTextComboBoxItem("（未找到模型）"));
+            CboUpscaleModel.Items.Add(CreateTextComboBoxItem(L("upscale.model_not_found")));
             CboUpscaleModel.SelectedIndex = 0;
             CboUpscaleModel.IsEnabled = false;
             BtnStartUpscale.IsEnabled = false;
-            TxtStatus.Text = $"请将超分模型 (.onnx) 放入 {modelsDir}";
+            TxtStatus.Text = Lf("upscale.put_model_into_dir", modelsDir);
             return;
         }
 
@@ -12649,7 +12616,7 @@ public sealed partial class MainWindow : Window
                 return;
             }
         }
-        TxtStatus.Text = "不支持的文件格式，请拖入 PNG/JPG/WebP/BMP 图片";
+        TxtStatus.Text = L("file.unsupported_format_upscale");
     }
 
     private async Task LoadUpscaleImageAsync(string filePath)
@@ -12662,7 +12629,7 @@ public sealed partial class MainWindow : Window
             using var bitmap = SKBitmap.Decode(bytes);
             if (bitmap == null)
             {
-                TxtStatus.Text = "无法解码图片";
+                TxtStatus.Text = L("upscale.error.decode_failed");
                 return;
             }
 
@@ -12674,11 +12641,11 @@ public sealed partial class MainWindow : Window
             BtnStartUpscale.IsEnabled = _upscaleModelInfos.Count > 0;
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
                 () => FitUpscalePreviewToScreen());
-            TxtStatus.Text = $"已加载: {Path.GetFileName(filePath)} ({_upscaleSourceWidth}×{_upscaleSourceHeight})";
+            TxtStatus.Text = Lf("upscale.loaded", Path.GetFileName(filePath), _upscaleSourceWidth, _upscaleSourceHeight);
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"加载失败: {ex.Message}";
+            TxtStatus.Text = Lf("common.load_failed", ex.Message);
         }
     }
 
@@ -12716,7 +12683,7 @@ public sealed partial class MainWindow : Window
     {
         if (_upscaleInputImageBytes == null || _upscaleInputImageBytes.Length == 0)
         {
-            TxtStatus.Text = "请先拖入图片";
+            TxtStatus.Text = L("upscale.drop_image_first");
             return;
         }
 
@@ -12728,9 +12695,9 @@ public sealed partial class MainWindow : Window
         var modelInfo = _upscaleModelInfos[modelIdx];
         _upscaleRunning = true;
         BtnStartUpscale.IsEnabled = false;
-        SetUpscaleButtonText("超分中…");
+        SetUpscaleButtonText(L("button.upscaling"));
         UpscaleProgressBar.Visibility = Visibility.Visible;
-        TxtStatus.Text = "正在加载超分模型…";
+        TxtStatus.Text = L("status.upscale_loading_model");
 
         try
         {
@@ -12742,7 +12709,7 @@ public sealed partial class MainWindow : Window
 
             await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath, preferCpu));
             DebugLog($"[Upscale] Model loaded | Provider={_upscaleService.ExecutionProvider} | Scale={_upscaleService.ModelScale}x");
-            TxtStatus.Text = "正在超分…";
+            TxtStatus.Text = L("status.upscale_running");
 
             var progress = new Progress<double>(p =>
             {
@@ -12768,20 +12735,20 @@ public sealed partial class MainWindow : Window
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
                 () => FitUpscalePreviewToScreen());
             DebugLog($"[Upscale] Completed | Output={_upscaleSourceWidth}x{_upscaleSourceHeight} | Provider={_upscaleService.ExecutionProvider}");
-            TxtStatus.Text = $"超分完成 ({_upscaleSourceWidth}×{_upscaleSourceHeight}) | {_upscaleService.ExecutionProvider}";
+            TxtStatus.Text = Lf("upscale.completed", _upscaleSourceWidth, _upscaleSourceHeight, _upscaleService.ExecutionProvider);
 
             await PromptSaveUpscaleResultAsync(resultBytes);
         }
         catch (Exception ex)
         {
             DebugLog($"[Upscale] Failed: {ex}");
-            TxtStatus.Text = $"超分失败: {ex.Message}";
+            TxtStatus.Text = Lf("upscale.failed", ex.Message);
         }
         finally
         {
             _upscaleRunning = false;
             BtnStartUpscale.IsEnabled = true;
-            SetUpscaleButtonText("开始超分");
+            SetUpscaleButtonText(L("button.start_upscale"));
             UpscaleProgressBar.Visibility = Visibility.Collapsed;
             UpscaleProgressBar.IsIndeterminate = true;
             UpscaleProgressBar.Value = 0;
@@ -12806,7 +12773,7 @@ public sealed partial class MainWindow : Window
     {
         var savePicker = new FileSavePicker();
         savePicker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
-        savePicker.FileTypeChoices.Add("PNG 图片", new List<string> { ".png" });
+        savePicker.FileTypeChoices.Add(L("file.png_image"), new List<string> { ".png" });
         savePicker.SuggestedFileName = $"upscaled_{DateTime.Now:yyyyMMdd_HHmmss}";
 
         var hwnd = WindowNative.GetWindowHandle(this);
@@ -12816,7 +12783,7 @@ public sealed partial class MainWindow : Window
         if (file != null)
         {
             await File.WriteAllBytesAsync(file.Path, resultBytes);
-            TxtStatus.Text = $"已保存: {file.Path}";
+            TxtStatus.Text = Lf("file.saved_path", file.Path);
         }
     }
 
@@ -12838,15 +12805,15 @@ public sealed partial class MainWindow : Window
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
             () => FitUpscalePreviewToScreen());
         TxtStatus.Text = sourcePath != null
-            ? $"已发送到超分: {Path.GetFileName(sourcePath)}"
-            : "已发送到超分";
+            ? Lf("upscale.sent_with_name", Path.GetFileName(sourcePath))
+            : L("upscale.sent");
     }
 
     private async void OnSendToUpscaleFromGen(object sender, RoutedEventArgs e)
     {
         if (_currentGenImageBytes == null)
         {
-            TxtStatus.Text = "没有生成结果可发送";
+            TxtStatus.Text = L("generate.error.no_result_to_send");
             return;
         }
         GenResultBar.Visibility = Visibility.Collapsed;
@@ -12870,7 +12837,7 @@ public sealed partial class MainWindow : Window
 
             if (bytesToSend == null || bytesToSend.Length == 0)
             {
-                TxtStatus.Text = "没有图像可发送到超分";
+                TxtStatus.Text = L("upscale.error.no_image_to_send");
                 return;
             }
 
@@ -12878,7 +12845,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = $"发送到超分失败: {ex.Message}";
+            TxtStatus.Text = Lf("upscale.send_failed", ex.Message);
         }
     }
 
@@ -12886,7 +12853,7 @@ public sealed partial class MainWindow : Window
     {
         if (_upscaleInputImageBytes == null)
         {
-            TxtStatus.Text = "没有图像可发送";
+            TxtStatus.Text = L("image.no_image_to_send");
             return;
         }
         SendImageToInpaint(_upscaleInputImageBytes);
@@ -12896,7 +12863,7 @@ public sealed partial class MainWindow : Window
     {
         if (_upscaleInputImageBytes == null)
         {
-            TxtStatus.Text = "没有图像可发送";
+            TxtStatus.Text = L("image.no_image_to_send");
             return;
         }
         await SendBytesToEffectsAsync(_upscaleInputImageBytes);
@@ -12911,7 +12878,7 @@ public sealed partial class MainWindow : Window
                 var bytes = await File.ReadAllBytesAsync(filePath);
                 await SendBytesToUpscaleAsync(bytes, filePath);
             }
-            catch (Exception ex) { TxtStatus.Text = $"发送到超分失败: {ex.Message}"; }
+            catch (Exception ex) { TxtStatus.Text = Lf("upscale.send_failed", ex.Message); }
         }
     }
 }

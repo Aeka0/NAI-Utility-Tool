@@ -429,7 +429,7 @@ public sealed partial class MainWindow
                     }
                 },
                 presetSummaryCard,
-                new TextBlock { Text = "预设保存全部自动化配置（生成处理、随机化、效果处理）。", TextWrapping = TextWrapping.Wrap, Opacity = 0.6, FontSize = 12 }
+                new TextBlock { Text = L("automation.preset_summary_note"), TextWrapping = TextWrapping.Wrap, Opacity = 0.6, FontSize = 12 }
             }
         };
 
@@ -440,12 +440,12 @@ public sealed partial class MainWindow
             Children =
             {
                 CreateAutomationSection(
-                    "请求节奏",
-                    "控制每次请求之间的等待时间。",
+                    L("automation.section.request_pacing.title"),
+                    L("automation.section.request_pacing.description"),
                     CreateAutomationTwoColumnRow(nbMinDelay, nbMaxDelay)),
                 CreateAutomationSection(
-                    "执行次数",
-                    "设置为 0 表示不限制。失败重试为连续失败达到指定次数后自动停止。",
+                    L("automation.section.run_limits.title"),
+                    L("automation.section.run_limits.description"),
                     CreateAutomationTwoColumnRow(nbRequestCount, nbRetryCount)),
             }
         };
@@ -457,8 +457,8 @@ public sealed partial class MainWindow
             Children =
             {
                 CreateAutomationSettingRow(
-                    "随机预设尺寸",
-                    "从尺寸池中随机抽取。未选任何尺寸时回退到当前尺寸。",
+                    L("automation.random_size"),
+                    L("automation.random_size_description"),
                     new StackPanel
                     {
                         Orientation = Orientation.Horizontal,
@@ -466,16 +466,16 @@ public sealed partial class MainWindow
                         Children = { chkRandomSize, btnSelectSizes }
                     }),
                 CreateAutomationSettingRow(
-                    "随机使用 Vibe 文件",
-                    "从当前氛围参考中抽取 1 个，不改写界面参考池。",
+                    L("automation.random_vibe"),
+                    L("automation.random_vibe_description"),
                     chkRandomVibe),
                 CreateAutomationSettingRow(
-                    "随机风格词",
-                    "每次请求前附加随机风格前缀。",
+                    L("automation.random_style"),
+                    L("automation.random_style_description"),
                     chkRandomStyle),
                 CreateAutomationSettingRow(
-                    "随机 Prompt",
-                    "从快捷提示词中抽取一条作为正向 Prompt。",
+                    L("automation.random_prompt"),
+                    L("automation.random_prompt_description"),
                     chkRandomPrompt),
             }
         };
@@ -489,12 +489,12 @@ public sealed partial class MainWindow
             Children =
             {
                 CreateAutomationSettingRow(
-                    "自动超分",
-                    "启用后在生成完成后自动执行超分。",
+                    L("automation.enable_auto_upscale"),
+                    L("automation.enable_auto_upscale_description"),
                     chkEnableUpscale),
                 CreateAutomationSection(
-                    "超分设置",
-                    "选择超分模型与倍率。",
+                    L("automation.section.upscale_settings.title"),
+                    L("automation.section.upscale_settings.description"),
                     CreateAutomationTwoColumnRow(cboUpscaleModel, cboUpscaleScale)),
                 new Border
                 {
@@ -504,12 +504,12 @@ public sealed partial class MainWindow
                     Opacity = 0.25,
                 },
                 CreateAutomationSettingRow(
-                    "效果滤镜预设",
-                    "启用后在超分之后应用所选滤镜预设。",
+                    L("automation.enable_post_preset"),
+                    L("automation.enable_post_preset_description"),
                     chkEnableFx),
                 CreateAutomationSection(
-                    "滤镜预设",
-                    "选择生成后要自动应用的效果滤镜预设。",
+                    L("automation.section.filter_preset.title"),
+                    L("automation.section.filter_preset.description"),
                     cboEffectsPreset),
             }
         };
@@ -566,10 +566,10 @@ public sealed partial class MainWindow
             Width = 540,
             Height = 430,
         };
-        nav.MenuItems.Add(new NavigationViewItem { Content = "预设", Tag = "preset" });
-        nav.MenuItems.Add(new NavigationViewItem { Content = "生成处理", Tag = "generation" });
-        nav.MenuItems.Add(new NavigationViewItem { Content = "随机化", Tag = "randomization" });
-        nav.MenuItems.Add(new NavigationViewItem { Content = "效果处理", Tag = "post" });
+        nav.MenuItems.Add(new NavigationViewItem { Content = L("automation.tab.preset"), Tag = "preset" });
+        nav.MenuItems.Add(new NavigationViewItem { Content = L("automation.tab.generation"), Tag = "generation" });
+        nav.MenuItems.Add(new NavigationViewItem { Content = L("automation.tab.randomization"), Tag = "randomization" });
+        nav.MenuItems.Add(new NavigationViewItem { Content = L("automation.tab.post"), Tag = "post" });
         nav.SelectionChanged += (_, args) =>
         {
             if (args.SelectedItemContainer?.Tag is string key)
@@ -584,10 +584,10 @@ public sealed partial class MainWindow
 
         var dialog = new ContentDialog
         {
-            Title = "自动化",
+            Title = L("automation.dialog.title"),
             Content = nav,
-            PrimaryButtonText = "执行",
-            CloseButtonText = "取消",
+            PrimaryButtonText = L("automation.dialog.run"),
+            CloseButtonText = L("automation.dialog.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
@@ -811,21 +811,21 @@ public sealed partial class MainWindow
         string reqLabel = gen.RequestLimit > 0 ? $"{gen.RequestLimit}" : "\u221e";
         string retryLabel = gen.FailureRetryLimit > 0 ? $"{gen.FailureRetryLimit}" : "\u221e";
 
-        string sizeLabel = rand.RandomizeSize ? $"{rand.SizePresets.Count} \u4e2a\u5c3a\u5bf8" : "\u5173";
-        string vibeLabel = rand.RandomizeVibeFiles ? "\u5f00" : "\u5173";
-        string styleLabel = rand.RandomizeStyleTags ? "\u5f00" : "\u5173";
-        string promptLabel = rand.RandomizePrompt ? "\u5f00" : "\u5173";
+        string sizeLabel = rand.RandomizeSize ? Lf("automation.summary.size_count", rand.SizePresets.Count) : L("common.off");
+        string vibeLabel = rand.RandomizeVibeFiles ? L("common.on") : L("common.off");
+        string styleLabel = rand.RandomizeStyleTags ? L("common.on") : L("common.off");
+        string promptLabel = rand.RandomizePrompt ? L("common.on") : L("common.off");
 
         string upscaleLabel = post.UpscaleEnabled && !string.IsNullOrWhiteSpace(post.UpscaleModel)
             ? $"{post.UpscaleModel} {post.UpscaleScale}x"
-            : "\u5173";
+            : L("common.off");
         string fxLabel = post.FxEnabled && !string.IsNullOrWhiteSpace(post.FxPresetName)
             ? post.FxPresetName
-            : "\u5173";
+            : L("common.off");
 
-        return $"\u5ef6\u8fdf {gen.MinDelaySeconds:F1}-{gen.MaxDelaySeconds:F1}s \u00b7 \u8bf7\u6c42 {reqLabel} \u00b7 \u91cd\u8bd5 {retryLabel}\n" +
-               $"\u5c3a\u5bf8 {sizeLabel} \u00b7 Vibe {vibeLabel} \u00b7 \u98ce\u683c\u8bcd {styleLabel} \u00b7 Prompt {promptLabel}\n" +
-               $"\u8d85\u5206 {upscaleLabel} \u00b7 \u6ee4\u955c {fxLabel}";
+        return Lf("automation.summary.line1", gen.MinDelaySeconds, gen.MaxDelaySeconds, reqLabel, retryLabel) + "\n" +
+               Lf("automation.summary.line2", sizeLabel, vibeLabel, styleLabel, promptLabel) + "\n" +
+               Lf("automation.summary.line3", upscaleLabel, fxLabel);
     }
 
     private AutomationRunContext CreateAutomationRunContext(AutomationSettings settingsSnapshot)
@@ -866,7 +866,7 @@ public sealed partial class MainWindow
             {
                 var selected = sizeCandidates[Random.Shared.Next(sizeCandidates.Count)];
                 context.CurrentSizeOverride = (selected.W, selected.H);
-                notes.Add($"尺寸 {selected.W}×{selected.H}");
+                notes.Add(Lf("automation.note.size", selected.W, selected.H));
             }
         }
 
@@ -877,13 +877,13 @@ public sealed partial class MainWindow
                 var selected = context.PromptPool[Random.Shared.Next(context.PromptPool.Count)];
                 context.CurrentPromptOverride = selected.Prompt;
                 string label = string.IsNullOrWhiteSpace(selected.Shortcut)
-                    ? "快捷提示词"
+                    ? L("automation.prompt_shortcut_fallback")
                     : selected.Shortcut;
-                notes.Add($"Prompt {label}");
+                notes.Add(Lf("automation.note.prompt", label));
             }
             else if (!context.MissingPromptPoolNotified)
             {
-                TxtStatus.Text = "自动化随机 Prompt 已开启，但当前没有可用的快捷提示词，已沿用当前 Prompt";
+                TxtStatus.Text = L("automation.status.random_prompt_missing");
                 context.MissingPromptPoolNotified = true;
             }
         }
@@ -903,18 +903,18 @@ public sealed partial class MainWindow
                         InformationExtracted = Math.Clamp(selected.InformationExtracted, 0, 1),
                     }
                 ];
-                notes.Add($"Vibe {selected.FileName}");
+                notes.Add(Lf("automation.note.vibe", selected.FileName));
             }
             else if (!context.MissingVibePoolNotified)
             {
-                TxtStatus.Text = "自动化随机 Vibe 已开启，但当前没有可用的氛围参考，已跳过";
+                TxtStatus.Text = L("automation.status.random_vibe_missing");
                 context.MissingVibePoolNotified = true;
             }
         }
 
         context.LastSummary = notes.Count > 0
-            ? $"本轮自动化参数: {string.Join(" | ", notes)}"
-            : "自动化准备中...";
+            ? Lf("automation.status.iteration_summary", string.Join(" | ", notes))
+            : L("automation.status.preparing");
         TxtStatus.Text = context.LastSummary;
     }
 
@@ -1020,11 +1020,11 @@ public sealed partial class MainWindow
             try
             {
                 currentBytes = await RunAutomationUpscaleAsync(currentBytes, options, ct);
-                notes.Add($"超分 {options.UpscaleModel} {options.UpscaleScale}x");
+                notes.Add(Lf("automation.note.upscale", options.UpscaleModel, options.UpscaleScale));
             }
             catch (InvalidOperationException)
             {
-                notes.Add($"超分模型缺失，已跳过 {options.UpscaleModel}");
+                notes.Add(Lf("automation.note.upscale_skipped", options.UpscaleModel));
             }
         }
 
@@ -1034,7 +1034,7 @@ public sealed partial class MainWindow
             if (effects.Count > 0)
             {
                 currentBytes = await Task.Run(() => RenderEffects(currentBytes, effects), ct);
-                notes.Add($"滤镜 {options.FxPresetName}");
+                notes.Add(Lf("automation.note.filter", options.FxPresetName));
             }
         }
 
@@ -1059,7 +1059,7 @@ public sealed partial class MainWindow
                 .FirstOrDefault(x => string.Equals(x.DisplayName, options.UpscaleModel, StringComparison.OrdinalIgnoreCase));
         }
         if (modelInfo == null)
-            throw new InvalidOperationException($"未找到超分模型：{options.UpscaleModel}");
+            throw new InvalidOperationException(Lf("automation.error.upscale_model_not_found", options.UpscaleModel));
 
         _upscaleService ??= new UpscaleService();
         await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath), ct);

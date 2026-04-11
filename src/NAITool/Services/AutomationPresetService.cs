@@ -86,11 +86,11 @@ public sealed class AutomationPresetService
     public async Task SavePresetAsync(string name, AutomationSettings settings)
     {
         if (string.IsNullOrWhiteSpace(name))
-            throw new InvalidOperationException("预设名称不能为空");
+            throw new InvalidOperationException(LocalizationService.Instance.GetString("automation.status.name_required"));
 
         string safeName = SanitizePresetFileName(name);
         if (string.IsNullOrWhiteSpace(safeName))
-            throw new InvalidOperationException("预设名称不合法");
+            throw new InvalidOperationException(LocalizationService.Instance.GetString("automation.status.name_invalid"));
 
         settings.Normalize();
         Directory.CreateDirectory(_presetsDir);

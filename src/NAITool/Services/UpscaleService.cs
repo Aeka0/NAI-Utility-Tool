@@ -24,6 +24,8 @@ public sealed class UpscaleService : IDisposable
     private const int DefaultTileSize = 512;
     private const int TileOverlap = 32;
 
+    private static string L(string key) => LocalizationService.Instance.GetString(key);
+
     public record UpscaleModelInfo(string DisplayName, string FilePath, int Scale);
 
     public static List<UpscaleModelInfo> ScanModels(string modelsDirectory)
@@ -108,11 +110,11 @@ public sealed class UpscaleService : IDisposable
             lock (_sync)
             {
                 if (_session == null)
-                    throw new InvalidOperationException("超分模型尚未加载。");
+                    throw new InvalidOperationException(L("upscale.error.model_not_loaded"));
             }
 
             using var sourceBitmap = SKBitmap.Decode(imageBytes)
-                ?? throw new InvalidOperationException("无法解码输入图片。");
+                ?? throw new InvalidOperationException(L("upscale.error.decode_failed"));
 
             var srcW = sourceBitmap.Width;
             var srcH = sourceBitmap.Height;
@@ -223,7 +225,7 @@ public sealed class UpscaleService : IDisposable
         string inputName, outputName;
         lock (_sync)
         {
-            session = _session ?? throw new InvalidOperationException("超分模型尚未加载。");
+            session = _session ?? throw new InvalidOperationException(L("upscale.error.model_not_loaded"));
             inputName = _inputName;
             outputName = _outputName;
         }

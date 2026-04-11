@@ -24,13 +24,16 @@ public sealed class ReverseImageTaggerService : IDisposable
     private string _executionProvider = "CPU";
     private IReadOnlyList<ReverseTagDefinition> _tagDefinitions = Array.Empty<ReverseTagDefinition>();
 
+    private static string L(string key) => LocalizationService.Instance.GetString(key);
+    private static string Lf(string key, params object?[] args) => LocalizationService.Instance.Format(key, args);
+
     public Task<ReverseTaggerResult> InferAsync(
         byte[] imageBytes,
         ReverseTaggerSettings settings,
         CancellationToken cancellationToken = default)
     {
         if (imageBytes == null || imageBytes.Length == 0)
-            throw new InvalidOperationException("没有可用于反推的图片数据。");
+            throw new InvalidOperationException(L("reverse.error.no_image_data"));
 
         if (settings == null)
             throw new ArgumentNullException(nameof(settings));
@@ -82,7 +85,7 @@ public sealed class ReverseImageTaggerService : IDisposable
             _loadedModelDirectory = modelDirectory;
             _executionProvider = provider;
             _inputName = session.InputMetadata.Keys.FirstOrDefault()
-                ?? throw new InvalidOperationException("模型缺少输入节点。");
+                ?? throw new InvalidOperationException(L("reverse.error.model_missing_input"));
             _outputNames = SelectOutputNames(session, _tagDefinitions.Count);
         }
     }
@@ -94,7 +97,7 @@ public sealed class ReverseImageTaggerService : IDisposable
         lock (_runSync)
         {
             if (_session == null)
-                throw new InvalidOperationException("反推模型尚未初始化。");
+                throw new InvalidOperationException(L("reverse.error.model_not_initialized"));
 
             using var inputValue = OrtValue.CreateTensorValueFromMemory(tensorData, tensorShape);
             using var runOptions = new RunOptions();
@@ -105,7 +108,7 @@ public sealed class ReverseImageTaggerService : IDisposable
             using var results = _session.Run(runOptions, inputs, _outputNames);
 
             if (results.Count == 0)
-                throw new InvalidOperationException("模型未返回有效输出。");
+                throw new InvalidOperationException(L("reverse.error.model_no_valid_output"));
 
             float[]? raw = null;
             int bestLength = -1;
@@ -130,10 +133,10 @@ public sealed class ReverseImageTaggerService : IDisposable
             }
 
             if (raw == null)
-                throw new InvalidOperationException("模型未返回可用的 tensor 输出。");
+                throw new InvalidOperationException(L("reverse.error.model_no_tensor_output"));
 
             if (raw.Length == 0)
-                throw new InvalidOperationException("模型输出为空。");
+                throw new InvalidOperationException(L("reverse.error.model_output_empty"));
 
             bool looksLikeProbability = raw.All(value => value >= 0f && value <= 1f);
             if (looksLikeProbability)
@@ -153,7 +156,7 @@ public sealed class ReverseImageTaggerService : IDisposable
     {
         if (scores.Length < _tagDefinitions.Count)
             throw new InvalidOperationException(
-                $"模型输出数量与标签定义不一致（输出 {scores.Length}，标签 {_tagDefinitions.Count}）。");
+                Lf("reverse.error.output_count_mismatch", scores.Length, _tagDefinitions.Count));
 
         double generalThreshold = Math.Clamp(settings.GeneralThreshold, 0, 1);
         double characterThreshold = Math.Clamp(settings.CharacterThreshold, 0, 1);
@@ -212,7 +215,7 @@ public sealed class ReverseImageTaggerService : IDisposable
         }
 
         if (uniquePromptParts.Count == 0)
-            throw new InvalidOperationException("没有标签达到当前阈值，请尝试降低阈值后重试。");
+            throw new InvalidOperationException(L("reverse.error.no_tags_above_threshold"));
 
         return new ReverseTaggerResult
         {
@@ -250,11 +253,11 @@ public sealed class ReverseImageTaggerService : IDisposable
     private static string ResolveModelDirectory(string? modelPath)
     {
         if (string.IsNullOrWhiteSpace(modelPath))
-            throw new InvalidOperationException("请先在设置中配置反推模型路径。");
+            throw new InvalidOperationException(L("reverse.error.model_path_not_set"));
 
         var fullPath = Path.GetFullPath(modelPath.Trim());
         if (!Directory.Exists(fullPath))
-            throw new DirectoryNotFoundException("反推模型路径不存在。");
+            throw new DirectoryNotFoundException(L("reverse.error.model_path_not_found"));
 
         return fullPath;
     }
@@ -273,7 +276,7 @@ public sealed class ReverseImageTaggerService : IDisposable
         }
 
         if (candidates.Length == 0)
-            throw new FileNotFoundException("所选目录中未找到 .onnx 模型文件。");
+            throw new FileNotFoundException(L("reverse.error.model_file_not_found"));
 
         return candidates[0];
     }
@@ -281,7 +284,7 @@ public sealed class ReverseImageTaggerService : IDisposable
     private static string[] SelectOutputNames(InferenceSession session, int expectedTagCount)
     {
         if (session.OutputMetadata.Count == 0)
-            throw new InvalidOperationException("模型缺少输出节点。");
+            throw new InvalidOperationException(L("reverse.error.model_missing_output"));
 
         var prioritized = new List<(string Name, int Priority, long KnownSize)>();
 
@@ -315,7 +318,7 @@ public sealed class ReverseImageTaggerService : IDisposable
     {
         var csvPath = Path.Combine(modelDirectory, "selected_tags.csv");
         if (!File.Exists(csvPath))
-            throw new FileNotFoundException("所选目录缺少 selected_tags.csv。");
+            throw new FileNotFoundException(L("reverse.error.tags_csv_missing"));
 
         var tags = new List<ReverseTagDefinition>();
         bool isFirstLine = true;
@@ -334,21 +337,21 @@ public sealed class ReverseImageTaggerService : IDisposable
             if (fields.Count < 6)
                 continue;
 
-            int index = ParseRequiredInt(fields[0], "标签索引");
+            int index = ParseRequiredInt(fields[0], L("reverse.csv.tag_index"));
             string name = fields[2];
-            int category = ParseRequiredInt(fields[3], "标签类别");
+            int category = ParseRequiredInt(fields[3], L("reverse.csv.tag_category"));
             var ips = ParseIps(fields[5]);
             tags.Add(new ReverseTagDefinition(index, name, category, ips));
         }
 
         if (tags.Count == 0)
-            throw new InvalidOperationException("selected_tags.csv 中未读取到任何标签定义。");
+            throw new InvalidOperationException(L("reverse.error.tags_csv_empty"));
 
         int expectedIndex = 0;
         foreach (var tag in tags.OrderBy(tag => tag.Index))
         {
             if (tag.Index != expectedIndex)
-                throw new InvalidOperationException("selected_tags.csv 的标签索引不连续。");
+                throw new InvalidOperationException(L("reverse.error.tags_csv_non_contiguous"));
             expectedIndex++;
         }
 
@@ -359,7 +362,7 @@ public sealed class ReverseImageTaggerService : IDisposable
     {
         if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
             return value;
-        throw new InvalidOperationException($"{fieldName}解析失败。");
+        throw new InvalidOperationException(Lf("reverse.error.tags_csv_parse_failed", fieldName));
     }
 
     private static List<string> ParseCsvLine(string line)
@@ -425,7 +428,7 @@ public sealed class ReverseImageTaggerService : IDisposable
 
         using var source = SKBitmap.Decode(imageBytes);
         if (source == null)
-            throw new InvalidOperationException("无法读取图片内容。");
+            throw new InvalidOperationException(L("reverse.error.image_read_failed"));
 
         const int inputSize = 448;
         using var resized = new SKBitmap(new SKImageInfo(inputSize, inputSize, SKColorType.Rgba8888, SKAlphaType.Unpremul));
