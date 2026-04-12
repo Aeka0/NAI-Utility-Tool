@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -231,9 +231,9 @@ public sealed partial class MainWindow
             _genPositivePrompt = "";
             _genNegativePrompt = "";
             _genStylePrompt = "";
-            _inpaintPositivePrompt = "";
-            _inpaintNegativePrompt = "";
-            _inpaintStylePrompt = "";
+            _i2iPositivePrompt = "";
+            _i2iNegativePrompt = "";
+            _i2iStylePrompt = "";
             _isSplitPrompt = false;
             return;
         }
@@ -242,9 +242,9 @@ public sealed partial class MainWindow
         _genPositivePrompt = remembered.GenPositivePrompt ?? "";
         _genNegativePrompt = remembered.GenNegativePrompt ?? "";
         _genStylePrompt = remembered.GenStylePrompt ?? "";
-        _inpaintPositivePrompt = remembered.InpaintPositivePrompt ?? "";
-        _inpaintNegativePrompt = remembered.InpaintNegativePrompt ?? "";
-        _inpaintStylePrompt = remembered.InpaintStylePrompt ?? "";
+        _i2iPositivePrompt = remembered.I2IPositivePrompt ?? "";
+        _i2iNegativePrompt = remembered.I2INegativePrompt ?? "";
+        _i2iStylePrompt = remembered.I2IStylePrompt ?? "";
         _isSplitPrompt = remembered.IsSplitPrompt;
         _customWidth = SnapToMultipleOf64(_settings.Settings.RememberedCustomWidth);
         _customHeight = SnapToMultipleOf64(_settings.Settings.RememberedCustomHeight);
@@ -267,9 +267,9 @@ public sealed partial class MainWindow
             GenPositivePrompt = _genPositivePrompt,
             GenNegativePrompt = _genNegativePrompt,
             GenStylePrompt = _genStylePrompt,
-            InpaintPositivePrompt = _inpaintPositivePrompt,
-            InpaintNegativePrompt = _inpaintNegativePrompt,
-            InpaintStylePrompt = _inpaintStylePrompt,
+            I2IPositivePrompt = _i2iPositivePrompt,
+            I2INegativePrompt = _i2iNegativePrompt,
+            I2IStylePrompt = _i2iStylePrompt,
             IsSplitPrompt = _isSplitPrompt,
         };
         _settings.Settings.RememberedCustomWidth = _customWidth;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -141,7 +141,7 @@ public sealed partial class MainWindow
             InspectPlaceholder.Visibility = Visibility.Visible;
             InspectContent.Visibility = Visibility.Collapsed;
             SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
-            BtnSendInspectToInpaint.IsEnabled = _inspectImageBytes != null;
+            BtnSendInspectToI2I.IsEnabled = _inspectImageBytes != null;
             UpdateDynamicMenuStates();
             return;
         }
@@ -153,7 +153,7 @@ public sealed partial class MainWindow
             TxtInspectRawMeta.Visibility = Visibility.Visible;
             TxtInspectRawMeta.Text = meta.RawJson;
             SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
-            BtnSendInspectToInpaint.IsEnabled = _inspectImageBytes != null;
+            BtnSendInspectToI2I.IsEnabled = _inspectImageBytes != null;
             UpdateDynamicMenuStates();
             return;
         }
@@ -161,7 +161,7 @@ public sealed partial class MainWindow
         InspectPlaceholder.Visibility = Visibility.Collapsed;
         InspectContent.Visibility = Visibility.Visible;
         SetInspectPrimaryAction(InspectPrimaryAction.SendMetadata, true);
-        BtnSendInspectToInpaint.IsEnabled = true;
+        BtnSendInspectToI2I.IsEnabled = true;
 
         TxtInspectPositive.Text = FormatInspectValue(meta.PositivePrompt);
         TxtInspectNegative.Text = FormatInspectValue(meta.NegativePrompt);
@@ -388,7 +388,7 @@ public sealed partial class MainWindow
 
     private static readonly string QualityTagBlock = "rating:general, best quality, very aesthetic, absurdres";
 
-    private void OnSendInspectToInpaint(object sender, RoutedEventArgs e)
+    private void OnSendInspectToI2I(object sender, RoutedEventArgs e)
     {
         if (_inspectImageBytes == null) return;
 
@@ -403,7 +403,7 @@ public sealed partial class MainWindow
             _genStylePrompt = "";
         }
 
-        SendImageToInpaint(_inspectImageBytes);
+        SendImageToI2I(_inspectImageBytes);
 
         _genPositivePrompt = savedPos;
         _genNegativePrompt = savedNeg;
@@ -526,7 +526,7 @@ public sealed partial class MainWindow
             : L("inspect.sent_parameters_to_generate");
     }
 
-    private void ApplyMetadataToInpaint(ImageMetadata meta, string fileName)
+    private void ApplyMetadataToI2I(ImageMetadata meta, string fileName)
     {
         var notes = new List<string>();
         var skipped = new List<string>();
@@ -551,9 +551,9 @@ public sealed partial class MainWindow
             strippedQuality = true;
         }
 
-        _inpaintPositivePrompt = positivePrompt;
-        _inpaintNegativePrompt = negativePrompt;
-        _inpaintStylePrompt = "";
+        _i2iPositivePrompt = positivePrompt;
+        _i2iNegativePrompt = negativePrompt;
+        _i2iStylePrompt = "";
 
         var p = _settings.Settings.InpaintParameters;
 

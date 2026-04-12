@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -225,13 +225,13 @@ public sealed partial class MainWindow
 
     // ═══ 生图模式浮动操作窗 ═══
 
-    private void OnSendToInpaint(object sender, RoutedEventArgs e)
+    private void OnSendToI2I(object sender, RoutedEventArgs e)
     {
         if (_currentGenImageBytes == null)
         { TxtStatus.Text = L("generate.error.no_result_to_send"); return; }
 
         GenResultBar.Visibility = Visibility.Collapsed;
-        SendImageToInpaint(_currentGenImageBytes);
+        SendImageToI2I(_currentGenImageBytes);
     }
 
     private async void OnSendToEffectsFromGen(object sender, RoutedEventArgs e)
@@ -246,7 +246,7 @@ public sealed partial class MainWindow
         await SendBytesToEffectsAsync(_currentGenImageBytes, _currentGenImagePath);
     }
 
-    private async void OnSendToEffectsFromInpaint(object sender, RoutedEventArgs e)
+    private async void OnSendToEffectsFromI2I(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -433,17 +433,17 @@ public sealed partial class MainWindow
             };
             flyout.Items.Add(postItem);
 
-            var inpaintItem = new MenuFlyoutItem
+            var i2iItem = new MenuFlyoutItem
             {
-                Text = L("action.send_to_inpaint"),
+                Text = L("action.send_to_i2i"),
                 Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" },
                 IsEnabled = hasImage,
             };
-            inpaintItem.Click += (_, _) =>
+            i2iItem.Click += (_, _) =>
             {
-                if (_currentGenImageBytes != null) SendImageToInpaint(_currentGenImageBytes);
+                if (_currentGenImageBytes != null) SendImageToI2I(_currentGenImageBytes);
             };
-            flyout.Items.Add(inpaintItem);
+            flyout.Items.Add(i2iItem);
 
             var upscaleItem = new MenuFlyoutItem
             {

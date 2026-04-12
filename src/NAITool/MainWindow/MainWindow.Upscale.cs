@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -324,7 +324,7 @@ public sealed partial class MainWindow
         await SendBytesToUpscaleAsync(_currentGenImageBytes, _currentGenImagePath);
     }
 
-    private async void OnSendToUpscaleFromInpaint(object sender, RoutedEventArgs e)
+    private async void OnSendToUpscaleFromI2I(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -353,14 +353,14 @@ public sealed partial class MainWindow
         }
     }
 
-    private void OnSendToInpaintFromUpscale(object sender, RoutedEventArgs e)
+    private void OnSendToI2IFromUpscale(object sender, RoutedEventArgs e)
     {
         if (_upscaleInputImageBytes == null)
         {
             TxtStatus.Text = L("image.no_image_to_send");
             return;
         }
-        SendImageToInpaint(_upscaleInputImageBytes);
+        SendImageToI2I(_upscaleInputImageBytes);
     }
 
     private async void OnSendToEffectsFromUpscale(object sender, RoutedEventArgs e)

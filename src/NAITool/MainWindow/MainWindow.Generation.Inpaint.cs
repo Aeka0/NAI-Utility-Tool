@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -36,7 +36,7 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
-    private async void SendImageToInpaint(byte[] imageBytes)
+    private async void SendImageToI2I(byte[] imageBytes)
     {
         try
         {
@@ -83,9 +83,9 @@ public sealed partial class MainWindow
             int imgW = (int)bitmap.SizeInPixels.Width;
             int imgH = (int)bitmap.SizeInPixels.Height;
 
-            _inpaintPositivePrompt = sendPos;
-            _inpaintNegativePrompt = sendNeg;
-            _inpaintStylePrompt = sendStyle;
+            _i2iPositivePrompt = sendPos;
+            _i2iNegativePrompt = sendNeg;
+            _i2iStylePrompt = sendStyle;
 
             bool imgMatchesPreset = Array.Exists(MaskCanvasControl.CanvasPresets,
                 p => p.W == imgW && p.H == imgH);
@@ -131,7 +131,7 @@ public sealed partial class MainWindow
                 sizeApplied = false;
             }
 
-            SwitchMode(AppMode.Inpaint);
+            SwitchMode(AppMode.I2I);
             MaskCanvas.InitializeCanvas(canvasW, canvasH);
             MaskCanvas.LoadImageFromBitmap(bitmap);
             MaskCanvas.FitToScreen();
@@ -139,10 +139,10 @@ public sealed partial class MainWindow
             UpdatePromptHighlights();
 
             TxtStatus.Text = sizeApplied
-                ? Lf("inpaint.sent_with_synced_size", imgW, imgH)
-                : Lf("inpaint.sent_with_canvas_size", imgW, imgH, canvasW, canvasH);
+                ? Lf("i2i.sent_with_synced_size", imgW, imgH)
+                : Lf("i2i.sent_with_canvas_size", imgW, imgH, canvasW, canvasH);
         }
-        catch (Exception ex) { TxtStatus.Text = Lf("inpaint.send_failed", ex.Message); }
+        catch (Exception ex) { TxtStatus.Text = Lf("i2i.send_failed", ex.Message); }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -341,7 +341,7 @@ public sealed partial class MainWindow
     private void OnDiscardResult(object sender, RoutedEventArgs e)
     {
         ExitPreviewMode();
-        UpdateInpaintRedoButtonWarning();
+        UpdateI2IRedoButtonWarning();
         TxtStatus.Text = L("generate.status.discarded");
     }
 
@@ -370,7 +370,7 @@ public sealed partial class MainWindow
         ResultBarTranslate.X = 0;
         ResultBarTranslate.Y = 0;
         ResultActionBar.Visibility = Visibility.Visible;
-        UpdateInpaintRedoButtonWarning();
+        UpdateI2IRedoButtonWarning();
     }
 
     private void OnResultBarDrag(object sender, ManipulationDeltaRoutedEventArgs e)

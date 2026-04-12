@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -40,7 +40,7 @@ public sealed partial class MainWindow
         _currentMode switch
         {
             AppMode.ImageGeneration => true,
-            AppMode.Inpaint => true,
+            AppMode.I2I => true,
             AppMode.Inspect => _inspectMetadata != null &&
                               (_inspectMetadata.IsNaiParsed || _inspectMetadata.IsSdFormat || _inspectMetadata.IsModelInference),
             _ => false,
@@ -67,7 +67,7 @@ public sealed partial class MainWindow
             string initialText = _currentMode switch
             {
                 AppMode.ImageGeneration => _genPositivePrompt,
-                AppMode.Inpaint => _inpaintPositivePrompt,
+                AppMode.I2I => _i2iPositivePrompt,
                 AppMode.Inspect when _inspectMetadata != null => _inspectMetadata.PositivePrompt ?? string.Empty,
                 _ => string.Empty,
             };
@@ -259,9 +259,9 @@ public sealed partial class MainWindow
         }
         else
         {
-            _inpaintPositivePrompt = ConvertPromptWeightSyntax(_inpaintPositivePrompt, source, target);
-            _inpaintNegativePrompt = ConvertPromptWeightSyntax(_inpaintNegativePrompt, source, target);
-            _inpaintStylePrompt = ConvertPromptWeightSyntax(_inpaintStylePrompt, source, target);
+            _i2iPositivePrompt = ConvertPromptWeightSyntax(_i2iPositivePrompt, source, target);
+            _i2iNegativePrompt = ConvertPromptWeightSyntax(_i2iNegativePrompt, source, target);
+            _i2iStylePrompt = ConvertPromptWeightSyntax(_i2iStylePrompt, source, target);
         }
 
         foreach (var entry in _genCharacters)

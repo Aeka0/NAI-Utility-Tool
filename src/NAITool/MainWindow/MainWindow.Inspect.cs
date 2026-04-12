@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -95,7 +95,7 @@ public sealed partial class MainWindow
         return bytes;
     }
 
-    private async Task<byte[]?> GetInpaintPromptInferenceImageBytesAsync(bool canvasOnly)
+    private async Task<byte[]?> GetI2IPromptInferenceImageBytesAsync(bool canvasOnly)
     {
         if (MaskCanvas.IsInPreviewMode && _pendingResultBytes != null)
             return canvasOnly ? _pendingResultBytes : await CreatePreviewCompositeBytes();
@@ -105,11 +105,11 @@ public sealed partial class MainWindow
             : await CreateCurrentFullImageBytes();
     }
 
-    private async Task RunInpaintPromptInferenceAsync(bool canvasOnly)
+    private async Task RunI2IPromptInferenceAsync(bool canvasOnly)
     {
         SaveCurrentPromptToBuffer();
 
-        var imageBytes = await GetInpaintPromptInferenceImageBytesAsync(canvasOnly);
+        var imageBytes = await GetI2IPromptInferenceImageBytesAsync(canvasOnly);
         if (imageBytes == null || imageBytes.Length == 0)
         {
             TxtStatus.Text = canvasOnly ? L("inspect.infer.no_canvas_image") : L("inspect.infer.no_global_image");
@@ -131,8 +131,8 @@ public sealed partial class MainWindow
         {
             var result = await _reverseTaggerService.InferAsync(imageBytes, _settings.Settings.ReverseTagger);
             var artistTagSet = LoadReverseTaggerArtistTagSet();
-            var preservedArtistTags = ExtractArtistTags(_inpaintPositivePrompt, artistTagSet);
-            _inpaintPositivePrompt = MergePromptTagsPreservingArtists(preservedArtistTags, result.PositivePrompt);
+            var preservedArtistTags = ExtractArtistTags(_i2iPositivePrompt, artistTagSet);
+            _i2iPositivePrompt = MergePromptTagsPreservingArtists(preservedArtistTags, result.PositivePrompt);
 
             LoadPromptFromBuffer();
             UpdateSplitVisibility();

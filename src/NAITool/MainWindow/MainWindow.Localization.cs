@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -46,12 +46,12 @@ public sealed partial class MainWindow
             TxtStatus.Text = Lf("metadata.no_usable_generation_metadata", file.Name);
     }
 
-    private async Task ApplySuperDropInpaintPromptAsync(StorageFile file)
+    private async Task ApplySuperDropI2IPromptAsync(StorageFile file)
     {
         byte[] bytes = await File.ReadAllBytesAsync(file.Path);
         var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
         if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat))
-            ApplyMetadataToInpaint(meta, file.Name);
+            ApplyMetadataToI2I(meta, file.Name);
         else
             TxtStatus.Text = Lf("metadata.no_usable_generation_metadata", file.Name);
     }
@@ -154,7 +154,7 @@ public sealed partial class MainWindow
         MenuAbout.Text = L("menu.help.about");
 
         TabGenerate.Content = L("mode.generate");
-        TabInpaint.Content = L("mode.inpaint");
+        TabI2I.Content = L("mode.i2i");
         TabUpscale.Content = L("mode.upscale");
         TabEffects.Content = L("mode.post");
         TabInspect.Content = L("mode.inspect");
@@ -186,7 +186,7 @@ public sealed partial class MainWindow
         TxtInspectSamplerLabel.Text = L("panel.sampler");
         TxtInspectScheduleLabel.Text = L("panel.scheduler");
         TxtInspectSeedLabel.Text = L("panel.seed_short");
-        TxtSendInspectToInpaint.Text = L("button.send_whole_to_inpaint");
+        TxtSendInspectToI2I.Text = L("button.send_whole_to_i2i");
 
         TxtUpscaleModelLabel.Text = L("upscale.model");
         TxtUpscaleScaleLabel.Text = L("upscale.scale");
@@ -198,7 +198,7 @@ public sealed partial class MainWindow
         TxtStartUpscaleButton.Text = _upscaleRunning ? L("button.upscaling") : L("button.start_upscale");
 
         GenPlaceholder.Text = L("placeholder.generate");
-        TxtSendGenToInpaint.Text = L("button.send_to_inpaint");
+        TxtSendGenToI2I.Text = L("button.send_to_i2i");
         TxtSendGenToEffects.Text = L("button.send_to_post");
         TxtDeleteGenResult.Text = L("button.delete");
         TxtCloseGenResult.Text = L("button.close");
@@ -213,19 +213,19 @@ public sealed partial class MainWindow
         TxtSuperDropGeneratePrompt.Text = L("superdrop.generate_prompt");
         TxtSuperDropGenerateVibe.Text = L("superdrop.generate_vibe");
         TxtSuperDropGeneratePrecise.Text = L("superdrop.generate_precise");
-        TxtSuperDropInpaintPrompt.Text = L("superdrop.inpaint_prompt");
-        TxtSuperDropInpaintVibe.Text = L("superdrop.inpaint_vibe");
-        TxtSuperDropInpaintPrecise.Text = L("superdrop.inpaint_precise");
+        TxtSuperDropI2IPrompt.Text = L("superdrop.i2i_prompt");
+        TxtSuperDropI2IVibe.Text = L("superdrop.i2i_vibe");
+        TxtSuperDropI2IPrecise.Text = L("superdrop.i2i_precise");
         TxtSuperDropUpscale.Text = L("superdrop.upscale");
         TxtSuperDropEffects.Text = L("superdrop.effects");
         TxtSuperDropInspect.Text = L("superdrop.inspect");
         TxtHistoryTitle.Text = L("history.title");
         HistoryDatePicker.PlaceholderText = L("history.select_date");
 
-        TxtInpaintPreviewLabel.Text = L("inpaint.preview");
+        TxtI2IPreviewLabel.Text = L("inpaint.preview");
         TxtZoomInfo.Text = Lf("status.zoom", 100d);
         ChkPreviewMask.Content = L("inpaint.preview_mask");
-        TxtInpaintToolsLabel.Text = L("inpaint.tools");
+        TxtI2IToolsLabel.Text = L("inpaint.tools");
         TxtBrushSizeLabel.Text = L("inpaint.brush_size");
 
         TxtStatus.Text = L("status.ready");
@@ -296,7 +296,7 @@ public sealed partial class MainWindow
         UpdatePromptTabText();
         UpdateAutoGenUI();
         UpdateGenerateButtonWarning();
-        UpdateInpaintRedoButtonWarning();
+        UpdateI2IRedoButtonWarning();
     }
 
     private void OnLanguageChanged(object sender, RoutedEventArgs e)

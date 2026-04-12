@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -135,7 +135,7 @@ public sealed partial class MainWindow
         if (_isSplitPrompt)
         {
             string curStyle = _currentMode == AppMode.ImageGeneration
-                ? _genStylePrompt : _inpaintStylePrompt;
+                ? _genStylePrompt : _i2iStylePrompt;
             TxtStylePrompt.Text = curStyle;
         TxtPrompt.PlaceholderText = L("prompt.enter_positive");
         }
@@ -145,7 +145,7 @@ public sealed partial class MainWindow
             TxtPrompt.Text = merged;
             TxtStylePrompt.Text = "";
             if (_currentMode == AppMode.ImageGeneration) _genStylePrompt = "";
-            else _inpaintStylePrompt = "";
+            else _i2iStylePrompt = "";
         }
 
         UpdateSplitVisibility();
@@ -183,8 +183,8 @@ public sealed partial class MainWindow
         }
         else
         {
-            TxtPrompt.Text = _isPositiveTab ? _inpaintPositivePrompt : _inpaintNegativePrompt;
-            if (_isPositiveTab && _isSplitPrompt) TxtStylePrompt.Text = _inpaintStylePrompt;
+            TxtPrompt.Text = _isPositiveTab ? _i2iPositivePrompt : _i2iNegativePrompt;
+            if (_isPositiveTab && _isSplitPrompt) TxtStylePrompt.Text = _i2iStylePrompt;
         }
         BtnSplitPrompt.IsChecked = _isSplitPrompt;
         TxtPrompt.PlaceholderText = _isPositiveTab ? L("prompt.enter_positive") : L("prompt.enter_negative");
@@ -206,10 +206,10 @@ public sealed partial class MainWindow
         {
             if (_isPositiveTab)
             {
-                _inpaintPositivePrompt = TxtPrompt.Text;
-                if (_isSplitPrompt) _inpaintStylePrompt = TxtStylePrompt.Text;
+                _i2iPositivePrompt = TxtPrompt.Text;
+                if (_isSplitPrompt) _i2iStylePrompt = TxtStylePrompt.Text;
             }
-            else _inpaintNegativePrompt = TxtPrompt.Text;
+            else _i2iNegativePrompt = TxtPrompt.Text;
             SaveAllCharacterPrompts();
         }
 
@@ -219,9 +219,9 @@ public sealed partial class MainWindow
     private (string Positive, string Negative) GetPrompts(WildcardExpandContext? wildcardContext = null)
     {
         SaveCurrentPromptToBuffer();
-        string genStyle = _currentMode == AppMode.ImageGeneration ? _genStylePrompt : _inpaintStylePrompt;
-        string genPos = _currentMode == AppMode.ImageGeneration ? _genPositivePrompt : _inpaintPositivePrompt;
-        string neg = _currentMode == AppMode.ImageGeneration ? _genNegativePrompt : _inpaintNegativePrompt;
+        string genStyle = _currentMode == AppMode.ImageGeneration ? _genStylePrompt : _i2iStylePrompt;
+        string genPos = _currentMode == AppMode.ImageGeneration ? _genPositivePrompt : _i2iPositivePrompt;
+        string neg = _currentMode == AppMode.ImageGeneration ? _genNegativePrompt : _i2iNegativePrompt;
         string positiveRaw = MergeStyleAndMain(genStyle, genPos);
         if (wildcardContext == null)
             return (ExpandPromptShortcuts(positiveRaw), ExpandPromptShortcuts(neg));

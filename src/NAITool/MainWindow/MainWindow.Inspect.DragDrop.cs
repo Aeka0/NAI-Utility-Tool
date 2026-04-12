@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -43,7 +43,7 @@ public sealed partial class MainWindow
             var bytes = await File.ReadAllBytesAsync(filePath);
             var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
             if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat))
-                ApplyMetadataToInpaint(meta, Path.GetFileName(filePath));
+                ApplyMetadataToI2I(meta, Path.GetFileName(filePath));
         }
         catch { }
     }

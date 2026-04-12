@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -362,10 +362,10 @@ public sealed partial class MainWindow
         menu.Items.Add(postItem);
         var sendItem = new MenuFlyoutItem
         {
-            Text = L("action.send_to_inpaint"), Tag = filePath,
+            Text = L("action.send_to_i2i"), Tag = filePath,
             Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" },
         };
-        sendItem.Click += OnHistorySendToInpaint;
+        sendItem.Click += OnHistorySendToI2I;
         menu.Items.Add(sendItem);
         var upscaleItem = new MenuFlyoutItem
         {
@@ -470,22 +470,22 @@ public sealed partial class MainWindow
         catch (Exception ex) { TxtStatus.Text = Lf("common.load_failed", ex.Message); }
     }
 
-    private void OnHistorySendToInpaint(object sender, RoutedEventArgs e)
+    private void OnHistorySendToI2I(object sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem item && item.Tag is string filePath)
         {
-            _ = SendFileToInpaintAsync(filePath);
+            _ = SendFileToI2IAsync(filePath);
         }
     }
 
-    private async Task SendFileToInpaintAsync(string filePath)
+    private async Task SendFileToI2IAsync(string filePath)
     {
         try
         {
             var bytes = await File.ReadAllBytesAsync(filePath);
-            SendImageToInpaint(bytes);
+            SendImageToI2I(bytes);
         }
-        catch (Exception ex) { TxtStatus.Text = Lf("inpaint.send_failed", ex.Message); }
+        catch (Exception ex) { TxtStatus.Text = Lf("i2i.send_failed", ex.Message); }
     }
 
     private void OnHistoryOpenFolder(object sender, RoutedEventArgs e)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -316,14 +316,14 @@ public sealed partial class MainWindow
         else
             ClearGoldAccentButtonStyle(BtnGenerate);
 
-        UpdateInpaintRedoButtonWarning();
+        UpdateI2IRedoButtonWarning();
     }
 
-    private void UpdateInpaintRedoButtonWarning()
+    private void UpdateI2IRedoButtonWarning()
     {
         if (BtnRedoGenerate == null) return;
 
-        bool warn = _currentMode == AppMode.Inpaint &&
+        bool warn = _currentMode == AppMode.I2I &&
                     MaskCanvas.IsInPreviewMode &&
                     EstimateCurrentRequestAnlasCost() > 0;
 

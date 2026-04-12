@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -324,7 +324,7 @@ public sealed partial class MainWindow
     private static bool IsSupportedSuperDropFile(StorageFile file, SuperDropAction action)
     {
         string ext = file.FileType;
-        if ((action == SuperDropAction.GenerateVibe || action == SuperDropAction.InpaintVibe) &&
+        if ((action == SuperDropAction.GenerateVibe || action == SuperDropAction.I2IVibe) &&
             ext.Equals(".naiv4vibe", StringComparison.OrdinalIgnoreCase))
             return true;
 
@@ -353,17 +353,17 @@ public sealed partial class MainWindow
                     SwitchMode(AppMode.ImageGeneration);
                     await AddDroppedPreciseReferenceAsync(file);
                     break;
-                case SuperDropAction.InpaintPrompt:
-                    SwitchMode(AppMode.Inpaint);
+                case SuperDropAction.I2IPrompt:
+                    SwitchMode(AppMode.I2I);
                     await MaskCanvas.LoadImageAsync(file);
-                    await ApplySuperDropInpaintPromptAsync(file);
+                    await ApplySuperDropI2IPromptAsync(file);
                     break;
-                case SuperDropAction.InpaintVibe:
-                    SwitchMode(AppMode.Inpaint);
+                case SuperDropAction.I2IVibe:
+                    SwitchMode(AppMode.I2I);
                     await AddDroppedVibeTransferAsync(file);
                     break;
-                case SuperDropAction.InpaintPrecise:
-                    SwitchMode(AppMode.Inpaint);
+                case SuperDropAction.I2IPrecise:
+                    SwitchMode(AppMode.I2I);
                     await AddDroppedPreciseReferenceAsync(file);
                     break;
                 case SuperDropAction.Upscale:

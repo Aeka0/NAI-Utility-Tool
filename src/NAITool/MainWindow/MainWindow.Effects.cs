@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -122,22 +122,22 @@ public sealed partial class MainWindow
         return _effects.FirstOrDefault(x => x.Id == _selectedEffectId.Value);
     }
 
-    private async void OnSendToInpaintFromEffects(object sender, RoutedEventArgs e)
+    private async void OnSendToI2IFromEffects(object sender, RoutedEventArgs e)
     {
         try
         {
             var bytes = await GetEffectsSaveBytesAsync();
             if (bytes == null || bytes.Length == 0)
             {
-                TxtStatus.Text = L("inpaint.error.no_image_to_send");
+                TxtStatus.Text = L("i2i.error.no_image_to_send");
                 return;
             }
 
-            SendImageToInpaint(bytes);
+            SendImageToI2I(bytes);
         }
         catch (Exception ex)
         {
-            TxtStatus.Text = Lf("inpaint.send_failed", ex.Message);
+            TxtStatus.Text = Lf("i2i.send_failed", ex.Message);
         }
     }
 

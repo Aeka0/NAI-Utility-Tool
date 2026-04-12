@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -120,11 +120,11 @@ public sealed partial class MainWindow
             _genNegativePrompt = NormalizeAnnotation(_genNegativePrompt, options);
             _genStylePrompt = NormalizeAnnotation(_genStylePrompt, options);
         }
-        else if (_currentMode == AppMode.Inpaint)
+        else if (_currentMode == AppMode.I2I)
         {
-            _inpaintPositivePrompt = NormalizeAnnotation(_inpaintPositivePrompt, options);
-            _inpaintNegativePrompt = NormalizeAnnotation(_inpaintNegativePrompt, options);
-            _inpaintStylePrompt = NormalizeAnnotation(_inpaintStylePrompt, options);
+            _i2iPositivePrompt = NormalizeAnnotation(_i2iPositivePrompt, options);
+            _i2iNegativePrompt = NormalizeAnnotation(_i2iNegativePrompt, options);
+            _i2iStylePrompt = NormalizeAnnotation(_i2iStylePrompt, options);
         }
 
         foreach (var entry in _genCharacters)

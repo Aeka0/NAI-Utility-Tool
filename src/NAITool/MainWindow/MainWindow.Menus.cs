@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -39,7 +39,7 @@ public sealed partial class MainWindow
     private void PopulateModelList()
     {
         CboModel.Items.Clear();
-        var models = _currentMode == AppMode.ImageGeneration ? GenerationModels : InpaintModels;
+        var models = _currentMode == AppMode.ImageGeneration ? GenerationModels : I2IModels;
         foreach (var m in models) CboModel.Items.Add(CreateTextComboBoxItem(m));
 
         CboModel.SelectedIndex = Array.IndexOf(models, CurrentParams.Model);
@@ -82,10 +82,10 @@ public sealed partial class MainWindow
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
             var sendItem = CreateLocalizedMenuItem(
-                MenuCommandSendToInpaint,
-                "action.send_to_inpaint",
+                MenuCommandSendToI2I,
+                "action.send_to_i2i",
                 new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" });
-            sendItem.Click += OnSendToInpaint;
+            sendItem.Click += OnSendToI2I;
             newEdit.Items.Add(sendItem);
 
             var postItem = CreateLocalizedMenuItem(
@@ -117,9 +117,9 @@ public sealed partial class MainWindow
             resetParamsItem.Click += OnResetGenParams;
             newEdit.Items.Add(resetParamsItem);
         }
-        else if (_currentMode == AppMode.Inpaint)
+        else if (_currentMode == AppMode.I2I)
         {
-            BuildInpaintEditMenuItems(newEdit);
+            BuildI2IEditMenuItems(newEdit);
         }
         else if (_currentMode == AppMode.Inspect)
         {
@@ -155,12 +155,12 @@ public sealed partial class MainWindow
         }
         else if (_currentMode == AppMode.Upscale)
         {
-            var sendInpaintItem = CreateLocalizedMenuItem(
-                MenuCommandSendToInpaint,
-                "action.send_to_inpaint",
+            var sendI2IItem = CreateLocalizedMenuItem(
+                MenuCommandSendToI2I,
+                "action.send_to_i2i",
                 new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" });
-            sendInpaintItem.Click += OnSendToInpaintFromUpscale;
-            newEdit.Items.Add(sendInpaintItem);
+            sendI2IItem.Click += OnSendToI2IFromUpscale;
+            newEdit.Items.Add(sendI2IItem);
 
             var sendPostItem = CreateLocalizedMenuItem(
                 MenuCommandSendToPost,
@@ -185,12 +185,12 @@ public sealed partial class MainWindow
 
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
-            var sendInpaintItem = CreateLocalizedMenuItem(
-                MenuCommandSendToInpaint,
-                "action.send_to_inpaint",
+            var sendI2IItem = CreateLocalizedMenuItem(
+                MenuCommandSendToI2I,
+                "action.send_to_i2i",
                 new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEDFB" });
-            sendInpaintItem.Click += OnSendToInpaintFromEffects;
-            newEdit.Items.Add(sendInpaintItem);
+            sendI2IItem.Click += OnSendToI2IFromEffects;
+            newEdit.Items.Add(sendI2IItem);
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
             var addPresetItem = CreateLocalizedMenuItem(
@@ -297,7 +297,7 @@ public sealed partial class MainWindow
             foreach (var baseItem in MenuEdit.Items)
             {
                 if (baseItem is MenuFlyoutItem item &&
-                    (HasMenuCommand(item, MenuCommandSendToInpaint) ||
+                    (HasMenuCommand(item, MenuCommandSendToI2I) ||
                      HasMenuCommand(item, MenuCommandSendToPost) ||
                      HasMenuCommand(item, MenuCommandSendToUpscale)))
                     item.IsEnabled = hasImage;
@@ -309,7 +309,7 @@ public sealed partial class MainWindow
             foreach (var baseItem in MenuEdit.Items)
             {
                 if (baseItem is MenuFlyoutItem item &&
-                    (HasMenuCommand(item, MenuCommandSendToInpaint) ||
+                    (HasMenuCommand(item, MenuCommandSendToI2I) ||
                      HasMenuCommand(item, MenuCommandSendToPost)))
                     item.IsEnabled = hasImage;
             }
@@ -321,7 +321,7 @@ public sealed partial class MainWindow
             foreach (var baseItem in MenuEdit.Items)
             {
                 if (baseItem is not MenuFlyoutItem item) continue;
-                if (HasMenuCommand(item, MenuCommandSendToInpaint))
+                if (HasMenuCommand(item, MenuCommandSendToI2I))
                     item.IsEnabled = hasImage;
                 else if (HasMenuCommand(item, MenuCommandAddPreset))
                     item.IsEnabled = hasEffects;
@@ -337,11 +337,11 @@ public sealed partial class MainWindow
                     item.IsEnabled = _effectsRedoStack.Count > 0;
             }
         }
-        else if (_currentMode == AppMode.Inpaint)
+        else if (_currentMode == AppMode.I2I)
         {
             bool hasImageLoaded = MaskCanvas.Document.OriginalImage != null && !MaskCanvas.IsInPreviewMode;
             bool hasMaskContent = MaskCanvas.HasMaskContent() && !MaskCanvas.IsInPreviewMode;
-            bool hasInpaintImage = MaskCanvas.Document.OriginalImage != null ||
+            bool hasI2IImage = MaskCanvas.Document.OriginalImage != null ||
                 (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null);
 
             foreach (var baseItem in MenuEdit.Items)
@@ -351,7 +351,7 @@ public sealed partial class MainWindow
                     if (HasMenuCommand(item, MenuCommandExpandMask) || HasMenuCommand(item, MenuCommandContractMask))
                         item.IsEnabled = hasMaskContent;
                     else if (HasMenuCommand(item, MenuCommandSendToPost) || HasMenuCommand(item, MenuCommandSendToUpscale))
-                        item.IsEnabled = hasInpaintImage;
+                        item.IsEnabled = hasI2IImage;
                 }
                 else if (baseItem is MenuFlyoutSubItem sub && HasMenuCommand(sub, MenuCommandAlignImage))
                 {
@@ -364,11 +364,11 @@ public sealed partial class MainWindow
                 }
                 else if (baseItem is MenuFlyoutSubItem inferSub && HasMenuCommand(inferSub, MenuCommandPromptInference))
                 {
-                    inferSub.IsEnabled = hasInpaintImage;
+                    inferSub.IsEnabled = hasI2IImage;
                     foreach (var child in inferSub.Items)
                     {
                         if (child is MenuFlyoutItem childItem)
-                            childItem.IsEnabled = hasInpaintImage;
+                            childItem.IsEnabled = hasI2IImage;
                     }
                 }
                 else if (baseItem is MenuFlyoutSubItem maskSub && HasMenuCommand(maskSub, MenuCommandMaskOps))
@@ -402,7 +402,7 @@ public sealed partial class MainWindow
     private void UpdateFileMenuState()
     {
         bool hasGenImage = _currentGenImageBytes != null;
-        bool hasInpaintImage = MaskCanvas.Document.OriginalImage != null ||
+        bool hasI2IImage = MaskCanvas.Document.OriginalImage != null ||
             (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null);
         bool hasUpscaleImage = _upscaleInputImageBytes != null;
         bool hasPostImage = _effectsImageBytes != null;
@@ -410,14 +410,14 @@ public sealed partial class MainWindow
 
         MenuSave.Visibility = _currentMode switch
         {
-            AppMode.Inpaint => Visibility.Visible,
+            AppMode.I2I => Visibility.Visible,
             AppMode.Inspect when _inspectRawModified => Visibility.Visible,
             AppMode.Effects when _effectsImageBytes != null => Visibility.Visible,
             _ => Visibility.Collapsed,
         };
         MenuSave.IsEnabled = _currentMode switch
         {
-            AppMode.Inpaint => hasInpaintImage,
+            AppMode.I2I => hasI2IImage,
             AppMode.Inspect => hasReaderImage && _inspectRawModified,
             AppMode.Effects => hasPostImage,
             _ => false,
@@ -426,7 +426,7 @@ public sealed partial class MainWindow
         MenuSaveAs.IsEnabled = _currentMode switch
         {
             AppMode.ImageGeneration => hasGenImage,
-            AppMode.Inpaint => hasInpaintImage,
+            AppMode.I2I => hasI2IImage,
             AppMode.Upscale => hasUpscaleImage,
             AppMode.Effects => hasPostImage,
             AppMode.Inspect => hasReaderImage,
@@ -594,7 +594,7 @@ public sealed partial class MainWindow
         {
             _settings.Settings.GenParameters = CreateDefaultGenerationParameters();
         }
-        else if (_currentMode == AppMode.Inpaint)
+        else if (_currentMode == AppMode.I2I)
         {
             _settings.Settings.InpaintParameters = CreateDefaultInpaintParameters();
         }
@@ -615,11 +615,11 @@ public sealed partial class MainWindow
             ClearReferenceFeatures();
             RefreshCharacterPanel();
         }
-        else if (_currentMode == AppMode.Inpaint)
+        else if (_currentMode == AppMode.I2I)
         {
-            _inpaintPositivePrompt = "";
-            _inpaintNegativePrompt = "";
-            _inpaintStylePrompt = "";
+            _i2iPositivePrompt = "";
+            _i2iNegativePrompt = "";
+            _i2iStylePrompt = "";
             _genCharacters.Clear();
             ClearReferenceFeatures();
             RefreshCharacterPanel();
@@ -631,7 +631,7 @@ public sealed partial class MainWindow
         TxtStatus.Text = L("status.prompts_cleared");
     }
 
-    private void BuildInpaintEditMenuItems(MenuBarItem menu)
+    private void BuildI2IEditMenuItems(MenuBarItem menu)
     {
         var undoItem = CreateLocalizedMenuItem(MenuCommandUndo, "menu.edit.undo", new SymbolIcon(Symbol.Undo));
         undoItem.Click += OnUndo;
@@ -733,14 +733,14 @@ public sealed partial class MainWindow
             "infer_global",
             "menu.inpaint.infer_global",
             new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE9A6" });
-        inferGlobalItem.Click += async (_, _) => await RunInpaintPromptInferenceAsync(canvasOnly: false);
+        inferGlobalItem.Click += async (_, _) => await RunI2IPromptInferenceAsync(canvasOnly: false);
         inferSub.Items.Add(inferGlobalItem);
 
         var inferCanvasItem = CreateLocalizedMenuItem(
             "infer_canvas",
             "menu.inpaint.infer_canvas",
             new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE799" });
-        inferCanvasItem.Click += async (_, _) => await RunInpaintPromptInferenceAsync(canvasOnly: true);
+        inferCanvasItem.Click += async (_, _) => await RunI2IPromptInferenceAsync(canvasOnly: true);
         inferSub.Items.Add(inferCanvasItem);
         menu.Items.Add(inferSub);
 
@@ -750,14 +750,14 @@ public sealed partial class MainWindow
             MenuCommandSendToPost,
             "action.send_to_post",
             new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uEB3C" });
-        postItem.Click += OnSendToEffectsFromInpaint;
+        postItem.Click += OnSendToEffectsFromI2I;
         menu.Items.Add(postItem);
 
         var upscaleItem = CreateLocalizedMenuItem(
             MenuCommandSendToUpscale,
             "action.send_to_upscale",
             new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uECE9" });
-        upscaleItem.Click += OnSendToUpscaleFromInpaint;
+        upscaleItem.Click += OnSendToUpscaleFromI2I;
         menu.Items.Add(upscaleItem);
 
         menu.Items.Add(new MenuFlyoutSeparator());

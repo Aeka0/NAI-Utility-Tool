@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -55,7 +55,7 @@ public sealed partial class MainWindow
                     _advNbMaxHeight.Value = h;
                     if (_advCboSize != null && idx >= 0) _advCboSize.SelectedIndex = idx;
                 }
-                if (_currentMode == AppMode.Inpaint &&
+                if (_currentMode == AppMode.I2I &&
                     (MaskCanvas.CanvasW != _customWidth || MaskCanvas.CanvasH != _customHeight))
                 {
                     MaskCanvas.InitializeCanvas(_customWidth, _customHeight);
@@ -122,7 +122,7 @@ public sealed partial class MainWindow
                 _advNbMaxHeight.Value = _customHeight;
             }
 
-            if (_currentMode == AppMode.Inpaint &&
+            if (_currentMode == AppMode.I2I &&
                 (MaskCanvas.CanvasW != _customWidth || MaskCanvas.CanvasH != _customHeight))
             {
                 MaskCanvas.InitializeCanvas(_customWidth, _customHeight);

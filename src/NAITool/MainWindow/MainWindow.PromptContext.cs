@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -140,7 +140,7 @@ public sealed partial class MainWindow
 
         bool shouldShow =
             allowQuickRandomStyle &&
-            (_currentMode == AppMode.ImageGeneration || _currentMode == AppMode.Inpaint) &&
+            (_currentMode == AppMode.ImageGeneration || _currentMode == AppMode.I2I) &&
             _isPositiveTab;
 
         if (!shouldShow)

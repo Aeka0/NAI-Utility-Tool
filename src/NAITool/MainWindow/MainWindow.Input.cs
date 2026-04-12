@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -82,7 +82,7 @@ public sealed partial class MainWindow
         if (FocusManager.GetFocusedElement(this.Content.XamlRoot) is TextBox or PasswordBox)
             return;
 
-        if (_currentMode == AppMode.Inpaint)
+        if (_currentMode == AppMode.I2I)
         {
             var ctrlState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
                 Windows.System.VirtualKey.Control);

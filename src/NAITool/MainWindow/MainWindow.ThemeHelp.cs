@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -108,8 +108,8 @@ public sealed partial class MainWindow
                 "\uE768"
             ),
             (
-                L("help.overview.inpaint.title"),
-                L("help.overview.inpaint.body"),
+                L("help.overview.i2i.title"),
+                L("help.overview.i2i.body"),
                 "\uE70F"
             ),
             (

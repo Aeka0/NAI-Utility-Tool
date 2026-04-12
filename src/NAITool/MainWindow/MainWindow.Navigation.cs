@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -45,8 +45,8 @@ public sealed partial class MainWindow
         AppMode? target = null;
         if (ReferenceEquals(sender, TabGenerate) && TabGenerate.IsChecked == true)
             target = AppMode.ImageGeneration;
-        else if (ReferenceEquals(sender, TabInpaint) && TabInpaint.IsChecked == true)
-            target = AppMode.Inpaint;
+        else if (ReferenceEquals(sender, TabI2I) && TabI2I.IsChecked == true)
+            target = AppMode.I2I;
         else if (ReferenceEquals(sender, TabUpscale) && TabUpscale.IsChecked == true)
             target = AppMode.Upscale;
         else if (ReferenceEquals(sender, TabEffects) && TabEffects.IsChecked == true)
@@ -81,19 +81,19 @@ public sealed partial class MainWindow
         }
 
         bool isGen = mode == AppMode.ImageGeneration;
-        bool isInpaint = mode == AppMode.Inpaint;
+        bool isI2I = mode == AppMode.I2I;
         bool isUpscale = mode == AppMode.Upscale;
         bool isPost = mode == AppMode.Effects;
         bool isReader = mode == AppMode.Inspect;
 
         GenPreviewArea.Visibility = isGen ? Visibility.Visible : Visibility.Collapsed;
-        MaskCanvas.Visibility = isInpaint ? Visibility.Visible : Visibility.Collapsed;
+        MaskCanvas.Visibility = isI2I ? Visibility.Visible : Visibility.Collapsed;
         UpscalePreviewArea.Visibility = isUpscale ? Visibility.Visible : Visibility.Collapsed;
         EffectsPreviewArea.Visibility = isPost ? Visibility.Visible : Visibility.Collapsed;
         InspectPreviewArea.Visibility = isReader ? Visibility.Visible : Visibility.Collapsed;
 
         GenResultBar.Visibility = Visibility.Collapsed;
-        if (isInpaint && MaskCanvas.IsInPreviewMode)
+        if (isI2I && MaskCanvas.IsInPreviewMode)
             ResultActionBar.Visibility = Visibility.Visible;
         else
         ResultActionBar.Visibility = Visibility.Collapsed;
@@ -104,14 +104,14 @@ public sealed partial class MainWindow
         PanelLeftInspect.Visibility = isReader ? Visibility.Visible : Visibility.Collapsed;
 
         PanelHistory.Visibility = isGen ? Visibility.Visible : Visibility.Collapsed;
-        PanelInpaintTools.Visibility = isInpaint ? Visibility.Visible : Visibility.Collapsed;
-        CharacterPanel.Visibility = (isGen || isInpaint) ? Visibility.Visible : Visibility.Collapsed;
+        PanelI2ITools.Visibility = isI2I ? Visibility.Visible : Visibility.Collapsed;
+        CharacterPanel.Visibility = (isGen || isI2I) ? Visibility.Visible : Visibility.Collapsed;
 
         UpdateFileMenuState();
         MenuSaveStripped.Visibility = (isReader || isGen) ? Visibility.Visible : Visibility.Collapsed;
 
         TabGenerate.IsChecked = isGen;
-        TabInpaint.IsChecked = isInpaint;
+        TabI2I.IsChecked = isI2I;
         TabUpscale.IsChecked = isUpscale;
         TabEffects.IsChecked = isPost;
         TabInspect.IsChecked = isReader;
@@ -131,7 +131,7 @@ public sealed partial class MainWindow
     }
 
     private static bool IsPromptMode(AppMode mode) =>
-        mode == AppMode.ImageGeneration || mode == AppMode.Inpaint;
+        mode == AppMode.ImageGeneration || mode == AppMode.I2I;
 
     private void OnLeftSidebarResizeStart(object sender, PointerRoutedEventArgs e)
     {

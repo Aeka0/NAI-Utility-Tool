@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -64,7 +64,7 @@ public sealed partial class MainWindow
             {
                 await LoadUpscaleImageAsync(file.Path);
             }
-            else if (_currentMode == AppMode.Inpaint)
+            else if (_currentMode == AppMode.I2I)
             {
                 await MaskCanvas.LoadImageAsync(file);
             }
@@ -94,7 +94,7 @@ public sealed partial class MainWindow
         {
             await SaveEffectsOverwriteAsync();
         }
-        else if (_currentMode == AppMode.Inpaint)
+        else if (_currentMode == AppMode.I2I)
         {
             await SaveInpaintOverwriteAsync();
         }
@@ -232,7 +232,7 @@ public sealed partial class MainWindow
         {
             bytesToSave = await GetEffectsSaveBytesAsync();
         }
-        else if (_currentMode == AppMode.Inpaint)
+        else if (_currentMode == AppMode.I2I)
         {
             if (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null)
             {
@@ -356,7 +356,7 @@ public sealed partial class MainWindow
 
     private async void OnUndo(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.Inpaint && !MaskCanvas.IsInPreviewMode)
+        if (_currentMode == AppMode.I2I && !MaskCanvas.IsInPreviewMode)
         {
             MaskCanvas.PerformUndo();
             return;
@@ -373,7 +373,7 @@ public sealed partial class MainWindow
 
     private async void OnRedo(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.Inpaint && !MaskCanvas.IsInPreviewMode)
+        if (_currentMode == AppMode.I2I && !MaskCanvas.IsInPreviewMode)
         {
             MaskCanvas.PerformRedo();
             return;
@@ -389,39 +389,39 @@ public sealed partial class MainWindow
     }
 
     private void OnClearMask(object sender, RoutedEventArgs e)
-    { if (_currentMode == AppMode.Inpaint && !MaskCanvas.IsInPreviewMode) MaskCanvas.ClearMask(); }
+    { if (_currentMode == AppMode.I2I && !MaskCanvas.IsInPreviewMode) MaskCanvas.ClearMask(); }
 
     private void OnFillEmpty(object sender, RoutedEventArgs e)
     {
-        if (_currentMode != AppMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
+        if (_currentMode != AppMode.I2I || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.FillEmptyAreas();
         TxtStatus.Text = L("inpaint.mask.fill_empty_done");
     }
 
     private void OnInvertMask(object sender, RoutedEventArgs e)
     {
-        if (_currentMode != AppMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
+        if (_currentMode != AppMode.I2I || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.InvertMask();
         TxtStatus.Text = L("inpaint.mask.inverted");
     }
 
     private void OnExpandMask(object sender, RoutedEventArgs e)
     {
-        if (_currentMode != AppMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
+        if (_currentMode != AppMode.I2I || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.ExpandMask();
         TxtStatus.Text = L("inpaint.mask.expanded");
     }
 
     private void OnShrinkMask(object sender, RoutedEventArgs e)
     {
-        if (_currentMode != AppMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
+        if (_currentMode != AppMode.I2I || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.ShrinkMask();
         TxtStatus.Text = L("inpaint.mask.shrunk");
     }
 
     private void OnTrimCanvas(object sender, RoutedEventArgs e)
     {
-        if (_currentMode != AppMode.Inpaint) return;
+        if (_currentMode != AppMode.I2I) return;
         if (MaskCanvas.IsInPreviewMode) { TxtStatus.Text = L("inpaint.canvas.trim_blocked_preview"); return; }
         if (MaskCanvas.TrimCanvas())
             TxtStatus.Text = Lf("inpaint.canvas.trimmed", MaskCanvas.CanvasW, MaskCanvas.CanvasH);
@@ -431,7 +431,7 @@ public sealed partial class MainWindow
 
     private void OnFitToScreen(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.Inpaint) MaskCanvas.FitToScreen();
+        if (_currentMode == AppMode.I2I) MaskCanvas.FitToScreen();
         else if (_currentMode == AppMode.Inspect) FitInspectPreviewToScreen();
         else if (_currentMode == AppMode.Upscale) FitUpscalePreviewToScreen();
         else if (_currentMode == AppMode.Effects) FitEffectsPreviewToScreen();
@@ -441,7 +441,7 @@ public sealed partial class MainWindow
     {
         float dpiScale = (float)(this.Content.XamlRoot?.RasterizationScale ?? 1.0);
         float trueZoom = 1.0f / dpiScale;
-        if (_currentMode == AppMode.Inpaint) MaskCanvas.ActualSize();
+        if (_currentMode == AppMode.I2I) MaskCanvas.ActualSize();
         else if (_currentMode == AppMode.Inspect) InspectImageScroller.ChangeView(null, null, trueZoom);
         else if (_currentMode == AppMode.Upscale) UpscaleImageScroller.ChangeView(null, null, trueZoom);
         else if (_currentMode == AppMode.Effects) EffectsImageScroller.ChangeView(null, null, trueZoom);
@@ -449,7 +449,7 @@ public sealed partial class MainWindow
     }
     private void OnCenterView(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.Inpaint) MaskCanvas.CenterView();
+        if (_currentMode == AppMode.I2I) MaskCanvas.CenterView();
         else if (_currentMode == AppMode.Inspect) FitInspectPreviewToScreen();
         else if (_currentMode == AppMode.Upscale) FitUpscalePreviewToScreen();
         else if (_currentMode == AppMode.Effects) CenterEffectsPreview();
@@ -459,7 +459,7 @@ public sealed partial class MainWindow
     private Microsoft.UI.Windowing.OverlappedPresenterState _lastPresenterState;
     private void OnMaskCanvasSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (_currentMode != AppMode.Inpaint) return;
+        if (_currentMode != AppMode.I2I) return;
         if (AppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter p)
         {
             var state = p.State;
@@ -474,7 +474,7 @@ public sealed partial class MainWindow
 
     private void OnZoomIn(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.Inpaint) MaskCanvas.ZoomIn();
+        if (_currentMode == AppMode.I2I) MaskCanvas.ZoomIn();
         else if (_currentMode == AppMode.Inspect)
             InspectImageScroller.ChangeView(null, null, InspectImageScroller.ZoomFactor * 1.25f);
         else if (_currentMode == AppMode.Upscale)
@@ -485,7 +485,7 @@ public sealed partial class MainWindow
     }
     private void OnZoomOut(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.Inpaint) MaskCanvas.ZoomOut();
+        if (_currentMode == AppMode.I2I) MaskCanvas.ZoomOut();
         else if (_currentMode == AppMode.Inspect)
             InspectImageScroller.ChangeView(null, null, InspectImageScroller.ZoomFactor / 1.25f);
         else if (_currentMode == AppMode.Upscale)
@@ -609,7 +609,7 @@ public sealed partial class MainWindow
 
     private void OnAlign(object sender, RoutedEventArgs e)
     {
-        if (_currentMode != AppMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
+        if (_currentMode != AppMode.I2I || MaskCanvas.IsInPreviewMode) return;
         if (sender is MenuFlyoutItem item && item.Tag is string tag)
         {
             MaskCanvas.AlignImage(tag);

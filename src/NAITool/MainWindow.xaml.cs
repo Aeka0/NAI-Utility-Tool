@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -34,10 +34,10 @@ using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace NAITool;
 
-public enum AppMode { ImageGeneration, Inpaint, Upscale, Effects, Inspect }
+public enum AppMode { ImageGeneration, I2I, Upscale, Effects, Inspect }
 public enum PromptWeightFormat { StableDiffusion, NaiClassic, NaiNumeric }
 public enum PromptGeneratorOutputMode { BooruTags, BooruTagsWithNaturalLanguage, NaturalLanguage }
-public enum SuperDropAction { GeneratePrompt, GenerateVibe, GeneratePrecise, InpaintPrompt, InpaintVibe, InpaintPrecise, Upscale, Effects, Inspect }
+public enum SuperDropAction { GeneratePrompt, GenerateVibe, GeneratePrecise, I2IPrompt, I2IVibe, I2IPrecise, Upscale, Effects, Inspect }
 
 public sealed class ResizeHandle : Microsoft.UI.Xaml.Controls.Grid
 {
@@ -59,7 +59,7 @@ public sealed partial class MainWindow : Window
     private const string MenuCommandNormalizePrompts = "normalize_prompts";
     private const string MenuCommandRandomStylePrompt = "random_style_prompt";
     private const string MenuCommandPromptShortcuts = "prompt_shortcuts";
-    private const string MenuCommandSendToInpaint = "send_to_inpaint";
+    private const string MenuCommandSendToI2I = "send_to_i2i";
     private const string MenuCommandSendToPost = "send_to_post";
     private const string MenuCommandSendToUpscale = "send_to_upscale";
     private const string MenuCommandClearAllPrompts = "clear_all_prompts";
@@ -99,9 +99,9 @@ public sealed partial class MainWindow : Window
     private string _genPositivePrompt = "";
     private string _genNegativePrompt = "";
     private string _genStylePrompt = "";
-    private string _inpaintPositivePrompt = "";
-    private string _inpaintNegativePrompt = "";
-    private string _inpaintStylePrompt = "";
+    private string _i2iPositivePrompt = "";
+    private string _i2iNegativePrompt = "";
+    private string _i2iStylePrompt = "";
     private bool _isPositiveTab = true;
     private bool _isSplitPrompt;
     private bool? _promptTabsUsingCompact;
@@ -233,7 +233,7 @@ public sealed partial class MainWindow : Window
         "nai-diffusion-4-curated",
         "nai-diffusion-3",
     ];
-    private static readonly string[] InpaintModels =
+    private static readonly string[] I2IModels =
     [
         "nai-diffusion-4-5-full-inpainting",
         "nai-diffusion-4-5-curated-inpainting",
@@ -328,7 +328,7 @@ public sealed partial class MainWindow : Window
         MaskCanvas.ZoomChanged += z => TxtZoomInfo.Text = Lf("status.zoom", z * 100);
         MaskCanvas.ContentChanged += () =>
         {
-            if (_currentMode == AppMode.Inpaint &&
+            if (_currentMode == AppMode.I2I &&
                 (MaskCanvas.CanvasW != _customWidth || MaskCanvas.CanvasH != _customHeight))
             {
                 _customWidth = MaskCanvas.CanvasW;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -163,9 +163,9 @@ public class RememberedPromptState
     public string GenPositivePrompt { get; set; } = "";
     public string GenNegativePrompt { get; set; } = "";
     public string GenStylePrompt { get; set; } = "";
-    public string InpaintPositivePrompt { get; set; } = "";
-    public string InpaintNegativePrompt { get; set; } = "";
-    public string InpaintStylePrompt { get; set; } = "";
+    public string I2IPositivePrompt { get; set; } = "";
+    public string I2INegativePrompt { get; set; } = "";
+    public string I2IStylePrompt { get; set; } = "";
     public bool IsSplitPrompt { get; set; }
 }
 
