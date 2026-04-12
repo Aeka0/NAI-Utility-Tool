@@ -77,6 +77,9 @@ public sealed partial class MainWindow
     private bool RequiresEncodedVibeFileOnly() =>
         IsV4PlusModelKey(GetCurrentModelKey()) && !_settings.Settings.MaxMode;
 
+    private bool RequiresMaxModeForPreciseReference() =>
+        IsPromptMode(_currentMode) && IsV45ModelKey(GetCurrentModelKey()) && !_settings.Settings.MaxMode;
+
     private bool SupportsPreciseReferenceFeature()
     {
         if (!IsPromptMode(_currentMode)) return false;
@@ -550,7 +553,7 @@ public sealed partial class MainWindow
 
         if (RequiresEncodedVibeFileOnly())
         {
-            TxtStatus.Text = L("references.error.non_max_requires_encoded_vibe");
+            TxtStatus.Text = L("superdrop.error.non_max_vibe_image_requires_max_mode");
             return null;
         }
 
@@ -597,6 +600,12 @@ public sealed partial class MainWindow
 
     private async Task AddDroppedPreciseReferenceAsync(StorageFile file)
     {
+        if (RequiresMaxModeForPreciseReference())
+        {
+            TxtStatus.Text = L("superdrop.error.non_max_precise_requires_max_mode");
+            return;
+        }
+
         if (!CanEditPreciseReferenceFeature() || _genPreciseReferences.Count >= MaxPreciseReferences)
             return;
 

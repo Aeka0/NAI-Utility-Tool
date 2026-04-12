@@ -342,6 +342,8 @@
     "settings.usage.wildcards_enabled":  "ワイルドカードを有効化（正/負/キャラクタープロンプトに適用）",
     "settings.usage.wildcards_explicit":  "__name__ 構文でワイルドカードを発動",
     "superdrop.effects":  "ポスト",
+    "superdrop.error.non_max_precise_requires_max_mode":  "精密参照を使用するとアカウントの Anlas を消費するため、先に Max モードを有効にしてください。",
+    "superdrop.error.non_max_vibe_image_requires_max_mode":  "未エンコード画像を Vibe Transfer にインポートするとアカウントの Anlas を消費するため、先に Max モードを有効にしてください。",
     "superdrop.failed":  "SuperDrop に失敗しました: {0}",
     "superdrop.generate_precise":  "生成\n精密参照",
     "superdrop.generate_prompt":  "生成\n生成パラメータ読み取り",

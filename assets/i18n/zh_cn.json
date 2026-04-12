@@ -342,6 +342,8 @@
     "settings.usage.wildcards_enabled":  "启用抽卡器（正向 / 负向 / 角色提示词统一生效）",
     "settings.usage.wildcards_explicit":  "抽卡器需要使用 __name__ 语法触发",
     "superdrop.effects":  "后期",
+    "superdrop.error.non_max_precise_requires_max_mode":  "使用精确参考会消耗账号Anlas，请先开启Max模式。",
+    "superdrop.error.non_max_vibe_image_requires_max_mode":  "导入未编码图片至氛围迁移会消耗账号Anlas，请先开启Max模式。",
     "superdrop.failed":  "SuperDrop 失败：{0}",
     "superdrop.generate_precise":  "生图\n精确参考",
     "superdrop.generate_prompt":  "生图\n读取生成参数",

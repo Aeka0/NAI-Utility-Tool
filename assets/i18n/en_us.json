@@ -342,6 +342,8 @@
   "settings.usage.wildcards_enabled": "Enable wildcards for positive, negative, and character prompts",
   "settings.usage.wildcards_explicit": "Require __name__ syntax to trigger wildcards",
   "superdrop.effects": "Post",
+  "superdrop.error.non_max_precise_requires_max_mode": "Precise Reference consumes account Anlas. Enable Max Mode first.",
+  "superdrop.error.non_max_vibe_image_requires_max_mode": "Importing an unencoded image to Vibe Transfer consumes account Anlas. Enable Max Mode first.",
   "superdrop.failed": "SuperDrop failed: {0}",
   "superdrop.generate_precise": "Generate\nPrecise Reference",
   "superdrop.generate_prompt": "Generate\nRead Generation Parameters",
