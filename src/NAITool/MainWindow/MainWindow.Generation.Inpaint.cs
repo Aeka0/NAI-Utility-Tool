@@ -93,7 +93,7 @@ public sealed partial class MainWindow
             int canvasW, canvasH;
             bool sizeApplied;
 
-            if (_settings.Settings.MaxMode)
+            if (!_settings.Settings.AccountAssetProtectionMode)
             {
                 canvasW = imgW;
                 canvasH = imgH;

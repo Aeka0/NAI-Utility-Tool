@@ -84,7 +84,7 @@ public sealed partial class MainWindow
     {
         SyncUIToParams();
         var p = CurrentParams;
-        bool maxMode = _settings.Settings.MaxMode;
+        int maxSteps = _settings.Settings.AccountAssetProtectionMode ? 28 : 50;
 
         var window = new Window();
         window.Title = L("dialog.advanced.title");
@@ -104,8 +104,8 @@ public sealed partial class MainWindow
         _advNbSteps = new NumberBox
         {
             Header = L("panel.steps"), Minimum = 1,
-            Maximum = maxMode ? 50 : 28,
-            Value = Math.Min(p.Steps, maxMode ? 50 : 28),
+            Maximum = maxSteps,
+            Value = Math.Min(p.Steps, maxSteps),
             MinHeight = 32,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
         };

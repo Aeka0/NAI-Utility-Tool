@@ -75,15 +75,15 @@ public sealed partial class MainWindow
     }
 
     private bool RequiresEncodedVibeFileOnly() =>
-        IsV4PlusModelKey(GetCurrentModelKey()) && !_settings.Settings.MaxMode;
+        IsV4PlusModelKey(GetCurrentModelKey()) && _settings.Settings.AccountAssetProtectionMode;
 
-    private bool RequiresMaxModeForPreciseReference() =>
-        IsPromptMode(_currentMode) && IsV45ModelKey(GetCurrentModelKey()) && !_settings.Settings.MaxMode;
+    private bool IsPreciseReferenceBlockedByAssetProtection() =>
+        IsPromptMode(_currentMode) && IsV45ModelKey(GetCurrentModelKey()) && _settings.Settings.AccountAssetProtectionMode;
 
     private bool SupportsPreciseReferenceFeature()
     {
         if (!IsPromptMode(_currentMode)) return false;
-        return IsV45ModelKey(GetCurrentModelKey()) && _settings.Settings.MaxMode;
+        return IsV45ModelKey(GetCurrentModelKey()) && !_settings.Settings.AccountAssetProtectionMode;
     }
 
     private bool CanEditVibeTransferFeature() =>
@@ -141,7 +141,7 @@ public sealed partial class MainWindow
         int refCost = 0;
         bool isV4Plus = IsV4PlusModelKey(GetCurrentModelKey());
 
-        if (isV4Plus && _settings.Settings.MaxMode && _genVibeTransfers.Count > 0)
+        if (isV4Plus && !_settings.Settings.AccountAssetProtectionMode && _genVibeTransfers.Count > 0)
         {
             int encodingCost = _genVibeTransfers.Count(v => !v.IsEncodedFile) * 2;
             int slotCost = Math.Max(_genVibeTransfers.Count - 4, 0) * 2;
@@ -167,7 +167,7 @@ public sealed partial class MainWindow
 
         if (_genVibeTransfers.Count > 0 &&
             _genPreciseReferences.Count > 0 &&
-            _settings.Settings.MaxMode &&
+            !_settings.Settings.AccountAssetProtectionMode &&
             IsV45ModelKey(GetCurrentModelKey()))
         {
             error = L("references.validation.mixed_reference_types");
@@ -177,7 +177,7 @@ public sealed partial class MainWindow
         if (RequiresEncodedVibeFileOnly() &&
             _genVibeTransfers.Any(x => !x.IsEncodedFile))
         {
-            error = L("references.error.non_max_requires_encoded_vibe");
+            error = L("references.error.asset_protection_requires_encoded_vibe");
             return false;
         }
 

@@ -399,10 +399,10 @@ public sealed partial class MainWindow
             Password = _settings.Settings.ApiToken ?? "", Width = 360,
         };
 
-        var maxModeCheck = new CheckBox { Content = L("settings.network.max_mode"), IsChecked = _settings.Settings.MaxMode };
-        var maxModeHint = new TextBlock
+        var assetProtectionCheck = new CheckBox { Content = L("settings.network.account_asset_protection_mode"), IsChecked = _settings.Settings.AccountAssetProtectionMode };
+        var assetProtectionHint = new TextBlock
         {
-            Text = L("settings.network.max_mode_hint"),
+            Text = L("settings.network.account_asset_protection_mode_hint"),
             FontSize = 12,
             Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
             TextWrapping = TextWrapping.Wrap,
@@ -423,8 +423,8 @@ public sealed partial class MainWindow
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock { Text = L("settings.network.api_token") });
         panel.Children.Add(tokenBox);
-        panel.Children.Add(maxModeCheck);
-        panel.Children.Add(maxModeHint);
+        panel.Children.Add(assetProtectionCheck);
+        panel.Children.Add(assetProtectionHint);
         panel.Children.Add(proxyCheck);
         panel.Children.Add(proxyHint);
         var pp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -444,14 +444,15 @@ public sealed partial class MainWindow
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary || result == ContentDialogResult.Secondary)
         {
-            bool maxModeChanged = _settings.Settings.MaxMode != (maxModeCheck.IsChecked == true);
+            bool accountAssetProtectionMode = assetProtectionCheck.IsChecked == true;
+            bool accountAssetProtectionModeChanged = _settings.Settings.AccountAssetProtectionMode != accountAssetProtectionMode;
             _settings.Settings.ApiToken = tokenBox.Password;
-            _settings.Settings.MaxMode = maxModeCheck.IsChecked == true;
+            _settings.Settings.AccountAssetProtectionMode = accountAssetProtectionMode;
             _settings.Settings.UseProxy = proxyCheck.IsChecked == true;
             _settings.Settings.ProxyPort = proxyPortBox.Text;
             _settings.Save();
 
-            if (maxModeChanged)
+            if (accountAssetProtectionModeChanged)
             {
                 RefreshSizeComboBox();
                 RefreshPromptModeUiForAccountModeChange();
@@ -487,7 +488,7 @@ public sealed partial class MainWindow
             _advCboSize.SelectedIndex = CboSize.SelectedIndex;
             UpdateAdvSizeControlMode();
             UpdateAdvSizeWarningVisuals();
-            _advNbSteps.Maximum = _settings.Settings.MaxMode ? 50 : 28;
+            _advNbSteps.Maximum = _settings.Settings.AccountAssetProtectionMode ? 28 : 50;
             UpdateAdvStepsWarning();
         }
 

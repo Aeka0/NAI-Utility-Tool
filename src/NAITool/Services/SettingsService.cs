@@ -129,7 +129,7 @@ public class AppSettings
     public int RandomStyleMinCount { get; set; } = 80;
     public bool RandomStyleUseWeight { get; set; }
     public bool AutoGenRandomStylePrefix { get; set; }
-    public bool MaxMode { get; set; }
+    public bool AccountAssetProtectionMode { get; set; } = true;
     public bool UseProxy { get; set; }
     public string ProxyPort { get; set; } = "10808";
     public bool UseWebp { get; set; }

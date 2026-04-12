@@ -111,7 +111,7 @@ public sealed partial class MainWindow
             _customWidth = SnapToMultipleOf64(width);
             _customHeight = SnapToMultipleOf64(height);
 
-            if (!_settings.Settings.MaxMode)
+            if (_settings.Settings.AccountAssetProtectionMode)
                 AutoAdjustNonMaxSize(changedBox, fromAdvancedPanel);
 
             NbMaxWidth.Value = _customWidth;

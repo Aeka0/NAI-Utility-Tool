@@ -75,16 +75,15 @@ public sealed partial class MainWindow
 
     private SizeWarningLevel GetSizeWarningLevel()
     {
-        if (!_settings.Settings.MaxMode)
-        {
         long pixels = (long)_customWidth * _customHeight;
+        if (_settings.Settings.AccountAssetProtectionMode)
+        {
             if (pixels > 1024L * 1024) return SizeWarningLevel.Red;
             return SizeWarningLevel.None;
         }
-        if (!_settings.Settings.MaxMode) return SizeWarningLevel.None;
-        long px = (long)_customWidth * _customHeight;
-        if (px > 2048L * 2048) return SizeWarningLevel.Red;
-        if (px > 1024L * 1024) return SizeWarningLevel.Yellow;
+
+        if (pixels > 2048L * 2048) return SizeWarningLevel.Red;
+        if (pixels > 1024L * 1024) return SizeWarningLevel.Yellow;
         return SizeWarningLevel.None;
     }
 
@@ -203,7 +202,7 @@ public sealed partial class MainWindow
     {
         if (GetSizeWarningLevel() != SizeWarningLevel.None) return true;
         if (CurrentRequestUsesAnlas()) return true;
-        if (_settings.Settings.MaxMode)
+        if (!_settings.Settings.AccountAssetProtectionMode)
         {
             int steps = IsAdvancedWindowOpen ? (int)_advNbSteps.Value : CurrentParams.Steps;
             if (steps > 28) return true;

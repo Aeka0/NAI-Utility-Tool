@@ -426,7 +426,7 @@ public sealed partial class MainWindow
     {
         SwitchMode(AppMode.ImageGeneration);
 
-        bool maxMode = _settings.Settings.MaxMode;
+        bool accountAssetProtectionMode = _settings.Settings.AccountAssetProtectionMode;
         var skipped = new List<string>();
         var notes = new List<string>();
 
@@ -476,7 +476,7 @@ public sealed partial class MainWindow
 
         if (meta.Steps > 0)
         {
-            if (!maxMode && meta.Steps > 28)
+            if (accountAssetProtectionMode && meta.Steps > 28)
                 skipped.Add(Lf("metadata.skipped.steps", meta.Steps));
             else
                 p.Steps = meta.Steps;
@@ -490,7 +490,7 @@ public sealed partial class MainWindow
 
         if (meta.Width > 0 && meta.Height > 0)
         {
-            if (!maxMode && (long)meta.Width * meta.Height > 1024L * 1024)
+            if (accountAssetProtectionMode && (long)meta.Width * meta.Height > 1024L * 1024)
                 skipped.Add(Lf("metadata.skipped.size", meta.Width, meta.Height));
             else
             {
@@ -530,7 +530,7 @@ public sealed partial class MainWindow
     {
         var notes = new List<string>();
         var skipped = new List<string>();
-        bool maxMode = _settings.Settings.MaxMode;
+        bool accountAssetProtectionMode = _settings.Settings.AccountAssetProtectionMode;
 
         string positivePrompt = meta.PositivePrompt;
         string negativePrompt = meta.NegativePrompt;
@@ -565,7 +565,7 @@ public sealed partial class MainWindow
 
         if (meta.Steps > 0)
         {
-            if (!maxMode && meta.Steps > 28)
+            if (accountAssetProtectionMode && meta.Steps > 28)
                 skipped.Add(Lf("metadata.skipped.steps", meta.Steps));
             else
                 p.Steps = meta.Steps;

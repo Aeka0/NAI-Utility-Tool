@@ -171,7 +171,7 @@ public sealed partial class MainWindow
 
         if (RequiresEncodedVibeFileOnly())
         {
-            TxtStatus.Text = L("superdrop.error.non_max_vibe_image_requires_max_mode");
+            TxtStatus.Text = L("superdrop.error.asset_protection_vibe_image");
             return null;
         }
 
@@ -218,9 +218,9 @@ public sealed partial class MainWindow
 
     private async Task AddDroppedPreciseReferenceAsync(StorageFile file)
     {
-        if (RequiresMaxModeForPreciseReference())
+        if (IsPreciseReferenceBlockedByAssetProtection())
         {
-            TxtStatus.Text = L("superdrop.error.non_max_precise_requires_max_mode");
+            TxtStatus.Text = L("superdrop.error.asset_protection_precise_reference");
             return;
         }
 

@@ -169,12 +169,12 @@ public sealed partial class MainWindow
                     return;
                 }
 
-                if (!_settings.Settings.MaxMode)
+                if (_settings.Settings.AccountAssetProtectionMode)
                 {
                     var warnDialog = new ContentDialog
                     {
-                        Title = L("dialog.vibe_encode.max_mode_required"),
-                        Content = L("dialog.vibe_encode.max_mode_required_message"),
+                        Title = L("dialog.vibe_encode.asset_protection_enabled"),
+                        Content = L("dialog.vibe_encode.asset_protection_enabled_message"),
                         CloseButtonText = L("button.close"),
                         DefaultButton = ContentDialogButton.Close,
                         XamlRoot = this.Content.XamlRoot,

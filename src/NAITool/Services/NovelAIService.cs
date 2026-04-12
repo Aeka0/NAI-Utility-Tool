@@ -916,7 +916,7 @@ public class NovelAIService : IDisposable
 
     /// <summary>
     /// 调用 NovelAI encode-vibe 端点，将图片编码为 vibe 数据。
-    /// 每次调用消耗 2 Anlas，需要 Max 模式。
+    /// 每次调用消耗 2 Anlas，需要关闭账号资产保护模式。
     /// </summary>
     public async Task<(byte[]? VibeData, string? Error)> EncodeVibeAsync(
         string imageBase64, string model, double informationExtracted,
