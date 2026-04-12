@@ -28,11 +28,9 @@ dotnet publish "$LauncherDir\NAIToolLauncher.csproj" -c $Configuration -r $Runti
 Write-Host "复制数据文件..." -ForegroundColor Green
 
 $AssetsDir = Join-Path $PublishDir "assets"
-New-Item -ItemType Directory -Force (Join-Path $AssetsDir "Splash")   | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $AssetsDir "tagsheet") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $AssetsDir "wildcards") | Out-Null
 
-Copy-Item -Force "$RootDir\assets\Splash\*"          (Join-Path $AssetsDir "Splash")
 Copy-Item -Force "$RootDir\assets\tagsheet\*.csv"     (Join-Path $AssetsDir "tagsheet")
 Copy-Item -Recurse -Force "$RootDir\assets\wildcards\*" (Join-Path $AssetsDir "wildcards")
 

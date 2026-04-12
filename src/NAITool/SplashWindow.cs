@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.UI;
@@ -20,16 +21,16 @@ public sealed class SplashWindow : Window
 {
     private const int DefaultSplashWidth = 780;
     private const int DefaultSplashHeight = 446;
+    private const string SplashResourcePrefix = "NAITool.splash.";
+    private const string SplashTitleResourceName = SplashResourcePrefix + "SplashTitle.png";
     private readonly Border _rootBorder;
     private readonly UIElement _titleImage;
     private bool _titleAnimationStarted;
 
     public SplashWindow()
     {
-        string splashDir = Path.Combine(AppPathResolver.AppRootDir, "assets", "Splash");
-        string splashBackgroundPath = PickRandomBackgroundPath(splashDir);
-        string splashTitlePath = Path.Combine(splashDir, "SplashTitle.png");
-        var splashSize = GetSplashWindowSize(splashBackgroundPath);
+        string splashBackgroundResourceName = PickRandomBackgroundResourceName();
+        var splashSize = GetSplashWindowSize(splashBackgroundResourceName);
 
         var backgroundImage = new Image
         {
@@ -37,8 +38,7 @@ public sealed class SplashWindow : Window
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        if (File.Exists(splashBackgroundPath))
-            backgroundImage.Source = new BitmapImage(new Uri(splashBackgroundPath));
+        backgroundImage.Source = LoadEmbeddedBitmap(splashBackgroundResourceName);
 
         var titleImage = new Image
         {
@@ -47,8 +47,7 @@ public sealed class SplashWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             Opacity = 0,
         };
-        if (File.Exists(splashTitlePath))
-            titleImage.Source = new BitmapImage(new Uri(splashTitlePath));
+        titleImage.Source = LoadEmbeddedBitmap(SplashTitleResourceName);
 
         var layerGrid = new Grid
         {
@@ -127,24 +126,25 @@ public sealed class SplashWindow : Window
             _ = File.ReadAllBytes(path);
     }
 
-    private static SizeInt32 GetSplashWindowSize(string splashPath)
+    private static SizeInt32 GetSplashWindowSize(string resourceName)
     {
-        if (!TryGetPngDimensions(splashPath, out int imageWidth, out int imageHeight))
+        if (!TryGetPngDimensions(resourceName, out int imageWidth, out int imageHeight))
             return new SizeInt32(DefaultSplashWidth, DefaultSplashHeight);
 
         return new SizeInt32(imageWidth, Math.Max(1, imageHeight));
     }
 
-    private static bool TryGetPngDimensions(string path, out int width, out int height)
+    private static bool TryGetPngDimensions(string resourceName, out int width, out int height)
     {
         width = 0;
         height = 0;
-        if (!File.Exists(path))
-            return false;
 
         try
         {
-            using var stream = File.OpenRead(path);
+            using Stream? stream = typeof(SplashWindow).Assembly.GetManifestResourceStream(resourceName);
+            if (stream == null)
+                return false;
+
             if (stream.Length < 24)
                 return false;
 
@@ -195,28 +195,28 @@ public sealed class SplashWindow : Window
             ref cornerPref, sizeof(int));
     }
 
-    private static string PickRandomBackgroundPath(string splashDir)
+    private static string PickRandomBackgroundResourceName()
     {
-        if (Directory.Exists(splashDir))
-        {
-            var files = Directory.GetFiles(splashDir, "SplashBG*.*")
-                .Where(IsImageFile)
-                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-            if (files.Length > 0)
-                return files[Random.Shared.Next(files.Length)];
-        }
+        var resourceNames = typeof(SplashWindow).Assembly.GetManifestResourceNames()
+            .Where(x => x.StartsWith(SplashResourcePrefix + "SplashBG", StringComparison.Ordinal)
+                        && x.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
-        return Path.Combine(splashDir, "SplashBG1.png");
+        return resourceNames.Length > 0
+            ? resourceNames[Random.Shared.Next(resourceNames.Length)]
+            : SplashResourcePrefix + "SplashBG1.png";
     }
 
-    private static bool IsImageFile(string filePath)
+    private static BitmapImage? LoadEmbeddedBitmap(string resourceName)
     {
-        string ext = Path.GetExtension(filePath);
-        return ext.Equals(".png", StringComparison.OrdinalIgnoreCase)
-               || ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
-               || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)
-               || ext.Equals(".webp", StringComparison.OrdinalIgnoreCase);
+        using Stream? stream = typeof(SplashWindow).Assembly.GetManifestResourceStream(resourceName);
+        if (stream == null)
+            return null;
+
+        var bitmap = new BitmapImage();
+        bitmap.SetSource(stream.AsRandomAccessStream());
+        return bitmap;
     }
 
     private void StartTitleFadeIn(UIElement titleImage)
