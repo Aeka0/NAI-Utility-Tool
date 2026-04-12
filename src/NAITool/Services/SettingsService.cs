@@ -139,6 +139,7 @@ public class AppSettings
     public ReverseTaggerSettings ReverseTagger { get; set; } = new();
     public NAIParameters GenParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full" };
     public NAIParameters InpaintParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full-inpainting" };
+    public NAIParameters I2IDenoiseParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full", DenoiseStrength = 0.7, DenoiseNoise = 0 };
     public RememberedPromptState RememberedPrompts { get; set; } = new();
     public int RememberedCustomWidth { get; set; } = 832;
     public int RememberedCustomHeight { get; set; } = 1216;
@@ -151,6 +152,7 @@ public class AppSettings
         ReverseTagger ??= new();
         GenParameters ??= new() { Model = "nai-diffusion-4-5-full" };
         InpaintParameters ??= new() { Model = "nai-diffusion-4-5-full-inpainting" };
+        I2IDenoiseParameters ??= new() { Model = "nai-diffusion-4-5-full", DenoiseStrength = 0.7, DenoiseNoise = 0 };
         RememberedPrompts ??= new();
         Automation ??= new();
         Automation.Normalize();
@@ -193,4 +195,6 @@ public class NAIParameters
     public int Steps { get; set; } = 28;
     public int Seed { get; set; } = 0;
     public int UcPreset { get; set; } = 0;
+    public double DenoiseStrength { get; set; } = 0.7;
+    public double DenoiseNoise { get; set; } = 0;
 }

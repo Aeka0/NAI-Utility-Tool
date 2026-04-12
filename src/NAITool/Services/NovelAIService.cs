@@ -693,6 +693,186 @@ public class NovelAIService : IDisposable
         }
     }
 
+    public async Task<(byte[]? ImageBytes, string? Error)> ImageToImageAsync(
+        string imageBase64,
+        int width, int height,
+        string prompt, string negativePrompt,
+        List<CharacterPromptInfo>? characters = null,
+        List<VibeTransferInfo>? vibeTransfers = null,
+        List<PreciseReferenceInfo>? preciseReferences = null,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+            return (null, L("api.error.token_missing_network"));
+
+        var naiParams = _settings.Settings.I2IDenoiseParameters;
+        int seed = naiParams.Seed > 0 ? naiParams.Seed : Random.Shared.Next(1, int.MaxValue);
+        bool isV4Plus = IsV4PlusModel(naiParams.Model);
+        bool isV45 = IsV45Model(naiParams.Model);
+        string effectivePrompt = ApplyQualityTags(prompt, naiParams.Model, naiParams.QualityToggle);
+        string effectiveNegativePrompt = ApplyUcPreset(negativePrompt, naiParams.Model, naiParams.UcPreset);
+
+        var parameters = new Dictionary<string, object?>
+        {
+            ["params_version"] = 3,
+            ["width"] = width,
+            ["height"] = height,
+            ["scale"] = naiParams.Scale,
+            ["sampler"] = naiParams.Sampler,
+            ["steps"] = naiParams.Steps,
+            ["n_samples"] = 1,
+            ["seed"] = seed,
+            ["image"] = imageBase64,
+            ["noise_schedule"] = naiParams.Schedule,
+            ["uc"] = effectiveNegativePrompt,
+            ["negative_prompt"] = effectiveNegativePrompt,
+            ["ucPreset"] = naiParams.UcPreset,
+            ["uc_preset"] = naiParams.UcPreset,
+            ["cfg_rescale"] = naiParams.CfgRescale,
+            ["legacy"] = false,
+            ["legacy_v3_extend"] = false,
+            ["dynamic_thresholding"] = naiParams.CfgRescale > 0,
+            ["skip_cfg_above_sigma"] = null,
+            ["strength"] = Math.Clamp(naiParams.DenoiseStrength, 0, 1),
+            ["noise"] = Math.Clamp(naiParams.DenoiseNoise, 0, 1),
+            ["qualityToggle"] = naiParams.QualityToggle,
+            ["quality_toggle"] = naiParams.QualityToggle,
+        };
+
+        if (naiParams.Variety) parameters["variety"] = true;
+
+        if (naiParams.Sampler == "k_euler_ancestral" && naiParams.Schedule != "native")
+        {
+            parameters["deliberate_euler_ancestral_bug"] = false;
+            parameters["prefer_brownian"] = true;
+        }
+
+        if (isV4Plus)
+        {
+            var posCharCaptions = new List<object>();
+            var negCharCaptions = new List<object>();
+            bool useCoords = false;
+
+            if (characters is { Count: > 0 })
+            {
+                foreach (var ch in characters)
+                {
+                    var center = new Dictionary<string, double> { ["x"] = ch.CenterX, ["y"] = ch.CenterY };
+                    posCharCaptions.Add(new Dictionary<string, object>
+                    {
+                        ["char_caption"] = ch.PositivePrompt,
+                        ["centers"] = new[] { center },
+                    });
+                    negCharCaptions.Add(new Dictionary<string, object>
+                    {
+                        ["char_caption"] = ch.NegativePrompt,
+                        ["centers"] = new[] { center },
+                    });
+                    if (ch.UseCustomPosition)
+                        useCoords = true;
+                }
+            }
+
+            parameters["use_coords"] = useCoords;
+            parameters["v4_prompt"] = new Dictionary<string, object>
+            {
+                ["caption"] = new Dictionary<string, object>
+                {
+                    ["base_caption"] = effectivePrompt,
+                    ["char_captions"] = posCharCaptions,
+                },
+                ["use_coords"] = useCoords,
+                ["use_order"] = true,
+            };
+            parameters["v4_negative_prompt"] = new Dictionary<string, object>
+            {
+                ["caption"] = new Dictionary<string, object>
+                {
+                    ["base_caption"] = effectiveNegativePrompt,
+                    ["char_captions"] = negCharCaptions,
+                },
+                ["use_coords"] = useCoords,
+                ["use_order"] = false,
+                ["legacy_uc"] = !isV45,
+            };
+        }
+        else
+        {
+            parameters["sm"] = naiParams.Sm;
+            parameters["sm_dyn"] = false;
+        }
+
+        if (preciseReferences is { Count: > 0 })
+            ApplyPreciseReferenceParameters(parameters, preciseReferences);
+        else if (vibeTransfers is { Count: > 0 })
+            ApplyVibeTransferParameters(parameters, vibeTransfers);
+
+        var payload = new Dictionary<string, object>
+        {
+            ["input"] = effectivePrompt,
+            ["model"] = naiParams.Model,
+            ["action"] = "img2img",
+            ["parameters"] = parameters,
+        };
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            var client = GetOrCreateClient();
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/zip"));
+
+            var json = JsonSerializer.Serialize(payload, JsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync(GenerateUrl, content, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = await response.Content.ReadAsStringAsync(ct);
+                stopwatch.Stop();
+                WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, response, errorText);
+                return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
+            }
+
+            var zipBytes = await response.Content.ReadAsByteArrayAsync(ct);
+            using var zipStream = new MemoryStream(zipBytes);
+            using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+
+            if (archive.Entries.Count == 0)
+                return (null, L("api.error.empty_zip"));
+
+            var entry = archive.Entries[0];
+            using var entryStream = entry.Open();
+            using var imageStream = new MemoryStream();
+            await entryStream.CopyToAsync(imageStream, ct);
+            byte[] imageBytes = imageStream.ToArray();
+            stopwatch.Stop();
+            WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
+            return (imageBytes, null);
+        }
+        catch (TaskCanceledException ex)
+        {
+            stopwatch.Stop();
+            WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, L("api.error.request_cancelled"));
+        }
+        catch (HttpRequestException ex)
+        {
+            stopwatch.Stop();
+            WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            var msg = Lf("api.error.network_failed", ex.Message);
+            if (ex.InnerException != null) msg += "\n" + Lf("api.error.inner", ex.InnerException.Message);
+            return (null, msg);
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, Lf("api.error.request_failed", ex.Message));
+        }
+    }
+
     public async Task<(byte[]? ImageBytes, string? Error)> GenerateAsync(
         int width, int height,
         string prompt, string negativePrompt,

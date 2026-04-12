@@ -35,6 +35,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 namespace NAITool;
 
 public enum AppMode { ImageGeneration, I2I, Upscale, Effects, Inspect }
+public enum I2IEditMode { Inpaint, Denoise }
 public enum PromptWeightFormat { StableDiffusion, NaiClassic, NaiNumeric }
 public enum PromptGeneratorOutputMode { BooruTags, BooruTagsWithNaturalLanguage, NaturalLanguage }
 public enum SuperDropAction { GeneratePrompt, GenerateVibe, GeneratePrecise, I2IPrompt, I2IVibe, I2IPrecise, Upscale, Effects, Inspect }
@@ -87,6 +88,7 @@ public sealed partial class MainWindow : Window
 
     // ═══ 模式 ═══
     private AppMode _currentMode = AppMode.ImageGeneration;
+    private I2IEditMode _i2iEditMode = I2IEditMode.Inpaint;
     private bool _leftSidebarResizing;
     private double _leftSidebarDragStartX;
     private double _leftSidebarStartWidth;
@@ -164,6 +166,7 @@ public sealed partial class MainWindow : Window
     private byte[]? _pendingResultBytes;
     private string? _cachedImageBase64;
     private string? _cachedMaskBase64;
+    private I2IEditMode _cachedI2IEditMode = I2IEditMode.Inpaint;
     private string _cachedPrompt = "";
     private string _cachedNegPrompt = "";
 

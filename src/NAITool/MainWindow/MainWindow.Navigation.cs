@@ -106,6 +106,7 @@ public sealed partial class MainWindow
         PanelHistory.Visibility = isGen ? Visibility.Visible : Visibility.Collapsed;
         PanelI2ITools.Visibility = isI2I ? Visibility.Visible : Visibility.Collapsed;
         CharacterPanel.Visibility = (isGen || isI2I) ? Visibility.Visible : Visibility.Collapsed;
+        UpdateI2IEditModeUI();
 
         UpdateFileMenuState();
         MenuSaveStripped.Visibility = (isReader || isGen) ? Visibility.Visible : Visibility.Collapsed;

@@ -356,7 +356,7 @@ public sealed partial class MainWindow
 
     private async void OnUndo(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.I2I && !MaskCanvas.IsInPreviewMode)
+        if (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint && !MaskCanvas.IsInPreviewMode)
         {
             MaskCanvas.PerformUndo();
             return;
@@ -373,7 +373,7 @@ public sealed partial class MainWindow
 
     private async void OnRedo(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.I2I && !MaskCanvas.IsInPreviewMode)
+        if (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint && !MaskCanvas.IsInPreviewMode)
         {
             MaskCanvas.PerformRedo();
             return;
@@ -389,32 +389,32 @@ public sealed partial class MainWindow
     }
 
     private void OnClearMask(object sender, RoutedEventArgs e)
-    { if (_currentMode == AppMode.I2I && !MaskCanvas.IsInPreviewMode) MaskCanvas.ClearMask(); }
+    { if (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint && !MaskCanvas.IsInPreviewMode) MaskCanvas.ClearMask(); }
 
     private void OnFillEmpty(object sender, RoutedEventArgs e)
     {
-        if (_currentMode != AppMode.I2I || MaskCanvas.IsInPreviewMode) return;
+        if (_currentMode != AppMode.I2I || _i2iEditMode != I2IEditMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.FillEmptyAreas();
         TxtStatus.Text = L("inpaint.mask.fill_empty_done");
     }
 
     private void OnInvertMask(object sender, RoutedEventArgs e)
     {
-        if (_currentMode != AppMode.I2I || MaskCanvas.IsInPreviewMode) return;
+        if (_currentMode != AppMode.I2I || _i2iEditMode != I2IEditMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.InvertMask();
         TxtStatus.Text = L("inpaint.mask.inverted");
     }
 
     private void OnExpandMask(object sender, RoutedEventArgs e)
     {
-        if (_currentMode != AppMode.I2I || MaskCanvas.IsInPreviewMode) return;
+        if (_currentMode != AppMode.I2I || _i2iEditMode != I2IEditMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.ExpandMask();
         TxtStatus.Text = L("inpaint.mask.expanded");
     }
 
     private void OnShrinkMask(object sender, RoutedEventArgs e)
     {
-        if (_currentMode != AppMode.I2I || MaskCanvas.IsInPreviewMode) return;
+        if (_currentMode != AppMode.I2I || _i2iEditMode != I2IEditMode.Inpaint || MaskCanvas.IsInPreviewMode) return;
         MaskCanvas.ShrinkMask();
         TxtStatus.Text = L("inpaint.mask.shrunk");
     }

@@ -151,6 +151,9 @@ public sealed partial class MainWindow
 
     private async Task<bool> DoInpaintGenerateAsync(bool forceRandomSeed = false)
     {
+        if (_i2iEditMode == I2IEditMode.Denoise)
+            return await DoDenoiseGenerateAsync(forceRandomSeed);
+
         if (MaskCanvas.IsInPreviewMode)
         {
             return await RedoInpaintGenerateAsync(forceRandomSeed);
@@ -186,6 +189,7 @@ public sealed partial class MainWindow
 
             _cachedImageBase64 = imageBase64;
             _cachedMaskBase64 = maskBase64;
+            _cachedI2IEditMode = I2IEditMode.Inpaint;
             int actualSeed = (!forceRandomSeed && ip.Seed > 0) ? ip.Seed : Random.Shared.Next(1, int.MaxValue);
             ip.Seed = actualSeed;
             var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
@@ -268,6 +272,124 @@ public sealed partial class MainWindow
         return _pendingResultBitmap;
     }
 
+    private async Task<bool> DoDenoiseGenerateAsync(bool forceRandomSeed = false)
+    {
+        if (MaskCanvas.IsInPreviewMode)
+        {
+            return await RedoInpaintGenerateAsync(forceRandomSeed);
+        }
+        if (MaskCanvas.Document.MaskTarget == null || MaskCanvas.GetDevice() == null)
+        { TxtStatus.Text = L("inpaint.error.canvas_not_initialized"); return false; }
+        if (MaskCanvas.Document.OriginalImage == null)
+        { TxtStatus.Text = L("i2i.error.no_image_to_send"); return false; }
+
+        bool keepGenerateButtonInteractive = _continuousGenRunning;
+        if (!keepGenerateButtonInteractive)
+            BtnGenerate.IsEnabled = false;
+        _generateRequestRunning = true;
+        UpdateBtnGenerateForApiKey();
+        TxtStatus.Text = L("generate.status.generating");
+        var dp = _settings.Settings.I2IDenoiseParameters;
+        int origSeed = dp.Seed;
+
+        try
+        {
+            _generateCts?.Cancel();
+            _generateCts = new CancellationTokenSource();
+            var ct = _generateCts.Token;
+            var device = MaskCanvas.GetDevice()!;
+
+            var exportImage = MaskCanvas.Document.CreateCompositeForExport(device);
+            if (exportImage == null) { TxtStatus.Text = L("inpaint.error.export_image_failed"); BtnGenerate.IsEnabled = true; return false; }
+
+            var imageBase64 = await NovelAIService.EncodeRenderTargetAsync(exportImage, isMask: false);
+            exportImage.Dispose();
+
+            _cachedImageBase64 = imageBase64;
+            _cachedMaskBase64 = null;
+            _cachedI2IEditMode = I2IEditMode.Denoise;
+            int actualSeed = (!forceRandomSeed && dp.Seed > 0) ? dp.Seed : Random.Shared.Next(1, int.MaxValue);
+            dp.Seed = actualSeed;
+            var wildcardContext = CreateWildcardContext(actualSeed, dp.Model);
+            var (prompt, negPrompt) = GetPrompts(wildcardContext);
+            _cachedPrompt = prompt;
+            _cachedNegPrompt = negPrompt;
+
+            DebugLog($"[Denoise] Start | Model={dp.Model} | Seed={actualSeed} | Strength={dp.DenoiseStrength:0.##} | Noise={dp.DenoiseNoise:0.##}");
+
+            var resultBitmap = await SendDenoiseRequestAsync(imageBase64, prompt, negPrompt, wildcardContext, ct);
+            _lastUsedSeed = actualSeed;
+
+            if (resultBitmap == null) return false;
+
+            MaskCanvas.SetPreview(resultBitmap);
+            ShowResultBar();
+            if (!keepGenerateButtonInteractive)
+                BtnGenerate.IsEnabled = true;
+            _ = RefreshAnlasInfoAsync(forceRefresh: true);
+            DebugLog($"[Denoise] Completed | Seed={actualSeed}");
+            TxtStatus.Text = L("generate.status.completed");
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            DebugLog("[Denoise] Cancelled");
+            TxtStatus.Text = L("generate.status.cancelled");
+            if (!keepGenerateButtonInteractive)
+                BtnGenerate.IsEnabled = true;
+            return false;
+        }
+        catch (Exception ex)
+        {
+            DebugLog($"[Denoise] Failed: {ex}");
+            TxtStatus.Text = Lf("generate.status.failed", ex.Message);
+            if (!keepGenerateButtonInteractive)
+                BtnGenerate.IsEnabled = true;
+            return false;
+        }
+        finally
+        {
+            _generateRequestRunning = false;
+            UpdateBtnGenerateForApiKey();
+            dp.Seed = origSeed;
+        }
+    }
+
+    private async Task<CanvasBitmap?> SendDenoiseRequestAsync(
+        string imageBase64,
+        string prompt, string negPrompt, WildcardExpandContext wildcardContext, CancellationToken ct)
+    {
+        var device = MaskCanvas.GetDevice()!;
+        if (!TryValidateReferenceRequest(out string referenceError))
+        {
+            TxtStatus.Text = referenceError;
+            BtnGenerate.IsEnabled = true;
+            return null;
+        }
+        if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
+        var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+        var vibes = GetVibeTransferData();
+        var preciseReferences = GetPreciseReferenceData();
+        var (imageBytes, error) = await _naiService.ImageToImageAsync(
+            imageBase64,
+            MaskCanvas.CanvasW, MaskCanvas.CanvasH,
+            prompt, negPrompt, chars, vibes, preciseReferences, ct);
+
+        if (error != null) { DebugLog($"[Denoise] API error: {error}"); TxtStatus.Text = error; BtnGenerate.IsEnabled = true; return null; }
+        if (imageBytes == null) { DebugLog("[Denoise] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); BtnGenerate.IsEnabled = true; return null; }
+
+        _pendingResultBytes = imageBytes;
+        _pendingResultBitmap?.Dispose();
+
+        using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+        using var writer = new Windows.Storage.Streams.DataWriter(stream);
+        writer.WriteBytes(imageBytes);
+        await writer.StoreAsync();
+        stream.Seek(0);
+        _pendingResultBitmap = await CanvasBitmap.LoadAsync(device, stream, 96f);
+        return _pendingResultBitmap;
+    }
+
     // ═══════════════════════════════════════════════════════════
     //  重绘预览操作：应用 / 重做 / 舍弃
     // ═══════════════════════════════════════════════════════════
@@ -285,13 +407,16 @@ public sealed partial class MainWindow
 
     private async Task<bool> RedoInpaintGenerateAsync(bool forceRandomSeed = false)
     {
-        if (_cachedImageBase64 == null || _cachedMaskBase64 == null) return false;
+        if (_cachedImageBase64 == null) return false;
+        if (_cachedI2IEditMode == I2IEditMode.Inpaint && _cachedMaskBase64 == null) return false;
         BtnGenerate.IsEnabled = false;
         _generateRequestRunning = true;
         UpdateBtnGenerateForApiKey();
         SetResultBarEnabled(false);
         TxtStatus.Text = L("generate.status.regenerating");
-        var ip = _settings.Settings.InpaintParameters;
+        var ip = _cachedI2IEditMode == I2IEditMode.Denoise
+            ? _settings.Settings.I2IDenoiseParameters
+            : _settings.Settings.InpaintParameters;
         int origSeed = ip.Seed;
 
         try
@@ -307,9 +432,11 @@ public sealed partial class MainWindow
             _cachedPrompt = prompt;
             _cachedNegPrompt = negPrompt;
 
-            var resultBitmap = await SendInpaintRequestAsync(
-                _cachedImageBase64, _cachedMaskBase64,
-                prompt, negPrompt, wildcardContext, ct);
+            var resultBitmap = _cachedI2IEditMode == I2IEditMode.Denoise
+                ? await SendDenoiseRequestAsync(_cachedImageBase64, prompt, negPrompt, wildcardContext, ct)
+                : await SendInpaintRequestAsync(
+                    _cachedImageBase64, _cachedMaskBase64!,
+                    prompt, negPrompt, wildcardContext, ct);
             _lastUsedSeed = actualSeed;
 
             if (resultBitmap != null)
@@ -334,7 +461,7 @@ public sealed partial class MainWindow
 
     private async void OnRedoGenerate(object sender, RoutedEventArgs e)
     {
-        if (_cachedImageBase64 == null || _cachedMaskBase64 == null) return;
+        if (_cachedImageBase64 == null) return;
         await RedoInpaintGenerateAsync();
     }
 
@@ -353,6 +480,7 @@ public sealed partial class MainWindow
         _pendingResultBytes = null;
         _cachedImageBase64 = null;
         _cachedMaskBase64 = null;
+        _cachedI2IEditMode = I2IEditMode.Inpaint;
         ResultActionBar.Visibility = Visibility.Collapsed;
         BtnGenerate.IsEnabled = true;
     }
@@ -467,6 +595,7 @@ public sealed partial class MainWindow
         _pendingResultBytes = null;
         _cachedImageBase64 = null;
         _cachedMaskBase64 = null;
+        _cachedI2IEditMode = I2IEditMode.Inpaint;
         doc.ClearMask();
         if (MaskCanvas.IsInPreviewMode) MaskCanvas.ClearPreview();
         MaskCanvas.UndoMgr.Clear();

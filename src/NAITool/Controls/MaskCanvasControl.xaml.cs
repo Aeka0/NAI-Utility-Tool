@@ -117,6 +117,8 @@ public sealed partial class MaskCanvasControl : UserControl
     public bool IsActivelyDrawing => _isDrawing || _isRectDrawing || _isPanning || _isImageDragging;
     public bool IsInPreviewMode => _previewBitmap != null;
     public bool IsImageFileDropEnabled { get; set; } = true;
+    public bool IsMaskEditingEnabled { get; set; } = true;
+    public bool IsMaskOverlayVisible { get; set; } = true;
 
     /// <summary>导入图片的原始文件路径（用于"保存"覆盖写回）。</summary>
     public string? LoadedFilePath => _loadedFilePath;
@@ -744,7 +746,7 @@ public sealed partial class MaskCanvasControl : UserControl
                     }
                 }
 
-                if (!_isComparing)
+                if (!_isComparing && IsMaskOverlayVisible)
                 {
                     lock (_renderLock)
                     {
@@ -778,7 +780,8 @@ public sealed partial class MaskCanvasControl : UserControl
                     }
                 }
 
-                DrawToolCursor(ds, viewScale);
+                if (IsMaskEditingEnabled)
+                    DrawToolCursor(ds, viewScale);
             }
 
             float bw = 1f / viewScale;
@@ -866,7 +869,7 @@ public sealed partial class MaskCanvasControl : UserControl
             e.Handled = true;
         }
         // 左键（无 Alt）→ 绘制
-        else if (point.Properties.IsLeftButtonPressed && !_isPanning)
+        else if (point.Properties.IsLeftButtonPressed && !_isPanning && IsMaskEditingEnabled)
         {
             Vector2 canvasPos;
             lock (_stateLock)
@@ -1167,7 +1170,7 @@ public sealed partial class MaskCanvasControl : UserControl
             lock (_renderLock)
             {
                 var mask = _document.MaskTarget;
-                if (mask != null && _thumbnailMaskOverlayEffect != null)
+                if (IsMaskOverlayVisible && mask != null && _thumbnailMaskOverlayEffect != null)
                 {
                     _thumbnailMaskOverlayEffect.Source = mask;
                     ds.DrawImage(_thumbnailMaskOverlayEffect);

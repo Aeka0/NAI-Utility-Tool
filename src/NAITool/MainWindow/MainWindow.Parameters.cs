@@ -144,7 +144,9 @@ public sealed partial class MainWindow
 
     private NAIParameters CurrentParams => _currentMode == AppMode.ImageGeneration
         ? _settings.Settings.GenParameters
-        : _settings.Settings.InpaintParameters;
+        : _i2iEditMode == I2IEditMode.Denoise
+            ? _settings.Settings.I2IDenoiseParameters
+            : _settings.Settings.InpaintParameters;
 
     private void SyncUIToParams()
     {
@@ -163,6 +165,13 @@ public sealed partial class MainWindow
     private static NAIParameters CreateDefaultInpaintParameters() => new()
     {
         Model = "nai-diffusion-4-5-full-inpainting",
+    };
+
+    private static NAIParameters CreateDefaultI2IDenoiseParameters() => new()
+    {
+        Model = "nai-diffusion-4-5-full",
+        DenoiseStrength = 0.7,
+        DenoiseNoise = 0,
     };
 
     private string GetWildcardsRootDir() => DefaultWildcardsDir;
@@ -226,6 +235,7 @@ public sealed partial class MainWindow
         {
             _settings.Settings.GenParameters = CreateDefaultGenerationParameters();
             _settings.Settings.InpaintParameters = CreateDefaultInpaintParameters();
+            _settings.Settings.I2IDenoiseParameters = CreateDefaultI2IDenoiseParameters();
             _customWidth = 832;
             _customHeight = 1216;
             _genPositivePrompt = "";

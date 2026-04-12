@@ -39,7 +39,9 @@ public sealed partial class MainWindow
     private void PopulateModelList()
     {
         CboModel.Items.Clear();
-        var models = _currentMode == AppMode.ImageGeneration ? GenerationModels : I2IModels;
+        var models = _currentMode == AppMode.ImageGeneration || _i2iEditMode == I2IEditMode.Denoise
+            ? GenerationModels
+            : I2IModels;
         foreach (var m in models) CboModel.Items.Add(CreateTextComboBoxItem(m));
 
         CboModel.SelectedIndex = Array.IndexOf(models, CurrentParams.Model);
@@ -340,7 +342,8 @@ public sealed partial class MainWindow
         else if (_currentMode == AppMode.I2I)
         {
             bool hasImageLoaded = MaskCanvas.Document.OriginalImage != null && !MaskCanvas.IsInPreviewMode;
-            bool hasMaskContent = MaskCanvas.HasMaskContent() && !MaskCanvas.IsInPreviewMode;
+            bool inpaintMode = _i2iEditMode == I2IEditMode.Inpaint;
+            bool hasMaskContent = inpaintMode && MaskCanvas.HasMaskContent() && !MaskCanvas.IsInPreviewMode;
             bool hasI2IImage = MaskCanvas.Document.OriginalImage != null ||
                 (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null);
 
@@ -348,7 +351,9 @@ public sealed partial class MainWindow
             {
                 if (baseItem is MenuFlyoutItem item)
                 {
-                    if (HasMenuCommand(item, MenuCommandExpandMask) || HasMenuCommand(item, MenuCommandContractMask))
+                    if (HasMenuCommand(item, MenuCommandUndo) || HasMenuCommand(item, MenuCommandRedo))
+                        item.IsEnabled = inpaintMode && !MaskCanvas.IsInPreviewMode;
+                    else if (HasMenuCommand(item, MenuCommandExpandMask) || HasMenuCommand(item, MenuCommandContractMask))
                         item.IsEnabled = hasMaskContent;
                     else if (HasMenuCommand(item, MenuCommandSendToPost) || HasMenuCommand(item, MenuCommandSendToUpscale))
                         item.IsEnabled = hasI2IImage;
@@ -373,6 +378,7 @@ public sealed partial class MainWindow
                 }
                 else if (baseItem is MenuFlyoutSubItem maskSub && HasMenuCommand(maskSub, MenuCommandMaskOps))
                 {
+                    maskSub.IsEnabled = inpaintMode && !MaskCanvas.IsInPreviewMode;
                     foreach (var child in maskSub.Items)
                     {
                         if (child is not MenuFlyoutItem childItem) continue;
@@ -596,7 +602,10 @@ public sealed partial class MainWindow
         }
         else if (_currentMode == AppMode.I2I)
         {
-            _settings.Settings.InpaintParameters = CreateDefaultInpaintParameters();
+            if (_i2iEditMode == I2IEditMode.Denoise)
+                _settings.Settings.I2IDenoiseParameters = CreateDefaultI2IDenoiseParameters();
+            else
+                _settings.Settings.InpaintParameters = CreateDefaultInpaintParameters();
         }
         _settings.Save();
         SyncParamsToUI();

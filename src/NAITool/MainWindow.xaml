@@ -1125,47 +1125,94 @@
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
-                        <CheckBox x:Name="ChkPreviewMask" Content=""
-                                  Click="OnTogglePreviewMask"/>
-
-                        <TextBlock x:Name="TxtI2IToolsLabel" Text="" Style="{StaticResource CaptionTextBlockStyle}"
+                        <TextBlock x:Name="TxtI2IModeLabel" Text="" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <ToggleButton x:Name="BtnBrush" IsChecked="True"
-                                          Click="OnToolBrush" ToolTipService.ToolTip=""
-                                          Width="40" Height="40" Padding="0">
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                          Glyph="&#xEDFB;" FontSize="18"/>
-                            </ToggleButton>
-                            <ToggleButton x:Name="BtnEraser"
-                                          Click="OnToolEraser" ToolTipService.ToolTip=""
-                                          Width="40" Height="40" Padding="0">
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                          Glyph="&#xE75C;" FontSize="18"/>
-                            </ToggleButton>
-                            <ToggleButton x:Name="BtnRect"
-                                          Click="OnToolRect" ToolTipService.ToolTip=""
-                                          Width="40" Height="40" Padding="0">
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                          Glyph="&#xE739;" FontSize="18"/>
-                            </ToggleButton>
+                        <StackPanel Orientation="Horizontal" Spacing="0">
+                            <ToggleButton x:Name="BtnI2IInpaintMode" IsChecked="True"
+                                          Click="OnI2IEditModeSwitch" CornerRadius="4,0,0,4"
+                                          MinWidth="84" Height="34"/>
+                            <ToggleButton x:Name="BtnI2IDenoiseMode"
+                                          Click="OnI2IEditModeSwitch" CornerRadius="0,4,4,0"
+                                          MinWidth="84" Height="34"/>
                         </StackPanel>
 
-                        <TextBlock x:Name="TxtBrushSizeLabel" Text="" Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Slider x:Name="SliderBrushSize" Minimum="1" Maximum="200" Value="20"
-                                    Grid.Column="0" VerticalAlignment="Center"
-                                    ValueChanged="OnBrushSizeChanged"/>
-                            <TextBlock x:Name="TxtBrushSize" Text="20" Grid.Column="1"
-                                       FontSize="12" MinWidth="28" TextAlignment="Right"
-                                       VerticalAlignment="Center" Margin="8,0,0,0"
+                        <StackPanel x:Name="PanelI2IInpaintTools" Spacing="12">
+                            <CheckBox x:Name="ChkPreviewMask" Content=""
+                                      Click="OnTogglePreviewMask"/>
+
+                            <TextBlock x:Name="TxtI2IToolsLabel" Text="" Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <ToggleButton x:Name="BtnBrush" IsChecked="True"
+                                              Click="OnToolBrush" ToolTipService.ToolTip=""
+                                              Width="40" Height="40" Padding="0">
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                              Glyph="&#xEDFB;" FontSize="18"/>
+                                </ToggleButton>
+                                <ToggleButton x:Name="BtnEraser"
+                                              Click="OnToolEraser" ToolTipService.ToolTip=""
+                                              Width="40" Height="40" Padding="0">
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                              Glyph="&#xE75C;" FontSize="18"/>
+                                </ToggleButton>
+                                <ToggleButton x:Name="BtnRect"
+                                              Click="OnToolRect" ToolTipService.ToolTip=""
+                                              Width="40" Height="40" Padding="0">
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                              Glyph="&#xE739;" FontSize="18"/>
+                                </ToggleButton>
+                            </StackPanel>
+
+                            <TextBlock x:Name="TxtBrushSizeLabel" Text="" Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="SliderBrushSize" Minimum="1" Maximum="200" Value="20"
+                                        Grid.Column="0" VerticalAlignment="Center"
+                                        ValueChanged="OnBrushSizeChanged"/>
+                                <TextBlock x:Name="TxtBrushSize" Text="20" Grid.Column="1"
+                                           FontSize="12" MinWidth="28" TextAlignment="Right"
+                                           VerticalAlignment="Center" Margin="8,0,0,0"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelI2IDenoiseTools" Spacing="12" Visibility="Collapsed">
+                            <TextBlock x:Name="TxtDenoiseStrengthLabel" Text="" Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="SliderDenoiseStrength" Minimum="0" Maximum="1" Value="0.7"
+                                        StepFrequency="0.01" Grid.Column="0" VerticalAlignment="Center"
+                                        ValueChanged="OnDenoiseStrengthChanged"/>
+                                <TextBlock x:Name="TxtDenoiseStrength" Text="0.70" Grid.Column="1"
+                                           FontSize="12" MinWidth="36" TextAlignment="Right"
+                                           VerticalAlignment="Center" Margin="8,0,0,0"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </Grid>
+
+                            <TextBlock x:Name="TxtDenoiseNoiseLabel" Text="" Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="SliderDenoiseNoise" Minimum="0" Maximum="1" Value="0"
+                                        StepFrequency="0.01" Grid.Column="0" VerticalAlignment="Center"
+                                        ValueChanged="OnDenoiseNoiseChanged"/>
+                                <TextBlock x:Name="TxtDenoiseNoise" Text="0.00" Grid.Column="1"
+                                           FontSize="12" MinWidth="36" TextAlignment="Right"
+                                           VerticalAlignment="Center" Margin="8,0,0,0"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </Grid>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </Border>

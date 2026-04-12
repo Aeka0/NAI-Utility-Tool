@@ -38,6 +38,7 @@ public sealed partial class MainWindow
 {
     private void SetToolSelection(StrokeTool tool)
     {
+        if (_i2iEditMode != I2IEditMode.Inpaint) return;
         MaskCanvas.Brush.CurrentTool = tool;
         BtnBrush.IsChecked = tool == StrokeTool.Brush;
         BtnEraser.IsChecked = tool == StrokeTool.Eraser;
@@ -54,6 +55,81 @@ public sealed partial class MainWindow
         if (MaskCanvas == null) return;
         MaskCanvas.Brush.BrushSize = (float)e.NewValue;
         if (TxtBrushSize != null) TxtBrushSize.Text = $"{(int)e.NewValue}";
+    }
+
+    private void OnDenoiseStrengthChanged(object sender,
+        Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        _settings.Settings.I2IDenoiseParameters.DenoiseStrength = Math.Round(e.NewValue, 2);
+        if (TxtDenoiseStrength != null) TxtDenoiseStrength.Text = e.NewValue.ToString("0.00", CultureInfo.InvariantCulture);
+    }
+
+    private void OnDenoiseNoiseChanged(object sender,
+        Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        _settings.Settings.I2IDenoiseParameters.DenoiseNoise = Math.Round(e.NewValue, 2);
+        if (TxtDenoiseNoise != null) TxtDenoiseNoise.Text = e.NewValue.ToString("0.00", CultureInfo.InvariantCulture);
+    }
+
+    private void OnI2IEditModeSwitch(object sender, RoutedEventArgs e)
+    {
+        if (ReferenceEquals(sender, BtnI2IInpaintMode) && BtnI2IInpaintMode.IsChecked == true)
+            SwitchI2IEditMode(I2IEditMode.Inpaint);
+        else if (ReferenceEquals(sender, BtnI2IDenoiseMode) && BtnI2IDenoiseMode.IsChecked == true)
+            SwitchI2IEditMode(I2IEditMode.Denoise);
+        else if (sender is Microsoft.UI.Xaml.Controls.Primitives.ToggleButton tb)
+            tb.IsChecked = true;
+    }
+
+    private void SwitchI2IEditMode(I2IEditMode mode)
+    {
+        if (_i2iEditMode == mode)
+        {
+            UpdateI2IEditModeUI();
+            return;
+        }
+
+        if (_currentMode == AppMode.I2I)
+            SyncUIToParams();
+
+        _i2iEditMode = mode;
+
+        if (_currentMode == AppMode.I2I)
+        {
+            PopulateModelList();
+            SyncParamsToUI();
+            UpdateDynamicMenuStates();
+            UpdateSizeWarningVisuals();
+            UpdateGenerateButtonWarning();
+        }
+
+        UpdateI2IEditModeUI();
+    }
+
+    private void UpdateI2IEditModeUI()
+    {
+        if (BtnI2IInpaintMode == null || BtnI2IDenoiseMode == null || MaskCanvas == null) return;
+
+        bool isInpaint = _i2iEditMode == I2IEditMode.Inpaint;
+        BtnI2IInpaintMode.IsChecked = isInpaint;
+        BtnI2IDenoiseMode.IsChecked = !isInpaint;
+
+        PanelI2IInpaintTools.Visibility = isInpaint ? Visibility.Visible : Visibility.Collapsed;
+        PanelI2IDenoiseTools.Visibility = isInpaint ? Visibility.Collapsed : Visibility.Visible;
+
+        MaskCanvas.IsMaskEditingEnabled = isInpaint;
+        MaskCanvas.IsMaskOverlayVisible = isInpaint;
+        if (!isInpaint)
+            MaskCanvas.PreviewMaskOnly = false;
+        else
+            MaskCanvas.PreviewMaskOnly = ChkPreviewMask.IsChecked == true;
+        MaskCanvas.RefreshCanvas();
+
+        var denoiseParams = _settings.Settings.I2IDenoiseParameters;
+        SliderDenoiseStrength.Value = Math.Clamp(denoiseParams.DenoiseStrength, 0, 1);
+        SliderDenoiseNoise.Value = Math.Clamp(denoiseParams.DenoiseNoise, 0, 1);
+        TxtDenoiseStrength.Text = SliderDenoiseStrength.Value.ToString("0.00", CultureInfo.InvariantCulture);
+        TxtDenoiseNoise.Text = SliderDenoiseNoise.Value.ToString("0.00", CultureInfo.InvariantCulture);
     }
 
     private void OnTogglePreviewMask(object sender, RoutedEventArgs e)
@@ -82,7 +158,7 @@ public sealed partial class MainWindow
         if (FocusManager.GetFocusedElement(this.Content.XamlRoot) is TextBox or PasswordBox)
             return;
 
-        if (_currentMode == AppMode.I2I)
+        if (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint)
         {
             var ctrlState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
                 Windows.System.VirtualKey.Control);

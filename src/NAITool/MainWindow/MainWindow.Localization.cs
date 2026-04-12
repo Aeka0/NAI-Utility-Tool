@@ -224,9 +224,15 @@ public sealed partial class MainWindow
 
         TxtI2IPreviewLabel.Text = L("inpaint.preview");
         TxtZoomInfo.Text = Lf("status.zoom", 100d);
+        TxtI2IModeLabel.Text = L("i2i.mode");
+        BtnI2IInpaintMode.Content = L("i2i.mode.inpaint");
+        BtnI2IDenoiseMode.Content = L("i2i.mode.denoise");
         ChkPreviewMask.Content = L("inpaint.preview_mask");
         TxtI2IToolsLabel.Text = L("inpaint.tools");
         TxtBrushSizeLabel.Text = L("inpaint.brush_size");
+        TxtDenoiseStrengthLabel.Text = L("i2i.denoise_strength");
+        TxtDenoiseNoiseLabel.Text = L("i2i.denoise_noise");
+        UpdateI2IEditModeUI();
 
         TxtStatus.Text = L("status.ready");
     }
