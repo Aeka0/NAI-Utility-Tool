@@ -70,7 +70,7 @@ public sealed partial class MainWindow
             .Replace("\r", " ")
             .Replace("\n", " ")
             .Trim()
-            .Trim('"', '\'', '*');
+            .Trim('"', '\'', '*', ',', ' ');
     }
 
     private static string BuildPromptGeneratorInstruction(string userInput, PromptGeneratorOutputMode outputMode)
@@ -78,11 +78,11 @@ public sealed partial class MainWindow
         string outputRule = outputMode switch
         {
             PromptGeneratorOutputMode.BooruTagsWithNaturalLanguage =>
-                "Output format: Booru-style tags first, followed by a short natural-language English image description at the end. Separate every tag and the final description with an English comma and one space. Use spaces instead of underscores inside tags.",
+                "Output format: Booru-style tags (short keywords/phrases like '1girl, solo, outdoors') first, followed by a short natural-language English image description at the end. Separate every tag and the final description with an English comma and one space. Use spaces instead of underscores inside tags.",
             PromptGeneratorOutputMode.NaturalLanguage =>
                 "Output format: natural-language English only. Write one concise image prompt sentence or phrase, and do not use Booru-style tag lists.",
             _ =>
-                "Output format: Booru-style tags only, separated by an English comma and one space. Use spaces instead of underscores inside tags.",
+                "Output format: Booru-style tags only (short keywords/phrases like '1girl, solo, outdoors', NOT natural language sentences), separated by an English comma and one space. Use spaces instead of underscores inside tags.",
         };
 
         return
@@ -91,7 +91,8 @@ public sealed partial class MainWindow
             "- Preserve the user's concrete subject, action, setting, mood, and composition.\n" +
             "- Add only helpful visual details when the user leaves gaps.\n" +
             "- Use English only in the final prompt.\n" +
-            "- Do not include quality tags, negative prompt text, ratings, artist names, model names, explanations, or markdown other than the required wrapper.\n" +
+            "- STRICTLY do not include quality tags (e.g., 'best quality', 'masterpiece', 'highres'), negative prompt text, ratings, artist names, model names, explanations, or markdown other than the required wrapper.\n" +
+            "- Do not add trailing commas or spaces at the end of the prompt.\n" +
             "- Output exactly one prompt wrapped with four asterisks on both sides.\n" +
             $"- {outputRule}\n" +
             "<idea>\n" +
