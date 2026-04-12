@@ -724,7 +724,8 @@ public sealed partial class MaskCanvasControl : UserControl
             var preview = _previewBitmap;
             if (preview != null && !_isComparing)
             {
-                ds.DrawImage(preview, 0, 0, preview.Bounds, 1f, interp);
+                var destRect = new Windows.Foundation.Rect(0, 0, _canvasWidth, _canvasHeight);
+                ds.DrawImage(preview, destRect, preview.Bounds, 1f, interp);
             }
             else
             {

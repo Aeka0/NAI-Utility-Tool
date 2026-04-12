@@ -42,6 +42,7 @@ public class NovelAiAccountInfo
 public class NovelAIService : IDisposable
 {
     private const string GenerateUrl = "https://image.novelai.net/ai/generate-image";
+    private const string GenerateStreamUrl = "https://image.novelai.net/ai/generate-image-stream";
     private const string EncodeVibeUrl = "https://image.novelai.net/ai/encode-vibe";
     private const string UserInfoUrl = "https://api.novelai.net/user/information";
     private const string UserDataUrl = "https://api.novelai.net/user/data";
@@ -510,6 +511,102 @@ public class NovelAIService : IDisposable
         }
     }
 
+    private static bool IsPngOrWebp(byte[] bytes)
+    {
+        bool isPng = bytes.Length > 4 &&
+            bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
+        bool isWebp = bytes.Length > 12 &&
+            bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
+            bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50;
+
+        return isPng || isWebp;
+    }
+
+    private static void TryWriteErrorBytes(byte[] bytes)
+    {
+        try
+        {
+            var logDir = Path.Combine(AppPathResolver.AppRootDir, "logs");
+            Directory.CreateDirectory(logDir);
+            File.WriteAllBytes(Path.Combine(logDir, "error_bytes.bin"), bytes);
+        }
+        catch
+        {
+        }
+    }
+
+    private static async Task<byte[]?> ReadGeneratedImageBytesAsync(HttpContent content, CancellationToken ct)
+    {
+        var responseBytes = await content.ReadAsByteArrayAsync(ct);
+        if (IsPngOrWebp(responseBytes))
+            return responseBytes;
+
+        try
+        {
+            using var zipStream = new MemoryStream(responseBytes);
+            using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+
+            if (archive.Entries.Count == 0)
+            {
+                TryWriteErrorBytes(responseBytes);
+                return null;
+            }
+
+            var entry = archive.Entries[0];
+            using var entryStream = entry.Open();
+            using var imageStream = new MemoryStream();
+            await entryStream.CopyToAsync(imageStream, ct);
+            return imageStream.ToArray();
+        }
+        catch
+        {
+            TryWriteErrorBytes(responseBytes);
+            throw;
+        }
+    }
+
+    private async Task<byte[]?> ReadGeneratedImageStreamAsync(
+        HttpContent content,
+        IProgress<byte[]>? progress,
+        CancellationToken ct)
+    {
+        byte[]? latestImageBytes = null;
+        using var stream = await content.ReadAsStreamAsync(ct);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+
+        string? line;
+        while ((line = await reader.ReadLineAsync(ct)) != null)
+        {
+            if (!line.StartsWith("data:", StringComparison.Ordinal))
+                continue;
+
+            var data = line.AsSpan(5).Trim().ToString();
+            if (data.Length == 0 || data == "[DONE]")
+                continue;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                var root = doc.RootElement;
+                if (!TryGetPropertyIgnoreCase(root, "image", out var imageEl) ||
+                    imageEl.ValueKind != JsonValueKind.String)
+                    continue;
+
+                var imageBase64 = imageEl.GetString();
+                if (string.IsNullOrWhiteSpace(imageBase64))
+                    continue;
+
+                latestImageBytes = Convert.FromBase64String(imageBase64);
+                progress?.Report(latestImageBytes);
+            }
+            catch
+            {
+            }
+        }
+
+        return latestImageBytes;
+    }
+
     public async Task<(byte[]? ImageBytes, string? Error)> InpaintAsync(
         string imageBase64, string maskBase64,
         int width, int height,
@@ -639,8 +736,6 @@ public class NovelAIService : IDisposable
         {
             var client = GetOrCreateClient();
             client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(
-                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/zip"));
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -654,18 +749,13 @@ public class NovelAIService : IDisposable
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
-            var zipBytes = await response.Content.ReadAsByteArrayAsync(ct);
-            using var zipStream = new MemoryStream(zipBytes);
-            using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
-
-            if (archive.Entries.Count == 0)
+            byte[]? imageBytes = await ReadGeneratedImageBytesAsync(response.Content, ct);
+            if (imageBytes == null)
+            {
+                stopwatch.Stop();
+                WriteRequestLog("Inpaint generation", payload, stopwatch.ElapsedMilliseconds, response);
                 return (null, L("api.error.empty_zip"));
-
-            var entry = archive.Entries[0];
-            using var entryStream = entry.Open();
-            using var imageStream = new MemoryStream();
-            await entryStream.CopyToAsync(imageStream, ct);
-            byte[] imageBytes = imageStream.ToArray();
+            }
             stopwatch.Stop();
             WriteRequestLog("Inpaint generation", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
             return (imageBytes, null);
@@ -820,8 +910,6 @@ public class NovelAIService : IDisposable
         {
             var client = GetOrCreateClient();
             client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(
-                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/zip"));
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -835,18 +923,13 @@ public class NovelAIService : IDisposable
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
-            var zipBytes = await response.Content.ReadAsByteArrayAsync(ct);
-            using var zipStream = new MemoryStream(zipBytes);
-            using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
-
-            if (archive.Entries.Count == 0)
+            byte[]? imageBytes = await ReadGeneratedImageBytesAsync(response.Content, ct);
+            if (imageBytes == null)
+            {
+                stopwatch.Stop();
+                WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, response);
                 return (null, L("api.error.empty_zip"));
-
-            var entry = archive.Entries[0];
-            using var entryStream = entry.Open();
-            using var imageStream = new MemoryStream();
-            await entryStream.CopyToAsync(imageStream, ct);
-            byte[] imageBytes = imageStream.ToArray();
+            }
             stopwatch.Stop();
             WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
             return (imageBytes, null);
@@ -879,6 +962,7 @@ public class NovelAIService : IDisposable
         List<CharacterPromptInfo>? characters = null,
         List<VibeTransferInfo>? vibeTransfers = null,
         List<PreciseReferenceInfo>? preciseReferences = null,
+        IProgress<byte[]>? progress = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
@@ -917,6 +1001,7 @@ public class NovelAIService : IDisposable
         };
 
         if (naiParams.Variety) parameters["variety"] = true;
+        if (_settings.Settings.StreamGeneration) parameters["stream"] = "sse";
 
         if (naiParams.Sampler == "k_euler_ancestral" && naiParams.Schedule != "native")
         {
@@ -997,12 +1082,19 @@ public class NovelAIService : IDisposable
         {
             var client = GetOrCreateClient();
             client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(
-                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/zip"));
+            if (_settings.Settings.StreamGeneration)
+                client.DefaultRequestHeaders.Accept.Add(
+                    new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync(GenerateUrl, content, ct);
+            var url = _settings.Settings.StreamGeneration ? GenerateStreamUrl : GenerateUrl;
+            var response = _settings.Settings.StreamGeneration
+                ? await client.SendAsync(
+                    new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
+                    HttpCompletionOption.ResponseHeadersRead,
+                    ct)
+                : await client.PostAsync(url, content, ct);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -1012,18 +1104,18 @@ public class NovelAIService : IDisposable
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
-            var zipBytes = await response.Content.ReadAsByteArrayAsync(ct);
-            using var zipStream = new MemoryStream(zipBytes);
-            using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+            byte[]? imageBytes = _settings.Settings.StreamGeneration
+                ? await ReadGeneratedImageStreamAsync(response.Content, progress, ct)
+                : await ReadGeneratedImageBytesAsync(response.Content, ct);
 
-            if (archive.Entries.Count == 0)
+            if (imageBytes == null)
+            {
+                stopwatch.Stop();
+                WriteRequestLog("Image generation", payload, stopwatch.ElapsedMilliseconds, response);
                 return (null, L("api.error.empty_zip"));
+            }
 
-            var entry = archive.Entries[0];
-            using var entryStream = entry.Open();
-            using var imageStream = new MemoryStream();
-            await entryStream.CopyToAsync(imageStream, ct);
-            byte[] imageBytes = imageStream.ToArray();
+            progress?.Report(imageBytes);
             stopwatch.Stop();
             WriteRequestLog("Image generation", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
             return (imageBytes, null);

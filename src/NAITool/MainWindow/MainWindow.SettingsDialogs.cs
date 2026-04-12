@@ -419,12 +419,27 @@ public sealed partial class MainWindow
             Margin = new Thickness(28, -8, 0, 0),
         };
         var proxyPortBox = new TextBox { PlaceholderText = L("settings.network.proxy_port_placeholder"), Text = _settings.Settings.ProxyPort, Width = 120 };
+        var streamGenerationCheck = new CheckBox
+        {
+            Content = L("settings.network.stream_generation"),
+            IsChecked = _settings.Settings.StreamGeneration,
+        };
+        var streamGenerationHint = new TextBlock
+        {
+            Text = L("settings.network.stream_generation_hint"),
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(28, -8, 0, 0),
+        };
 
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock { Text = L("settings.network.api_token") });
         panel.Children.Add(tokenBox);
         panel.Children.Add(assetProtectionCheck);
         panel.Children.Add(assetProtectionHint);
+        panel.Children.Add(streamGenerationCheck);
+        panel.Children.Add(streamGenerationHint);
         panel.Children.Add(proxyCheck);
         panel.Children.Add(proxyHint);
         var pp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -448,6 +463,7 @@ public sealed partial class MainWindow
             bool accountAssetProtectionModeChanged = _settings.Settings.AccountAssetProtectionMode != accountAssetProtectionMode;
             _settings.Settings.ApiToken = tokenBox.Password;
             _settings.Settings.AccountAssetProtectionMode = accountAssetProtectionMode;
+            _settings.Settings.StreamGeneration = streamGenerationCheck.IsChecked == true;
             _settings.Settings.UseProxy = proxyCheck.IsChecked == true;
             _settings.Settings.ProxyPort = proxyPortBox.Text;
             _settings.Save();

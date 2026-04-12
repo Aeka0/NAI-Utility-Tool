@@ -321,6 +321,8 @@
     "settings.network.proxy_hint":  "アプリは既定でシステムの HTTP プロキシに従います。通常は追加設定は不要です。",
     "settings.network.proxy_port_placeholder":  "プロキシ ポート",
     "settings.network.saved":  "ネットワーク/API 設定を保存しました",
+    "settings.network.stream_generation":  "ストリーミング生成プレビュー",
+    "settings.network.stream_generation_hint":  "SSE ストリーミングで画像を受信し、生成中の途中プレビューを表示します。ネットワークやプロキシでストリーミング応答に問題がある場合は無効にしてください。",
     "settings.network.test_connection":  "接続をテスト",
     "settings.network.testing":  "接続をテスト中...",
     "settings.network.title":  "ネットワーク/API 設定",

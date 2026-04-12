@@ -321,6 +321,8 @@
   "settings.network.proxy_hint": "The app follows the system HTTP proxy by default. In most cases no extra setup is needed.",
   "settings.network.proxy_port_placeholder": "Proxy Port",
   "settings.network.saved": "Network/API settings saved",
+  "settings.network.stream_generation": "Stream generation previews",
+  "settings.network.stream_generation_hint": "Receive images through SSE streaming and show intermediate previews while generating. Disable this if your network or proxy has trouble with streaming responses.",
   "settings.network.test_connection": "Test Connection",
   "settings.network.testing": "Testing connection...",
   "settings.network.title": "Network/API Settings",

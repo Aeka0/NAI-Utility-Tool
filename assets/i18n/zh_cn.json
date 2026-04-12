@@ -321,6 +321,8 @@
     "settings.network.proxy_hint":  "程序默认跟随系统 HTTP 代理，一般无需额外设置。",
     "settings.network.proxy_port_placeholder":  "代理端口",
     "settings.network.saved":  "网络/API 设置已保存",
+    "settings.network.stream_generation":  "流式生成预览",
+    "settings.network.stream_generation_hint":  "通过 SSE 流式接收图像，并在生成过程中显示中间预览。如果你的网络或代理处理流式响应不稳定，请关闭此项。",
     "settings.network.test_connection":  "测试连接",
     "settings.network.testing":  "正在测试连接...",
     "settings.network.title":  "网络/API 设置",

@@ -127,9 +127,19 @@ public sealed partial class MainWindow
             var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
             var vibes = autoContext?.CurrentVibeOverride ?? GetVibeTransferData();
             var preciseReferences = GetPreciseReferenceData();
+            IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
+                ? new Progress<byte[]>(bytes =>
+                {
+                    _ = DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        _currentGenImageBytes = bytes;
+                        await ShowGenPreviewAsync(bytes, w, h);
+                    });
+                })
+                : null;
             var (imageBytes, error) = await _naiService.GenerateAsync(
                 w, h, prompt, negPrompt,
-                chars, vibes, preciseReferences, ct);
+                chars, vibes, preciseReferences, progress, ct);
             _lastUsedSeed = actualSeed;
 
             if (error != null) { DebugLog($"[Generate] API error: {error}"); TxtStatus.Text = error; return false; }
@@ -151,7 +161,7 @@ public sealed partial class MainWindow
             _currentGenImageBytes = finalBytes;
             _currentGenImagePath = finalSavedPath;
 
-            await ShowGenPreviewAsync(finalBytes);
+            await ShowGenPreviewAsync(finalBytes, w, h);
 
             if (finalSavedPath != null)
                 AddHistoryItem(finalSavedPath);
@@ -180,7 +190,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private async Task ShowGenPreviewAsync(byte[] imageBytes)
+    private async Task ShowGenPreviewAsync(byte[] imageBytes, int targetW = 0, int targetH = 0)
     {
         var bitmapImage = new BitmapImage();
         using var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
@@ -191,6 +201,17 @@ public sealed partial class MainWindow
         ms.Seek(0);
         await bitmapImage.SetSourceAsync(ms);
         GenPreviewImage.Source = bitmapImage;
+        GenPreviewImage.Stretch = Microsoft.UI.Xaml.Media.Stretch.Uniform;
+        if (targetW > 0 && targetH > 0)
+        {
+            GenPreviewImage.Width = targetW;
+            GenPreviewImage.Height = targetH;
+        }
+        else if (bitmapImage.PixelWidth > 0 && bitmapImage.PixelHeight > 0)
+        {
+            GenPreviewImage.Width = bitmapImage.PixelWidth;
+            GenPreviewImage.Height = bitmapImage.PixelHeight;
+        }
         GenPlaceholder.Visibility = Visibility.Collapsed;
 
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
@@ -200,8 +221,8 @@ public sealed partial class MainWindow
     private void FitGenPreviewToScreen()
     {
         if (GenPreviewImage.Source is not BitmapImage bmp) return;
-        double imgW = bmp.PixelWidth;
-        double imgH = bmp.PixelHeight;
+        double imgW = GenPreviewImage.Width > 0 && !double.IsNaN(GenPreviewImage.Width) ? GenPreviewImage.Width : bmp.PixelWidth;
+        double imgH = GenPreviewImage.Height > 0 && !double.IsNaN(GenPreviewImage.Height) ? GenPreviewImage.Height : bmp.PixelHeight;
         if (imgW <= 0 || imgH <= 0) return;
 
         double viewW = GenImageScroller.ViewportWidth;

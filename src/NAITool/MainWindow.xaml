@@ -902,7 +902,7 @@
                                   VerticalScrollBarVisibility="Auto"
                                   ZoomMode="Enabled" MinZoomFactor="0.1" MaxZoomFactor="5"
                                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                        <Image x:Name="GenPreviewImage" Stretch="None"/>
+                        <Image x:Name="GenPreviewImage" Stretch="Uniform"/>
                     </ScrollViewer>
                 </Grid>
 

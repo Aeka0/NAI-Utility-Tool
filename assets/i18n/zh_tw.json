@@ -321,6 +321,8 @@
     "settings.network.proxy_hint":  "程式預設跟隨系統 HTTP 代理，一般不需要額外設定。",
     "settings.network.proxy_port_placeholder":  "代理埠",
     "settings.network.saved":  "網路/API 設定已儲存",
+    "settings.network.stream_generation":  "串流生成預覽",
+    "settings.network.stream_generation_hint":  "透過 SSE 串流接收圖像，並在生成過程中顯示中間預覽。如果你的網路或代理處理串流回應不穩定，請關閉此項。",
     "settings.network.test_connection":  "測試連線",
     "settings.network.testing":  "正在測試連線...",
     "settings.network.title":  "網路/API 設定",

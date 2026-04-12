@@ -136,6 +136,7 @@ public class AppSettings
     public string ThemeMode { get; set; } = "System";
     public string LanguageCode { get; set; } = "";
     public bool DevLogEnabled { get; set; }
+    public bool StreamGeneration { get; set; }
     public ReverseTaggerSettings ReverseTagger { get; set; } = new();
     public NAIParameters GenParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full" };
     public NAIParameters InpaintParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full-inpainting" };
