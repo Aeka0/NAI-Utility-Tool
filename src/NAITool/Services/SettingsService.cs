@@ -123,6 +123,7 @@ public class AppSettings
     public bool AutoComplete { get; set; } = true;
     public bool RememberPromptAndParameters { get; set; } = true;
     public bool SuperDropEnabled { get; set; } = true;
+    public bool ShowGenerationResultBar { get; set; } = true;
     public bool WildcardsEnabled { get; set; } = true;
     public bool WildcardsRequireExplicitSyntax { get; set; } = true;
     public int RandomStyleTagCount { get; set; } = 3;

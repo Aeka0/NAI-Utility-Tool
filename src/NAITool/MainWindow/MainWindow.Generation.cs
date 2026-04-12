@@ -166,7 +166,7 @@ public sealed partial class MainWindow
             if (finalSavedPath != null)
                 AddHistoryItem(finalSavedPath);
 
-            if (!_autoGenRunning)
+            if (!_autoGenRunning && _settings.Settings.ShowGenerationResultBar)
             {
                 GenResultBarTranslate.X = 0;
                 GenResultBarTranslate.Y = 0;

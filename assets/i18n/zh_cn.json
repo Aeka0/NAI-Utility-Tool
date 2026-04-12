@@ -344,6 +344,7 @@
     "settings.usage.superdrop":  "使用 SuperDrop 处理图片拖拽",
     "settings.usage.remember_prompt":  "记住上次的提示词和参数",
     "settings.usage.saved":  "使用设置已保存",
+    "settings.usage.show_generation_result_bar":  "生图完成后显示结果悬浮条",
     "settings.usage.title":  "使用设置",
     "settings.usage.weight_highlight":  "权重高亮",
     "settings.usage.wildcards_enabled":  "启用抽卡器（正向 / 负向 / 角色提示词统一生效）",

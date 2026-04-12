@@ -344,6 +344,7 @@
   "settings.usage.superdrop": "Use SuperDrop for image file dragging",
   "settings.usage.remember_prompt": "Remember the last prompt and parameters",
   "settings.usage.saved": "Usage settings saved",
+  "settings.usage.show_generation_result_bar": "Show the result action bar after image generation",
   "settings.usage.title": "Usage Settings",
   "settings.usage.weight_highlight": "Highlight weights",
   "settings.usage.wildcards_enabled": "Enable wildcards for positive, negative, and character prompts",

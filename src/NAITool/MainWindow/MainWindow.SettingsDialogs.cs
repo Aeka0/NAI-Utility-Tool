@@ -58,6 +58,11 @@ public sealed partial class MainWindow
             Content = L("settings.usage.superdrop"),
             IsChecked = _settings.Settings.SuperDropEnabled,
         };
+        var chkShowGenerationResultBar = new CheckBox
+        {
+            Content = L("settings.usage.show_generation_result_bar"),
+            IsChecked = _settings.Settings.ShowGenerationResultBar,
+        };
         var chkWildcardsEnabled = new CheckBox
         {
             Content = L("settings.usage.wildcards_enabled"),
@@ -74,6 +79,7 @@ public sealed partial class MainWindow
         panel.Children.Add(chkAutoComplete);
         panel.Children.Add(chkRememberPromptAndParameters);
         panel.Children.Add(chkSuperDrop);
+        panel.Children.Add(chkShowGenerationResultBar);
         panel.Children.Add(chkWildcardsEnabled);
         panel.Children.Add(chkWildcardExplicitSyntax);
 
@@ -94,8 +100,11 @@ public sealed partial class MainWindow
             _settings.Settings.AutoComplete = chkAutoComplete.IsChecked == true;
             _settings.Settings.RememberPromptAndParameters = chkRememberPromptAndParameters.IsChecked == true;
             _settings.Settings.SuperDropEnabled = chkSuperDrop.IsChecked == true;
+            _settings.Settings.ShowGenerationResultBar = chkShowGenerationResultBar.IsChecked == true;
             _settings.Settings.WildcardsEnabled = chkWildcardsEnabled.IsChecked == true;
             _settings.Settings.WildcardsRequireExplicitSyntax = chkWildcardExplicitSyntax.IsChecked == true;
+            if (!_settings.Settings.ShowGenerationResultBar)
+                GenResultBar.Visibility = Visibility.Collapsed;
             if (!_settings.Settings.AutoComplete) CloseAutoComplete();
             if (_settings.Settings.RememberPromptAndParameters)
             {
