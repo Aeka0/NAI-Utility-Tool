@@ -376,7 +376,7 @@
     "about.thanks.qinglong":  "Wildcards の保守者および貢献者",
     "about.thanks.smilingwolf":  "WD14 tagger モデルと手法の作者",
     "about.thanks.xinntao":  "アップスケールモデルの作者",
-    "about.version":  "バージョン Pre-Release 13",
+    "about.version":  "バージョン Pre-Release 14",
     "help.highlights.actions.body":  "ユーザーはメイン Prompt とキャラクター Prompt の両方で、右クリックメニューの「アクション相互作用」から相互作用プレフィックスをすばやく挿入できます。\n\n発信側には source#、受け手側には target#、相互関係には mutual# が付きます。選択範囲がない場合は現在のカーソル位置に直接挿入されます。これは NAI4 以降の標準形式で、キャラクター同士のやり取り、視線関係、動作の向きなどの場面で便利です。",
     "help.highlights.actions.title":  "アクション相互作用",
     "help.highlights.automation.body":  "通常の単発生成に加えて、自動化による連続生成にも対応しています。\n\n基本プロンプトとパラメータを固定した上で、ツールにループ送信させ、既存のランダムスタイルプロンプト機能と組み合わせることで、多数のバリエーションを効率よく試せます。",
