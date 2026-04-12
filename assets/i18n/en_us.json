@@ -382,6 +382,8 @@
   "help.highlights.large_inpaint.title": "Large Image Inpaint",
   "help.highlights.post.body": "Includes a post-processing workspace for light touch-up after generation.\n\nIt is useful for style unification, quick visual enhancement, and rapid effect testing without constantly switching to external software.",
   "help.highlights.post.title": "Post Filters",
+  "help.highlights.prompt_generator.body": "The tools menu includes a prompt generator that turns image descriptions, characters, scenes, or loose ideas into English prompts suitable for NovelAI image generation.\n\nIt supports Booru tags, Booru tags with natural language, and natural-language output. Results can be sent straight to the current prompt box or copied for further editing.",
+  "help.highlights.prompt_generator.title": "Prompt Generation",
   "help.highlights.prompt_normalization.body": "Built-in prompt normalization helps unify tag style, clean up formatting, and prevent prompts from getting messier over time.\n\nOver long-term use, this reduces repetitive editing and makes it easier to turn prompts from different sources into stable reusable formats.",
   "help.highlights.prompt_normalization.title": "Prompt Normalization",
   "help.highlights.quick_prompts.body": "You can maintain your own quick-prompt library and insert saved fragments whenever needed.\n\nCharacter templates, quality tags, camera language, and common negative tags can all become part of your personal workflow.",

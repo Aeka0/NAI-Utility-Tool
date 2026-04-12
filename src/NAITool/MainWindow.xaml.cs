@@ -9427,6 +9427,10 @@ public sealed partial class MainWindow : Window
                 L("help.highlights.automation.body")
             ),
             (
+                L("help.highlights.prompt_generator.title"),
+                L("help.highlights.prompt_generator.body")
+            ),
+            (
                 L("help.highlights.prompt_normalization.title"),
                 L("help.highlights.prompt_normalization.body")
             ),

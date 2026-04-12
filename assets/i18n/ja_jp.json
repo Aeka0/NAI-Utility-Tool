@@ -382,6 +382,8 @@
     "help.highlights.large_inpaint.title":  "大画像の低コスト重描画",
     "help.highlights.post.body":  "生成後に軽い調整を続けられる後処理ワークスペースを内蔵しています。\n\nスタイルの統一、見た目の強化、効果の素早い確認に向いており、外部ソフトへ頻繁に切り替えずに済みます。",
     "help.highlights.post.title":  "後処理フィルター",
+    "help.highlights.prompt_generator.body":  "ツールメニューにはプロンプト生成ウィンドウがあり、画面説明、キャラクター、シーン、アイデアを NovelAI 画像生成向けの英語プロンプトに整理できます。\n\nBooru Tag、Booru Tag + 自然言語、自然言語の 3 種類の出力形式に対応し、生成後は現在のプロンプト欄へ直接送るか、結果をコピーして編集を続けられます。",
+    "help.highlights.prompt_generator.title":  "プロンプト生成",
     "help.highlights.prompt_normalization.body":  "組み込みのプロンプト正規化機能により、タグ表記を統一し、書式の細部を整え、プロンプトが散らかっていくのを防げます。\n\n長期的には編集の重複コストを下げ、異なる出典のプロンプトを安定して再利用できる形式に整理しやすくなります。",
     "help.highlights.prompt_normalization.title":  "プロンプト正規化",
     "help.highlights.quick_prompts.body":  "自分専用のクイックプロンプト集を管理し、よく使う断片を保存していつでも挿入できます。\n\n人物テンプレート、品質タグ、カメラ表現、定番のネガティブタグなどを個人ワークフローの一部として蓄積できます。",

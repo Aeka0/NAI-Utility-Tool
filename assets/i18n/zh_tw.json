@@ -382,6 +382,8 @@
     "help.highlights.large_inpaint.title":  "大圖免費重繪",
     "help.highlights.post.body":  "內建後期處理工作區，可在生成完成後繼續做輕量修整。\n\n適合拿來做風格統一、觀感增強或快速試效果，讓整個流程不必頻繁切換到外部軟體。",
     "help.highlights.post.title":  "後期濾鏡",
+    "help.highlights.prompt_generator.body":  "工具選單中內建提示詞生成視窗，可將畫面描述、角色、場景或靈感整理成更適合 NovelAI 生圖的英文提示詞。\n\n支援 Booru Tag、Booru Tag + 自然語言、自然語言三種輸出形式，生成後可直接送到目前提示詞欄，或複製結果繼續編輯。",
+    "help.highlights.prompt_generator.title":  "提示詞生成",
     "help.highlights.prompt_normalization.body":  "內建提示詞標準化與整理能力，可統一標籤寫法、清理格式細節，減少提示詞越寫越亂的問題。\n\n長期使用下，這能明顯降低重複編輯成本，也更方便把不同來源的提示詞整理成穩定可重用的格式。",
     "help.highlights.prompt_normalization.title":  "提示詞標準化",
     "help.highlights.quick_prompts.body":  "支援維護自己的快捷提示詞庫，把常用片段保存下來，隨時插入。\n\n無論是人物模板、品質詞、鏡頭語言還是常用負面詞，都能沉澱成個人工作流的一部分。",
