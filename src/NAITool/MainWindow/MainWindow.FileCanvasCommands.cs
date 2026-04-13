@@ -499,11 +499,21 @@ public sealed partial class MainWindow
     {
         GenImageScroller.AddHandler(UIElement.PointerWheelChangedEvent,
             new PointerEventHandler(OnPreviewWheelZoom), true);
+        GenPreviewImage.AddHandler(UIElement.PointerWheelChangedEvent,
+            new PointerEventHandler(OnPreviewWheelZoom), true);
         InspectImageScroller.AddHandler(UIElement.PointerWheelChangedEvent,
+            new PointerEventHandler(OnPreviewWheelZoom), true);
+        InspectPreviewImage.AddHandler(UIElement.PointerWheelChangedEvent,
             new PointerEventHandler(OnPreviewWheelZoom), true);
         EffectsImageScroller.AddHandler(UIElement.PointerWheelChangedEvent,
             new PointerEventHandler(OnPreviewWheelZoom), true);
+        EffectsPreviewContent.AddHandler(UIElement.PointerWheelChangedEvent,
+            new PointerEventHandler(OnPreviewWheelZoom), true);
+        EffectsOverlayCanvas.AddHandler(UIElement.PointerWheelChangedEvent,
+            new PointerEventHandler(OnPreviewWheelZoom), true);
         UpscaleImageScroller.AddHandler(UIElement.PointerWheelChangedEvent,
+            new PointerEventHandler(OnPreviewWheelZoom), true);
+        UpscalePreviewImage.AddHandler(UIElement.PointerWheelChangedEvent,
             new PointerEventHandler(OnPreviewWheelZoom), true);
 
         GenPreviewImage.PointerPressed += OnPreviewDragStart;
@@ -531,7 +541,9 @@ public sealed partial class MainWindow
 
     private void OnPreviewWheelZoom(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is not ScrollViewer sv) return;
+        if (e.Handled) return;
+        var sv = GetPreviewScroller(sender);
+        if (sv == null) return;
         var point = e.GetCurrentPoint(sv);
         int delta = point.Properties.MouseWheelDelta;
         if (delta == 0) return;
@@ -548,6 +560,17 @@ public sealed partial class MainWindow
 
         sv.ChangeView(Math.Max(0, newOffsetX), Math.Max(0, newOffsetY), newZoom, false);
         e.Handled = true;
+    }
+
+    private ScrollViewer? GetPreviewScroller(object? sender)
+    {
+        if (sender is ScrollViewer sv) return sv;
+        if (ReferenceEquals(sender, GenPreviewImage)) return GenImageScroller;
+        if (ReferenceEquals(sender, InspectPreviewImage)) return InspectImageScroller;
+        if (ReferenceEquals(sender, EffectsPreviewContent) || ReferenceEquals(sender, EffectsOverlayCanvas))
+            return EffectsImageScroller;
+        if (ReferenceEquals(sender, UpscalePreviewImage)) return UpscaleImageScroller;
+        return null;
     }
 
     private void OnPreviewDragStart(object sender, PointerRoutedEventArgs e)
