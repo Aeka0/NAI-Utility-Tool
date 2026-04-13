@@ -379,7 +379,7 @@
     "about.thanks.qinglong":  "Wildcards 維護與貢獻者",
     "about.thanks.smilingwolf":  "WD14 tagger 反推模型與方法作者",
     "about.thanks.xinntao":  "超分模型作者",
-    "about.version":  "版本 Pre-Release 14",
+    "about.version":  "版本 Pre-Release 15",
     "help.highlights.actions.body":  "使用者可以在主 Prompt 與角色 Prompt 中，透過右鍵選單的「動作互動」快速插入互動前綴。\n\n發起方會在目前選取內容前加入 source#，被動方加入 target#，對等互動加入 mutual#；如果沒有選取內容，則會直接插入到目前游標位置。這是 NAI4 之後版本的標準格式，適合在角色互動、視線關係、動作指向等場景中快速標記不同角色的互動方式。",
     "help.highlights.actions.title":  "動作互動",
     "help.highlights.automation.body":  "支援一般單次生成，也支援自動化連續出圖。\n\n你可以先固定基礎提示詞與參數，再讓工具自動循環送出請求，並搭配既有的隨機風格提示詞功能持續產出變體，適合大量測試風格、構圖與靈感。",
