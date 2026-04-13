@@ -65,7 +65,7 @@ public sealed partial class MainWindow
         if (_autoGenRunning) StopAutoGeneration();
         if (_continuousGenRunning) StopContinuousGeneration();
 
-        if (IsPromptMode(_currentMode))
+        if (IsPromptMode(_currentMode) && _promptBufferLoaded)
         {
         SaveCurrentPromptToBuffer();
         SyncUIToParams();

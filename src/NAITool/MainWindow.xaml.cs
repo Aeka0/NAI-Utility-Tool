@@ -106,6 +106,7 @@ public sealed partial class MainWindow : Window
     private string _i2iStylePrompt = "";
     private bool _isPositiveTab = true;
     private bool _isSplitPrompt;
+    private bool _promptBufferLoaded;
     private bool? _promptTabsUsingCompact;
     private string _promptTabLanguageCode = "";
 

@@ -188,6 +188,7 @@ public sealed partial class MainWindow
         }
         BtnSplitPrompt.IsChecked = _isSplitPrompt;
         TxtPrompt.PlaceholderText = _isPositiveTab ? L("prompt.enter_positive") : L("prompt.enter_negative");
+        _promptBufferLoaded = true;
     }
 
     private void SaveCurrentPromptToBuffer()
