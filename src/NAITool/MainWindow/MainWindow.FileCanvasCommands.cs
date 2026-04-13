@@ -168,6 +168,7 @@ public sealed partial class MainWindow
         try
         {
             await File.WriteAllBytesAsync(filePath, bytesToSave);
+            MarkI2IWorkspaceClean();
             TxtStatus.Text = Lf("file.saved_path", filePath);
         }
         catch (Exception ex) { TxtStatus.Text = Lf("common.save_failed", ex.Message); }
@@ -244,6 +245,10 @@ public sealed partial class MainWindow
                 bytesToSave = _lastGeneratedImageBytes;
             }
         }
+        else if (_currentMode == AppMode.Upscale)
+        {
+            bytesToSave = _upscaleInputImageBytes;
+        }
         else
         {
             bytesToSave = stripMetadata && _currentGenImageBytes != null
@@ -264,6 +269,12 @@ public sealed partial class MainWindow
             try
             {
                 await Windows.Storage.FileIO.WriteBytesAsync(file, bytesToSave);
+                if (_currentMode == AppMode.I2I)
+                    MarkI2IWorkspaceClean();
+                else if (_currentMode == AppMode.Upscale)
+                    MarkUpscaleWorkspaceClean();
+                else if (_currentMode == AppMode.Effects)
+                    MarkEffectsWorkspaceClean();
                 TxtStatus.Text = stripMetadata
                     ? Lf("file.saved_path_stripped", file.Path)
                     : Lf("file.saved_path", file.Path);
@@ -350,7 +361,6 @@ public sealed partial class MainWindow
 
     private void OnExit(object sender, RoutedEventArgs e)
     {
-        CloseAdvancedParamsWindow();
         Close();
     }
 

@@ -145,6 +145,7 @@ public sealed partial class MainWindow
     private void PushEffectsUndoState()
     {
         if (_effectsApplyingHistory || !HasEffectsWorkspaceState()) return;
+        MarkEffectsWorkspaceDirty();
         _effectsUndoStack.Push(CaptureEffectsWorkspaceState());
         while (_effectsUndoStack.Count > 60)
         {

@@ -314,6 +314,7 @@ public sealed partial class MainWindow
         _effectsPreviewImageBytes = bytes;
         ReplaceEffectsSourceBitmap(bytes);
         _effectsImagePath = filePath;
+        MarkEffectsWorkspaceClean();
         if (_currentMode == AppMode.Effects)
             ReplaceEditMenu();
         UpdateFileMenuState();

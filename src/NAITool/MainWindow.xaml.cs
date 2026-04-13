@@ -299,9 +299,11 @@ public sealed partial class MainWindow : Window
             AppWindow.Resize(new SizeInt32(1400, 900));
             AppWindow.SetIcon("NAIT.ico");
         }
+        SetupCloseConfirmation();
         this.Activated += (_, _) => ApplyWindowChrome(this, IsDarkTheme(), null, null);
         Closed += (_, _) =>
         {
+            CloseAdvancedParamsWindow();
             if (IsPromptMode(_currentMode))
             {
                 SaveCurrentPromptToBuffer();

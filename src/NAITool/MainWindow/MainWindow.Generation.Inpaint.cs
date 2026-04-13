@@ -205,6 +205,7 @@ public sealed partial class MainWindow
             if (resultBitmap == null) return false;
 
             MaskCanvas.SetPreview(resultBitmap);
+            _i2iPreviewDirty = true;
             ShowResultBar();
             if (!keepGenerateButtonInteractive)
                 BtnGenerate.IsEnabled = true;
@@ -357,6 +358,7 @@ public sealed partial class MainWindow
             if (resultBitmap == null) return false;
 
             MaskCanvas.SetPreview(resultBitmap);
+            _i2iPreviewDirty = true;
             ShowResultBar();
             if (!keepGenerateButtonInteractive)
                 BtnGenerate.IsEnabled = true;
@@ -510,6 +512,7 @@ public sealed partial class MainWindow
             if (resultBitmap != null)
             {
                 MaskCanvas.SetPreview(resultBitmap);
+                _i2iPreviewDirty = true;
                 _ = RefreshAnlasInfoAsync(forceRefresh: true);
                 TxtStatus.Text = L("generate.status.regenerated");
                 return true;
@@ -543,6 +546,7 @@ public sealed partial class MainWindow
     private void ExitPreviewMode()
     {
         MaskCanvas.ClearPreview();
+        _i2iPreviewDirty = false;
         _pendingResultBitmap?.Dispose();
         _pendingResultBitmap = null;
         _pendingResultBytes = null;

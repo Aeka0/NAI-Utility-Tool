@@ -65,6 +65,11 @@ public sealed partial class MaskCanvasControl : UserControl
     private CanvasBitmap? _previewBitmap;
     private bool _isComparing;
     private string? _loadedFilePath;
+    private CanvasBitmap? _cleanOriginalImage;
+    private Vector2 _cleanImageOffset;
+    private int _cleanCanvasWidth;
+    private int _cleanCanvasHeight;
+    private byte[]? _cleanMaskPixels;
 
     private bool _previewMaskOnly;
     private int _canvasWidth = 832;
@@ -222,6 +227,7 @@ public sealed partial class MaskCanvasControl : UserControl
             _resourcesReady = true;
             _undoManager.Clear();
             FitToScreen();
+            MarkWorkspaceClean();
             ContentChanged?.Invoke();
         }
     }
@@ -261,6 +267,7 @@ public sealed partial class MaskCanvasControl : UserControl
             _undoManager.Clear();
             _loadedFilePath = file.Path;
             FitToScreen();
+            MarkWorkspaceClean();
             ContentChanged?.Invoke();
 
             string msg = LocalizationService.Instance.Format("mask_canvas.image_loaded", file.Name, imgW, imgH);
@@ -286,6 +293,7 @@ public sealed partial class MaskCanvasControl : UserControl
         _undoManager.Clear();
         _loadedFilePath = null;
         FitToScreen();
+        MarkWorkspaceClean();
         ContentChanged?.Invoke();
 
         uint imgW = bitmap.SizeInPixels.Width;
@@ -454,6 +462,61 @@ public sealed partial class MaskCanvasControl : UserControl
     public void RefreshCanvas()
     {
         ContentChanged?.Invoke();
+    }
+
+    public void MarkWorkspaceClean()
+    {
+        lock (_stateLock)
+        {
+            _cleanOriginalImage = _document.OriginalImage;
+            _cleanImageOffset = _document.ImageOffset;
+            _cleanCanvasWidth = _canvasWidth;
+            _cleanCanvasHeight = _canvasHeight;
+        }
+
+        var maskPixels = _document.GetMaskSnapshot();
+        _cleanMaskPixels = maskPixels == null ? null : (byte[])maskPixels.Clone();
+    }
+
+    public bool HasWorkspaceChangesSinceClean()
+    {
+        CanvasBitmap? originalImage;
+        Vector2 imageOffset;
+        int canvasWidth;
+        int canvasHeight;
+
+        lock (_stateLock)
+        {
+            originalImage = _document.OriginalImage;
+            imageOffset = _document.ImageOffset;
+            canvasWidth = _canvasWidth;
+            canvasHeight = _canvasHeight;
+        }
+
+        bool imageChanged = !ReferenceEquals(originalImage, _cleanOriginalImage)
+            || canvasWidth != _cleanCanvasWidth
+            || canvasHeight != _cleanCanvasHeight
+            || Vector2.DistanceSquared(imageOffset, _cleanImageOffset) > 0.01f;
+
+        return imageChanged || HasMaskChangedSinceClean();
+    }
+
+    private bool HasMaskChangedSinceClean()
+    {
+        var current = _document.GetMaskSnapshot();
+        if (current == null || current.Length == 0)
+            return _cleanMaskPixels is { Length: > 0 };
+
+        if (_cleanMaskPixels == null || current.Length != _cleanMaskPixels.Length)
+            return true;
+
+        for (int i = 0; i < current.Length; i++)
+        {
+            if (current[i] != _cleanMaskPixels[i])
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

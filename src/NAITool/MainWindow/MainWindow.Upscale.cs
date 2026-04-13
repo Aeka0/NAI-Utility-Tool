@@ -143,6 +143,7 @@ public sealed partial class MainWindow
             await ShowUpscalePreviewAsync(bytes);
             UpdateUpscaleResolutionDisplay();
             BtnStartUpscale.IsEnabled = _upscaleModelInfos.Count > 0;
+            MarkUpscaleWorkspaceClean();
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
                 () => FitUpscalePreviewToScreen());
             TxtStatus.Text = Lf("upscale.loaded", Path.GetFileName(filePath), _upscaleSourceWidth, _upscaleSourceHeight);
@@ -236,6 +237,7 @@ public sealed partial class MainWindow
 
             await ShowUpscalePreviewAsync(resultBytes);
             UpdateUpscaleResolutionDisplay();
+            _upscaleWorkspaceDirty = true;
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
                 () => FitUpscalePreviewToScreen());
             DebugLog($"[Upscale] Completed | Output={_upscaleSourceWidth}x{_upscaleSourceHeight} | Provider={_upscaleService.ExecutionProvider}");
@@ -287,6 +289,7 @@ public sealed partial class MainWindow
         if (file != null)
         {
             await File.WriteAllBytesAsync(file.Path, resultBytes);
+            MarkUpscaleWorkspaceClean();
             TxtStatus.Text = Lf("file.saved_path", file.Path);
         }
     }
@@ -306,6 +309,7 @@ public sealed partial class MainWindow
         await ShowUpscalePreviewAsync(bytes);
         UpdateUpscaleResolutionDisplay();
         BtnStartUpscale.IsEnabled = _upscaleModelInfos.Count > 0;
+        MarkUpscaleWorkspaceClean();
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
             () => FitUpscalePreviewToScreen());
         TxtStatus.Text = sourcePath != null

@@ -356,6 +356,7 @@ public sealed partial class MainWindow
                 _effectsImageBytes = bytesToSave;
                 _effectsPreviewImageBytes = bytesToSave;
                 ReplaceEffectsSourceBitmap(bytesToSave);
+                MarkEffectsWorkspaceClean();
                 UpdateFileMenuState();
                 TxtStatus.Text = Lf("file.saved_path", _effectsImagePath);
             }
