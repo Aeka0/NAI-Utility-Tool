@@ -125,6 +125,11 @@ public sealed partial class MainWindow
 
             if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
             var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+            if (autoContext?.CurrentVibeOverride == null && _genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+            {
+                string? encodeError = await EnsureVibesEncodedAsync(p.Model, ct);
+                if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
+            }
             var vibes = autoContext?.CurrentVibeOverride ?? GetVibeTransferData();
             var preciseReferences = GetPreciseReferenceData();
             IProgress<byte[]>? progress = _settings.Settings.StreamGeneration

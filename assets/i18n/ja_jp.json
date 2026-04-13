@@ -258,6 +258,7 @@
     "references.error.cannot_read_encoded_vibe":  "エンコード済み Vibe ファイルを読み取れません: {0}",
     "references.error.cannot_read_reference_image":  "参照画像を読み取れません: {0}",
     "references.error.asset_protection_requires_encoded_vibe":  "アカウント資産保護モードがオンです。V4 以降のモデルはエンコード済み .naiv4vibe ファイルのみ使用できます。",
+    "references.error.vibe_encode_failed": "バイブ '{0}' の自動エンコードに失敗しました：{1}",
     "references.hint.asset_protection_vibe":  "アカウント資産保護モードがオンです。V4 以降のモデルで新しい Vibe 参照を追加する際は、エンコード済み .naiv4vibe ファイルのみ使用できます。",
     "references.imported.precise_label":  "インポート済み精密参照",
     "references.imported.precise_numbered":  "インポート済み精密参照 {0}",

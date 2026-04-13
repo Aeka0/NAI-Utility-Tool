@@ -216,6 +216,7 @@
   "references.error.cannot_read_encoded_vibe": "Unable to read encoded vibe file: {0}",
   "references.error.cannot_read_reference_image": "Unable to read reference image: {0}",
   "references.error.asset_protection_requires_encoded_vibe": "Account Asset Protection Mode is on. V4 and later models only allow encoded .naiv4vibe files.",
+  "references.error.vibe_encode_failed": "Auto-encoding vibe '{0}' failed: {1}",
   "references.hint.asset_protection_vibe": "Account Asset Protection Mode is on. V4 and later models only allow encoded .naiv4vibe files for new vibe references.",
   "references.imported.precise_label": "Imported precise reference",
   "references.imported.precise_numbered": "Imported precise reference {0}",

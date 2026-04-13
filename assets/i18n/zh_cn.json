@@ -258,6 +258,7 @@
     "references.error.cannot_read_encoded_vibe":  "无法读取已编码氛围文件：{0}",
     "references.error.cannot_read_reference_image":  "无法读取参考图像：{0}",
     "references.error.asset_protection_requires_encoded_vibe":  "账号资产保护模式已开启，V4 及以上模型仅允许导入已编码的 .naiv4vibe 文件。",
+    "references.error.vibe_encode_failed": "自动编码氛围参考 '{0}' 失败：{1}",
     "references.hint.asset_protection_vibe":  "账号资产保护模式已开启，V4 及以上模型新增氛围参考时仅允许导入已编码的 .naiv4vibe 文件。",
     "references.imported.precise_label":  "已导入的精确参考",
     "references.imported.precise_numbered":  "已导入的精确参考 {0}",

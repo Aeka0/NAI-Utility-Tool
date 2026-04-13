@@ -284,7 +284,7 @@ public class NovelAIService : IDisposable
         }
     }
 
-    private static bool IsV4PlusModel(string model) =>
+    internal static bool IsV4PlusModel(string model) =>
         model.Contains("-4", StringComparison.Ordinal);
 
     private static bool IsV45Model(string model) =>
@@ -362,20 +362,80 @@ public class NovelAIService : IDisposable
         _ => "character&style",
     };
 
+    private static string PrepareDirectorReferenceImage(string base64Image)
+    {
+        const int TargetW = 1024;
+        const int TargetH = 1536;
+
+        byte[] bytes = Convert.FromBase64String(base64Image);
+        using var bitmap = SKBitmap.Decode(bytes);
+        if (bitmap == null)
+            return base64Image;
+
+        if (bitmap.Width == TargetW && bitmap.Height == TargetH
+            && bitmap.ColorType == SKColorType.Rgb888x)
+            return base64Image;
+
+        float srcRatio = (float)bitmap.Width / bitmap.Height;
+        float tgtRatio = (float)TargetW / TargetH;
+
+        int newW, newH;
+        if (srcRatio > tgtRatio)
+        {
+            newW = TargetW;
+            newH = (int)(TargetW / srcRatio);
+        }
+        else
+        {
+            newH = TargetH;
+            newW = (int)(TargetH * srcRatio);
+        }
+
+        using var resized = bitmap.Resize(new SKImageInfo(newW, newH, SKColorType.Rgb888x, SKAlphaType.Opaque), SKSamplingOptions.Default);
+        if (resized == null)
+            return base64Image;
+
+        using var canvas = new SKBitmap(TargetW, TargetH, SKColorType.Rgb888x, SKAlphaType.Opaque);
+        canvas.Erase(SKColors.Black);
+        using var c = new SKCanvas(canvas);
+        int offsetX = (TargetW - newW) / 2;
+        int offsetY = (TargetH - newH) / 2;
+        c.DrawBitmap(resized, offsetX, offsetY);
+
+        using var image = SKImage.FromBitmap(canvas);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        return Convert.ToBase64String(data.ToArray());
+    }
+
+    private async Task EncodeUnencodedVibesAsync(
+        List<VibeTransferInfo> vibeTransfers, string model, CancellationToken ct)
+    {
+        for (int i = 0; i < vibeTransfers.Count; i++)
+        {
+            var v = vibeTransfers[i];
+            if (v.IsEncoded)
+                continue;
+
+            var (vibeData, error) = await EncodeVibeAsync(v.ImageBase64, model, v.InformationExtracted, ct);
+            if (vibeData != null)
+            {
+                v.ImageBase64 = Convert.ToBase64String(vibeData);
+                v.IsEncoded = true;
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"Vibe encoding failed for '{v.FileName}': {error}");
+            }
+        }
+    }
+
     private static void ApplyVibeTransferParameters(
         Dictionary<string, object?> parameters,
         List<VibeTransferInfo> vibeTransfers)
     {
         if (vibeTransfers.Count == 0)
             return;
-
-        if (vibeTransfers.Count == 1)
-        {
-            parameters["reference_image"] = vibeTransfers[0].ImageBase64;
-            parameters["reference_strength"] = vibeTransfers[0].Strength;
-            parameters["reference_information_extracted"] = vibeTransfers[0].InformationExtracted;
-            return;
-        }
 
         parameters["reference_image_multiple"] = vibeTransfers.Select(x => x.ImageBase64).ToList();
         parameters["reference_strength_multiple"] = vibeTransfers.Select(x => x.Strength).ToList();
@@ -389,29 +449,24 @@ public class NovelAIService : IDisposable
         if (preciseReferences.Count == 0)
             return;
 
-        if (preciseReferences.Count == 1)
-        {
-            parameters["reference_image"] = preciseReferences[0].ImageBase64;
-            parameters["reference_strength"] = preciseReferences[0].Strength;
-            parameters["reference_fidelity"] = preciseReferences[0].Fidelity;
-            parameters["reference_type"] = ToApiPreciseReferenceType(preciseReferences[0].ReferenceType);
-            return;
-        }
-
-        parameters["reference_image_multiple"] = preciseReferences.Select(x => x.ImageBase64).ToList();
-        parameters["reference_strength_multiple"] = preciseReferences.Select(x => x.Strength).ToList();
-        parameters["reference_fidelity_multiple"] = preciseReferences.Select(x => x.Fidelity).ToList();
-        parameters["reference_type_multiple"] = preciseReferences
-            .Select(x => ToApiPreciseReferenceType(x.ReferenceType))
-            .ToList();
-        parameters["precise_references"] = preciseReferences.Select(x => new Dictionary<string, object?>
-        {
-            ["imageBase64"] = x.ImageBase64,
-            ["reference_type"] = ToApiPreciseReferenceType(x.ReferenceType),
-            ["reference_strength"] = x.Strength,
-            ["reference_fidelity"] = x.Fidelity,
-            ["fileName"] = x.FileName,
-        }).ToList();
+        parameters["director_reference_images"] = preciseReferences
+            .Select(x => PrepareDirectorReferenceImage(x.ImageBase64)).ToList();
+        parameters["director_reference_strength_values"] = preciseReferences
+            .Select(x => x.Strength).ToList();
+        parameters["director_reference_secondary_strength_values"] = preciseReferences
+            .Select(x => Math.Round(1.0 - x.Fidelity, 2)).ToList();
+        parameters["director_reference_information_extracted"] = preciseReferences
+            .Select(_ => 1.0).ToList();
+        parameters["director_reference_descriptions"] = preciseReferences
+            .Select(x => new Dictionary<string, object?>
+            {
+                ["caption"] = new Dictionary<string, object?>
+                {
+                    ["base_caption"] = ToApiPreciseReferenceType(x.ReferenceType),
+                    ["char_captions"] = new List<object>(),
+                },
+                ["legacy_uc"] = false,
+            }).ToList();
     }
 
     private static object? SanitizeLogValue(object? value)
@@ -726,7 +781,11 @@ public class NovelAIService : IDisposable
         if (preciseReferences is { Count: > 0 })
             ApplyPreciseReferenceParameters(parameters, preciseReferences);
         else if (vibeTransfers is { Count: > 0 })
+        {
+            if (IsV4PlusModel(naiParams.Model))
+                await EncodeUnencodedVibesAsync(vibeTransfers, naiParams.Model, ct);
             ApplyVibeTransferParameters(parameters, vibeTransfers);
+        }
 
         var payload = new Dictionary<string, object>
         {
@@ -915,7 +974,11 @@ public class NovelAIService : IDisposable
         if (preciseReferences is { Count: > 0 })
             ApplyPreciseReferenceParameters(parameters, preciseReferences);
         else if (vibeTransfers is { Count: > 0 })
+        {
+            if (IsV4PlusModel(naiParams.Model))
+                await EncodeUnencodedVibesAsync(vibeTransfers, naiParams.Model, ct);
             ApplyVibeTransferParameters(parameters, vibeTransfers);
+        }
 
         var payload = new Dictionary<string, object>
         {
@@ -1100,7 +1163,11 @@ public class NovelAIService : IDisposable
         if (preciseReferences is { Count: > 0 })
             ApplyPreciseReferenceParameters(parameters, preciseReferences);
         else if (vibeTransfers is { Count: > 0 })
+        {
+            if (IsV4PlusModel(model))
+                await EncodeUnencodedVibesAsync(vibeTransfers, model, ct);
             ApplyVibeTransferParameters(parameters, vibeTransfers);
+        }
 
         var payload = new Dictionary<string, object>
         {

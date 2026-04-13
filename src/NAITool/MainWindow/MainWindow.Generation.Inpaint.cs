@@ -250,6 +250,11 @@ public sealed partial class MainWindow
         }
         if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
         var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+        if (_genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+        {
+            string? encodeError = await EnsureVibesEncodedAsync(_settings.Settings.GenParameters.Model, ct);
+            if (encodeError != null) { TxtStatus.Text = encodeError; return null; }
+        }
         var vibes = GetVibeTransferData();
         var preciseReferences = GetPreciseReferenceData();
 
@@ -397,6 +402,11 @@ public sealed partial class MainWindow
         }
         if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
         var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+        if (_genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+        {
+            string? encodeError = await EnsureVibesEncodedAsync(_settings.Settings.GenParameters.Model, ct);
+            if (encodeError != null) { TxtStatus.Text = encodeError; return null; }
+        }
         var vibes = GetVibeTransferData();
         var preciseReferences = GetPreciseReferenceData();
 

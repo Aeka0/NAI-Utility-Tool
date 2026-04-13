@@ -74,6 +74,7 @@ public sealed partial class MainWindow
             ImageBase64 = picked.ImageBase64,
             IsEncodedFile = picked.IsEncodedFile,
             OriginalImageHash = picked.ImageHash,
+            OriginalThumbnailHash = picked.ThumbnailHash,
             OriginalImageBase64 = picked.OriginalBase64,
             IsCachedEncoding = picked.IsCachedHit,
         };
@@ -125,6 +126,7 @@ public sealed partial class MainWindow
         string ImageBase64,
         bool IsEncodedFile,
         string? ImageHash = null,
+        string? ThumbnailHash = null,
         string? OriginalBase64 = null,
         bool IsCachedHit = false);
 
@@ -183,21 +185,32 @@ public sealed partial class MainWindow
         }
 
         string imageHash = VibeCacheService.ComputeImageHash(pngBytes);
+        string thumbnailHash = VibeCacheService.ComputeThumbnailHash(
+            VibeCacheService.CreateCanonicalThumbnail(pngBytes));
         string originalBase64 = Convert.ToBase64String(pngBytes);
         string currentModel = GetCurrentModelKey();
         string cacheDir = VibeCacheService.GetCacheDir(AppRootDir);
 
-        string? cachedEncoding = VibeCacheService.TryGetCachedVibeByHash(
+        string? cachedEncoding = VibeCacheService.TryGetCachedVibeByLookup(
             cacheDir, imageHash, 1.0, currentModel);
         if (cachedEncoding != null)
         {
             TxtStatus.Text = Lf("references.status.cached_vibe_loaded", file.Name, currentModel);
             return new VibePickResult(file.Name, cachedEncoding, IsEncodedFile: true,
-                ImageHash: imageHash, OriginalBase64: originalBase64, IsCachedHit: true);
+                ImageHash: imageHash, ThumbnailHash: thumbnailHash, OriginalBase64: originalBase64, IsCachedHit: true);
+        }
+
+        var (thumbnailMatchedEncoding, matchedImageHash) = VibeCacheService.TryGetCachedVibeByThumbnailHash(
+            cacheDir, thumbnailHash, 1.0, currentModel);
+        if (thumbnailMatchedEncoding != null && matchedImageHash != null)
+        {
+            TxtStatus.Text = Lf("references.status.cached_vibe_loaded", file.Name, currentModel);
+            return new VibePickResult(file.Name, thumbnailMatchedEncoding, IsEncodedFile: true,
+                ImageHash: matchedImageHash, ThumbnailHash: thumbnailHash, OriginalBase64: originalBase64, IsCachedHit: true);
         }
 
         return new VibePickResult(file.Name, originalBase64, IsEncodedFile: false,
-            ImageHash: imageHash, OriginalBase64: originalBase64);
+            ImageHash: imageHash, ThumbnailHash: thumbnailHash, OriginalBase64: originalBase64);
     }
 
     private async Task AddDroppedVibeTransferAsync(StorageFile file)

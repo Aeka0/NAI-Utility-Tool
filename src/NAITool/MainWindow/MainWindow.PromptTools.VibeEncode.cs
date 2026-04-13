@@ -187,8 +187,10 @@ public sealed partial class MainWindow
                 string model = vibeModels[modelCombo.SelectedIndex];
                 double ie = Math.Round(ieSlider.Value, 2);
                 string cacheDir = VibeCacheService.GetCacheDir(AppRootDir);
+                string imageHash = VibeCacheService.ComputeImageHash(selectedImageBytes);
 
-                string? cached = VibeCacheService.TryGetCachedVibe(cacheDir, selectedImageBytes, ie);
+                string? cached = VibeCacheService.TryGetCachedVibeByLookup(
+                    cacheDir, imageHash, ie, model);
                 if (cached != null)
                 {
                     statusBlock.Text = Lf("dialog.vibe_encode.cache_hit", ie, cacheDir);
@@ -205,7 +207,8 @@ public sealed partial class MainWindow
 
                 if (vibeData != null && vibeData.Length > 0)
                 {
-                    string savePath = VibeCacheService.SaveVibe(cacheDir, selectedImageBytes, vibeData, ie, model);
+                    string savePath = VibeCacheService.SaveVibe(
+                        cacheDir, selectedImageBytes, selectedImageBytes, vibeData, ie, model);
                     DebugLog($"[VibeEncode] Completed | Saved={savePath}");
                     statusBlock.Text = Lf("dialog.vibe_encode.success", savePath);
                     _ = RefreshAnlasInfoAsync(forceRefresh: true);

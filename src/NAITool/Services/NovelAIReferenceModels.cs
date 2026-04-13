@@ -13,6 +13,7 @@ public sealed class VibeTransferInfo
     public double Strength { get; set; } = 0.6;
     public double InformationExtracted { get; set; } = 1.0;
     public string FileName { get; set; } = "";
+    public bool IsEncoded { get; set; }
 }
 
 public sealed class PreciseReferenceInfo

@@ -258,6 +258,7 @@
     "references.error.cannot_read_encoded_vibe":  "無法讀取已編碼氛圍檔案：{0}",
     "references.error.cannot_read_reference_image":  "無法讀取參考圖像：{0}",
     "references.error.asset_protection_requires_encoded_vibe":  "帳號資產保護模式已開啟，V4 及以上模型僅允許匯入已編碼的 .naiv4vibe 檔案。",
+    "references.error.vibe_encode_failed": "自動編碼氛圍參考 '{0}' 失敗：{1}",
     "references.hint.asset_protection_vibe":  "帳號資產保護模式已開啟，V4 及以上模型新增氛圍參考時僅允許匯入已編碼的 .naiv4vibe 檔案。",
     "references.imported.precise_label":  "已匯入的精確參考",
     "references.imported.precise_numbered":  "已匯入的精確參考 {0}",

@@ -35,6 +35,8 @@ public sealed partial class MainWindow
         public bool IsCollapsed { get; set; }
         /// <summary>原始图片 SHA256 前缀（仅原始图片条目）</summary>
         public string? OriginalImageHash { get; set; }
+        /// <summary>缩略图 SHA256 前缀（仅原始图片条目）</summary>
+        public string? OriginalThumbnailHash { get; set; }
         /// <summary>原始图片 Base64（缓存失效时回退）</summary>
         public string? OriginalImageBase64 { get; set; }
         /// <summary>当前使用的是本地缓存编码数据</summary>
@@ -238,6 +240,53 @@ public sealed partial class MainWindow
             notes.Add(Lf("references.imported.precise_count", meta.PreciseReferences.Count));
     }
 
+    private async Task<string?> EnsureVibesEncodedAsync(string model, CancellationToken ct)
+    {
+        if (!NovelAIService.IsV4PlusModel(model))
+            return null;
+
+        string cacheDir = VibeCacheService.GetCacheDir(AppRootDir);
+        bool anyEncoded = false;
+
+        foreach (var entry in _genVibeTransfers)
+        {
+            if (entry.IsEncodedFile || string.IsNullOrWhiteSpace(entry.ImageBase64))
+                continue;
+
+            string rawBase64 = entry.OriginalImageBase64 ?? entry.ImageBase64;
+            var (vibeData, error) = await _naiService.EncodeVibeAsync(
+                rawBase64, model, entry.InformationExtracted, ct);
+
+            if (vibeData == null)
+                return Lf("references.error.vibe_encode_failed", entry.FileName, error ?? "");
+
+            string encodedBase64 = Convert.ToBase64String(vibeData);
+            entry.ImageBase64 = encodedBase64;
+            entry.IsEncodedFile = true;
+            entry.IsCachedEncoding = true;
+
+            if (entry.OriginalImageHash != null)
+            {
+                byte[] originalBytes = Convert.FromBase64String(rawBase64);
+                entry.OriginalThumbnailHash ??= VibeCacheService.ComputeThumbnailHash(
+                    VibeCacheService.CreateCanonicalThumbnail(originalBytes));
+                VibeCacheService.SaveVibe(
+                    cacheDir, originalBytes, originalBytes, vibeData, entry.InformationExtracted, model);
+            }
+
+            DebugLog($"[Generate] Vibe 自动编码并缓存: {entry.FileName}");
+            anyEncoded = true;
+        }
+
+        if (anyEncoded)
+        {
+            RefreshVibeTransferPanel();
+            UpdateGenerateButtonWarning();
+        }
+
+        return null;
+    }
+
     private List<VibeTransferInfo>? GetVibeTransferData()
     {
         if (!SupportsVibeTransferFeature()) return null;
@@ -251,6 +300,7 @@ public sealed partial class MainWindow
                 ImageBase64 = x.ImageBase64,
                 Strength = Math.Clamp(x.Strength, 0, 1),
                 InformationExtracted = Math.Clamp(x.InformationExtracted, 0, 1),
+                IsEncoded = x.IsEncodedFile,
             })
             .ToList();
 

@@ -113,6 +113,10 @@ public sealed partial class MainWindow
         InformationExtracted = x.InformationExtracted,
         IsEncodedFile = x.IsEncodedFile,
         IsCollapsed = x.IsCollapsed,
+        OriginalImageHash = x.OriginalImageHash,
+        OriginalThumbnailHash = x.OriginalThumbnailHash,
+        OriginalImageBase64 = x.OriginalImageBase64,
+        IsCachedEncoding = x.IsCachedEncoding,
     };
 
     private void PopulateAutomationEffectsPresetCombo(ComboBox combo)

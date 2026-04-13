@@ -30,8 +30,11 @@ public sealed partial class MainWindow
             if (entry.OriginalImageHash == null)
                 continue;
 
-            string? cachedEncoding = VibeCacheService.TryGetCachedVibeByHash(
-                cacheDir, entry.OriginalImageHash, entry.InformationExtracted, currentModel);
+            string? cachedEncoding = VibeCacheService.TryGetCachedVibeByLookup(
+                cacheDir,
+                entry.OriginalImageHash,
+                entry.InformationExtracted,
+                currentModel);
 
             bool wasCached = entry.IsCachedEncoding;
 

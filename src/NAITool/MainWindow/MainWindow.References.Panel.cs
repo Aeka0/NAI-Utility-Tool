@@ -158,6 +158,7 @@ public sealed partial class MainWindow
                 entry.ImageBase64 = picked.ImageBase64;
                 entry.IsEncodedFile = picked.IsEncodedFile;
                 entry.OriginalImageHash = picked.ImageHash;
+                entry.OriginalThumbnailHash = picked.ThumbnailHash;
                 entry.OriginalImageBase64 = picked.OriginalBase64;
                 entry.IsCachedEncoding = picked.IsCachedHit;
                 RefreshVibeTransferPanel();
@@ -210,10 +211,11 @@ public sealed partial class MainWindow
             {
                 thumbBytes = Convert.FromBase64String(entry.OriginalImageBase64);
             }
-            else if (entry.OriginalImageHash != null)
+            else if (entry.OriginalImageHash != null && entry.OriginalThumbnailHash != null)
             {
                 string cacheDir = VibeCacheService.GetCacheDir(AppRootDir);
-                string? thumbPath = VibeCacheService.GetThumbnailPath(cacheDir, entry.OriginalImageHash);
+                string? thumbPath = VibeCacheService.GetThumbnailPath(
+                    cacheDir, entry.OriginalImageHash, entry.OriginalThumbnailHash);
                 if (thumbPath != null)
                     thumbBytes = await Task.Run(() => File.ReadAllBytes(thumbPath));
             }
