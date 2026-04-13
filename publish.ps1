@@ -8,6 +8,8 @@ $ErrorActionPreference = "Stop"
 $RootDir      = $PSScriptRoot
 $SrcDir       = Join-Path $RootDir "src\NAITool"
 $LauncherDir  = Join-Path $RootDir "src\NAIToolLauncher"
+$BuildDir     = Join-Path $RootDir "build\$Configuration"
+$MainBuildDir = Join-Path $BuildDir "bin"
 $PublishDir   = Join-Path $RootDir "publish\NAITool"
 $BinDir       = Join-Path $PublishDir "bin"
 
@@ -19,6 +21,16 @@ function Invoke-Dotnet {
 }
 
 # 清理旧的发布目录
+if (Test-Path $MainBuildDir) {
+    Remove-Item -Recurse -Force $MainBuildDir
+}
+foreach ($file in @("NAITool.exe", "NAITool.dll", "NAITool.deps.json", "NAITool.runtimeconfig.json", "NAITool.pdb")) {
+    $path = Join-Path $BuildDir $file
+    if (Test-Path $path) {
+        Remove-Item -Force $path
+    }
+}
+
 if (Test-Path $PublishDir) {
     Remove-Item -Recurse -Force $PublishDir
 }
