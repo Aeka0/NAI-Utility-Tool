@@ -93,6 +93,8 @@ public sealed partial class MainWindow
         if (!IsSuperDropEnabled)
             return;
 
+        RaiseSuperDropWindowToTopmost();
+
         if (_superDropOverlayVisible)
             return;
 
@@ -115,6 +117,7 @@ public sealed partial class MainWindow
 
         _superDropOverlayVisible = false;
         ResetSuperDropCardHighlights();
+        RestoreSuperDropWindowTopmost();
 
         var storyboard = new Storyboard();
         storyboard.Children.Add(CreateDoubleAnimation(SuperDropOverlay, "Opacity", 0, 120));
@@ -127,6 +130,49 @@ public sealed partial class MainWindow
                 SuperDropOverlay.Visibility = Visibility.Collapsed;
         };
         storyboard.Begin();
+    }
+
+    private void RaiseSuperDropWindowToTopmost()
+    {
+        if (_superDropWindowRaisedTopmost)
+            return;
+
+        var hwnd = WindowNative.GetWindowHandle(this);
+        if (hwnd == IntPtr.Zero)
+            return;
+
+        _superDropWindowWasTopmost = SuperDropNativeMethods.IsTopmost(hwnd);
+        if (SuperDropNativeMethods.SetWindowPos(
+                hwnd,
+                SuperDropNativeMethods.HWND_TOPMOST,
+                0, 0, 0, 0,
+                SuperDropNativeMethods.SWP_NOMOVE |
+                SuperDropNativeMethods.SWP_NOSIZE |
+                SuperDropNativeMethods.SWP_NOACTIVATE))
+        {
+            _superDropWindowRaisedTopmost = true;
+        }
+    }
+
+    private void RestoreSuperDropWindowTopmost()
+    {
+        if (!_superDropWindowRaisedTopmost)
+            return;
+
+        var hwnd = WindowNative.GetWindowHandle(this);
+        if (hwnd != IntPtr.Zero && !_superDropWindowWasTopmost)
+        {
+            SuperDropNativeMethods.SetWindowPos(
+                hwnd,
+                SuperDropNativeMethods.HWND_NOTOPMOST,
+                0, 0, 0, 0,
+                SuperDropNativeMethods.SWP_NOMOVE |
+                SuperDropNativeMethods.SWP_NOSIZE |
+                SuperDropNativeMethods.SWP_NOACTIVATE);
+        }
+
+        _superDropWindowRaisedTopmost = false;
+        _superDropWindowWasTopmost = false;
     }
 
     private static DoubleAnimation CreateDoubleAnimation(DependencyObject target, string property, double to, int milliseconds)
@@ -384,5 +430,37 @@ public sealed partial class MainWindow
         {
             TxtStatus.Text = Lf("superdrop.failed", ex.Message);
         }
+    }
+
+    private static class SuperDropNativeMethods
+    {
+        public static readonly IntPtr HWND_TOPMOST = new(-1);
+        public static readonly IntPtr HWND_NOTOPMOST = new(-2);
+
+        public const int GWL_EXSTYLE = -20;
+        public const long WS_EX_TOPMOST = 0x00000008L;
+
+        public const uint SWP_NOSIZE = 0x0001;
+        public const uint SWP_NOMOVE = 0x0002;
+        public const uint SWP_NOACTIVATE = 0x0010;
+
+        public static bool IsTopmost(IntPtr hwnd) =>
+            (GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64() & WS_EX_TOPMOST) != 0;
+
+        private static IntPtr GetWindowLongPtr(IntPtr hwnd, int index) =>
+            IntPtr.Size == 8
+                ? GetWindowLongPtr64(hwnd, index)
+                : GetWindowLongPtr32(hwnd, index);
+
+        [DllImport("user32.dll", SetLastError = true, EntryPoint = "GetWindowLongPtrW")]
+        private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", SetLastError = true, EntryPoint = "GetWindowLongW")]
+        private static extern IntPtr GetWindowLongPtr32(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+            int X, int Y, int cx, int cy, uint uFlags);
     }
 }

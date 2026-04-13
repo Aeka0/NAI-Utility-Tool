@@ -219,6 +219,8 @@ public sealed partial class MainWindow : Window
     private const int HistoryPageSize = 40;
     private bool _historyLoadingMore;
     private bool _superDropOverlayVisible;
+    private bool _superDropWindowRaisedTopmost;
+    private bool _superDropWindowWasTopmost;
     private int _superDropDragVersion;
 
     // ═══ 预览拖拽 ═══
