@@ -304,10 +304,7 @@ public sealed partial class MainWindow
                 string generatedPrompt = outputBox.Text.Trim();
                 if (string.IsNullOrWhiteSpace(generatedPrompt)) return;
 
-                if (_isSplitPrompt && _isPositiveTab)
-                    TxtStylePrompt.Text = generatedPrompt;
-                else
-                    TxtPrompt.Text = generatedPrompt;
+                TxtPrompt.Text = generatedPrompt;
 
                 SaveCurrentPromptToBuffer();
                 UpdatePromptHighlights();
