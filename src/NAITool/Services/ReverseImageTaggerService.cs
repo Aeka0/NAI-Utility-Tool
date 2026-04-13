@@ -435,8 +435,13 @@ public sealed class ReverseImageTaggerService : IDisposable
         using (var canvas = new SKCanvas(resized))
         {
             canvas.Clear(SKColors.White);
-            using var paint = new SKPaint { FilterQuality = SKFilterQuality.High, IsAntialias = true };
-            canvas.DrawBitmap(source, new SKRect(0, 0, inputSize, inputSize), paint);
+            using var paint = new SKPaint { IsAntialias = true };
+            using var sourceImage = SKImage.FromBitmap(source);
+            canvas.DrawImage(
+                sourceImage,
+                new SKRect(0, 0, inputSize, inputSize),
+                new SKSamplingOptions(SKCubicResampler.Mitchell),
+                paint);
         }
 
         var data = new float[1 * 3 * inputSize * inputSize];

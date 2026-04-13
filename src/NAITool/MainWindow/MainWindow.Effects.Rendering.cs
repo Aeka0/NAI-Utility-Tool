@@ -221,6 +221,7 @@ public sealed partial class MainWindow
         using var bright = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
         bright.Pixels = brightPixels;
         using var blurred = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        var sampling = new SKSamplingOptions(SKCubicResampler.Mitchell);
 
         if (Math.Abs(tiltDegrees) < 0.01f)
         {
@@ -228,11 +229,11 @@ public sealed partial class MainWindow
             using var paint = new SKPaint
             {
                 IsAntialias = false,
-                FilterQuality = SKFilterQuality.High,
                 ImageFilter = SKImageFilter.CreateBlur(sigmaX, sigmaY),
             };
+            using var brightImage = SKImage.FromBitmap(bright);
             canvas.Clear(SKColors.Black); // 必须用纯黑不透明底色
-            canvas.DrawBitmap(bright, 0, 0, paint);
+            canvas.DrawImage(brightImage, 0, 0, sampling, paint);
             canvas.Flush();
         }
         else
@@ -259,12 +260,12 @@ public sealed partial class MainWindow
             using (var paint = new SKPaint
             {
                 IsAntialias = false,
-                FilterQuality = SKFilterQuality.High,
                 ImageFilter = SKImageFilter.CreateBlur(sigmaX, sigmaY),
             })
             {
+                using var rotatedInputImage = SKImage.FromBitmap(rotatedInput);
                 rotatedBlurCanvas.Clear(SKColors.Black);
-                rotatedBlurCanvas.DrawBitmap(rotatedInput, 0, 0, paint);
+                rotatedBlurCanvas.DrawImage(rotatedInputImage, 0, 0, sampling, paint);
                 rotatedBlurCanvas.Flush();
             }
 

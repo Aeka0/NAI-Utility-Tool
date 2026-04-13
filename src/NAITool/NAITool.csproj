@@ -38,11 +38,24 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250205002" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.*" />
-    <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.3.*" />
-    <PackageReference Include="SkiaSharp" Version="2.*" />
+    <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
+    <PackageReference Include="SkiaSharp" Version="3.119.2" />
   </ItemGroup>
+
+  <ItemGroup>
+    <MicrosoftWindowsAppSDKFilesExcluded Include="$(NuGetPackageRoot)microsoft.windowsappsdk.ml\*\runtimes-framework\**\*.dll" />
+  </ItemGroup>
+
+  <Target Name="ExcludeWindowsAppSDKMLPayload" BeforeTargets="AddMicrosoftWindowsAppSDKPayloadFilesFromMsix">
+    <ItemGroup>
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(SelfContainedIntermediateOutputPath)MsixContent\DirectML.dll" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(SelfContainedIntermediateOutputPath)MsixContent\onnxruntime.dll" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(SelfContainedIntermediateOutputPath)MsixContent\onnxruntime_providers_shared.dll" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(SelfContainedIntermediateOutputPath)MsixContent\Microsoft.Windows.AI.MachineLearning.dll" />
+    </ItemGroup>
+  </Target>
 
   <!-- dev 构建后自动创建目录联接，使 build/{Config}/ 下出现 assets/ 和 models/ -->
   <Target Name="SetupDevLayout" AfterTargets="Build"

@@ -11,6 +11,13 @@ $LauncherDir  = Join-Path $RootDir "src\NAIToolLauncher"
 $PublishDir   = Join-Path $RootDir "publish\NAITool"
 $BinDir       = Join-Path $PublishDir "bin"
 
+function Invoke-Dotnet {
+    & dotnet @args
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet $($args -join ' ') failed with exit code $LASTEXITCODE"
+    }
+}
+
 # 清理旧的发布目录
 if (Test-Path $PublishDir) {
     Remove-Item -Recurse -Force $PublishDir
@@ -19,10 +26,10 @@ New-Item -ItemType Directory -Force $PublishDir | Out-Null
 New-Item -ItemType Directory -Force $BinDir | Out-Null
 
 Write-Host "正在发布主程序..." -ForegroundColor Green
-dotnet publish "$SrcDir\NAITool.csproj" -c $Configuration -r $Runtime --self-contained true -p:PublishSingleFile=false -o "$BinDir"
+Invoke-Dotnet publish "$SrcDir\NAITool.csproj" -c $Configuration -r $Runtime --self-contained true -p:PublishSingleFile=false -o "$BinDir"
 
 Write-Host "正在发布启动器..." -ForegroundColor Green
-dotnet publish "$LauncherDir\NAIToolLauncher.csproj" -c $Configuration -r $Runtime --self-contained false -p:PublishSingleFile=true -o "$PublishDir"
+Invoke-Dotnet publish "$LauncherDir\NAIToolLauncher.csproj" -c $Configuration -r $Runtime --self-contained false -p:PublishSingleFile=true -o "$PublishDir"
 
 # ── 从源仓库直接复制数据文件到发布根目录 ──
 Write-Host "复制数据文件..." -ForegroundColor Green
