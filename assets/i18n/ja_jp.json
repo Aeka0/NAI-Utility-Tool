@@ -671,6 +671,7 @@
     "settings.network.test.api_error":  "API エラー ({0}): {1}",
     "settings.network.test.connection_failed":  "NovelAI への接続に失敗しました: {0}",
     "settings.network.test.proxy_error":  "プロキシ接続に失敗しました: {0}\n\nヒント: プロキシクライアントが起動中で、ポート番号が正しいか確認してください。",
+    "settings.network.invalid_api_or_network":  "API Token またはネットワーク環境が無効です。",
     "settings.network.test.success":  "接続成功。API Token は有効です。",
     "settings.network.test.unauthorized":  "認証失敗 (401): API Token が無効です。",
     "wildcards.browse_or_select":  "編集する項目を参照または選択してください。",

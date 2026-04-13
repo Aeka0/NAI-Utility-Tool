@@ -470,7 +470,8 @@ public sealed partial class MainWindow
         {
             bool accountAssetProtectionMode = assetProtectionCheck.IsChecked == true;
             bool accountAssetProtectionModeChanged = _settings.Settings.AccountAssetProtectionMode != accountAssetProtectionMode;
-            _settings.Settings.ApiToken = tokenBox.Password;
+            string apiToken = tokenBox.Password.Trim();
+            _settings.Settings.ApiToken = apiToken;
             _settings.Settings.AccountAssetProtectionMode = accountAssetProtectionMode;
             _settings.Settings.StreamGeneration = streamGenerationCheck.IsChecked == true;
             _settings.Settings.UseProxy = proxyCheck.IsChecked == true;
@@ -483,18 +484,98 @@ public sealed partial class MainWindow
                 RefreshPromptModeUiForAccountModeChange();
             }
             UpdateBtnGenerateForApiKey();
-            _ = RefreshAnlasInfoAsync();
 
             if (result == ContentDialogResult.Secondary)
             {
                 TxtStatus.Text = L("settings.network.testing");
-                var (success, msg) = await _naiService.TestConnectionAsync(tokenBox.Password);
-                TxtStatus.Text = msg;
-                if (success)
-                    _ = RefreshAnlasInfoAsync(forceRefresh: true);
+                bool valid = !string.IsNullOrWhiteSpace(apiToken) && await ValidateSavedApiTokenAsync();
+                if (string.IsNullOrWhiteSpace(apiToken))
+                    ClearAccountApiState(save: true);
+                TxtStatus.Text = valid
+                    ? L("settings.network.test.success")
+                    : L("settings.network.invalid_api_or_network");
             }
-            else TxtStatus.Text = L("settings.network.saved");
+            else
+            {
+                TxtStatus.Text = L("settings.network.testing");
+                bool valid = await ValidateSavedApiTokenAsync();
+                TxtStatus.Text = valid
+                    ? L("settings.network.saved")
+                    : L("settings.network.invalid_api_or_network");
+            }
         }
+    }
+
+    private async Task<bool> ValidateSavedApiTokenAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+        {
+            ClearAccountApiState(save: true);
+            return true;
+        }
+
+        _anlasRefreshRunning = true;
+        _anlasInitialFetchDone = false;
+        UpdateBtnGenerateForApiKey();
+
+        NovelAiAccountInfo? accountInfo = null;
+        try
+        {
+            accountInfo = await _naiService.GetAccountInfoAsync();
+        }
+        finally
+        {
+            _anlasRefreshRunning = false;
+        }
+
+        if (accountInfo == null)
+        {
+            ClearAccountApiState(save: true);
+            return false;
+        }
+
+        ApplyAccountInfo(accountInfo, save: true);
+        return true;
+    }
+
+    private void ClearAccountApiState(bool save)
+    {
+        _settings.Settings.ApiToken = null;
+        _anlasBalance = null;
+        _isOpusSubscriber = false;
+        _hasActiveSubscription = false;
+        _anlasInitialFetchDone = false;
+
+        if (save)
+            _settings.UpdateCachedAccountInfo(null, null, null, null, null);
+
+        UpdateAnlasBalanceText();
+        UpdateBtnGenerateForApiKey();
+        UpdateGenerateButtonWarning();
+        UpdateDynamicMenuStates();
+    }
+
+    private void ApplyAccountInfo(NovelAiAccountInfo accountInfo, bool save)
+    {
+        _anlasBalance = accountInfo.AnlasBalance;
+        _isOpusSubscriber = accountInfo.IsOpus;
+        _hasActiveSubscription = accountInfo.HasActiveSubscription;
+        _anlasInitialFetchDone = true;
+
+        if (save)
+        {
+            _settings.UpdateCachedAccountInfo(
+                accountInfo.AnlasBalance,
+                accountInfo.TierName,
+                accountInfo.TierLevel,
+                accountInfo.HasActiveSubscription,
+                accountInfo.ExpiresAt);
+        }
+
+        UpdateAnlasBalanceText();
+        UpdateBtnGenerateForApiKey();
+        UpdateGenerateButtonWarning();
+        UpdateDynamicMenuStates();
     }
 
     private void RefreshSizeComboBox()

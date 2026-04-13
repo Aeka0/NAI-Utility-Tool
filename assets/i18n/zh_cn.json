@@ -671,6 +671,7 @@
     "settings.network.test.api_error":  "API 错误 ({0}): {1}",
     "settings.network.test.connection_failed":  "连接 NovelAI 失败: {0}",
     "settings.network.test.proxy_error":  "代理连接失败: {0}\n\n提示: 请检查代理客户端是否运行以及端口是否正确。",
+    "settings.network.invalid_api_or_network":  "API Token 或网络环境无效。",
     "settings.network.test.success":  "连接成功！API Token 有效。",
     "settings.network.test.unauthorized":  "认证失败 (401): API Token 无效。",
     "wildcards.browse_or_select":  "浏览或选择一个条目进行编辑。",

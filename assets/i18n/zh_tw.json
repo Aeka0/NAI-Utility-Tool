@@ -671,6 +671,7 @@
     "settings.network.test.api_error":  "API 錯誤 ({0}): {1}",
     "settings.network.test.connection_failed":  "連線 NovelAI 失敗: {0}",
     "settings.network.test.proxy_error":  "代理連線失敗: {0}\n\n提示: 請檢查代理客戶端是否正在運行，以及連接埠是否正確。",
+    "settings.network.invalid_api_or_network":  "API Token 或網路環境無效。",
     "settings.network.test.success":  "連線成功！API Token 有效。",
     "settings.network.test.unauthorized":  "驗證失敗 (401): API Token 無效。",
     "wildcards.browse_or_select":  "瀏覽或選擇一個條目進行編輯。",

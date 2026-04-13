@@ -671,6 +671,7 @@
   "settings.network.test.api_error": "API error ({0}): {1}",
   "settings.network.test.connection_failed": "Failed to connect to NovelAI: {0}",
   "settings.network.test.proxy_error": "Proxy connection failed: {0}\n\nHint: Check that your proxy client is running and the port is correct.",
+  "settings.network.invalid_api_or_network": "API token or network environment is invalid.",
   "settings.network.test.success": "Connection successful. API token is valid.",
   "settings.network.test.unauthorized": "Authentication failed (401): API token is invalid.",
   "wildcards.browse_or_select": "Browse or select an entry to edit.",
