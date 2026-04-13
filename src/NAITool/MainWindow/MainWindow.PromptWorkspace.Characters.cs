@@ -44,6 +44,7 @@ public sealed partial class MainWindow
         public double CenterY { get; set; } = 0.5;
         public bool IsPositiveTab { get; set; } = true;
         public bool IsCollapsed { get; set; }
+        public bool IsDisabled { get; set; }
         public bool UseCustomPosition { get; set; }
         public TextBox? PromptBox { get; set; }
         public Canvas? HighlightCanvas { get; set; }
@@ -109,6 +110,8 @@ public sealed partial class MainWindow
             Style = (Style)rootGrid.Resources["InspectCaptionStyle"],
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
+        if (entry.IsDisabled)
+            label.TextDecorations = Windows.UI.Text.TextDecorations.Strikethrough;
         Grid.SetColumn(label, 0);
         tabPanel.Children.Add(label);
 
@@ -154,9 +157,17 @@ public sealed partial class MainWindow
         Grid.SetColumn(posBtn, 3);
         headerGrid.Children.Add(posBtn);
 
+        var disableBtn = CreateCharacterActionButton(
+            entry.IsDisabled ? "\uE8FA" : "\uE8F8",
+            entry.IsDisabled ? L("character.restore") : L("character.disable"),
+            true);
+        disableBtn.Margin = new Thickness(2, 0, 0, 0);
+        Grid.SetColumn(disableBtn, 4);
+        headerGrid.Children.Add(disableBtn);
+
         var delBtn = CreateCharacterActionButton("\uE74D", L("character.delete"), true, isDelete: true);
         delBtn.Margin = new Thickness(2, 0, 0, 0);
-        Grid.SetColumn(delBtn, 4);
+        Grid.SetColumn(delBtn, 5);
         headerGrid.Children.Add(delBtn);
 
         var textGrid = new Grid { MinHeight = 50, MaxHeight = 120 };
@@ -209,6 +220,13 @@ public sealed partial class MainWindow
 
         posBtn.Click += (_, _) => ShowCharacterPositionFlyout(posBtn, entry);
 
+        disableBtn.Click += (_, _) =>
+        {
+            SaveCharacterPrompt(entry);
+            entry.IsDisabled = !entry.IsDisabled;
+            RefreshCharacterPanel();
+        };
+
         int capturedIndex = index;
         delBtn.Click += (_, _) =>
         {
@@ -229,6 +247,7 @@ public sealed partial class MainWindow
         tabNeg.Visibility = collapsedVisibility;
         movePanel.Visibility = collapsedVisibility;
         posBtn.Visibility = collapsedVisibility;
+        disableBtn.Visibility = collapsedVisibility;
         delBtn.Visibility = collapsedVisibility;
         textGrid.Visibility = collapsedVisibility;
 
@@ -540,6 +559,7 @@ public sealed partial class MainWindow
         SaveAllCharacterPrompts();
         foreach (var entry in _genCharacters)
         {
+            if (entry.IsDisabled) continue;
             entry.PositivePrompt = StripCharCountPrefix(entry.PositivePrompt);
             entry.NegativePrompt = StripCharCountPrefix(entry.NegativePrompt);
             if (entry.PromptBox != null)
@@ -555,6 +575,7 @@ public sealed partial class MainWindow
         var result = new List<CharacterPromptInfo>();
         foreach (var entry in _genCharacters)
         {
+            if (entry.IsDisabled) continue;
             result.Add(new CharacterPromptInfo
             {
                 PositivePrompt = wildcardContext == null

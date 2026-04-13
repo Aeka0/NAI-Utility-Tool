@@ -495,6 +495,7 @@
                                 <TextBlock x:Name="TxtVibeTransferHint"
                                            Visibility="Collapsed"
                                            TextWrapping="Wrap"
+                                           FontSize="11"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                 <StackPanel x:Name="VibeTransferContainer" Spacing="6"/>
                             </StackPanel>

@@ -47,9 +47,7 @@ public sealed partial class MainWindow
     {
         var root = new StackPanel { Spacing = 6 };
 
-        string vibeTitle = entry.IsCachedEncoding
-            ? Lf("references.vibe.cached_title", index + 1)
-            : Lf("references.vibe.title", index + 1);
+        string vibeTitle = Lf("references.vibe.title", index + 1);
         var header = BuildReferenceHeader(
             vibeTitle,
             entry.IsCollapsed,
