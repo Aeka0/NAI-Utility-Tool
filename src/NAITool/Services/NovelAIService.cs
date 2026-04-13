@@ -301,6 +301,7 @@ public class NovelAIService : IDisposable
         "nai-diffusion-4-5-curated" => "masterpiece, no text, -0.8::feet::, rating:general",
         "nai-diffusion-4-full" => "no text, best quality, very aesthetic, absurdres",
         "nai-diffusion-4-curated" => "rating:general, amazing quality, very aesthetic, absurdres",
+        "nai-diffusion-4-curated-preview" => "rating:general, amazing quality, very aesthetic, absurdres",
         "nai-diffusion-3" => "best quality, amazing quality, very aesthetic, absurdres",
         _ => "",
     };
@@ -316,6 +317,8 @@ public class NovelAIService : IDisposable
         ("nai-diffusion-4-full", 1) => "blurry, lowres, error, worst quality, bad quality, jpeg artifacts, very displeasing",
         ("nai-diffusion-4-curated", 0) => "blurry, lowres, error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, logo, dated, signature, multiple views, gigantic breasts",
         ("nai-diffusion-4-curated", 1) => "blurry, lowres, error, worst quality, bad quality, jpeg artifacts, very displeasing, logo, dated, signature",
+        ("nai-diffusion-4-curated-preview", 0) => "blurry, lowres, error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, logo, dated, signature, multiple views, gigantic breasts",
+        ("nai-diffusion-4-curated-preview", 1) => "blurry, lowres, error, worst quality, bad quality, jpeg artifacts, very displeasing, logo, dated, signature",
         ("nai-diffusion-3", 0) => "lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]",
         ("nai-diffusion-3", 1) => "lowres, jpeg artifacts, worst quality, watermark, blurry, very displeasing",
         _ => "",

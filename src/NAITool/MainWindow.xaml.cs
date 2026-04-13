@@ -235,7 +235,7 @@ public sealed partial class MainWindow : Window
         "nai-diffusion-4-5-full",
         "nai-diffusion-4-5-curated",
         "nai-diffusion-4-full",
-        "nai-diffusion-4-curated",
+        "nai-diffusion-4-curated-preview",
         "nai-diffusion-3",
     ];
     private static readonly string[] I2IModels =

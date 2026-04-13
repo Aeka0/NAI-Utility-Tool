@@ -46,7 +46,7 @@ public sealed partial class MainWindow
             byte[]? selectedImageBytes = null;
             string? selectedFileName = null;
 
-            string[] vibeModels = ["nai-diffusion-4-5-curated", "nai-diffusion-4-5-full", "nai-diffusion-4-curated", "nai-diffusion-4-full"];
+            string[] vibeModels = ["nai-diffusion-4-5-curated", "nai-diffusion-4-5-full", "nai-diffusion-4-curated-preview", "nai-diffusion-4-full"];
 
             var modelCombo = new ComboBox
             {
