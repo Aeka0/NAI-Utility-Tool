@@ -485,9 +485,12 @@ public sealed partial class MainWindow
         if (meta.Seed > 0 && meta.Seed <= int.MaxValue) p.Seed = (int)meta.Seed;
         if (meta.Scale > 0) p.Scale = meta.Scale;
         if (!meta.IsSdFormat) p.CfgRescale = meta.CfgRescale;
-        if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = meta.Sampler;
-        if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = meta.NoiseSchedule;
+        if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = NormalizeSamplerForModel(meta.Sampler, p.Model);
+        if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = NormalizeScheduleForModel(meta.NoiseSchedule, p.Model, p.Schedule);
         if (!meta.IsSdFormat) p.Variety = meta.SmDyn || meta.Sm;
+
+        p.Sampler = NormalizeSamplerForModel(p.Sampler, p.Model);
+        p.Schedule = NormalizeScheduleForModel(p.Schedule, p.Model);
 
         if (meta.Width > 0 && meta.Height > 0)
         {
@@ -574,9 +577,12 @@ public sealed partial class MainWindow
         if (meta.Seed > 0 && meta.Seed <= int.MaxValue) p.Seed = (int)meta.Seed;
         if (meta.Scale > 0) p.Scale = meta.Scale;
         if (!meta.IsSdFormat) p.CfgRescale = meta.CfgRescale;
-        if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = meta.Sampler;
-        if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = meta.NoiseSchedule;
+        if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = NormalizeSamplerForModel(meta.Sampler, p.Model);
+        if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = NormalizeScheduleForModel(meta.NoiseSchedule, p.Model, p.Schedule);
         if (!meta.IsSdFormat) p.Variety = meta.SmDyn || meta.Sm;
+
+        p.Sampler = NormalizeSamplerForModel(p.Sampler, p.Model);
+        p.Schedule = NormalizeScheduleForModel(p.Schedule, p.Model);
 
         NbSeed.Value = p.Seed;
         ChkVariety.IsChecked = p.Variety;

@@ -169,10 +169,10 @@ public static class ImageMetadataService
     private static readonly Dictionary<string, string> SdScheduleMap = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Karras"] = "karras",
-        ["Normal"] = "normal",
-        ["Simple"] = "normal",
+        ["Normal"] = "native",
+        ["Simple"] = "native",
         ["Exponential"] = "exponential",
-        ["SGM Uniform"] = "normal",
+        ["SGM Uniform"] = "native",
     };
 
     public static ImageMetadata? TryParseSdFormat(string text)
