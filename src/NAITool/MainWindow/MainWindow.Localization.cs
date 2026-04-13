@@ -186,6 +186,7 @@ public sealed partial class MainWindow
         TxtInspectSamplerLabel.Text = L("panel.sampler");
         TxtInspectScheduleLabel.Text = L("panel.scheduler");
         TxtInspectSeedLabel.Text = L("panel.seed_short");
+        SetInspectPrimaryAction(_inspectPrimaryAction, BtnSendToGen.IsEnabled);
         TxtSendInspectToI2I.Text = L("button.send_whole_to_i2i");
 
         TxtUpscaleModelLabel.Text = L("upscale.model");
