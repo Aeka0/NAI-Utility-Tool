@@ -21,6 +21,7 @@ public sealed class SplashWindow : Window
 {
     private const int DefaultSplashWidth = 780;
     private const int DefaultSplashHeight = 446;
+    private const int SplashCornerRadius = 18;
     private const string SplashResourcePrefix = "NAITool.splash.";
     private const string SplashTitleResourceName = SplashResourcePrefix + "SplashTitle.png";
     private readonly Border _rootBorder;
@@ -31,6 +32,7 @@ public sealed class SplashWindow : Window
     {
         string splashBackgroundResourceName = PickRandomBackgroundResourceName();
         var splashSize = GetSplashWindowSize(splashBackgroundResourceName);
+        var transparentBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
 
         var backgroundImage = new Image
         {
@@ -51,14 +53,14 @@ public sealed class SplashWindow : Window
 
         var layerGrid = new Grid
         {
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)),
+            Background = transparentBrush,
             Children = { backgroundImage, titleImage },
         };
 
         _rootBorder = new Border
         {
-            CornerRadius = new CornerRadius(18),
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)),
+            CornerRadius = new CornerRadius(SplashCornerRadius),
+            Background = transparentBrush,
             Child = layerGrid,
         };
         _titleImage = titleImage;
@@ -193,6 +195,23 @@ public sealed class SplashWindow : Window
         NativeMethods.DwmSetWindowAttribute(hwnd,
             NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE,
             ref cornerPref, sizeof(int));
+
+        ApplyRoundedWindowRegion(hwnd);
+    }
+
+    private void ApplyRoundedWindowRegion(IntPtr hwnd)
+    {
+        int dpi = (int)NativeMethods.GetDpiForWindow(hwnd);
+        int width = AppWindow?.Size.Width ?? DefaultSplashWidth;
+        int height = AppWindow?.Size.Height ?? DefaultSplashHeight;
+        int radius = Math.Max(1, SplashCornerRadius * dpi / 96);
+        IntPtr region = NativeMethods.CreateRoundRectRgn(0, 0, width + 1, height + 1, radius * 2, radius * 2);
+
+        if (region == IntPtr.Zero)
+            return;
+
+        if (NativeMethods.SetWindowRgn(hwnd, region, true) == 0)
+            NativeMethods.DeleteObject(region);
     }
 
     private static string PickRandomBackgroundResourceName()
@@ -266,5 +285,16 @@ public sealed class SplashWindow : Window
 
         [DllImport("user32.dll")]
         public static extern uint GetDpiForWindow(IntPtr hwnd);
+
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr CreateRoundRectRgn(int nLeftRect, int nTopRect,
+            int nRightRect, int nBottomRect, int nWidthEllipse, int nHeightEllipse);
+
+        [DllImport("user32.dll")]
+        public static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
+
+        [DllImport("gdi32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool DeleteObject(IntPtr hObject);
     }
 }
