@@ -130,11 +130,8 @@ public sealed partial class MainWindow
             IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
                 ? new Progress<byte[]>(bytes =>
                 {
-                    _ = DispatcherQueue.TryEnqueue(async () =>
-                    {
-                        _currentGenImageBytes = bytes;
-                        await ShowGenPreviewAsync(bytes, w, h);
-                    });
+                    _currentGenImageBytes = bytes;
+                    _ = ShowGenPreviewAsync(bytes, w, h);
                 })
                 : null;
             var (imageBytes, error) = await _naiService.GenerateAsync(

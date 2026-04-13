@@ -617,6 +617,7 @@ public class NovelAIService : IDisposable
         List<CharacterPromptInfo>? characters = null,
         List<VibeTransferInfo>? vibeTransfers = null,
         List<PreciseReferenceInfo>? preciseReferences = null,
+        IProgress<byte[]>? progress = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
@@ -659,6 +660,7 @@ public class NovelAIService : IDisposable
         };
 
         if (naiParams.Variety) parameters["variety"] = true;
+        if (_settings.Settings.StreamGeneration) parameters["stream"] = "sse";
 
         if (naiParams.Sampler == "k_euler_ancestral" && naiParams.Schedule != "native")
         {
@@ -739,10 +741,19 @@ public class NovelAIService : IDisposable
         {
             var client = GetOrCreateClient();
             client.DefaultRequestHeaders.Accept.Clear();
+            if (_settings.Settings.StreamGeneration)
+                client.DefaultRequestHeaders.Accept.Add(
+                    new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync(GenerateUrl, content, ct);
+            var url = _settings.Settings.StreamGeneration ? GenerateStreamUrl : GenerateUrl;
+            var response = _settings.Settings.StreamGeneration
+                ? await client.SendAsync(
+                    new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
+                    HttpCompletionOption.ResponseHeadersRead,
+                    ct)
+                : await client.PostAsync(url, content, ct);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -752,13 +763,17 @@ public class NovelAIService : IDisposable
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
-            byte[]? imageBytes = await ReadGeneratedImageBytesAsync(response.Content, ct);
+            byte[]? imageBytes = _settings.Settings.StreamGeneration
+                ? await ReadGeneratedImageStreamAsync(response.Content, progress, ct)
+                : await ReadGeneratedImageBytesAsync(response.Content, ct);
             if (imageBytes == null)
             {
                 stopwatch.Stop();
                 WriteRequestLog("Inpaint generation", payload, stopwatch.ElapsedMilliseconds, response);
                 return (null, L("api.error.empty_zip"));
             }
+
+            progress?.Report(imageBytes);
             stopwatch.Stop();
             WriteRequestLog("Inpaint generation", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
             return (imageBytes, null);
@@ -793,6 +808,7 @@ public class NovelAIService : IDisposable
         List<CharacterPromptInfo>? characters = null,
         List<VibeTransferInfo>? vibeTransfers = null,
         List<PreciseReferenceInfo>? preciseReferences = null,
+        IProgress<byte[]>? progress = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
@@ -833,6 +849,7 @@ public class NovelAIService : IDisposable
         };
 
         if (naiParams.Variety) parameters["variety"] = true;
+        if (_settings.Settings.StreamGeneration) parameters["stream"] = "sse";
 
         if (naiParams.Sampler == "k_euler_ancestral" && naiParams.Schedule != "native")
         {
@@ -913,10 +930,19 @@ public class NovelAIService : IDisposable
         {
             var client = GetOrCreateClient();
             client.DefaultRequestHeaders.Accept.Clear();
+            if (_settings.Settings.StreamGeneration)
+                client.DefaultRequestHeaders.Accept.Add(
+                    new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync(GenerateUrl, content, ct);
+            var url = _settings.Settings.StreamGeneration ? GenerateStreamUrl : GenerateUrl;
+            var response = _settings.Settings.StreamGeneration
+                ? await client.SendAsync(
+                    new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
+                    HttpCompletionOption.ResponseHeadersRead,
+                    ct)
+                : await client.PostAsync(url, content, ct);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -926,13 +952,17 @@ public class NovelAIService : IDisposable
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
-            byte[]? imageBytes = await ReadGeneratedImageBytesAsync(response.Content, ct);
+            byte[]? imageBytes = _settings.Settings.StreamGeneration
+                ? await ReadGeneratedImageStreamAsync(response.Content, progress, ct)
+                : await ReadGeneratedImageBytesAsync(response.Content, ct);
             if (imageBytes == null)
             {
                 stopwatch.Stop();
                 WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, response);
                 return (null, L("api.error.empty_zip"));
             }
+
+            progress?.Report(imageBytes);
             stopwatch.Stop();
             WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
             return (imageBytes, null);

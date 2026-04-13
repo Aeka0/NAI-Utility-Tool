@@ -252,13 +252,41 @@ public sealed partial class MainWindow
         var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
         var vibes = GetVibeTransferData();
         var preciseReferences = GetPreciseReferenceData();
+
+        int streamPreviewVer = 0;
+        CanvasBitmap? streamPreviewBmp = null;
+        IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
+            ? new Progress<byte[]>(async bytes =>
+            {
+                int myVer = ++streamPreviewVer;
+                try
+                {
+                    using var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                    using var w = new Windows.Storage.Streams.DataWriter(ms);
+                    w.WriteBytes(bytes);
+                    await w.StoreAsync();
+                    w.DetachStream();
+                    ms.Seek(0);
+                    var bmp = await CanvasBitmap.LoadAsync(device, ms, 96f);
+                    if (myVer != streamPreviewVer) { bmp.Dispose(); return; }
+                    var old = streamPreviewBmp;
+                    streamPreviewBmp = bmp;
+                    MaskCanvas.SetPreview(bmp);
+                    old?.Dispose();
+                }
+                catch { }
+            })
+            : null;
+
         var (imageBytes, error) = await _naiService.InpaintAsync(
             imageBase64, maskBase64,
             MaskCanvas.CanvasW, MaskCanvas.CanvasH,
-            prompt, negPrompt, chars, vibes, preciseReferences, ct);
+            prompt, negPrompt, chars, vibes, preciseReferences, progress, ct);
 
-        if (error != null) { DebugLog($"[Inpaint] API error: {error}"); TxtStatus.Text = error; BtnGenerate.IsEnabled = true; return null; }
-        if (imageBytes == null) { DebugLog("[Inpaint] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); BtnGenerate.IsEnabled = true; return null; }
+        ++streamPreviewVer;
+
+        if (error != null) { DebugLog($"[Inpaint] API error: {error}"); TxtStatus.Text = error; BtnGenerate.IsEnabled = true; streamPreviewBmp?.Dispose(); return null; }
+        if (imageBytes == null) { DebugLog("[Inpaint] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); BtnGenerate.IsEnabled = true; streamPreviewBmp?.Dispose(); return null; }
 
         _pendingResultBytes = imageBytes;
         _pendingResultBitmap?.Dispose();
@@ -269,6 +297,7 @@ public sealed partial class MainWindow
         await writer.StoreAsync();
         stream.Seek(0);
         _pendingResultBitmap = await CanvasBitmap.LoadAsync(device, stream, 96f);
+        streamPreviewBmp?.Dispose();
         return _pendingResultBitmap;
     }
 
@@ -370,13 +399,41 @@ public sealed partial class MainWindow
         var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
         var vibes = GetVibeTransferData();
         var preciseReferences = GetPreciseReferenceData();
+
+        int streamPreviewVer = 0;
+        CanvasBitmap? streamPreviewBmp = null;
+        IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
+            ? new Progress<byte[]>(async bytes =>
+            {
+                int myVer = ++streamPreviewVer;
+                try
+                {
+                    using var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                    using var w = new Windows.Storage.Streams.DataWriter(ms);
+                    w.WriteBytes(bytes);
+                    await w.StoreAsync();
+                    w.DetachStream();
+                    ms.Seek(0);
+                    var bmp = await CanvasBitmap.LoadAsync(device, ms, 96f);
+                    if (myVer != streamPreviewVer) { bmp.Dispose(); return; }
+                    var old = streamPreviewBmp;
+                    streamPreviewBmp = bmp;
+                    MaskCanvas.SetPreview(bmp);
+                    old?.Dispose();
+                }
+                catch { }
+            })
+            : null;
+
         var (imageBytes, error) = await _naiService.ImageToImageAsync(
             imageBase64,
             MaskCanvas.CanvasW, MaskCanvas.CanvasH,
-            prompt, negPrompt, chars, vibes, preciseReferences, ct);
+            prompt, negPrompt, chars, vibes, preciseReferences, progress, ct);
 
-        if (error != null) { DebugLog($"[Denoise] API error: {error}"); TxtStatus.Text = error; BtnGenerate.IsEnabled = true; return null; }
-        if (imageBytes == null) { DebugLog("[Denoise] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); BtnGenerate.IsEnabled = true; return null; }
+        ++streamPreviewVer;
+
+        if (error != null) { DebugLog($"[Denoise] API error: {error}"); TxtStatus.Text = error; BtnGenerate.IsEnabled = true; streamPreviewBmp?.Dispose(); return null; }
+        if (imageBytes == null) { DebugLog("[Denoise] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); BtnGenerate.IsEnabled = true; streamPreviewBmp?.Dispose(); return null; }
 
         _pendingResultBytes = imageBytes;
         _pendingResultBitmap?.Dispose();
@@ -387,6 +444,7 @@ public sealed partial class MainWindow
         await writer.StoreAsync();
         stream.Seek(0);
         _pendingResultBitmap = await CanvasBitmap.LoadAsync(device, stream, 96f);
+        streamPreviewBmp?.Dispose();
         return _pendingResultBitmap;
     }
 
