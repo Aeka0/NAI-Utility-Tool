@@ -174,6 +174,8 @@ public sealed partial class MainWindow
         var highlightCanvas = new Canvas { IsHitTestVisible = false };
         var textBox = new TextBox
         {
+            Background = (Brush)Application.Current.Resources["ControlFillColorTransparentBrush"],
+            Foreground = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"],
             AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
             IsSpellCheckEnabled = false,
             PlaceholderText = entry.IsPositiveTab ? L("character.prompt_positive_placeholder") : L("character.prompt_negative_placeholder"),
@@ -181,7 +183,6 @@ public sealed partial class MainWindow
             MinHeight = 50, MaxHeight = 120,
             FontSize = 12,
         };
-        ApplyTransparentTextBoxBackground(textBox);
         textBox.TextChanged += (_, _) =>
         {
             UpdateCharacterHighlight(entry);
@@ -194,8 +195,8 @@ public sealed partial class MainWindow
         var promptFlyout = new MenuFlyout();
         promptFlyout.Opening += (_, _) => ConfigurePromptContextFlyout(promptFlyout, textBox, isStyleBox: false, allowQuickRandomStyle: false);
         textBox.ContextFlyout = promptFlyout;
-        textGrid.Children.Add(highlightCanvas);
         textGrid.Children.Add(textBox);
+        textGrid.Children.Add(highlightCanvas);
         entry.PromptBox = textBox;
         entry.HighlightCanvas = highlightCanvas;
 
@@ -465,45 +466,6 @@ public sealed partial class MainWindow
 
         flyout.Content = panel;
         flyout.ShowAt(anchor);
-    }
-
-    private static void ApplyTransparentTextBoxBackground(TextBox textBox)
-    {
-        textBox.Background = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0x01, 0xFF, 0xFF, 0xFF));
-
-        var lightDict = new ResourceDictionary();
-        lightDict["TextControlBackground"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0x02, 0xFF, 0xFF, 0xFF));
-        lightDict["TextControlBackgroundPointerOver"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0x02, 0xFF, 0xFF, 0xFF));
-        lightDict["TextControlBackgroundFocused"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0x02, 0xFF, 0xFF, 0xFF));
-        lightDict["TextControlForeground"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0xFF, 0x00, 0x00, 0x00));
-        lightDict["TextControlForegroundPointerOver"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0xFF, 0x00, 0x00, 0x00));
-        lightDict["TextControlForegroundFocused"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0xFF, 0x00, 0x00, 0x00));
-
-        var darkDict = new ResourceDictionary();
-        darkDict["TextControlBackground"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0x02, 0x00, 0x00, 0x00));
-        darkDict["TextControlBackgroundPointerOver"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0x02, 0x00, 0x00, 0x00));
-        darkDict["TextControlBackgroundFocused"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0x02, 0x00, 0x00, 0x00));
-        darkDict["TextControlForeground"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
-        darkDict["TextControlForegroundPointerOver"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
-        darkDict["TextControlForegroundFocused"] = new SolidColorBrush(
-            Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
-
-        var rd = new ResourceDictionary();
-        rd.ThemeDictionaries["Light"] = lightDict;
-        rd.ThemeDictionaries["Dark"] = darkDict;
-        textBox.Resources = rd;
     }
 
     private void UpdateCharacterHighlight(CharacterEntry entry)
