@@ -355,9 +355,9 @@
 
                                 <Grid Grid.Row="0" Visibility="Collapsed"
                                       x:Name="StylePromptGrid">
-                                    <Canvas x:Name="StyleHighlightCanvas" IsHitTestVisible="False"/>
                                     <TextBox x:Name="TxtStylePrompt"
-                                             Background="#01FFFFFF"
+                                             Background="{ThemeResource ControlFillColorTransparentBrush}"
+                                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                              AcceptsReturn="True" TextWrapping="Wrap"
                                              IsSpellCheckEnabled="False"
                                              PlaceholderText=""
@@ -366,35 +366,15 @@
                                              SizeChanged="OnStylePromptSizeChanged"
                                              PreviewKeyDown="OnPromptPreviewKeyDown"
                                              KeyDown="OnPromptKeyDown"
-                                             LostFocus="OnPromptLostFocus">
-                                        <TextBox.Resources>
-                                            <ResourceDictionary>
-                                                <ResourceDictionary.ThemeDictionaries>
-                                                    <ResourceDictionary x:Key="Light">
-                                                        <SolidColorBrush x:Key="TextControlBackground" Color="#02FFFFFF"/>
-                                                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#02FFFFFF"/>
-                                                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#02FFFFFF"/>
-                                                        <SolidColorBrush x:Key="TextControlForeground" Color="#FF000000"/>
-                                                        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#FF000000"/>
-                                                        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#FF000000"/>
-                                                    </ResourceDictionary>
-                                                    <ResourceDictionary x:Key="Dark">
-                                                        <SolidColorBrush x:Key="TextControlBackground" Color="#02000000"/>
-                                                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#02000000"/>
-                                                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#02000000"/>
-                                                        <SolidColorBrush x:Key="TextControlForeground" Color="#FFFFFFFF"/>
-                                                        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#FFFFFFFF"/>
-                                                        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#FFFFFFFF"/>
-                                                    </ResourceDictionary>
-                                                </ResourceDictionary.ThemeDictionaries>
-                                            </ResourceDictionary>
-                                        </TextBox.Resources>
-                                    </TextBox>
+                                             LostFocus="OnPromptLostFocus"/>
+                                    <Canvas x:Name="StyleHighlightCanvas" IsHitTestVisible="False"/>
                                 </Grid>
 
                                 <Grid Grid.Row="1">
-                                    <Canvas x:Name="PromptHighlightCanvas" IsHitTestVisible="False"/>
-                                    <TextBox x:Name="TxtPrompt" Background="#01FFFFFF" AcceptsReturn="True"
+                                    <TextBox x:Name="TxtPrompt"
+                                             Background="{ThemeResource ControlFillColorTransparentBrush}"
+                                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                             AcceptsReturn="True"
                                              TextWrapping="Wrap"
                                              IsSpellCheckEnabled="False"
                                              PlaceholderText=""
@@ -402,30 +382,8 @@
                                              KeyDown="OnPromptKeyDown"
                                              TextChanged="OnPromptTextChanged"
                                              SizeChanged="OnPromptSizeChanged"
-                                             LostFocus="OnPromptLostFocus">
-                                        <TextBox.Resources>
-                                            <ResourceDictionary>
-                                                <ResourceDictionary.ThemeDictionaries>
-                                                    <ResourceDictionary x:Key="Light">
-                                                        <SolidColorBrush x:Key="TextControlBackground" Color="#02FFFFFF"/>
-                                                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#02FFFFFF"/>
-                                                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#02FFFFFF"/>
-                                                        <SolidColorBrush x:Key="TextControlForeground" Color="#FF000000"/>
-                                                        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#FF000000"/>
-                                                        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#FF000000"/>
-                                                    </ResourceDictionary>
-                                                    <ResourceDictionary x:Key="Dark">
-                                                        <SolidColorBrush x:Key="TextControlBackground" Color="#02000000"/>
-                                                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#02000000"/>
-                                                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#02000000"/>
-                                                        <SolidColorBrush x:Key="TextControlForeground" Color="#FFFFFFFF"/>
-                                                        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#FFFFFFFF"/>
-                                                        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#FFFFFFFF"/>
-                                                    </ResourceDictionary>
-                                                </ResourceDictionary.ThemeDictionaries>
-                                            </ResourceDictionary>
-                                        </TextBox.Resources>
-                                    </TextBox>
+                                             LostFocus="OnPromptLostFocus"/>
+                                    <Canvas x:Name="PromptHighlightCanvas" IsHitTestVisible="False"/>
                                 </Grid>
                             </Grid>
 
