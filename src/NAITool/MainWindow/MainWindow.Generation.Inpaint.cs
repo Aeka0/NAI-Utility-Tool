@@ -155,15 +155,10 @@ public sealed partial class MainWindow
 
             exportImage.Dispose();
 
-            _cachedImageBase64 = imageBase64;
-            _cachedMaskBase64 = maskBase64;
-            _cachedI2IEditMode = I2IEditMode.Inpaint;
             int actualSeed = (!forceRandomSeed && ip.Seed > 0) ? ip.Seed : Random.Shared.Next(1, int.MaxValue);
             ip.Seed = actualSeed;
             var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
             var (prompt, negPrompt) = GetPrompts(wildcardContext);
-            _cachedPrompt = prompt;
-            _cachedNegPrompt = negPrompt;
 
             DebugLog($"[Inpaint] Start | Model={ip.Model} | Seed={actualSeed}");
 
@@ -308,15 +303,10 @@ public sealed partial class MainWindow
             var imageBase64 = await NovelAIService.EncodeRenderTargetAsync(exportImage, isMask: false);
             exportImage.Dispose();
 
-            _cachedImageBase64 = imageBase64;
-            _cachedMaskBase64 = null;
-            _cachedI2IEditMode = I2IEditMode.Denoise;
             int actualSeed = (!forceRandomSeed && dp.Seed > 0) ? dp.Seed : Random.Shared.Next(1, int.MaxValue);
             dp.Seed = actualSeed;
             var wildcardContext = CreateWildcardContext(actualSeed, dp.Model);
             var (prompt, negPrompt) = GetPrompts(wildcardContext);
-            _cachedPrompt = prompt;
-            _cachedNegPrompt = negPrompt;
 
             DebugLog($"[Denoise] Start | Model={dp.Model} | Seed={actualSeed} | Strength={dp.DenoiseStrength:0.##} | Noise={dp.DenoiseNoise:0.##}");
 
@@ -445,14 +435,20 @@ public sealed partial class MainWindow
 
     private async Task<bool> RedoInpaintGenerateAsync(bool forceRandomSeed = false)
     {
-        if (_cachedImageBase64 == null) return false;
-        if (_cachedI2IEditMode == I2IEditMode.Inpaint && _cachedMaskBase64 == null) return false;
+        var editMode = _i2iEditMode;
+        if (MaskCanvas.Document.MaskTarget == null || MaskCanvas.GetDevice() == null)
+        { TxtStatus.Text = L("inpaint.error.canvas_not_initialized"); return false; }
+        if (editMode == I2IEditMode.Inpaint && !MaskCanvas.HasMaskContent())
+        { TxtStatus.Text = L("inpaint.error.mask_required"); return false; }
+        if (editMode == I2IEditMode.Denoise && MaskCanvas.Document.OriginalImage == null)
+        { TxtStatus.Text = L("i2i.error.no_image_to_send"); return false; }
+
         BtnGenerate.IsEnabled = false;
         _generateRequestRunning = true;
         UpdateBtnGenerateForApiKey();
         SetResultBarEnabled(false);
         TxtStatus.Text = L("generate.status.regenerating");
-        var ip = _cachedI2IEditMode == I2IEditMode.Denoise
+        var ip = editMode == I2IEditMode.Denoise
             ? _settings.Settings.I2IDenoiseParameters
             : _settings.Settings.InpaintParameters;
         int origSeed = ip.Seed;
@@ -462,18 +458,25 @@ public sealed partial class MainWindow
             _generateCts?.Cancel();
             _generateCts = new CancellationTokenSource();
             var ct = _generateCts.Token;
+            var device = MaskCanvas.GetDevice()!;
+
+            using var exportImage = MaskCanvas.Document.CreateCompositeForExport(device);
+            if (exportImage == null) { TxtStatus.Text = L("inpaint.error.export_image_failed"); BtnGenerate.IsEnabled = true; return false; }
+
+            var imageBase64 = await NovelAIService.EncodeRenderTargetAsync(exportImage, isMask: false);
+            string? maskBase64 = editMode == I2IEditMode.Inpaint
+                ? await NovelAIService.EncodeRenderTargetAsync(MaskCanvas.Document.MaskTarget!, isMask: true)
+                : null;
 
             int actualSeed = (!forceRandomSeed && ip.Seed > 0) ? ip.Seed : Random.Shared.Next(1, int.MaxValue);
             ip.Seed = actualSeed;
             var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
             var (prompt, negPrompt) = GetPrompts(wildcardContext);
-            _cachedPrompt = prompt;
-            _cachedNegPrompt = negPrompt;
 
-            var resultBitmap = _cachedI2IEditMode == I2IEditMode.Denoise
-                ? await SendDenoiseRequestAsync(_cachedImageBase64, prompt, negPrompt, wildcardContext, ct)
+            var resultBitmap = editMode == I2IEditMode.Denoise
+                ? await SendDenoiseRequestAsync(imageBase64, prompt, negPrompt, wildcardContext, ct)
                 : await SendInpaintRequestAsync(
-                    _cachedImageBase64, _cachedMaskBase64!,
+                    imageBase64, maskBase64!,
                     prompt, negPrompt, wildcardContext, ct);
             _lastUsedSeed = actualSeed;
 
@@ -500,7 +503,6 @@ public sealed partial class MainWindow
 
     private async void OnRedoGenerate(object sender, RoutedEventArgs e)
     {
-        if (_cachedImageBase64 == null) return;
         await RedoInpaintGenerateAsync();
     }
 
@@ -518,9 +520,6 @@ public sealed partial class MainWindow
         _pendingResultBitmap?.Dispose();
         _pendingResultBitmap = null;
         _pendingResultBytes = null;
-        _cachedImageBase64 = null;
-        _cachedMaskBase64 = null;
-        _cachedI2IEditMode = I2IEditMode.Inpaint;
         ResultActionBar.Visibility = Visibility.Collapsed;
         BtnGenerate.IsEnabled = true;
     }
@@ -633,9 +632,6 @@ public sealed partial class MainWindow
         }
 
         _pendingResultBytes = null;
-        _cachedImageBase64 = null;
-        _cachedMaskBase64 = null;
-        _cachedI2IEditMode = I2IEditMode.Inpaint;
         doc.ClearMask();
         if (MaskCanvas.IsInPreviewMode) MaskCanvas.ClearPreview();
         MaskCanvas.UndoMgr.Clear();

@@ -165,11 +165,6 @@ public sealed partial class MainWindow : Window
     // ═══ 重绘预览工作流 ═══
     private CanvasBitmap? _pendingResultBitmap;
     private byte[]? _pendingResultBytes;
-    private string? _cachedImageBase64;
-    private string? _cachedMaskBase64;
-    private I2IEditMode _cachedI2IEditMode = I2IEditMode.Inpaint;
-    private string _cachedPrompt = "";
-    private string _cachedNegPrompt = "";
 
     // ═══ 生图结果 ═══
     private byte[]? _currentGenImageBytes;
