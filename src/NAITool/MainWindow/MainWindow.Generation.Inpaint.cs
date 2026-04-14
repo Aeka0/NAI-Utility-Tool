@@ -41,7 +41,6 @@ public sealed partial class MainWindow
         try
         {
             SaveCurrentPromptToBuffer();
-            var (sendW, sendH) = GetSelectedSize();
 
             var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(imageBytes));
 
@@ -87,49 +86,18 @@ public sealed partial class MainWindow
             _i2iNegativePrompt = sendNeg;
             _i2iStylePrompt = sendStyle;
 
-            bool imgMatchesPreset = Array.Exists(MaskCanvasControl.CanvasPresets,
-                p => p.W == imgW && p.H == imgH);
+            var importSize = MaskCanvasControl.ResolveImportCanvasSize(
+                imgW, imgH, _settings.Settings.AccountAssetProtectionMode);
+            int canvasW = importSize.W;
+            int canvasH = importSize.H;
+            bool sizeApplied = canvasW == imgW && canvasH == imgH;
 
-            int canvasW, canvasH;
-            bool sizeApplied;
-
-            if (!_settings.Settings.AccountAssetProtectionMode)
-            {
-                canvasW = imgW;
-                canvasH = imgH;
-                _customWidth = imgW;
-                _customHeight = imgH;
-                NbMaxWidth.Value = imgW;
-                NbMaxHeight.Value = imgH;
-                sizeApplied = true;
-            }
-            else if (imgMatchesPreset)
-            {
-                canvasW = imgW;
-                canvasH = imgH;
-                _customWidth = imgW;
-                _customHeight = imgH;
-                int idx = Array.FindIndex(MaskCanvasControl.CanvasPresets,
-                    p => p.W == imgW && p.H == imgH);
-                    if (idx >= 0) CboSize.SelectedIndex = idx;
-                sizeApplied = true;
-                }
-                else
-                {
-                if (CboSize.SelectedIndex >= 0 &&
-                    CboSize.SelectedIndex < MaskCanvasControl.CanvasPresets.Length)
-                {
-                    var preset = MaskCanvasControl.CanvasPresets[CboSize.SelectedIndex];
-                    canvasW = preset.W;
-                    canvasH = preset.H;
-                }
-                else
-                {
-                    canvasW = sendW;
-                    canvasH = sendH;
-                }
-                sizeApplied = false;
-            }
+            _customWidth = canvasW;
+            _customHeight = canvasH;
+            SetSizeInputsSilently(_customWidth, _customHeight);
+            int idx = Array.FindIndex(MaskCanvasControl.CanvasPresets,
+                p => p.W == canvasW && p.H == canvasH);
+            if (idx >= 0) CboSize.SelectedIndex = idx;
 
             SwitchMode(AppMode.I2I);
             MaskCanvas.InitializeCanvas(canvasW, canvasH);

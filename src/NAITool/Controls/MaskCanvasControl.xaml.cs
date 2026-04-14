@@ -76,6 +76,10 @@ public sealed partial class MaskCanvasControl : UserControl
     private int _canvasHeight = 1216;
     private volatile float _cachedControlWidth;
     private volatile float _cachedControlHeight;
+    private const int CanvasSizeStep = 64;
+    private const int AssetProtectionMinMatchedSide = 512;
+    private const int AssetProtectionMaxMatchedSide = 2048;
+    private const long AssetProtectionMaxPixels = 1024L * 1024L;
 
     private static readonly Matrix5x4 MaskOverlayMatrix = new()
     {
@@ -124,6 +128,7 @@ public sealed partial class MaskCanvasControl : UserControl
     public bool IsImageFileDropEnabled { get; set; } = true;
     public bool IsMaskEditingEnabled { get; set; } = true;
     public bool IsMaskOverlayVisible { get; set; } = true;
+    public bool UseAssetProtectionCanvasSizing { get; set; } = true;
 
     /// <summary>导入图片的原始文件路径（用于"保存"覆盖写回）。</summary>
     public string? LoadedFilePath => _loadedFilePath;
@@ -139,6 +144,184 @@ public sealed partial class MaskCanvasControl : UserControl
     public event Action? ContentChanged;
     public event Action<string>? StatusMessage;
     public event Action<string>? ImageFileLoaded;
+
+    public static (int W, int H) ResolveImportCanvasSize(int imageWidth, int imageHeight, bool assetProtectionMode)
+    {
+        int imgW = Math.Max(1, imageWidth);
+        int imgH = Math.Max(1, imageHeight);
+
+        if (!assetProtectionMode)
+            return (RoundUpToMultipleOf64(imgW), RoundUpToMultipleOf64(imgH));
+
+        foreach (var preset in CanvasPresets)
+        {
+            if (imgW == preset.W && imgH == preset.H)
+                return (preset.W, preset.H);
+        }
+
+        if (TryResolveAssetProtectionMatchedEdge(imgW, imgH, out var matchedEdgeSize))
+            return matchedEdgeSize;
+
+        if ((long)imgW * imgH > AssetProtectionMaxPixels &&
+            TrySelectContainedPreset(imgW, imgH, out var containedLargeSize))
+            return containedLargeSize;
+
+        if (TrySelectCoveringPreset(imgW, imgH, out var coveringSize))
+            return coveringSize;
+
+        if (TrySelectContainedPreset(imgW, imgH, out var containedSize))
+            return containedSize;
+
+        return ResolveAssetProtectionFallbackSize(imgW, imgH);
+    }
+
+    private static int RoundUpToMultipleOf64(int value)
+    {
+        value = Math.Max(1, value);
+        return Math.Max(CanvasSizeStep, ((value + CanvasSizeStep - 1) / CanvasSizeStep) * CanvasSizeStep);
+    }
+
+    private static int RoundDownToMultipleOf64(int value)
+    {
+        value = Math.Max(1, value);
+        return Math.Max(CanvasSizeStep, (value / CanvasSizeStep) * CanvasSizeStep);
+    }
+
+    private static bool IsAssetProtectionMatchedSide(int value) =>
+        value >= AssetProtectionMinMatchedSide &&
+        value <= AssetProtectionMaxMatchedSide &&
+        value % CanvasSizeStep == 0;
+
+    private static bool TryResolveAssetProtectionMatchedEdge(int imgW, int imgH, out (int W, int H) size)
+    {
+        bool found = false;
+        size = default;
+        (int W, int H) bestSize = default;
+        double imageRatio = (double)imgW / imgH;
+        double bestSquareScore = double.MaxValue;
+        double bestRatioScore = double.MaxValue;
+
+        void AddCandidate(int w, int h)
+        {
+            if ((long)w * h > AssetProtectionMaxPixels)
+                return;
+
+            double candidateRatio = (double)w / h;
+            double squareScore = Math.Abs(Math.Log(candidateRatio));
+            double ratioScore = Math.Abs(Math.Log(candidateRatio / imageRatio));
+            if (!found ||
+                squareScore < bestSquareScore - 0.000001 ||
+                (Math.Abs(squareScore - bestSquareScore) <= 0.000001 && ratioScore < bestRatioScore))
+            {
+                found = true;
+                bestSize = (w, h);
+                bestSquareScore = squareScore;
+                bestRatioScore = ratioScore;
+            }
+        }
+
+        if (IsAssetProtectionMatchedSide(imgW))
+            AddCandidate(imgW, ResolveOtherAssetProtectionSide(imgH, imgW));
+
+        if (IsAssetProtectionMatchedSide(imgH))
+            AddCandidate(ResolveOtherAssetProtectionSide(imgW, imgH), imgH);
+
+        size = bestSize;
+        return found;
+    }
+
+    private static int ResolveOtherAssetProtectionSide(int originalOtherSide, int matchedSide)
+    {
+        int maxOtherSide = RoundDownToMultipleOf64((int)(AssetProtectionMaxPixels / matchedSide));
+        int preferred = RoundUpToMultipleOf64(originalOtherSide);
+        return Math.Clamp(preferred, CanvasSizeStep, maxOtherSide);
+    }
+
+    private static bool TrySelectContainedPreset(int imgW, int imgH, out (int W, int H) size)
+    {
+        bool found = false;
+        size = default;
+        double imageRatio = (double)imgW / imgH;
+        double bestSquareScore = double.MaxValue;
+        double bestRatioScore = double.MaxValue;
+
+        foreach (var preset in CanvasPresets)
+        {
+            if (preset.W >= imgW || preset.H >= imgH)
+                continue;
+
+            double presetRatio = (double)preset.W / preset.H;
+            double squareScore = Math.Abs(Math.Log(presetRatio));
+            double ratioScore = Math.Abs(Math.Log(presetRatio / imageRatio));
+            if (!found ||
+                squareScore < bestSquareScore - 0.000001 ||
+                (Math.Abs(squareScore - bestSquareScore) <= 0.000001 && ratioScore < bestRatioScore))
+            {
+                found = true;
+                size = (preset.W, preset.H);
+                bestSquareScore = squareScore;
+                bestRatioScore = ratioScore;
+            }
+        }
+
+        return found;
+    }
+
+    private static bool TrySelectCoveringPreset(int imgW, int imgH, out (int W, int H) size)
+    {
+        bool found = false;
+        size = default;
+        double imageRatio = (double)imgW / imgH;
+        double bestRatioScore = double.MaxValue;
+        long bestOvershoot = long.MaxValue;
+
+        foreach (var preset in CanvasPresets)
+        {
+            if (preset.W < imgW || preset.H < imgH)
+                continue;
+
+            double presetRatio = (double)preset.W / preset.H;
+            double ratioScore = Math.Abs(Math.Log(presetRatio / imageRatio));
+            long overshoot = (long)(preset.W - imgW) * (preset.H - imgH);
+            if (!found ||
+                ratioScore < bestRatioScore - 0.000001 ||
+                (Math.Abs(ratioScore - bestRatioScore) <= 0.000001 && overshoot < bestOvershoot))
+            {
+                found = true;
+                size = (preset.W, preset.H);
+                bestRatioScore = ratioScore;
+                bestOvershoot = overshoot;
+            }
+        }
+
+        return found;
+    }
+
+    private static (int W, int H) ResolveAssetProtectionFallbackSize(int imgW, int imgH)
+    {
+        int coverW = Math.Min(AssetProtectionMaxMatchedSide, RoundUpToMultipleOf64(imgW));
+        int coverH = Math.Min(AssetProtectionMaxMatchedSide, RoundUpToMultipleOf64(imgH));
+        if ((long)coverW * coverH <= AssetProtectionMaxPixels)
+            return (coverW, coverH);
+
+        double scale = Math.Sqrt(AssetProtectionMaxPixels / Math.Max(1d, (double)imgW * imgH));
+        scale = Math.Min(scale, (double)AssetProtectionMaxMatchedSide / imgW);
+        scale = Math.Min(scale, (double)AssetProtectionMaxMatchedSide / imgH);
+
+        int fitW = RoundDownToMultipleOf64((int)Math.Floor(imgW * scale));
+        int fitH = RoundDownToMultipleOf64((int)Math.Floor(imgH * scale));
+        while ((long)fitW * fitH > AssetProtectionMaxPixels)
+        {
+            if (fitW >= fitH && fitW > CanvasSizeStep)
+                fitW -= CanvasSizeStep;
+            else if (fitH > CanvasSizeStep)
+                fitH -= CanvasSizeStep;
+            else
+                break;
+        }
+
+        return (fitW, fitH);
+    }
 
     public MaskCanvasControl()
     {
@@ -232,6 +415,21 @@ public sealed partial class MaskCanvasControl : UserControl
         }
     }
 
+    private bool ApplyImportCanvasSize(uint imageWidth, uint imageHeight)
+    {
+        if (_device == null) return false;
+
+        var size = ResolveImportCanvasSize((int)imageWidth, (int)imageHeight, UseAssetProtectionCanvasSizing);
+        if (_canvasWidth == size.W && _canvasHeight == size.H)
+            return false;
+
+        _canvasWidth = size.W;
+        _canvasHeight = size.H;
+        lock (_renderLock) { _document.Initialize(_device, size.W, size.H); }
+        RegenerateCheckerboard();
+        return true;
+    }
+
     public async Task LoadImageAsync(StorageFile file)
     {
         if (_device == null || _canvas == null) return;
@@ -245,21 +443,7 @@ public sealed partial class MaskCanvasControl : UserControl
             bool sizeChanged = false;
 
             _resourcesReady = false;
-            foreach (var p in CanvasPresets)
-            {
-                if (imgW == (uint)p.W && imgH == (uint)p.H)
-                {
-                    if (_canvasWidth != p.W || _canvasHeight != p.H)
-                    {
-                        _canvasWidth = p.W;
-                        _canvasHeight = p.H;
-                        lock (_renderLock) { _document.Initialize(_device, p.W, p.H); }
-                        RegenerateCheckerboard();
-                        sizeChanged = true;
-                    }
-                    break;
-                }
-            }
+            sizeChanged = ApplyImportCanvasSize(imgW, imgH);
 
             _document.SetOriginalImage(bitmap);
             lock (_renderLock) { _document.ClearMask(); }
@@ -286,7 +470,12 @@ public sealed partial class MaskCanvasControl : UserControl
     {
         if (_device == null || _canvas == null) return;
 
+        uint imgW = bitmap.SizeInPixels.Width;
+        uint imgH = bitmap.SizeInPixels.Height;
+        bool sizeChanged = false;
+
         _resourcesReady = false;
+        sizeChanged = ApplyImportCanvasSize(imgW, imgH);
         _document.SetOriginalImage(bitmap);
         lock (_renderLock) { _document.ClearMask(); }
         _resourcesReady = true;
@@ -296,9 +485,10 @@ public sealed partial class MaskCanvasControl : UserControl
         MarkWorkspaceClean();
         ContentChanged?.Invoke();
 
-        uint imgW = bitmap.SizeInPixels.Width;
-        uint imgH = bitmap.SizeInPixels.Height;
-        StatusMessage?.Invoke(LocalizationService.Instance.Format("mask_canvas.image_loaded_simple", imgW, imgH));
+        string msg = LocalizationService.Instance.Format("mask_canvas.image_loaded_simple", imgW, imgH);
+        if (sizeChanged)
+            msg += " " + LocalizationService.Instance.Format("mask_canvas.canvas_auto_matched", _canvasWidth, _canvasHeight);
+        StatusMessage?.Invoke(msg);
     }
 
     public void PerformUndo()

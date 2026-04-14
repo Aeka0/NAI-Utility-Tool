@@ -477,6 +477,7 @@ public sealed partial class MainWindow
             _settings.Settings.UseProxy = proxyCheck.IsChecked == true;
             _settings.Settings.ProxyPort = proxyPortBox.Text;
             _settings.Save();
+            MaskCanvas.UseAssetProtectionCanvasSizing = _settings.Settings.AccountAssetProtectionMode;
 
             if (accountAssetProtectionModeChanged)
             {

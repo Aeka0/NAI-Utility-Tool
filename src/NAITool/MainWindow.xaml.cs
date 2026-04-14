@@ -334,6 +334,7 @@ public sealed partial class MainWindow : Window
         SyncThemeMenuChecks(_settings.Settings.ThemeMode);
 
         MaskCanvas.ZoomChanged += z => TxtZoomInfo.Text = Lf("status.zoom", z * 100);
+        MaskCanvas.UseAssetProtectionCanvasSizing = _settings.Settings.AccountAssetProtectionMode;
         MaskCanvas.ContentChanged += () =>
         {
             if (_currentMode == AppMode.I2I &&
