@@ -355,35 +355,33 @@
 
                                 <Grid Grid.Row="0" Visibility="Collapsed"
                                       x:Name="StylePromptGrid">
-                                    <TextBox x:Name="TxtStylePrompt"
-                                             Background="{ThemeResource ControlFillColorTransparentBrush}"
-                                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                             AcceptsReturn="True" TextWrapping="Wrap"
-                                             IsSpellCheckEnabled="False"
-                                             PlaceholderText=""
-                                             MinHeight="34" MaxHeight="120"
-                                             TextChanged="OnStylePromptTextChanged"
-                                             SizeChanged="OnStylePromptSizeChanged"
-                                             PreviewKeyDown="OnPromptPreviewKeyDown"
-                                             KeyDown="OnPromptKeyDown"
-                                             LostFocus="OnPromptLostFocus"/>
-                                    <Canvas x:Name="StyleHighlightCanvas" IsHitTestVisible="False"/>
+                                    <controls:PromptTextBox x:Name="TxtStylePrompt"
+                                                            Background="{ThemeResource ControlFillColorTransparentBrush}"
+                                                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                            AcceptsReturn="True" TextWrapping="Wrap"
+                                                            IsSpellCheckEnabled="False"
+                                                            PlaceholderText=""
+                                                            MinHeight="34" MaxHeight="120"
+                                                            TextChanged="OnStylePromptTextChanged"
+                                                            SizeChanged="OnStylePromptSizeChanged"
+                                                            PreviewKeyDown="OnPromptPreviewKeyDown"
+                                                            KeyDown="OnPromptKeyDown"
+                                                            LostFocus="OnPromptLostFocus"/>
                                 </Grid>
 
                                 <Grid Grid.Row="1">
-                                    <TextBox x:Name="TxtPrompt"
-                                             Background="{ThemeResource ControlFillColorTransparentBrush}"
-                                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                             AcceptsReturn="True"
-                                             TextWrapping="Wrap"
-                                             IsSpellCheckEnabled="False"
-                                             PlaceholderText=""
-                                             PreviewKeyDown="OnPromptPreviewKeyDown"
-                                             KeyDown="OnPromptKeyDown"
-                                             TextChanged="OnPromptTextChanged"
-                                             SizeChanged="OnPromptSizeChanged"
-                                             LostFocus="OnPromptLostFocus"/>
-                                    <Canvas x:Name="PromptHighlightCanvas" IsHitTestVisible="False"/>
+                                    <controls:PromptTextBox x:Name="TxtPrompt"
+                                                            Background="{ThemeResource ControlFillColorTransparentBrush}"
+                                                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                            AcceptsReturn="True"
+                                                            TextWrapping="Wrap"
+                                                            IsSpellCheckEnabled="False"
+                                                            PlaceholderText=""
+                                                            PreviewKeyDown="OnPromptPreviewKeyDown"
+                                                            KeyDown="OnPromptKeyDown"
+                                                            TextChanged="OnPromptTextChanged"
+                                                            SizeChanged="OnPromptSizeChanged"
+                                                            LostFocus="OnPromptLostFocus"/>
                                 </Grid>
                             </Grid>
 

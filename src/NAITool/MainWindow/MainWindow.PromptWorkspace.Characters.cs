@@ -46,8 +46,7 @@ public sealed partial class MainWindow
         public bool IsCollapsed { get; set; }
         public bool IsDisabled { get; set; }
         public bool UseCustomPosition { get; set; }
-        public TextBox? PromptBox { get; set; }
-        public Canvas? HighlightCanvas { get; set; }
+        public PromptTextBox? PromptBox { get; set; }
         public int HighlightVersion { get; set; }
     }
 
@@ -171,8 +170,7 @@ public sealed partial class MainWindow
         headerGrid.Children.Add(delBtn);
 
         var textGrid = new Grid { MinHeight = 50, MaxHeight = 120 };
-        var highlightCanvas = new Canvas { IsHitTestVisible = false };
-        var textBox = new TextBox
+        var textBox = new PromptTextBox
         {
             Background = (Brush)Application.Current.Resources["ControlFillColorTransparentBrush"],
             Foreground = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"],
@@ -185,6 +183,7 @@ public sealed partial class MainWindow
         };
         textBox.TextChanged += (_, _) =>
         {
+            if (textBox.IsApplyingHighlights) return;
             UpdateCharacterHighlight(entry);
             if (!_acInserting) TriggerAutoComplete(textBox);
         };
@@ -196,9 +195,7 @@ public sealed partial class MainWindow
         promptFlyout.Opening += (_, _) => ConfigurePromptContextFlyout(promptFlyout, textBox, isStyleBox: false, allowQuickRandomStyle: false);
         textBox.ContextFlyout = promptFlyout;
         textGrid.Children.Add(textBox);
-        textGrid.Children.Add(highlightCanvas);
         entry.PromptBox = textBox;
-        entry.HighlightCanvas = highlightCanvas;
 
         tabPos.Click += (_, _) =>
         {
@@ -470,15 +467,18 @@ public sealed partial class MainWindow
 
     private void UpdateCharacterHighlight(CharacterEntry entry)
     {
-        if (entry.HighlightCanvas == null || entry.PromptBox == null) return;
-        entry.HighlightCanvas.Children.Clear();
-        if (string.IsNullOrEmpty(entry.PromptBox.Text) || !_settings.Settings.WeightHighlight) return;
+        if (entry.PromptBox == null) return;
+        if (string.IsNullOrEmpty(entry.PromptBox.Text) || !_settings.Settings.WeightHighlight)
+        {
+            entry.PromptBox.ClearHighlights();
+            return;
+        }
         entry.HighlightVersion++;
         int version = entry.HighlightVersion;
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
             if (version != entry.HighlightVersion) return;
-            DrawHighlightsFor(entry.PromptBox, entry.HighlightCanvas);
+            ApplyHighlightsFor(entry.PromptBox);
         });
     }
 

@@ -36,15 +36,17 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
-    private void OnPromptTextChanged(object sender, TextChangedEventArgs e)
+    private void OnPromptTextChanged(object sender, RoutedEventArgs e)
     {
+        if (sender is PromptTextBox { IsApplyingHighlights: true }) return;
         UpdatePromptHighlights();
         if (!_acInserting) TriggerAutoComplete(TxtPrompt);
     }
     private void OnPromptSizeChanged(object sender, SizeChangedEventArgs e) => UpdatePromptHighlights();
     private void OnPromptLostFocus(object sender, RoutedEventArgs e) => CloseAutoComplete();
-    private void OnStylePromptTextChanged(object sender, TextChangedEventArgs e)
+    private void OnStylePromptTextChanged(object sender, RoutedEventArgs e)
     {
+        if (sender is PromptTextBox { IsApplyingHighlights: true }) return;
         UpdateStyleHighlights();
         if (!_acInserting) TriggerAutoComplete(TxtStylePrompt);
     }
@@ -257,11 +259,14 @@ public sealed partial class MainWindow
 
     private void UpdatePromptHighlights()
     {
-        PromptHighlightCanvas.Children.Clear();
         string text = TxtPrompt.Text;
         bool wh = _settings.Settings.WeightHighlight;
         if (_settings.Settings.DevLogEnabled) DebugLog($"UpdatePromptHighlights: text.len={text?.Length}, WeightHighlight={wh}");
-        if (string.IsNullOrEmpty(text) || !wh) return;
+        if (string.IsNullOrEmpty(text) || !wh)
+        {
+            TxtPrompt.ClearHighlights();
+            return;
+        }
         _promptHighlightVer++;
         int version = _promptHighlightVer;
         if (_settings.Settings.DevLogEnabled) DebugLog($"  enqueue ver={version}");
@@ -269,29 +274,31 @@ public sealed partial class MainWindow
         {
             if (_settings.Settings.DevLogEnabled) DebugLog($"  callback ver={version}, current={_promptHighlightVer}");
             if (version != _promptHighlightVer) return;
-            DrawHighlightsFor(TxtPrompt, PromptHighlightCanvas);
+            ApplyHighlightsFor(TxtPrompt);
         });
     }
 
     private void UpdateStyleHighlights()
     {
-        StyleHighlightCanvas.Children.Clear();
-        if (string.IsNullOrEmpty(TxtStylePrompt.Text) || !_settings.Settings.WeightHighlight) return;
+        if (string.IsNullOrEmpty(TxtStylePrompt.Text) || !_settings.Settings.WeightHighlight)
+        {
+            TxtStylePrompt.ClearHighlights();
+            return;
+        }
         _styleHighlightVer++;
         int version = _styleHighlightVer;
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
             if (version != _styleHighlightVer) return;
-            DrawHighlightsFor(TxtStylePrompt, StyleHighlightCanvas);
+            ApplyHighlightsFor(TxtStylePrompt);
         });
     }
 
     private static readonly Regex PromptWeightHighlightRegex = new(@"(\d+\.?\d*)::", RegexOptions.Compiled);
     private static readonly Regex WildcardHighlightExplicitRegex = new(@"__(.+?)__", RegexOptions.Compiled);
 
-    private void DrawHighlightsFor(TextBox textBox, Canvas canvas)
+    private void ApplyHighlightsFor(PromptTextBox textBox)
     {
-        canvas.Children.Clear();
         var text = textBox.Text;
         if (string.IsNullOrEmpty(text) || !_settings.Settings.WeightHighlight) return;
 
@@ -308,8 +315,9 @@ public sealed partial class MainWindow
 
         var matches = PromptWeightHighlightRegex.Matches(text);
         if (_settings.Settings.DevLogEnabled)
-            DebugLog($"DrawHighlightsFor: textBox={textBox.Name}, text.len={text.Length}, matches={matches.Count}, canvas.W={canvas.ActualWidth}, canvas.H={canvas.ActualHeight}, textBox.W={textBox.ActualWidth}, textBox.H={textBox.ActualHeight}");
+            DebugLog($"ApplyHighlightsFor: textBox={textBox.Name}, text.len={text.Length}, matches={matches.Count}, textBox.W={textBox.ActualWidth}, textBox.H={textBox.ActualHeight}");
 
+        var highlights = new List<PromptTextHighlight>();
         int drawn = 0;
         for (int i = 0; i < matches.Count; i++)
         {
@@ -334,15 +342,16 @@ public sealed partial class MainWindow
             if (_settings.Settings.DevLogEnabled)
                 DebugLog($"  match[{i}] '{m.Value}' w={w}, start={m.Index}, len={segEnd - m.Index}");
 
-            DrawSegmentHighlight(textBox, canvas, m.Index, segEnd - m.Index, w > 1 ? greenColor : redColor);
+            AddSegmentHighlight(highlights, text.Length, m.Index, segEnd - m.Index, w > 1 ? greenColor : redColor);
             drawn++;
         }
 
-        DrawWildcardHighlights(textBox, canvas, text, purpleColor);
-        if (_settings.Settings.DevLogEnabled) DebugLog($"  drawn={drawn}, canvas.Children={canvas.Children.Count}");
+        AddWildcardHighlights(highlights, text, purpleColor);
+        textBox.ApplyHighlights(highlights);
+        if (_settings.Settings.DevLogEnabled) DebugLog($"  drawn={drawn}, highlights={highlights.Count}");
     }
 
-    private void DrawWildcardHighlights(TextBox textBox, Canvas canvas, string text, Windows.UI.Color color)
+    private void AddWildcardHighlights(List<PromptTextHighlight> highlights, string text, Windows.UI.Color color)
     {
         if (!_settings.Settings.WildcardsEnabled || !_wildcardService.IsLoaded) return;
 
@@ -356,7 +365,7 @@ public sealed partial class MainWindow
             int atIdx = body.LastIndexOf('@');
             if (atIdx > 0) name = body[..atIdx].Trim();
             if (body.StartsWith("@", StringComparison.Ordinal) || _wildcardService.HasEntry(name))
-                DrawSegmentHighlight(textBox, canvas, m.Index, m.Length, color);
+                AddSegmentHighlight(highlights, text.Length, m.Index, m.Length, color);
         }
 
         if (!requireExplicit)
@@ -375,7 +384,7 @@ public sealed partial class MainWindow
                     && !(trimmed.StartsWith("__") && trimmed.EndsWith("__"))
                     && _wildcardService.HasEntry(trimmed))
                 {
-                    DrawSegmentHighlight(textBox, canvas, start, trimmed.Length, color);
+                    AddSegmentHighlight(highlights, text.Length, start, trimmed.Length, color);
                 }
                 if (comma < 0) break;
                 pos = comma + 1;
@@ -383,73 +392,13 @@ public sealed partial class MainWindow
         }
     }
 
-    private void DrawSegmentHighlight(TextBox textBox, Canvas canvas,
+    private static void AddSegmentHighlight(List<PromptTextHighlight> highlights, int textLength,
         int start, int length, Windows.UI.Color color)
     {
-        int textLen = textBox.Text.Length;
-        if (length <= 0 || start >= textLen) return;
-        int end = Math.Min(start + length, textLen);
-
-        double offsetX = textBox.BorderThickness.Left + textBox.Padding.Left;
-        double offsetY = textBox.BorderThickness.Top + textBox.Padding.Top;
-
-        try
-        {
-            var brush = new SolidColorBrush(color);
-            var lines = new List<(double x, double y, double right, double rawH)>();
-            double currentY = -1, lineStartX = 0, lineHeight = 0;
-
-            for (int ci = start; ci < end; ci++)
-            {
-                var cr = textBox.GetRectFromCharacterIndex(ci, false);
-                if (ci == start)
-                {
-                    if (_settings.Settings.DevLogEnabled)
-                        DebugLog($"    GetRect[{ci}] = x={cr.X}, y={cr.Y}, w={cr.Width}, h={cr.Height}");
-                }
-                if (cr.Height <= 0) continue;
-
-                double charX = cr.X + offsetX;
-                double charY = cr.Y + offsetY;
-
-                if (currentY < 0 || Math.Abs(charY - currentY) > 2)
-                {
-                    if (currentY >= 0)
-                    {
-                        var trail = textBox.GetRectFromCharacterIndex(ci - 1, true);
-                        lines.Add((lineStartX, currentY, trail.X + offsetX, lineHeight));
-                    }
-                    currentY = charY;
-                    lineStartX = charX;
-                    lineHeight = cr.Height;
-                }
-            }
-
-            if (currentY >= 0)
-            {
-                var trail = textBox.GetRectFromCharacterIndex(end - 1, true);
-                lines.Add((lineStartX, currentY, trail.X + offsetX, lineHeight));
-            }
-
-            if (_settings.Settings.DevLogEnabled) DebugLog($"    lines={lines.Count}");
-            for (int li = 0; li < lines.Count; li++)
-            {
-                var (x, y, right, rawH) = lines[li];
-                double h = rawH - 4;
-                if (li + 1 < lines.Count)
-                    h = Math.Min(h, lines[li + 1].y - y);
-                if (_settings.Settings.DevLogEnabled)
-                    DebugLog($"    rect[{li}] x={x:F1}, y={y:F1}, w={right - x:F1}, h={h:F1}");
-                if (h <= 0 || right - x <= 0) continue;
-                var rect = new Microsoft.UI.Xaml.Shapes.Rectangle
-                {
-                    Width = right - x, Height = h, Fill = brush, RadiusX = 3, RadiusY = 3,
-                };
-                Canvas.SetLeft(rect, x);
-                Canvas.SetTop(rect, y);
-                canvas.Children.Add(rect);
-            }
-        }
-        catch (Exception ex) { DebugLog($"    EXCEPTION: {ex.Message}"); }
+        if (length <= 0 || start >= textLength) return;
+        start = Math.Clamp(start, 0, textLength);
+        int end = Math.Clamp(start + length, start, textLength);
+        if (end <= start) return;
+        highlights.Add(new PromptTextHighlight(start, end - start, color));
     }
 }

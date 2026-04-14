@@ -47,7 +47,7 @@ public sealed partial class MainWindow
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Tags] Load failed: {ex.Message}"); }
     }
 
-    private void TriggerAutoComplete(TextBox textBox)
+    private void TriggerAutoComplete(PromptTextBox textBox)
     {
         if (!_settings.Settings.AutoComplete) return;
         if (!_tagService.IsLoaded && !_wildcardService.IsLoaded) return;
@@ -81,7 +81,7 @@ public sealed partial class MainWindow
         return start;
     }
 
-    private static string ExtractCurrentToken(TextBox textBox)
+    private static string ExtractCurrentToken(PromptTextBox textBox)
     {
         string text = textBox.Text;
         int caret = textBox.SelectionStart;
@@ -92,7 +92,7 @@ public sealed partial class MainWindow
         return token;
     }
 
-    private static (int Start, int End) GetCurrentTokenRange(TextBox textBox)
+    private static (int Start, int End) GetCurrentTokenRange(PromptTextBox textBox)
     {
         string text = textBox.Text;
         int caret = textBox.SelectionStart;
@@ -134,7 +134,7 @@ public sealed partial class MainWindow
             ? $"__{wildcardName}__"
             : wildcardName;
 
-    private void PerformAutoCompleteSearch(TextBox textBox, string token)
+    private void PerformAutoCompleteSearch(PromptTextBox textBox, string token)
     {
         int? catFilter = (textBox == TxtStylePrompt) ? 1 : null;
         var results = _tagService.IsLoaded
@@ -195,7 +195,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private void PositionAutoCompletePopup(TextBox textBox)
+    private void PositionAutoCompletePopup(PromptTextBox textBox)
     {
         try
         {

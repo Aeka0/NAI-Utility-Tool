@@ -51,7 +51,7 @@ public sealed partial class MainWindow
         TxtStylePrompt.ContextFlyout = styleFlyout;
     }
 
-    private void ConfigurePromptContextFlyout(MenuFlyout flyout, TextBox textBox, bool isStyleBox, bool allowQuickRandomStyle)
+    private void ConfigurePromptContextFlyout(MenuFlyout flyout, PromptTextBox textBox, bool isStyleBox, bool allowQuickRandomStyle)
     {
         flyout.Items.Clear();
 
@@ -162,7 +162,7 @@ public sealed partial class MainWindow
             ApplyMenuTypography(item);
     }
 
-    private void InsertInteractionPrefixIntoPromptSelection(TextBox textBox, string prefix)
+    private void InsertInteractionPrefixIntoPromptSelection(PromptTextBox textBox, string prefix)
     {
         if (string.IsNullOrEmpty(prefix)) return;
 

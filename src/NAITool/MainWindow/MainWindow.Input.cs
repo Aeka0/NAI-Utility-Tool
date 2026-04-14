@@ -155,7 +155,7 @@ public sealed partial class MainWindow
             }
         }
 
-        if (FocusManager.GetFocusedElement(this.Content.XamlRoot) is TextBox or PasswordBox)
+        if (FocusManager.GetFocusedElement(this.Content.XamlRoot) is TextBox or RichEditBox or PasswordBox)
             return;
 
         if (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint)

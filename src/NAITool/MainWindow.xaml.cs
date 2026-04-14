@@ -271,7 +271,7 @@ public sealed partial class MainWindow : Window
     // ═══ 自动补全 ═══
     private readonly TagCompleteService _tagService = new();
     private int _acVersion;
-    private TextBox? _acTargetTextBox;
+    private PromptTextBox? _acTargetTextBox;
     private bool _acInserting;
 
     // ═══════════════════════════════════════════════════════════
