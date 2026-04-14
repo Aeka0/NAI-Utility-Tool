@@ -483,7 +483,7 @@ public sealed partial class MainWindow
         try
         {
             var bytes = await File.ReadAllBytesAsync(filePath);
-            SendImageToI2I(bytes);
+            SendImageToI2I(bytes, filePath);
         }
         catch (Exception ex) { TxtStatus.Text = Lf("i2i.send_failed", ex.Message); }
     }

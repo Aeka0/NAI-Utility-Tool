@@ -158,6 +158,14 @@ public sealed partial class MainWindow
         if (FocusManager.GetFocusedElement(this.Content.XamlRoot) is TextBox or RichEditBox or PasswordBox)
             return;
 
+        if (e.Key == Windows.System.VirtualKey.F5 &&
+            (_currentMode == AppMode.I2I || _currentMode == AppMode.Upscale || _currentMode == AppMode.Effects))
+        {
+            _ = ReloadCurrentWorkspaceImageAsync();
+            e.Handled = true;
+            return;
+        }
+
         if (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint)
         {
             var ctrlState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(

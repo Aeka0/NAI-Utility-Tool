@@ -85,6 +85,7 @@ public sealed partial class MainWindow : Window
     private const string MenuCommandAlignImage = "align_image";
     private const string MenuCommandPromptInference = "prompt_inference";
     private const string MenuCommandMaskOps = "mask_ops";
+    private const string MenuCommandReloadImage = "reload_image";
 
     // ═══ 模式 ═══
     private AppMode _currentMode = AppMode.ImageGeneration;
@@ -201,6 +202,7 @@ public sealed partial class MainWindow : Window
 
     // ═══ 超分模式 ═══
     private byte[]? _upscaleInputImageBytes;
+    private string? _upscaleImagePath;
     private int _upscaleSourceWidth, _upscaleSourceHeight;
     private bool _upscaleRunning;
     private UpscaleService? _upscaleService;

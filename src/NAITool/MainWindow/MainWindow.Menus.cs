@@ -157,6 +157,11 @@ public sealed partial class MainWindow
         }
         else if (_currentMode == AppMode.Upscale)
         {
+            var reloadItem = CreateReloadImageMenuItem();
+            reloadItem.Click += OnReloadImage;
+            newEdit.Items.Add(reloadItem);
+            newEdit.Items.Add(new MenuFlyoutSeparator());
+
             var sendI2IItem = CreateLocalizedMenuItem(
                 MenuCommandSendToI2I,
                 "action.send_to_i2i",
@@ -173,6 +178,11 @@ public sealed partial class MainWindow
         }
         else if (_currentMode == AppMode.Effects)
         {
+            var reloadItem = CreateReloadImageMenuItem();
+            reloadItem.Click += OnReloadImage;
+            newEdit.Items.Add(reloadItem);
+            newEdit.Items.Add(new MenuFlyoutSeparator());
+
             var undoItem = CreateLocalizedMenuItem(MenuCommandUndo, "menu.edit.undo", new SymbolIcon(Symbol.Undo));
             undoItem.Click += OnUndo;
             undoItem.KeyboardAccelerators.Add(new KeyboardAccelerator
@@ -308,18 +318,25 @@ public sealed partial class MainWindow
         else if (_currentMode == AppMode.Upscale)
         {
             bool hasImage = _upscaleInputImageBytes != null;
+            bool canReload = !string.IsNullOrWhiteSpace(_upscaleImagePath) &&
+                File.Exists(_upscaleImagePath) &&
+                !_upscaleRunning;
             foreach (var baseItem in MenuEdit.Items)
             {
-                if (baseItem is MenuFlyoutItem item &&
-                    (HasMenuCommand(item, MenuCommandSendToI2I) ||
-                     HasMenuCommand(item, MenuCommandSendToPost)))
+                if (baseItem is not MenuFlyoutItem item) continue;
+                if (HasMenuCommand(item, MenuCommandSendToI2I) ||
+                    HasMenuCommand(item, MenuCommandSendToPost))
                     item.IsEnabled = hasImage;
+                else if (HasMenuCommand(item, MenuCommandReloadImage))
+                    item.IsEnabled = canReload;
             }
         }
         else if (_currentMode == AppMode.Effects)
         {
             bool hasImage = _effectsImageBytes != null;
             bool hasEffects = _effects.Count > 0;
+            bool canReload = !string.IsNullOrWhiteSpace(_effectsImagePath) &&
+                File.Exists(_effectsImagePath);
             foreach (var baseItem in MenuEdit.Items)
             {
                 if (baseItem is not MenuFlyoutItem item) continue;
@@ -337,6 +354,8 @@ public sealed partial class MainWindow
                     item.IsEnabled = _effectsUndoStack.Count > 0;
                 else if (HasMenuCommand(item, MenuCommandRedo))
                     item.IsEnabled = _effectsRedoStack.Count > 0;
+                else if (HasMenuCommand(item, MenuCommandReloadImage))
+                    item.IsEnabled = canReload;
             }
         }
         else if (_currentMode == AppMode.I2I)
@@ -346,6 +365,9 @@ public sealed partial class MainWindow
             bool hasMaskContent = inpaintMode && MaskCanvas.HasMaskContent() && !MaskCanvas.IsInPreviewMode;
             bool hasI2IImage = MaskCanvas.Document.OriginalImage != null ||
                 (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null);
+            bool canReload = !string.IsNullOrWhiteSpace(MaskCanvas.LoadedFilePath) &&
+                File.Exists(MaskCanvas.LoadedFilePath) &&
+                !MaskCanvas.IsInPreviewMode;
 
             foreach (var baseItem in MenuEdit.Items)
             {
@@ -357,6 +379,8 @@ public sealed partial class MainWindow
                         item.IsEnabled = hasMaskContent;
                     else if (HasMenuCommand(item, MenuCommandSendToPost) || HasMenuCommand(item, MenuCommandSendToUpscale))
                         item.IsEnabled = hasI2IImage;
+                    else if (HasMenuCommand(item, MenuCommandReloadImage))
+                        item.IsEnabled = canReload;
                 }
                 else if (baseItem is MenuFlyoutSubItem sub && HasMenuCommand(sub, MenuCommandAlignImage))
                 {
@@ -656,6 +680,12 @@ public sealed partial class MainWindow
 
         menu.Items.Add(new MenuFlyoutSeparator());
 
+        var reloadItem = CreateReloadImageMenuItem();
+        reloadItem.Click += OnReloadImage;
+        menu.Items.Add(reloadItem);
+
+        menu.Items.Add(new MenuFlyoutSeparator());
+
         var maskSub = CreateLocalizedSubItem(
             MenuCommandMaskOps,
             "menu.inpaint.mask_ops",
@@ -834,6 +864,17 @@ public sealed partial class MainWindow
             "menu.edit.prompt_shortcuts",
             new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8A7" });
         item.Click += OnPromptShortcuts;
+        return item;
+    }
+
+    private MenuFlyoutItem CreateReloadImageMenuItem()
+    {
+        var item = CreateLocalizedMenuItem(
+            MenuCommandReloadImage,
+            "menu.edit.reload_image",
+            new SymbolIcon(Symbol.Refresh));
+        item.KeyboardAccelerators.Add(new KeyboardAccelerator
+        { Modifiers = Windows.System.VirtualKeyModifiers.None, Key = Windows.System.VirtualKey.F5 });
         return item;
     }
 }

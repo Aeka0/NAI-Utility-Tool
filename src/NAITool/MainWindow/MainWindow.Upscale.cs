@@ -123,12 +123,14 @@ public sealed partial class MainWindow
         TxtStatus.Text = L("file.unsupported_format_upscale");
     }
 
-    private async Task LoadUpscaleImageAsync(string filePath)
+    private async Task LoadUpscaleImageAsync(string filePath, bool preserveDirtyState = false)
     {
         try
         {
+            bool wasDirty = _upscaleWorkspaceDirty;
             var bytes = await File.ReadAllBytesAsync(filePath);
             _upscaleInputImageBytes = bytes;
+            _upscaleImagePath = filePath;
 
             using var bitmap = SKBitmap.Decode(bytes);
             if (bitmap == null)
@@ -143,10 +145,15 @@ public sealed partial class MainWindow
             await ShowUpscalePreviewAsync(bytes);
             UpdateUpscaleResolutionDisplay();
             BtnStartUpscale.IsEnabled = _upscaleModelInfos.Count > 0;
-            MarkUpscaleWorkspaceClean();
+            if (preserveDirtyState)
+                _upscaleWorkspaceDirty = wasDirty;
+            else
+                MarkUpscaleWorkspaceClean();
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
                 () => FitUpscalePreviewToScreen());
-            TxtStatus.Text = Lf("upscale.loaded", Path.GetFileName(filePath), _upscaleSourceWidth, _upscaleSourceHeight);
+            TxtStatus.Text = preserveDirtyState
+                ? Lf("image.reload.loaded", Path.GetFileName(filePath), _upscaleSourceWidth, _upscaleSourceHeight)
+                : Lf("upscale.loaded", Path.GetFileName(filePath), _upscaleSourceWidth, _upscaleSourceHeight);
         }
         catch (Exception ex)
         {
@@ -233,6 +240,7 @@ public sealed partial class MainWindow
                 _upscaleSourceWidth = resultBitmap.Width;
                 _upscaleSourceHeight = resultBitmap.Height;
                 _upscaleInputImageBytes = resultBytes;
+                _upscaleImagePath = null;
             }
 
             await ShowUpscalePreviewAsync(resultBytes);
@@ -289,6 +297,7 @@ public sealed partial class MainWindow
         if (file != null)
         {
             await File.WriteAllBytesAsync(file.Path, resultBytes);
+            _upscaleImagePath = file.Path;
             MarkUpscaleWorkspaceClean();
             TxtStatus.Text = Lf("file.saved_path", file.Path);
         }
@@ -299,6 +308,9 @@ public sealed partial class MainWindow
         SwitchMode(AppMode.Upscale);
 
         _upscaleInputImageBytes = bytes;
+        _upscaleImagePath = !string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath)
+            ? sourcePath
+            : null;
         using var bitmap = SKBitmap.Decode(bytes);
         if (bitmap != null)
         {
@@ -364,7 +376,7 @@ public sealed partial class MainWindow
             TxtStatus.Text = L("image.no_image_to_send");
             return;
         }
-        SendImageToI2I(_upscaleInputImageBytes);
+        SendImageToI2I(_upscaleInputImageBytes, _upscaleImagePath);
     }
 
     private async void OnSendToEffectsFromUpscale(object sender, RoutedEventArgs e)

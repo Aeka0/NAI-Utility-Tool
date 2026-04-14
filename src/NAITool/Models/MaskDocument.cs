@@ -41,16 +41,19 @@ public class MaskDocument : IDisposable
     }
 
     /// <summary>设置原始图片并自动居中。</summary>
-    public void SetOriginalImage(CanvasBitmap? bitmap)
+    public void SetOriginalImage(CanvasBitmap? bitmap, bool preserveImageOffset = false)
     {
+        var previousOffset = ImageOffset;
         _originalImage?.Dispose();
         _originalImage = bitmap;
 
         if (bitmap != null)
         {
-            ImageOffset = new Vector2(
-                (CanvasWidth - (float)bitmap.SizeInPixels.Width) / 2f,
-                (CanvasHeight - (float)bitmap.SizeInPixels.Height) / 2f);
+            ImageOffset = preserveImageOffset
+                ? previousOffset
+                : new Vector2(
+                    (CanvasWidth - (float)bitmap.SizeInPixels.Width) / 2f,
+                    (CanvasHeight - (float)bitmap.SizeInPixels.Height) / 2f);
         }
         else
         {

@@ -272,9 +272,15 @@ public sealed partial class MainWindow
                 if (_currentMode == AppMode.I2I)
                     MarkI2IWorkspaceClean();
                 else if (_currentMode == AppMode.Upscale)
+                {
+                    _upscaleImagePath = file.Path;
                     MarkUpscaleWorkspaceClean();
+                }
                 else if (_currentMode == AppMode.Effects)
+                {
+                    _effectsImagePath = file.Path;
                     MarkEffectsWorkspaceClean();
+                }
                 TxtStatus.Text = stripMetadata
                     ? Lf("file.saved_path_stripped", file.Path)
                     : Lf("file.saved_path", file.Path);
@@ -349,6 +355,14 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (_currentMode == AppMode.Upscale)
+        {
+            if (string.IsNullOrEmpty(_upscaleImagePath) || !File.Exists(_upscaleImagePath))
+            { TxtStatus.Text = L("file.error.no_image_for_folder"); return; }
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{_upscaleImagePath}\"");
+            return;
+        }
+
         var path = MaskCanvas.LoadedFilePath;
         if (string.IsNullOrEmpty(path))
         { TxtStatus.Text = L("file.error.no_image_for_folder"); return; }
@@ -362,6 +376,65 @@ public sealed partial class MainWindow
     private void OnExit(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private async void OnReloadImage(object sender, RoutedEventArgs e)
+    {
+        await ReloadCurrentWorkspaceImageAsync();
+    }
+
+    private async Task ReloadCurrentWorkspaceImageAsync()
+    {
+        if (_currentMode == AppMode.I2I)
+        {
+            var path = MaskCanvas.LoadedFilePath;
+            if (MaskCanvas.IsInPreviewMode)
+            {
+                TxtStatus.Text = L("image.reload.blocked_preview");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                TxtStatus.Text = L("image.reload.no_source");
+                return;
+            }
+
+            bool wasDirty = MaskCanvas.HasWorkspaceChangesSinceClean();
+            bool previewDirty = _i2iPreviewDirty;
+            await MaskCanvas.ReloadImagePreservingWorkspaceAsync(path);
+            if (!wasDirty && !previewDirty)
+                MarkI2IWorkspaceClean();
+            _i2iPreviewDirty = previewDirty;
+            UpdateDynamicMenuStates();
+            return;
+        }
+
+        if (_currentMode == AppMode.Upscale)
+        {
+            if (_upscaleRunning)
+                return;
+            if (string.IsNullOrWhiteSpace(_upscaleImagePath) || !File.Exists(_upscaleImagePath))
+            {
+                TxtStatus.Text = L("image.reload.no_source");
+                return;
+            }
+
+            await LoadUpscaleImageAsync(_upscaleImagePath, preserveDirtyState: true);
+            UpdateDynamicMenuStates();
+            return;
+        }
+
+        if (_currentMode == AppMode.Effects)
+        {
+            if (string.IsNullOrWhiteSpace(_effectsImagePath) || !File.Exists(_effectsImagePath))
+            {
+                TxtStatus.Text = L("image.reload.no_source");
+                return;
+            }
+
+            await ReloadEffectsImageAsync(_effectsImagePath);
+            UpdateDynamicMenuStates();
+        }
     }
 
     private async void OnUndo(object sender, RoutedEventArgs e)

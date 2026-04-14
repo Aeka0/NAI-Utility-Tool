@@ -254,7 +254,7 @@ public sealed partial class MainWindow
         { TxtStatus.Text = L("generate.error.no_result_to_send"); return; }
 
         GenResultBar.Visibility = Visibility.Collapsed;
-        SendImageToI2I(_currentGenImageBytes);
+        SendImageToI2I(_currentGenImageBytes, _currentGenImagePath);
     }
 
     private async void OnSendToEffectsFromGen(object sender, RoutedEventArgs e)
@@ -464,7 +464,7 @@ public sealed partial class MainWindow
             };
             i2iItem.Click += (_, _) =>
             {
-                if (_currentGenImageBytes != null) SendImageToI2I(_currentGenImageBytes);
+                if (_currentGenImageBytes != null) SendImageToI2I(_currentGenImageBytes, _currentGenImagePath);
             };
             flyout.Items.Add(i2iItem);
 

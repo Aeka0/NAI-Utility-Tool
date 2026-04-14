@@ -36,7 +36,7 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
-    private async void SendImageToI2I(byte[] imageBytes)
+    private async void SendImageToI2I(byte[] imageBytes, string? sourcePath = null)
     {
         try
         {
@@ -101,7 +101,10 @@ public sealed partial class MainWindow
 
             SwitchMode(AppMode.I2I);
             MaskCanvas.InitializeCanvas(canvasW, canvasH);
-            MaskCanvas.LoadImageFromBitmap(bitmap);
+            string? reloadPath = !string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath)
+                ? sourcePath
+                : null;
+            MaskCanvas.LoadImageFromBitmap(bitmap, reloadPath);
             MaskCanvas.FitToScreen();
 
             UpdatePromptHighlights();

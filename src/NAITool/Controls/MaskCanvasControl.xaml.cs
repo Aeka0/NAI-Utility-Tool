@@ -466,7 +466,7 @@ public sealed partial class MaskCanvasControl : UserControl
         }
     }
 
-    public void LoadImageFromBitmap(CanvasBitmap bitmap)
+    public void LoadImageFromBitmap(CanvasBitmap bitmap, string? filePath = null)
     {
         if (_device == null || _canvas == null) return;
 
@@ -480,7 +480,7 @@ public sealed partial class MaskCanvasControl : UserControl
         lock (_renderLock) { _document.ClearMask(); }
         _resourcesReady = true;
         _undoManager.Clear();
-        _loadedFilePath = null;
+        _loadedFilePath = !string.IsNullOrWhiteSpace(filePath) ? filePath : null;
         FitToScreen();
         MarkWorkspaceClean();
         ContentChanged?.Invoke();
@@ -489,6 +489,36 @@ public sealed partial class MaskCanvasControl : UserControl
         if (sizeChanged)
             msg += " " + LocalizationService.Instance.Format("mask_canvas.canvas_auto_matched", _canvasWidth, _canvasHeight);
         StatusMessage?.Invoke(msg);
+    }
+
+    public async Task ReloadImagePreservingWorkspaceAsync(string filePath)
+    {
+        if (_device == null || _canvas == null) return;
+        try
+        {
+            var file = await StorageFile.GetFileFromPathAsync(filePath);
+            using var stream = await file.OpenReadAsync();
+            var bitmap = await CanvasBitmap.LoadAsync(_device, stream, 96f);
+
+            uint imgW = bitmap.SizeInPixels.Width;
+            uint imgH = bitmap.SizeInPixels.Height;
+
+            _resourcesReady = false;
+            _document.SetOriginalImage(bitmap, preserveImageOffset: true);
+            _resourcesReady = true;
+            _loadedFilePath = file.Path;
+            ContentChanged?.Invoke();
+
+            StatusMessage?.Invoke(LocalizationService.Instance.Format(
+                "image.reload.loaded",
+                file.Name,
+                imgW,
+                imgH));
+        }
+        catch (Exception ex)
+        {
+            StatusMessage?.Invoke(LocalizationService.Instance.Format("common.load_failed", ex.Message));
+        }
     }
 
     public void PerformUndo()

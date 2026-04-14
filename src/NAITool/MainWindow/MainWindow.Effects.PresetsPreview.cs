@@ -322,6 +322,25 @@ public sealed partial class MainWindow
         return Task.CompletedTask;
     }
 
+    private async Task ReloadEffectsImageAsync(string filePath)
+    {
+        try
+        {
+            bool wasDirty = _effectsWorkspaceDirty;
+            var bytes = await File.ReadAllBytesAsync(filePath);
+            using var bitmap = SKBitmap.Decode(bytes);
+            int width = bitmap?.Width ?? 0;
+            int height = bitmap?.Height ?? 0;
+            await LoadEffectsImageFromBytesAsync(bytes, filePath);
+            _effectsWorkspaceDirty = wasDirty;
+            TxtStatus.Text = Lf("image.reload.loaded", Path.GetFileName(filePath), width, height);
+        }
+        catch (Exception ex)
+        {
+            TxtStatus.Text = Lf("common.load_failed", ex.Message);
+        }
+    }
+
     private void ReplaceEffectsSourceBitmap(byte[]? bytes)
     {
         _effectsSourceBitmap?.Dispose();

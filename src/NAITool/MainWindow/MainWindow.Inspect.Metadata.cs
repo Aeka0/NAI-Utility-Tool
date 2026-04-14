@@ -404,7 +404,7 @@ public sealed partial class MainWindow
             _genStylePrompt = "";
         }
 
-        SendImageToI2I(_inspectImageBytes);
+        SendImageToI2I(_inspectImageBytes, _inspectImagePath);
 
         _genPositivePrompt = savedPos;
         _genNegativePrompt = savedNeg;
