@@ -22,6 +22,7 @@ public sealed class SplashWindow : Window
     private const int DefaultSplashWidth = 780;
     private const int DefaultSplashHeight = 446;
     private const int SplashCornerRadius = 18;
+    private const string SplashWindowTitle = "Chirps";
     private const string SplashResourcePrefix = "NAITool.splash.";
     private const string SplashTitleResourceName = SplashResourcePrefix + "SplashTitle.png";
     private readonly Border _rootBorder;
@@ -30,6 +31,8 @@ public sealed class SplashWindow : Window
 
     public SplashWindow()
     {
+        Title = SplashWindowTitle;
+
         string splashBackgroundResourceName = PickRandomBackgroundResourceName();
         var splashSize = GetSplashWindowSize(splashBackgroundResourceName);
         var transparentBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
@@ -69,6 +72,8 @@ public sealed class SplashWindow : Window
 
         if (AppWindow != null)
         {
+            AppWindow.Title = SplashWindowTitle;
+            AppWindow.SetIcon("NAIT.ico");
             AppWindow.Resize(new SizeInt32(splashSize.Width, splashSize.Height));
 
             if (AppWindow.Presenter is OverlappedPresenter presenter)
