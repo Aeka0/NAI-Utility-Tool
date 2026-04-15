@@ -58,8 +58,10 @@ public sealed partial class MainWindow
     //  历史记录
     // ═══════════════════════════════════════════════════════════
 
-    private async void LoadHistoryAsync()
+    private async void LoadHistoryAsync(bool preserveSelection = false)
     {
+        var requestedDate = preserveSelection ? _selectedHistoryDate : null;
+
         await Task.Run(() =>
         {
             lock (_historyFiles)
@@ -98,9 +100,13 @@ public sealed partial class MainWindow
 
         DispatcherQueue.TryEnqueue(() =>
         {
+            string? targetDate = requestedDate;
+            if (targetDate != null && !IsHistoryDateSelectable(targetDate))
+                targetDate = null;
+
             if (_historyAvailableDates.Count > 0)
             {
-                _selectedHistoryDate = _historyAvailableDates[0];
+                _selectedHistoryDate = targetDate ?? _historyAvailableDates[0];
                 BuildHistoryFileList();
                 _historyLoadedCount = Math.Min(HistoryPageSize, _historyFiles.Count);
                 RefreshHistoryPanel();
@@ -111,6 +117,13 @@ public sealed partial class MainWindow
             }
             else
             {
+                _selectedHistoryDate = targetDate;
+                if (_selectedHistoryDate != null)
+                {
+                    var date = DateTimeOffset.ParseExact(_selectedHistoryDate, "yyyy-MM-dd",
+                        CultureInfo.InvariantCulture);
+                    HistoryDatePicker.Date = date;
+                }
                 RefreshHistoryPanel();
             }
         });
@@ -155,13 +168,61 @@ public sealed partial class MainWindow
         if (_selectedHistoryDate == null || _historyAvailableDates.Count == 0) return;
 
         int startIdx = _historyAvailableDates.IndexOf(_selectedHistoryDate);
-        if (startIdx < 0) startIdx = 0;
+        if (startIdx < 0)
+        {
+            if (string.Equals(_selectedHistoryDate, GetTodayHistoryDateString(), StringComparison.Ordinal))
+                return;
+            startIdx = 0;
+        }
 
         for (int i = startIdx; i < _historyAvailableDates.Count; i++)
         {
             if (_historyByDate.TryGetValue(_historyAvailableDates[i], out var files))
                 _historyFiles.AddRange(files);
         }
+    }
+
+    private void SetupHistoryDateRefreshTimer()
+    {
+        _historyTodayDateMarker = GetTodayHistoryDateString();
+        _historyDateRefreshTimer = DispatcherQueue.CreateTimer();
+        _historyDateRefreshTimer.IsRepeating = false;
+        _historyDateRefreshTimer.Tick += (_, _) =>
+        {
+            RefreshHistoryDatePickerRange();
+
+            var today = GetTodayHistoryDateString();
+            if (!string.Equals(today, _historyTodayDateMarker, StringComparison.Ordinal))
+            {
+                _historyTodayDateMarker = today;
+                LoadHistoryAsync(preserveSelection: true);
+            }
+
+            ScheduleNextHistoryDateRefresh();
+        };
+        ScheduleNextHistoryDateRefresh();
+    }
+
+    private void ScheduleNextHistoryDateRefresh()
+    {
+        if (_historyDateRefreshTimer == null) return;
+
+        var now = DateTime.Now;
+        var nextRefresh = now.Date.AddDays(1).AddSeconds(1);
+        var interval = nextRefresh - now;
+        if (interval < TimeSpan.FromSeconds(1))
+            interval = TimeSpan.FromSeconds(1);
+
+        _historyDateRefreshTimer.Stop();
+        _historyDateRefreshTimer.Interval = interval;
+        _historyDateRefreshTimer.Start();
+    }
+
+    private void RefreshHistoryDatePickerRange()
+    {
+        var now = DateTimeOffset.Now;
+        HistoryDatePicker.MinDate = now.AddYears(-100);
+        HistoryDatePicker.MaxDate = now.AddYears(1);
     }
 
     private static string? GetDateFromFilePath(string filePath)

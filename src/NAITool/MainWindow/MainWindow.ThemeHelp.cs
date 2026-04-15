@@ -500,6 +500,10 @@ public sealed partial class MainWindow
         var thanksItems = new (string Name, string Description, string Glyph)[]
         {
             ("Aeka", L("about.thanks.aeka"), "\uE77B"),
+            ("Xianyun", L("about.thanks.xianyun"), "\uE77B"),
+            ("CloverIris", L("about.thanks.cloveriris"), "\uE77B"),
+            ("柊咲桜", L("about.thanks.hiiragisaki_sakura"), "\uE77B"),
+            ("五月不蓝", L("about.thanks.wuyue_bulan"), "\uE77B"),
             ("Dominik Reh", L("about.thanks.dominik_reh"), "\uE8D2"),
             ("SmilingWolf", L("about.thanks.smilingwolf"), "\uE8BA"),
             ("pixai-labs", L("about.thanks.pixai_labs"), "\uE8BA"),

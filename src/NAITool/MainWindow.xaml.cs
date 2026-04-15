@@ -216,6 +216,8 @@ public sealed partial class MainWindow : Window
     private int _historyLoadedCount;
     private const int HistoryPageSize = 40;
     private bool _historyLoadingMore;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _historyDateRefreshTimer;
+    private string _historyTodayDateMarker = DateTime.Now.ToString("yyyy-MM-dd");
     private bool _superDropOverlayVisible;
     private bool _superDropWindowRaisedTopmost;
     private bool _superDropWindowWasTopmost;
@@ -301,6 +303,7 @@ public sealed partial class MainWindow : Window
         Closed += (_, _) =>
         {
             CloseAdvancedParamsWindow();
+            _historyDateRefreshTimer?.Stop();
             if (IsPromptMode(_currentMode))
             {
                 SaveCurrentPromptToBuffer();
@@ -391,6 +394,8 @@ public sealed partial class MainWindow : Window
         _effectsPreviewTimer.Tick += (_, _) => _ = RenderQueuedEffectsPreview();
 
         RefreshEffectsPanel();
+        SetupHistoryDateRefreshTimer();
+        RefreshHistoryDatePickerRange();
         LoadHistoryAsync();
     }
 
