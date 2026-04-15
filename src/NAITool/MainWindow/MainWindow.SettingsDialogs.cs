@@ -400,22 +400,295 @@ public sealed partial class MainWindow
         }
     }
 
+    private async void OnQuotaSettings(object sender, RoutedEventArgs e)
+    {
+        bool isDark = ((FrameworkElement)this.Content).ActualTheme == ElementTheme.Dark;
+        var hintBrush = new SolidColorBrush(isDark
+            ? Windows.UI.Color.FromArgb(255, 178, 178, 178)
+            : Windows.UI.Color.FromArgb(255, 92, 92, 92));
+        var cardBackgroundBrush = new SolidColorBrush(isDark
+            ? Windows.UI.Color.FromArgb(255, 44, 44, 44)
+            : Windows.UI.Color.FromArgb(255, 250, 250, 250));
+        var cardBorderBrush = new SolidColorBrush(isDark
+            ? Windows.UI.Color.FromArgb(255, 84, 84, 84)
+            : Windows.UI.Color.FromArgb(255, 214, 214, 214));
+        var accountLabelBrush = new SolidColorBrush(isDark
+            ? Windows.UI.Color.FromArgb(255, 194, 194, 194)
+            : Windows.UI.Color.FromArgb(255, 100, 100, 100));
+
+        NovelAiAccountInfo? latestAccountInfo = null;
+        if (!string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+        {
+            latestAccountInfo = await _naiService.GetAccountInfoAsync();
+            if (latestAccountInfo != null)
+            {
+                _anlasBalance = latestAccountInfo.AnlasBalance;
+                _isOpusSubscriber = latestAccountInfo.IsOpus;
+                _hasActiveSubscription = latestAccountInfo.HasActiveSubscription;
+                _settings.UpdateCachedAccountInfo(
+                    latestAccountInfo.AnlasBalance,
+                    latestAccountInfo.TierName,
+                    latestAccountInfo.TierLevel,
+                    latestAccountInfo.HasActiveSubscription,
+                    latestAccountInfo.ExpiresAt);
+                UpdateAnlasBalanceText();
+            }
+        }
+
+        var cachedAccountInfo = _settings.CachedApiConfig;
+        string notAvailable = L("settings.quota.account.not_available");
+
+        static string? ReadDisplayString(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+        string ResolveTierLabel()
+        {
+            string? tier = ReadDisplayString(latestAccountInfo?.TierName) ??
+                           ReadDisplayString(cachedAccountInfo.SubscriptionTier);
+            if (string.IsNullOrWhiteSpace(tier))
+            {
+                int? level = latestAccountInfo?.TierLevel ?? cachedAccountInfo.SubscriptionTierLevel;
+                tier = level switch
+                {
+                    3 => "Opus",
+                    2 => "Scroll",
+                    1 => "Tablet",
+                    0 => "Paper",
+                    _ => null,
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(tier))
+                return notAvailable;
+
+            bool isActive = latestAccountInfo?.HasActiveSubscription ??
+                            cachedAccountInfo.SubscriptionActive == true;
+            return isActive ? tier : $"{tier} ({L("settings.quota.account.inactive")})";
+        }
+
+        string ResolveExpiryLabel()
+        {
+            string? value = ReadDisplayString(latestAccountInfo?.ExpiresAt) ??
+                            ReadDisplayString(cachedAccountInfo.SubscriptionExpiresAt);
+            if (string.IsNullOrWhiteSpace(value))
+                return notAvailable;
+
+            return DateTimeOffset.TryParse(value, out var parsed)
+                ? parsed.ToLocalTime().ToString("yyyy-MM-dd")
+                : value;
+        }
+
+        StackPanel BuildRightInfoBlock(string label, string value)
+        {
+            var block = new StackPanel
+            {
+                Spacing = 2,
+                HorizontalAlignment = HorizontalAlignment.Right,
+            };
+
+            block.Children.Add(new TextBlock
+            {
+                Text = label,
+                Foreground = accountLabelBrush,
+                FontSize = 12,
+                HorizontalAlignment = HorizontalAlignment.Right,
+            });
+            block.Children.Add(new TextBlock
+            {
+                Text = value,
+                FontSize = 15,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                TextAlignment = TextAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxWidth = 220,
+            });
+            return block;
+        }
+
+        int? accountAnlas = latestAccountInfo?.AnlasBalance ??
+                            _anlasBalance ??
+                            cachedAccountInfo.CachedAnlas;
+        string accountAnlasText = accountAnlas.HasValue
+            ? accountAnlas.Value.ToString("N0")
+            : notAvailable;
+        string accountTierText = ResolveTierLabel();
+        string accountExpiryText = ResolveExpiryLabel();
+
+        var accountGrid = new Grid { ColumnSpacing = 20 };
+        accountGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        accountGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var anlasPanel = new StackPanel { Spacing = 2 };
+        anlasPanel.Children.Add(new TextBlock
+        {
+            Text = L("settings.quota.account.current_anlas"),
+            Foreground = accountLabelBrush,
+            FontSize = 12,
+        });
+        anlasPanel.Children.Add(new TextBlock
+        {
+            Text = accountAnlasText,
+            FontSize = 34,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            LineHeight = 38,
+        });
+        Grid.SetColumn(anlasPanel, 0);
+
+        var rightInfoPanel = new StackPanel
+        {
+            Spacing = 10,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        rightInfoPanel.Children.Add(BuildRightInfoBlock(L("settings.quota.account.subscription_tier"), accountTierText));
+        rightInfoPanel.Children.Add(BuildRightInfoBlock(L("settings.quota.account.expires_at"), accountExpiryText));
+        Grid.SetColumn(rightInfoPanel, 1);
+
+        accountGrid.Children.Add(anlasPanel);
+        accountGrid.Children.Add(rightInfoPanel);
+
+        var accountPanel = new StackPanel { Spacing = 10 };
+        accountPanel.Children.Add(CreateThemedCaption(L("settings.quota.account.title")));
+        accountPanel.Children.Add(accountGrid);
+
+        var accountCard = new Border
+        {
+            CornerRadius = new CornerRadius(8),
+            BorderThickness = new Thickness(1),
+            BorderBrush = cardBorderBrush,
+            Background = cardBackgroundBrush,
+            Padding = new Thickness(12, 10, 12, 10),
+            Child = accountPanel,
+        };
+
+        var masterSwitch = new ToggleSwitch
+        {
+            Header = L("settings.quota.asset_protection_mode"),
+            IsOn = _settings.Settings.AccountAssetProtectionMode,
+        };
+        var masterHint = new TextBlock
+        {
+            Text = L("settings.quota.asset_protection_mode_hint"),
+            FontSize = 12,
+            Foreground = hintBrush,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, -6, 0, 2),
+        };
+
+        var blockOversizedDimensionsCheck = new CheckBox
+        {
+            Content = L("settings.quota.block_oversized_dimensions"),
+            IsChecked = _settings.Settings.AccountAssetProtectionBlockOversizedDimensions,
+        };
+        var blockOversizedStepsCheck = new CheckBox
+        {
+            Content = L("settings.quota.block_oversized_steps"),
+            IsChecked = _settings.Settings.AccountAssetProtectionBlockOversizedSteps,
+        };
+        var disablePaidFeaturesCheck = new CheckBox
+        {
+            Content = L("settings.quota.disable_paid_features"),
+            IsChecked = _settings.Settings.AccountAssetProtectionDisablePaidFeatures,
+        };
+        var disablePaidFeaturesHint = new TextBlock
+        {
+            Text = L("settings.quota.disable_paid_features_hint"),
+            FontSize = 12,
+            Foreground = hintBrush,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(28, -8, 0, 0),
+        };
+
+        var detailsPanel = new StackPanel { Spacing = 8 };
+        detailsPanel.Children.Add(CreateThemedCaption(L("settings.quota.section.title")));
+        detailsPanel.Children.Add(blockOversizedDimensionsCheck);
+        detailsPanel.Children.Add(blockOversizedStepsCheck);
+        detailsPanel.Children.Add(disablePaidFeaturesCheck);
+        detailsPanel.Children.Add(disablePaidFeaturesHint);
+        void UpdateDetailState(bool enabled)
+        {
+            blockOversizedDimensionsCheck.IsEnabled = enabled;
+            blockOversizedStepsCheck.IsEnabled = enabled;
+            disablePaidFeaturesCheck.IsEnabled = enabled;
+            disablePaidFeaturesHint.Opacity = enabled ? 1.0 : 0.6;
+        }
+        UpdateDetailState(masterSwitch.IsOn);
+        masterSwitch.Toggled += (_, _) => UpdateDetailState(masterSwitch.IsOn);
+
+        var detailCard = new Border
+        {
+            CornerRadius = new CornerRadius(8),
+            BorderThickness = new Thickness(1),
+            BorderBrush = cardBorderBrush,
+            Background = cardBackgroundBrush,
+            Padding = new Thickness(12, 10, 12, 10),
+            Child = detailsPanel,
+        };
+
+        var panel = new StackPanel
+        {
+            Spacing = 10,
+            MinWidth = 420,
+        };
+        panel.Children.Add(accountCard);
+        panel.Children.Add(masterSwitch);
+        panel.Children.Add(masterHint);
+        panel.Children.Add(detailCard);
+
+        var dialog = new ContentDialog
+        {
+            Title = L("settings.quota.title"),
+            Content = panel,
+            PrimaryButtonText = L("common.save"),
+            CloseButtonText = L("common.cancel"),
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.Content.XamlRoot,
+            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            bool oldSizeLimitEnabled = IsAssetProtectionSizeLimitEnabled();
+            bool oldStepLimitEnabled = IsAssetProtectionStepLimitEnabled();
+            bool oldPaidLimitEnabled = IsAssetProtectionPaidFeatureLimitEnabled();
+
+            _settings.Settings.AccountAssetProtectionMode = masterSwitch.IsOn;
+            _settings.Settings.AccountAssetProtectionBlockOversizedDimensions = blockOversizedDimensionsCheck.IsChecked == true;
+            _settings.Settings.AccountAssetProtectionBlockOversizedSteps = blockOversizedStepsCheck.IsChecked == true;
+            _settings.Settings.AccountAssetProtectionDisablePaidFeatures = disablePaidFeaturesCheck.IsChecked == true;
+
+            if (IsAssetProtectionStepLimitEnabled())
+            {
+                _settings.Settings.GenParameters.Steps = Math.Min(_settings.Settings.GenParameters.Steps, 28);
+                _settings.Settings.InpaintParameters.Steps = Math.Min(_settings.Settings.InpaintParameters.Steps, 28);
+                _settings.Settings.I2IDenoiseParameters.Steps = Math.Min(_settings.Settings.I2IDenoiseParameters.Steps, 28);
+            }
+
+            bool hasProtectionBehaviorChange =
+                oldSizeLimitEnabled != IsAssetProtectionSizeLimitEnabled() ||
+                oldStepLimitEnabled != IsAssetProtectionStepLimitEnabled() ||
+                oldPaidLimitEnabled != IsAssetProtectionPaidFeatureLimitEnabled();
+
+            _settings.Save();
+            MaskCanvas.UseAssetProtectionCanvasSizing = IsAssetProtectionSizeLimitEnabled();
+
+            if (hasProtectionBehaviorChange)
+            {
+                RefreshSizeComboBox();
+                RefreshPromptModeUiForAccountModeChange();
+            }
+
+            TxtStatus.Text = L("settings.quota.saved");
+        }
+    }
+
     private async void OnNetworkSettings(object sender, RoutedEventArgs e)
     {
         var tokenBox = new PasswordBox
         {
             PlaceholderText = "Bearer Token",
             Password = _settings.Settings.ApiToken ?? "", Width = 360,
-        };
-
-        var assetProtectionCheck = new CheckBox { Content = L("settings.network.account_asset_protection_mode"), IsChecked = _settings.Settings.AccountAssetProtectionMode };
-        var assetProtectionHint = new TextBlock
-        {
-            Text = L("settings.network.account_asset_protection_mode_hint"),
-            FontSize = 12,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(28, -8, 0, 0),
         };
 
         var proxyCheck = new CheckBox { Content = L("settings.network.use_proxy"), IsChecked = _settings.Settings.UseProxy };
@@ -445,8 +718,6 @@ public sealed partial class MainWindow
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock { Text = L("settings.network.api_token") });
         panel.Children.Add(tokenBox);
-        panel.Children.Add(assetProtectionCheck);
-        panel.Children.Add(assetProtectionHint);
         panel.Children.Add(streamGenerationCheck);
         panel.Children.Add(streamGenerationHint);
         panel.Children.Add(proxyCheck);
@@ -468,22 +739,12 @@ public sealed partial class MainWindow
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary || result == ContentDialogResult.Secondary)
         {
-            bool accountAssetProtectionMode = assetProtectionCheck.IsChecked == true;
-            bool accountAssetProtectionModeChanged = _settings.Settings.AccountAssetProtectionMode != accountAssetProtectionMode;
             string apiToken = tokenBox.Password.Trim();
             _settings.Settings.ApiToken = apiToken;
-            _settings.Settings.AccountAssetProtectionMode = accountAssetProtectionMode;
             _settings.Settings.StreamGeneration = streamGenerationCheck.IsChecked == true;
             _settings.Settings.UseProxy = proxyCheck.IsChecked == true;
             _settings.Settings.ProxyPort = proxyPortBox.Text;
             _settings.Save();
-            MaskCanvas.UseAssetProtectionCanvasSizing = _settings.Settings.AccountAssetProtectionMode;
-
-            if (accountAssetProtectionModeChanged)
-            {
-                RefreshSizeComboBox();
-                RefreshPromptModeUiForAccountModeChange();
-            }
             UpdateBtnGenerateForApiKey();
 
             if (result == ContentDialogResult.Secondary)
@@ -595,7 +856,9 @@ public sealed partial class MainWindow
             _advCboSize.SelectedIndex = CboSize.SelectedIndex;
             UpdateAdvSizeControlMode();
             UpdateAdvSizeWarningVisuals();
-            _advNbSteps.Maximum = _settings.Settings.AccountAssetProtectionMode ? 28 : 50;
+            _advNbSteps.Maximum = IsAssetProtectionStepLimitEnabled() ? 28 : 50;
+            if (_advNbSteps.Value > _advNbSteps.Maximum)
+                _advNbSteps.Value = _advNbSteps.Maximum;
             UpdateAdvStepsWarning();
         }
 

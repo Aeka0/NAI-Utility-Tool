@@ -32,11 +32,15 @@ public sealed partial class MainWindow
         BtnAddVibeTransfer.Visibility = SupportsVibeTransferFeature() && _genPreciseReferences.Count == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
-        BtnAddVibeTransfer.IsEnabled = CanEditVibeTransferFeature() && _genVibeTransfers.Count < MaxVibeTransfers;
+        int maxVibeTransfers = GetMaxAllowedVibeTransfers();
+        bool vibeLimitReached = _genVibeTransfers.Count >= maxVibeTransfers;
+        BtnAddVibeTransfer.IsEnabled = CanEditVibeTransferFeature() && !vibeLimitReached;
 
-        string vibeToolTip = RequiresEncodedVibeFileOnly()
-            ? L("references.error.asset_protection_requires_encoded_vibe")
-            : L("references.tooltips.vibe");
+        string vibeToolTip = vibeLimitReached && IsAssetProtectionPaidFeatureLimitEnabled()
+            ? Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit)
+            : RequiresEncodedVibeFileOnly()
+                ? L("references.error.asset_protection_requires_encoded_vibe")
+                : L("references.tooltips.vibe");
         ToolTipService.SetToolTip(BtnAddVibeTransfer, vibeToolTip);
 
         BtnAddPreciseReference.Visibility = SupportsPreciseReferenceFeature() && _genVibeTransfers.Count == 0
@@ -52,7 +56,7 @@ public sealed partial class MainWindow
         VibeTransferPanel.Visibility = ShouldShowVibeTransferPanel()
             ? Visibility.Visible
             : Visibility.Collapsed;
-        TxtVibeTransferHint.Visibility = RequiresEncodedVibeFileOnly() && _genVibeTransfers.Count > 0
+        TxtVibeTransferHint.Visibility = IsAssetProtectionPaidFeatureLimitEnabled() && _genVibeTransfers.Count > 0
             ? Visibility.Visible
             : Visibility.Collapsed;
         TxtVibeTransferHint.Text = L("references.hint.asset_protection_vibe");

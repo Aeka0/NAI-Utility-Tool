@@ -87,7 +87,7 @@ public sealed partial class MainWindow
             _i2iStylePrompt = sendStyle;
 
             var importSize = MaskCanvasControl.ResolveImportCanvasSize(
-                imgW, imgH, _settings.Settings.AccountAssetProtectionMode);
+                imgW, imgH, IsAssetProtectionSizeLimitEnabled());
             int canvasW = importSize.W;
             int canvasH = importSize.H;
             bool sizeApplied = canvasW == imgW && canvasH == imgH;

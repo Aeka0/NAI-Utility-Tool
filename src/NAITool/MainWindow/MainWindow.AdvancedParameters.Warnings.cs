@@ -76,7 +76,7 @@ public sealed partial class MainWindow
     private SizeWarningLevel GetSizeWarningLevel()
     {
         long pixels = (long)_customWidth * _customHeight;
-        if (_settings.Settings.AccountAssetProtectionMode)
+        if (IsAssetProtectionSizeLimitEnabled())
         {
             if (pixels > 1024L * 1024) return SizeWarningLevel.Red;
             return SizeWarningLevel.None;
@@ -202,7 +202,7 @@ public sealed partial class MainWindow
     {
         if (GetSizeWarningLevel() != SizeWarningLevel.None) return true;
         if (CurrentRequestUsesAnlas()) return true;
-        if (!_settings.Settings.AccountAssetProtectionMode)
+        if (!IsAssetProtectionStepLimitEnabled())
         {
             int steps = IsAdvancedWindowOpen ? (int)_advNbSteps.Value : CurrentParams.Steps;
             if (steps > 28) return true;

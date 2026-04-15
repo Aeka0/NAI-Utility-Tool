@@ -21,12 +21,24 @@ public sealed partial class MainWindow
 {
     private async void OnAddVibeTransfer(object sender, RoutedEventArgs e)
     {
-        if (!CanEditVibeTransferFeature() || _genVibeTransfers.Count >= MaxVibeTransfers)
+        int maxVibeTransfers = GetMaxAllowedVibeTransfers();
+        if (!CanEditVibeTransferFeature() || _genVibeTransfers.Count >= maxVibeTransfers)
+        {
+            if (IsAssetProtectionPaidFeatureLimitEnabled() && _genVibeTransfers.Count >= maxVibeTransfers)
+                TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
             return;
+        }
 
         var newEntry = await CreateVibeTransferEntryAsync();
         if (newEntry == null)
             return;
+
+        if (_genVibeTransfers.Count >= maxVibeTransfers)
+        {
+            if (IsAssetProtectionPaidFeatureLimitEnabled())
+                TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
+            return;
+        }
 
         _genVibeTransfers.Add(newEntry);
         RefreshVibeTransferPanel();
@@ -215,12 +227,24 @@ public sealed partial class MainWindow
 
     private async Task AddDroppedVibeTransferAsync(StorageFile file)
     {
-        if (!CanEditVibeTransferFeature() || _genVibeTransfers.Count >= MaxVibeTransfers)
+        int maxVibeTransfers = GetMaxAllowedVibeTransfers();
+        if (!CanEditVibeTransferFeature() || _genVibeTransfers.Count >= maxVibeTransfers)
+        {
+            if (IsAssetProtectionPaidFeatureLimitEnabled() && _genVibeTransfers.Count >= maxVibeTransfers)
+                TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
             return;
+        }
 
         var newEntry = CreateVibeTransferEntry(await CreateVibeTransferPickResultAsync(file));
         if (newEntry == null)
             return;
+
+        if (_genVibeTransfers.Count >= maxVibeTransfers)
+        {
+            if (IsAssetProtectionPaidFeatureLimitEnabled())
+                TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
+            return;
+        }
 
         _genVibeTransfers.Add(newEntry);
         RefreshVibeTransferPanel();

@@ -55,7 +55,7 @@ public sealed partial class MainWindow
 
         if (GetSizeWarningLevel() == SizeWarningLevel.Red)
         {
-            long limit = _settings.Settings.AccountAssetProtectionMode ? 1024L : 2048L;
+            long limit = IsAssetProtectionSizeLimitEnabled() ? 1024L : 2048L;
             TxtStatus.Text = Lf("generate.error.size_limit_exceeded", limit);
             return;
         }
@@ -589,7 +589,8 @@ public sealed partial class MainWindow
             return;
         }
 
-        bool accountAssetProtectionMode = _settings.Settings.AccountAssetProtectionMode;
+        bool blockOversizedSteps = IsAssetProtectionStepLimitEnabled();
+        bool blockOversizedDimensions = IsAssetProtectionSizeLimitEnabled();
         var skipped = new List<string>();
 
         string positivePrompt = meta.PositivePrompt;
@@ -616,7 +617,7 @@ public sealed partial class MainWindow
 
         if (meta.Steps > 0)
         {
-            if (accountAssetProtectionMode && meta.Steps > 28)
+            if (blockOversizedSteps && meta.Steps > 28)
                 skipped.Add(Lf("metadata.skipped.steps", meta.Steps));
             else
                 p.Steps = meta.Steps;
@@ -630,7 +631,7 @@ public sealed partial class MainWindow
 
         if (meta.Width > 0 && meta.Height > 0)
         {
-            if (accountAssetProtectionMode && (long)meta.Width * meta.Height > 1024L * 1024)
+            if (blockOversizedDimensions && (long)meta.Width * meta.Height > 1024L * 1024)
                 skipped.Add(Lf("metadata.skipped.size", meta.Width, meta.Height));
             else
             {

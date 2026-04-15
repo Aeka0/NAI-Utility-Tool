@@ -133,6 +133,7 @@ public sealed partial class MainWindow
 
         MenuSettings.Title = L("menu.settings");
         MenuUsageSettings.Text = L("menu.settings.usage");
+        MenuQuotaSettings.Text = L("menu.settings.quota");
         MenuNetworkSettings.Text = L("menu.settings.network");
         MenuReverseTaggerSettings.Text = L("menu.settings.reverse_tagger");
         MenuAppearance.Text = L("menu.settings.appearance");

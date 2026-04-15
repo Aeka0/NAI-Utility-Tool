@@ -84,7 +84,7 @@ public sealed partial class MainWindow
     {
         SyncUIToParams();
         var p = CurrentParams;
-        int maxSteps = _settings.Settings.AccountAssetProtectionMode ? 28 : 50;
+        int maxSteps = IsAssetProtectionStepLimitEnabled() ? 28 : 50;
 
         var window = new Window();
         window.Title = L("dialog.advanced.title");

@@ -131,6 +131,9 @@ public class AppSettings
     public bool RandomStyleUseWeight { get; set; }
     public bool AutoGenRandomStylePrefix { get; set; }
     public bool AccountAssetProtectionMode { get; set; } = true;
+    public bool AccountAssetProtectionBlockOversizedDimensions { get; set; } = true;
+    public bool AccountAssetProtectionBlockOversizedSteps { get; set; } = true;
+    public bool AccountAssetProtectionDisablePaidFeatures { get; set; } = true;
     public bool UseProxy { get; set; }
     public string ProxyPort { get; set; } = "10808";
     public bool UseWebp { get; set; }

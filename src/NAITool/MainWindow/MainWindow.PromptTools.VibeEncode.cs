@@ -169,7 +169,7 @@ public sealed partial class MainWindow
                     return;
                 }
 
-                if (_settings.Settings.AccountAssetProtectionMode)
+                if (IsAssetProtectionPaidFeatureLimitEnabled())
                 {
                     var warnDialog = new ContentDialog
                     {

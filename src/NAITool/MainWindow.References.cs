@@ -77,15 +77,15 @@ public sealed partial class MainWindow
     }
 
     private bool RequiresEncodedVibeFileOnly() =>
-        IsV4PlusModelKey(GetCurrentModelKey()) && _settings.Settings.AccountAssetProtectionMode;
+        IsV4PlusModelKey(GetCurrentModelKey()) && IsAssetProtectionPaidFeatureLimitEnabled();
 
     private bool IsPreciseReferenceBlockedByAssetProtection() =>
-        IsPromptMode(_currentMode) && IsV45ModelKey(GetCurrentModelKey()) && _settings.Settings.AccountAssetProtectionMode;
+        IsPromptMode(_currentMode) && IsV45ModelKey(GetCurrentModelKey()) && IsAssetProtectionPaidFeatureLimitEnabled();
 
     private bool SupportsPreciseReferenceFeature()
     {
         if (!IsPromptMode(_currentMode)) return false;
-        return IsV45ModelKey(GetCurrentModelKey()) && !_settings.Settings.AccountAssetProtectionMode;
+        return IsV45ModelKey(GetCurrentModelKey()) && !IsAssetProtectionPaidFeatureLimitEnabled();
     }
 
     private bool CanEditVibeTransferFeature() =>
@@ -143,7 +143,7 @@ public sealed partial class MainWindow
         int refCost = 0;
         bool isV4Plus = IsV4PlusModelKey(GetCurrentModelKey());
 
-        if (isV4Plus && !_settings.Settings.AccountAssetProtectionMode && _genVibeTransfers.Count > 0)
+        if (isV4Plus && !IsAssetProtectionPaidFeatureLimitEnabled() && _genVibeTransfers.Count > 0)
         {
             int encodingCost = _genVibeTransfers.Count(v => !v.IsEncodedFile) * 2;
             int slotCost = Math.Max(_genVibeTransfers.Count - 4, 0) * 2;
@@ -169,7 +169,7 @@ public sealed partial class MainWindow
 
         if (_genVibeTransfers.Count > 0 &&
             _genPreciseReferences.Count > 0 &&
-            !_settings.Settings.AccountAssetProtectionMode &&
+            !IsAssetProtectionPaidFeatureLimitEnabled() &&
             IsV45ModelKey(GetCurrentModelKey()))
         {
             error = L("references.validation.mixed_reference_types");
@@ -180,6 +180,13 @@ public sealed partial class MainWindow
             _genVibeTransfers.Any(x => !x.IsEncodedFile))
         {
             error = L("references.error.asset_protection_requires_encoded_vibe");
+            return false;
+        }
+
+        if (IsAssetProtectionPaidFeatureLimitEnabled() &&
+            _genVibeTransfers.Count > AssetProtectionFreeVibeLimit)
+        {
+            error = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
             return false;
         }
 
@@ -200,7 +207,7 @@ public sealed partial class MainWindow
         if (meta == null)
             return;
 
-        foreach (var vibe in meta.VibeTransfers.Take(MaxVibeTransfers))
+        foreach (var vibe in meta.VibeTransfers.Take(GetMaxAllowedVibeTransfers()))
         {
             if (string.IsNullOrWhiteSpace(vibe.ImageBase64))
                 continue;

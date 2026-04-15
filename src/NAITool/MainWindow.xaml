@@ -168,6 +168,11 @@
                     <MenuFlyoutItem x:Name="MenuNetworkSettings" Text="" Click="OnNetworkSettings">
                         <MenuFlyoutItem.Icon><SymbolIcon Symbol="Globe"/></MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
+                    <MenuFlyoutItem x:Name="MenuQuotaSettings" Text="" Click="OnQuotaSettings">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF159;"/>
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
                     <MenuFlyoutItem x:Name="MenuReverseTaggerSettings" Text="" Click="OnReverseTaggerSettings">
                         <MenuFlyoutItem.Icon>
                             <SymbolIcon Symbol="Tag"/>
