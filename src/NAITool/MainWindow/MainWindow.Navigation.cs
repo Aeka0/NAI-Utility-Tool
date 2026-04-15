@@ -78,6 +78,7 @@ public sealed partial class MainWindow
         {
         LoadPromptFromBuffer();
         UpdateSplitVisibility();
+        RefreshCharacterPanel();
         }
 
         bool isGen = mode == AppMode.ImageGeneration;

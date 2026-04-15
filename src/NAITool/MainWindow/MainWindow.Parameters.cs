@@ -269,6 +269,7 @@ public sealed partial class MainWindow
             _i2iNegativePrompt = "";
             _i2iStylePrompt = "";
             _isSplitPrompt = false;
+            _genCharacters.Clear();
             return;
         }
 
@@ -282,6 +283,21 @@ public sealed partial class MainWindow
         _isSplitPrompt = remembered.IsSplitPrompt;
         _customWidth = SnapToMultipleOf64(_settings.Settings.RememberedCustomWidth);
         _customHeight = SnapToMultipleOf64(_settings.Settings.RememberedCustomHeight);
+        _genCharacters.Clear();
+        foreach (var item in (remembered.GenCharacters ?? new List<RememberedCharacterState>()).Take(MaxCharacters))
+        {
+            _genCharacters.Add(new CharacterEntry
+            {
+                PositivePrompt = item.PositivePrompt ?? "",
+                NegativePrompt = item.NegativePrompt ?? "",
+                CenterX = Math.Clamp(item.CenterX, 0, 1),
+                CenterY = Math.Clamp(item.CenterY, 0, 1),
+                IsPositiveTab = item.IsPositiveTab,
+                IsCollapsed = item.IsCollapsed,
+                IsDisabled = item.IsDisabled,
+                UseCustomPosition = item.UseCustomPosition,
+            });
+        }
     }
 
     private void ClearRememberedPromptState()
@@ -296,6 +312,7 @@ public sealed partial class MainWindow
         if (!_settings.Settings.RememberPromptAndParameters)
             return;
 
+        SaveAllCharacterPrompts();
         _settings.Settings.RememberedPrompts = new RememberedPromptState
         {
             GenPositivePrompt = _genPositivePrompt,
@@ -305,6 +322,17 @@ public sealed partial class MainWindow
             I2INegativePrompt = _i2iNegativePrompt,
             I2IStylePrompt = _i2iStylePrompt,
             IsSplitPrompt = _isSplitPrompt,
+            GenCharacters = _genCharacters.Select(entry => new RememberedCharacterState
+            {
+                PositivePrompt = entry.PositivePrompt,
+                NegativePrompt = entry.NegativePrompt,
+                CenterX = entry.CenterX,
+                CenterY = entry.CenterY,
+                IsPositiveTab = entry.IsPositiveTab,
+                IsCollapsed = entry.IsCollapsed,
+                IsDisabled = entry.IsDisabled,
+                UseCustomPosition = entry.UseCustomPosition,
+            }).ToList(),
         };
         _settings.Settings.RememberedCustomWidth = _customWidth;
         _settings.Settings.RememberedCustomHeight = _customHeight;

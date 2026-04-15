@@ -174,6 +174,19 @@ public class RememberedPromptState
     public string I2INegativePrompt { get; set; } = "";
     public string I2IStylePrompt { get; set; } = "";
     public bool IsSplitPrompt { get; set; }
+    public List<RememberedCharacterState> GenCharacters { get; set; } = new();
+}
+
+public class RememberedCharacterState
+{
+    public string PositivePrompt { get; set; } = "";
+    public string NegativePrompt { get; set; } = "";
+    public double CenterX { get; set; } = 0.5;
+    public double CenterY { get; set; } = 0.5;
+    public bool IsPositiveTab { get; set; } = true;
+    public bool IsCollapsed { get; set; }
+    public bool IsDisabled { get; set; }
+    public bool UseCustomPosition { get; set; }
 }
 
 public class ReverseTaggerSettings
