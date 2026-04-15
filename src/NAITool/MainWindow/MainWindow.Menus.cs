@@ -463,13 +463,14 @@ public sealed partial class MainWindow
             _ => false,
         };
 
-        MenuSaveStripped.Visibility = (_currentMode == AppMode.Inspect || _currentMode == AppMode.ImageGeneration)
+        MenuSaveStripped.Visibility = (_currentMode == AppMode.Inspect || _currentMode == AppMode.ImageGeneration || _currentMode == AppMode.I2I)
             ? Visibility.Visible
             : Visibility.Collapsed;
         MenuSaveStripped.IsEnabled = _currentMode switch
         {
             AppMode.Inspect => hasReaderImage,
             AppMode.ImageGeneration => hasGenImage,
+            AppMode.I2I => hasI2IImage,
             _ => false,
         };
     }

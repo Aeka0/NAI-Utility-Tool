@@ -41,6 +41,9 @@ public sealed partial class MainWindow
         try
         {
             SaveCurrentPromptToBuffer();
+            _lastGeneratedImageBytes = null;
+            _i2iImageTextChunks = await Task.Run(() => ImageMetadataService.ReadRoundTripTextChunks(imageBytes));
+            _pendingResultTextChunks = null;
 
             var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(imageBytes));
 
@@ -303,6 +306,7 @@ public sealed partial class MainWindow
         if (imageBytes == null) { DebugLog("[Inpaint] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); BtnGenerate.IsEnabled = true; streamPreviewBmp?.Dispose(); return null; }
 
         _pendingResultBytes = imageBytes;
+        _pendingResultTextChunks = await Task.Run(() => ImageMetadataService.ReadRoundTripTextChunks(imageBytes));
         _pendingResultBitmap?.Dispose();
 
         using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
@@ -493,6 +497,7 @@ public sealed partial class MainWindow
         if (imageBytes == null) { DebugLog("[Denoise] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); BtnGenerate.IsEnabled = true; streamPreviewBmp?.Dispose(); return null; }
 
         _pendingResultBytes = imageBytes;
+        _pendingResultTextChunks = await Task.Run(() => ImageMetadataService.ReadRoundTripTextChunks(imageBytes));
         _pendingResultBitmap?.Dispose();
 
         using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
@@ -659,6 +664,7 @@ public sealed partial class MainWindow
         _pendingResultBitmap?.Dispose();
         _pendingResultBitmap = null;
         _pendingResultBytes = null;
+        _pendingResultTextChunks = null;
         ResultActionBar.Visibility = Visibility.Collapsed;
         BtnGenerate.IsEnabled = true;
     }
@@ -699,7 +705,12 @@ public sealed partial class MainWindow
     private async Task ApplyInpaintResultAsync()
     {
         var device = MaskCanvas.GetDevice();
-        if (device == null || _pendingResultBitmap == null) return;
+        var pendingBitmap = _pendingResultBitmap;
+        var pendingBytes = _pendingResultBytes;
+        var pendingTextChunks = _pendingResultTextChunks != null
+            ? new Dictionary<string, string>(_pendingResultTextChunks, StringComparer.Ordinal)
+            : null;
+        if (device == null || pendingBitmap == null) return;
 
         var doc = MaskCanvas.Document;
         var offset = doc.PixelAlignedImageOffset;
@@ -708,9 +719,9 @@ public sealed partial class MainWindow
 
         if (doc.OriginalImage == null)
         {
-            MaskCanvas.ClearPreview();
-            doc.SetOriginalImage(_pendingResultBitmap);
-            _lastGeneratedImageBytes = _pendingResultBytes;
+            doc.SetOriginalImage(pendingBitmap);
+            _lastGeneratedImageBytes = pendingBytes;
+            _i2iImageTextChunks = pendingTextChunks;
             _pendingResultBitmap = null;
         }
         else
@@ -728,51 +739,63 @@ public sealed partial class MainWindow
 
             int compositeW = (int)Math.Ceiling(maxX - minX);
             int compositeH = (int)Math.Ceiling(maxY - minY);
-
-            using var composite = new CanvasRenderTarget(device, compositeW, compositeH, 96f);
-            using (var ds = composite.CreateDrawingSession())
-            {
-                ds.Clear(Windows.UI.Color.FromArgb(0, 0, 0, 0));
-                ds.DrawImage(doc.OriginalImage, -minX, -minY);
-                ds.DrawImage(_pendingResultBitmap, canvasInOrigX - minX, canvasInOrigY - minY);
-            }
-
-            byte[] compBytes;
-            using (var saveStream = new Windows.Storage.Streams.InMemoryRandomAccessStream())
-            {
-                await composite.SaveAsync(saveStream, CanvasBitmapFileFormat.Png);
-                saveStream.Seek(0);
-                compBytes = new byte[saveStream.Size];
-                using var reader = new Windows.Storage.Streams.DataReader(saveStream);
-                await reader.LoadAsync((uint)saveStream.Size);
-                reader.ReadBytes(compBytes);
-            }
-            _lastGeneratedImageBytes = compBytes;
-
-            CanvasBitmap newOriginal;
-            using (var loadStream = new Windows.Storage.Streams.InMemoryRandomAccessStream())
-            {
-                using var writer = new Windows.Storage.Streams.DataWriter(loadStream);
-                writer.WriteBytes(compBytes);
-                await writer.StoreAsync();
-                writer.DetachStream();
-                loadStream.Seek(0);
-                newOriginal = await CanvasBitmap.LoadAsync(device, loadStream, 96f);
-            }
-
             var newOffset = new Vector2(offset.X + minX, offset.Y + minY);
 
-            MaskCanvas.ClearPreview();
-            doc.SetOriginalImage(newOriginal);
-            doc.ImageOffset = newOffset;
+            if (compositeW == canvasW && compositeH == canvasH)
+            {
+                doc.SetOriginalImage(pendingBitmap);
+                doc.ImageOffset = newOffset;
+                _lastGeneratedImageBytes = pendingBytes;
+                _i2iImageTextChunks = pendingTextChunks;
+                _pendingResultBitmap = null;
+            }
+            else
+            {
+                using var composite = new CanvasRenderTarget(device, compositeW, compositeH, 96f);
+                using (var ds = composite.CreateDrawingSession())
+                {
+                    ds.Clear(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+                    ds.DrawImage(doc.OriginalImage, -minX, -minY);
+                    ds.DrawImage(pendingBitmap, canvasInOrigX - minX, canvasInOrigY - minY);
+                }
 
-            _pendingResultBitmap.Dispose();
-            _pendingResultBitmap = null;
+                byte[] compBytes;
+                using (var saveStream = new Windows.Storage.Streams.InMemoryRandomAccessStream())
+                {
+                    await composite.SaveAsync(saveStream, CanvasBitmapFileFormat.Png);
+                    saveStream.Seek(0);
+                    compBytes = new byte[saveStream.Size];
+                    using var reader = new Windows.Storage.Streams.DataReader(saveStream);
+                    await reader.LoadAsync((uint)saveStream.Size);
+                    reader.ReadBytes(compBytes);
+                }
+
+                _lastGeneratedImageBytes = compBytes;
+                _i2iImageTextChunks = pendingTextChunks;
+
+                CanvasBitmap newOriginal;
+                using (var loadStream = new Windows.Storage.Streams.InMemoryRandomAccessStream())
+                {
+                    using var writer = new Windows.Storage.Streams.DataWriter(loadStream);
+                    writer.WriteBytes(compBytes);
+                    await writer.StoreAsync();
+                    writer.DetachStream();
+                    loadStream.Seek(0);
+                    newOriginal = await CanvasBitmap.LoadAsync(device, loadStream, 96f);
+                }
+
+                doc.SetOriginalImage(newOriginal);
+                doc.ImageOffset = newOffset;
+
+                pendingBitmap.Dispose();
+                _pendingResultBitmap = null;
+            }
         }
 
+        MaskCanvas.ClearPreview();
         _pendingResultBytes = null;
+        _pendingResultTextChunks = null;
         doc.ClearMask();
-        if (MaskCanvas.IsInPreviewMode) MaskCanvas.ClearPreview();
         MaskCanvas.UndoMgr.Clear();
         ResultActionBar.Visibility = Visibility.Collapsed;
         BtnGenerate.IsEnabled = true;

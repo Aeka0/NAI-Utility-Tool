@@ -119,18 +119,11 @@ public sealed partial class MainWindow
         if (string.IsNullOrEmpty(filePath))
         { TxtStatus.Text = L("inpaint.error.no_image_to_save"); return; }
 
-        byte[]? bytesToSave = null;
-        if (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null)
-        {
-            try { bytesToSave = await CreatePreviewCompositeBytes(); }
-            catch (Exception ex) { TxtStatus.Text = Lf("inpaint.error.compose_preview_failed", ex.Message); return; }
-        }
-        else
-        {
-            bytesToSave = await CreateCurrentFullImageBytes();
-        }
+        byte[]? previewBytes;
+        try { previewBytes = await BuildI2IRawSaveBytesAsync(); }
+        catch (Exception ex) { TxtStatus.Text = Lf("inpaint.error.compose_preview_failed", ex.Message); return; }
 
-        if (bytesToSave == null || bytesToSave.Length == 0)
+        if (previewBytes == null || previewBytes.Length == 0)
         { TxtStatus.Text = L("file.error.no_image_content_to_save"); return; }
 
         string sizeWarning = "";
@@ -143,7 +136,7 @@ public sealed partial class MainWindow
                 using var skBmp = SkiaSharp.SKBitmap.Decode(origStream);
                 if (skBmp != null)
                 {
-                    using var newStream = new MemoryStream(bytesToSave);
+                    using var newStream = new MemoryStream(previewBytes);
                     using var newBmp = SkiaSharp.SKBitmap.Decode(newStream);
                     if (newBmp != null && (skBmp.Width != newBmp.Width || skBmp.Height != newBmp.Height))
                         sizeWarning = Lf("file.confirm_save.size_warning", skBmp.Width, skBmp.Height, newBmp.Width, newBmp.Height);
@@ -164,6 +157,13 @@ public sealed partial class MainWindow
         };
 
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        byte[]? bytesToSave;
+        try { bytesToSave = await BuildI2ISaveBytesAsync(stripMetadata: false); }
+        catch (Exception ex) { TxtStatus.Text = Lf("inpaint.error.compose_preview_failed", ex.Message); return; }
+
+        if (bytesToSave == null || bytesToSave.Length == 0)
+        { TxtStatus.Text = L("file.error.no_image_content_to_save"); return; }
 
         try
         {
@@ -225,38 +225,17 @@ public sealed partial class MainWindow
     {
         byte[]? bytesToSave = null;
 
-        if (_currentMode == AppMode.Inspect)
+        bool hasImageToSave = _currentMode switch
         {
-            bytesToSave = GetInspectSaveBytes(stripMetadata);
-        }
-        else if (_currentMode == AppMode.Effects)
-        {
-            bytesToSave = await GetEffectsSaveBytesAsync();
-        }
-        else if (_currentMode == AppMode.I2I)
-        {
-            if (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null)
-            {
-                try { bytesToSave = await CreatePreviewCompositeBytes(); }
-                catch (Exception ex) { TxtStatus.Text = Lf("inpaint.error.compose_preview_failed", ex.Message); return; }
-            }
-            else
-            {
-                bytesToSave = _lastGeneratedImageBytes;
-            }
-        }
-        else if (_currentMode == AppMode.Upscale)
-        {
-            bytesToSave = _upscaleInputImageBytes;
-        }
-        else
-        {
-            bytesToSave = stripMetadata && _currentGenImageBytes != null
-                ? ImageMetadataService.StripPngMetadata(_currentGenImageBytes)
-                : _currentGenImageBytes;
-        }
+            AppMode.Inspect => _inspectImageBytes != null,
+            AppMode.Effects => _effectsImageBytes != null,
+            AppMode.I2I => MaskCanvas.Document.OriginalImage != null ||
+                           (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null),
+            AppMode.Upscale => _upscaleInputImageBytes != null,
+            _ => _currentGenImageBytes != null,
+        };
 
-        if (bytesToSave == null || bytesToSave.Length == 0)
+        if (!hasImageToSave)
         { TxtStatus.Text = L("file.error.no_image_to_save"); return; }
 
         var picker = new FileSavePicker();
@@ -266,6 +245,33 @@ public sealed partial class MainWindow
         var file = await picker.PickSaveFileAsync();
         if (file != null)
         {
+            if (_currentMode == AppMode.Inspect)
+            {
+                bytesToSave = await GetInspectSaveBytesAsync(stripMetadata);
+            }
+            else if (_currentMode == AppMode.Effects)
+            {
+                bytesToSave = await GetEffectsSaveBytesAsync();
+            }
+            else if (_currentMode == AppMode.I2I)
+            {
+                try { bytesToSave = await BuildI2ISaveBytesAsync(stripMetadata); }
+                catch (Exception ex) { TxtStatus.Text = Lf("inpaint.error.compose_preview_failed", ex.Message); return; }
+            }
+            else if (_currentMode == AppMode.Upscale)
+            {
+                bytesToSave = _upscaleInputImageBytes;
+            }
+            else
+            {
+                bytesToSave = stripMetadata && _currentGenImageBytes != null
+                    ? await Task.Run(() => ImageMetadataService.StripPngMetadata(_currentGenImageBytes))
+                    : _currentGenImageBytes;
+            }
+
+            if (bytesToSave == null || bytesToSave.Length == 0)
+            { TxtStatus.Text = L("file.error.no_image_to_save"); return; }
+
             try
             {
                 await Windows.Storage.FileIO.WriteBytesAsync(file, bytesToSave);
@@ -310,6 +316,9 @@ public sealed partial class MainWindow
         int compositeW = (int)Math.Ceiling(maxX - minX);
         int compositeH = (int)Math.Ceiling(maxY - minY);
 
+        if (compositeW == canvasW && compositeH == canvasH && _pendingResultBytes != null)
+            return _pendingResultBytes;
+
         using var composite = new CanvasRenderTarget(device, compositeW, compositeH, 96f);
         using (var ds = composite.CreateDrawingSession())
         {
@@ -326,6 +335,67 @@ public sealed partial class MainWindow
         await reader.LoadAsync((uint)saveStream.Size);
         reader.ReadBytes(bytes);
         return bytes;
+    }
+
+    private async Task<byte[]?> BuildI2ISaveBytesAsync(bool stripMetadata)
+    {
+        byte[]? bytes;
+        IReadOnlyDictionary<string, string>? textChunks;
+
+        if (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null)
+        {
+            bytes = await CreatePreviewCompositeBytes();
+            textChunks = _pendingResultTextChunks;
+            if (!stripMetadata && bytes != null && ReferenceEquals(bytes, _pendingResultBytes))
+                return bytes;
+        }
+        else
+        {
+            if (!stripMetadata && CanSaveCurrentI2IImageFromRawBytes())
+                return _lastGeneratedImageBytes;
+
+            bytes = await CreateCurrentFullImageBytes();
+            textChunks = _i2iImageTextChunks;
+        }
+
+        if (bytes == null || bytes.Length == 0)
+            return bytes;
+
+        if (stripMetadata)
+            return await Task.Run(() => ImageMetadataService.StripPngMetadata(bytes));
+
+        return await Task.Run(() => ImageMetadataService.ReapplyNovelAiMetadata(bytes, textChunks));
+    }
+
+    private async Task<byte[]?> BuildI2IRawSaveBytesAsync()
+    {
+        if (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null)
+            return await CreatePreviewCompositeBytes();
+
+        if (_lastGeneratedImageBytes != null && _lastGeneratedImageBytes.Length > 0)
+            return _lastGeneratedImageBytes;
+
+        return await CreateCurrentFullImageBytes();
+    }
+
+    private bool CanSaveCurrentI2IImageFromRawBytes()
+    {
+        if (_lastGeneratedImageBytes == null || _lastGeneratedImageBytes.Length == 0)
+            return false;
+        if (_i2iImageTextChunks == null || _i2iImageTextChunks.Count == 0)
+            return false;
+        if (ImageMetadataService.ReadPngTextChunks(_lastGeneratedImageBytes).Count == 0)
+            return false;
+
+        var original = MaskCanvas.Document.OriginalImage;
+        if (original == null)
+            return false;
+
+        var offset = MaskCanvas.Document.PixelAlignedImageOffset;
+        return offset.X == 0 &&
+               offset.Y == 0 &&
+               (int)original.SizeInPixels.Width == MaskCanvas.CanvasW &&
+               (int)original.SizeInPixels.Height == MaskCanvas.CanvasH;
     }
 
     private void OnOpenImageFolder(object sender, RoutedEventArgs e)

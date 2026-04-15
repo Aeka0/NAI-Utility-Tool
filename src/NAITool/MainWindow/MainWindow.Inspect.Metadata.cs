@@ -302,13 +302,13 @@ public sealed partial class MainWindow
         UpdateFileMenuState();
     }
 
-    private byte[]? GetInspectSaveBytes(bool stripMetadata)
+    private async Task<byte[]?> GetInspectSaveBytesAsync(bool stripMetadata)
     {
         if (_inspectImageBytes == null) return null;
         if (stripMetadata)
-            return ImageMetadataService.StripPngMetadata(_inspectImageBytes);
+            return await Task.Run(() => ImageMetadataService.StripPngMetadata(_inspectImageBytes));
         if (_inspectRawModified && _inspectMetadata != null)
-            return ImageMetadataService.ReplacePngComment(_inspectImageBytes, _inspectMetadata.RawJson);
+            return await Task.Run(() => ImageMetadataService.ReplacePngComment(_inspectImageBytes, _inspectMetadata.RawJson));
         return _inspectImageBytes;
     }
 
@@ -317,7 +317,7 @@ public sealed partial class MainWindow
         if (!_inspectRawModified)
         { TxtStatus.Text = L("inspect.raw.unchanged"); return; }
 
-        var bytesToSave = GetInspectSaveBytes(stripMetadata: false);
+        var bytesToSave = await GetInspectSaveBytesAsync(stripMetadata: false);
         if (bytesToSave == null)
         { TxtStatus.Text = L("file.error.no_image_to_save"); return; }
 

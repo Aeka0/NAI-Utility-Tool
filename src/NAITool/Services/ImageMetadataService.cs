@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -30,6 +31,7 @@ public class ImageMetadata
     public bool SmDyn { get; set; }
     public string? Software { get; set; }
     public string? Source { get; set; }
+    public Dictionary<string, string> TextChunks { get; set; } = new(StringComparer.Ordinal);
     public bool? QualityToggle { get; set; }
     public int? UcPreset { get; set; }
     public string RawJson { get; set; } = "";
@@ -41,6 +43,9 @@ public class ImageMetadata
 public static class ImageMetadataService
 {
     private static readonly byte[] PngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+    private const string StealthMagicCompressed = "stealth_pngcomp";
+    private const string StealthMagicPlain = "stealth_pnginfo";
+    private const string UnofficialSignedHash = "Unofficial - Not Signed - Created using NAI Utility Tool";
 
     public static ImageMetadata? ReadFromFile(string filePath)
     {
@@ -55,7 +60,7 @@ public static class ImageMetadataService
 
     public static ImageMetadata? ReadFromBytes(byte[] data)
     {
-        var textChunks = ReadPngTextChunks(data);
+        var textChunks = ReadGenerationTextChunks(data);
         if (textChunks.TryGetValue("Comment", out var json))
         {
             var meta = ParseMetadataJson(json);
@@ -64,13 +69,18 @@ public static class ImageMetadataService
                 meta.IsNaiParsed = true;
                 meta.Software = textChunks.GetValueOrDefault("Software");
                 meta.Source = textChunks.GetValueOrDefault("Source");
+                meta.TextChunks = new Dictionary<string, string>(textChunks, StringComparer.Ordinal);
                 return meta;
             }
         }
         if (textChunks.TryGetValue("parameters", out var sdText))
         {
             var sdMeta = TryParseSdFormat(sdText);
-            if (sdMeta != null) return sdMeta;
+            if (sdMeta != null)
+            {
+                sdMeta.TextChunks = new Dictionary<string, string>(textChunks, StringComparer.Ordinal);
+                return sdMeta;
+            }
         }
         if (json != null)
         {
@@ -80,6 +90,7 @@ public static class ImageMetadataService
                 IsNaiParsed = false,
                 Software = textChunks.GetValueOrDefault("Software"),
                 Source = textChunks.GetValueOrDefault("Source"),
+                TextChunks = new Dictionary<string, string>(textChunks, StringComparer.Ordinal),
             };
         }
         if (textChunks.Count > 0)
@@ -87,9 +98,30 @@ public static class ImageMetadataService
             var sb = new StringBuilder();
             foreach (var kvp in textChunks)
                 sb.AppendLine($"{kvp.Key}: {kvp.Value}");
-            return new ImageMetadata { RawJson = sb.ToString().TrimEnd(), IsNaiParsed = false };
+            return new ImageMetadata
+            {
+                RawJson = sb.ToString().TrimEnd(),
+                IsNaiParsed = false,
+                TextChunks = new Dictionary<string, string>(textChunks, StringComparer.Ordinal),
+            };
         }
         return null;
+    }
+
+    public static Dictionary<string, string> ReadGenerationTextChunks(byte[] data)
+    {
+        var textChunks = ReadPngTextChunks(data);
+        if (textChunks.ContainsKey("Comment") || textChunks.ContainsKey("parameters"))
+            return textChunks;
+
+        var stealthChunks = TryReadStealthTextChunks(data);
+        return stealthChunks.Count > 0 ? stealthChunks : textChunks;
+    }
+
+    public static Dictionary<string, string> ReadRoundTripTextChunks(byte[] data)
+    {
+        var textChunks = ReadPngTextChunks(data);
+        return new Dictionary<string, string>(textChunks, StringComparer.Ordinal);
     }
 
     public static Dictionary<string, string> ReadPngTextChunks(byte[] data)
@@ -338,50 +370,43 @@ public static class ImageMetadataService
 
     public static byte[] ReplacePngComment(byte[] pngData, string? newComment)
     {
+        var textChunks = ReadPngTextChunks(pngData);
+        if (newComment == null)
+            textChunks.Remove("Comment");
+        else
+            textChunks["Comment"] = newComment;
+        return ReplacePngTextChunks(pngData, textChunks);
+    }
+
+    public static byte[] ReplacePngTextChunks(byte[] pngData, IReadOnlyDictionary<string, string>? textChunks)
+    {
         using var output = new MemoryStream();
         output.Write(PngSignature, 0, 8);
 
         int offset = 8;
-        bool wroteComment = false;
-
+        bool wroteText = false;
         while (offset + 12 <= pngData.Length)
         {
             int length = ReadInt32BE(pngData, offset);
             if (length < 0 || offset + 12 + length > pngData.Length) break;
+
             string type = Encoding.ASCII.GetString(pngData, offset + 4, 4);
             int chunkTotalLen = 12 + length;
+            bool isTextChunk = type is "tEXt" or "iTXt" or "zTXt" or "eXIf";
 
-            bool isOldComment = false;
-            if ((type == "tEXt" || type == "iTXt") && length > 0)
+            if (!isTextChunk)
             {
-                int dataStart = offset + 8;
-                int nullPos = Array.IndexOf(pngData, (byte)0, dataStart, length);
-                if (nullPos >= 0)
+                if (type == "IEND" && !wroteText && textChunks != null && textChunks.Count > 0)
                 {
-                    string key = Encoding.ASCII.GetString(pngData, dataStart, nullPos - dataStart);
-                    if (key == "Comment") isOldComment = true;
+                    foreach (var kvp in textChunks)
+                        WriteTextChunk(output, kvp.Key, kvp.Value);
+                    wroteText = true;
                 }
+
+                output.Write(pngData, offset, chunkTotalLen);
+                if (type == "IEND") break;
             }
 
-            if (isOldComment)
-            {
-                if (!wroteComment && newComment != null)
-                {
-                    WriteTextChunk(output, "Comment", newComment);
-                    wroteComment = true;
-                }
-                offset += chunkTotalLen;
-                continue;
-            }
-
-            if (type == "IEND" && !wroteComment && newComment != null)
-            {
-                WriteTextChunk(output, "Comment", newComment);
-                wroteComment = true;
-            }
-
-            output.Write(pngData, offset, chunkTotalLen);
-            if (type == "IEND") break;
             offset += chunkTotalLen;
         }
 
@@ -413,6 +438,59 @@ public static class ImageMetadataService
 
         byte[] stripped = output.ToArray();
         return RemoveNovelAiStealthMetadata(stripped);
+    }
+
+    public static byte[] ReapplyNovelAiMetadata(byte[] pngData, byte[]? metadataSourceBytes, int imageWidth, int imageHeight)
+    {
+        if (pngData.Length == 0 || metadataSourceBytes == null || metadataSourceBytes.Length == 0)
+            return pngData;
+
+        var sourceChunks = ReadGenerationTextChunks(metadataSourceBytes);
+        if (sourceChunks.Count == 0)
+            return pngData;
+
+        var normalizedChunks = NormalizeTextChunksForSavedImage(sourceChunks, imageWidth, imageHeight);
+        if (normalizedChunks.Count == 0)
+            return pngData;
+
+        byte[] withStealth = InjectNovelAiStealthMetadata(pngData, normalizedChunks);
+        return ReplacePngTextChunks(withStealth, normalizedChunks);
+    }
+
+    public static byte[] ReapplyNovelAiMetadata(byte[] pngData, IReadOnlyDictionary<string, string>? textChunks)
+    {
+        if (pngData.Length == 0 || textChunks == null || textChunks.Count == 0)
+            return pngData;
+
+        try
+        {
+            using var bitmap = SKBitmap.Decode(pngData);
+            if (bitmap == null)
+                return pngData;
+
+            return ReapplyNovelAiMetadata(pngData, textChunks, bitmap.Width, bitmap.Height);
+        }
+        catch
+        {
+            return pngData;
+        }
+    }
+
+    public static byte[] ReapplyNovelAiMetadata(
+        byte[] pngData,
+        IReadOnlyDictionary<string, string>? textChunks,
+        int imageWidth,
+        int imageHeight)
+    {
+        if (pngData.Length == 0 || textChunks == null || textChunks.Count == 0)
+            return pngData;
+
+        var normalizedChunks = NormalizeTextChunksForSavedImage(textChunks, imageWidth, imageHeight);
+        if (normalizedChunks.Count == 0)
+            return pngData;
+
+        byte[] withStealth = InjectNovelAiStealthMetadata(pngData, normalizedChunks);
+        return ReplacePngTextChunks(withStealth, normalizedChunks);
     }
 
     private static byte[] RemoveNovelAiStealthMetadata(byte[] pngData)
@@ -454,24 +532,49 @@ public static class ImageMetadataService
 
     private static void WriteTextChunk(Stream output, string keyword, string text)
     {
-        byte[] keyBytes = Encoding.Latin1.GetBytes(keyword);
-        byte[] textBytes = Encoding.Latin1.GetBytes(text);
-        int dataLen = keyBytes.Length + 1 + textBytes.Length;
+        byte[] keyBytes = Encoding.ASCII.GetBytes(keyword);
+        if (CanEncodeLatin1(text))
+        {
+            byte[] textBytes = Encoding.Latin1.GetBytes(text);
+            int dataLen = keyBytes.Length + 1 + textBytes.Length;
 
-        WriteInt32BE(output, dataLen);
-        byte[] typeBytes = Encoding.ASCII.GetBytes("tEXt");
-        output.Write(typeBytes, 0, 4);
-        output.Write(keyBytes, 0, keyBytes.Length);
-        output.WriteByte(0);
-        output.Write(textBytes, 0, textBytes.Length);
+            WriteInt32BE(output, dataLen);
+            byte[] typeBytes = Encoding.ASCII.GetBytes("tEXt");
+            output.Write(typeBytes, 0, 4);
+            output.Write(keyBytes, 0, keyBytes.Length);
+            output.WriteByte(0);
+            output.Write(textBytes, 0, textBytes.Length);
 
-        byte[] chunkData = new byte[4 + dataLen];
-        Array.Copy(typeBytes, 0, chunkData, 0, 4);
-        Array.Copy(keyBytes, 0, chunkData, 4, keyBytes.Length);
-        chunkData[4 + keyBytes.Length] = 0;
-        Array.Copy(textBytes, 0, chunkData, 5 + keyBytes.Length, textBytes.Length);
-        uint crc = Crc32(chunkData);
-        WriteInt32BE(output, (int)crc);
+            byte[] chunkData = new byte[4 + dataLen];
+            Array.Copy(typeBytes, 0, chunkData, 0, 4);
+            Array.Copy(keyBytes, 0, chunkData, 4, keyBytes.Length);
+            chunkData[4 + keyBytes.Length] = 0;
+            Array.Copy(textBytes, 0, chunkData, 5 + keyBytes.Length, textBytes.Length);
+            uint crc = Crc32(chunkData);
+            WriteInt32BE(output, (int)crc);
+            return;
+        }
+
+        byte[] utf8Bytes = Encoding.UTF8.GetBytes(text);
+        using var payload = new MemoryStream();
+        payload.Write(keyBytes, 0, keyBytes.Length);
+        payload.WriteByte(0);
+        payload.WriteByte(0);
+        payload.WriteByte(0);
+        payload.WriteByte(0);
+        payload.WriteByte(0);
+        payload.Write(utf8Bytes, 0, utf8Bytes.Length);
+
+        byte[] payloadBytes = payload.ToArray();
+        WriteInt32BE(output, payloadBytes.Length);
+        byte[] type = Encoding.ASCII.GetBytes("iTXt");
+        output.Write(type, 0, 4);
+        output.Write(payloadBytes, 0, payloadBytes.Length);
+
+        byte[] crcInput = new byte[4 + payloadBytes.Length];
+        Array.Copy(type, 0, crcInput, 0, 4);
+        Array.Copy(payloadBytes, 0, crcInput, 4, payloadBytes.Length);
+        WriteInt32BE(output, (int)Crc32(crcInput));
     }
 
     private static void WriteInt32BE(Stream s, int value)
@@ -579,6 +682,359 @@ public static class ImageMetadataService
             return meta;
         }
         catch { return null; }
+    }
+
+    private static bool CanEncodeLatin1(string text)
+    {
+        foreach (char ch in text)
+        {
+            if (ch > 0xFF)
+                return false;
+        }
+        return true;
+    }
+
+    private static Dictionary<string, string> TryReadStealthTextChunks(byte[] pngData)
+    {
+        string? jsonText = TryExtractStealthJsonText(pngData);
+        if (string.IsNullOrWhiteSpace(jsonText))
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonText);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                var result = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.String)
+                        result[prop.Name] = prop.Value.GetString() ?? "";
+                }
+
+                if (result.ContainsKey("Comment") || result.ContainsKey("parameters") ||
+                    result.ContainsKey("Description") || result.ContainsKey("Software") || result.ContainsKey("Source"))
+                {
+                    return result;
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Comment"] = jsonText,
+        };
+    }
+
+    private static string? TryExtractStealthJsonText(byte[] pngData)
+    {
+        try
+        {
+            using var bitmap = SKBitmap.Decode(pngData);
+            if (bitmap == null || bitmap.Width <= 0 || bitmap.Height <= 0)
+                return null;
+
+            int byteCount = (bitmap.Width * bitmap.Height) / 8;
+            if (byteCount <= 0)
+                return null;
+
+            byte[] packedBytes = new byte[byteCount];
+            int bitCount = 0;
+            int byteIndex = 0;
+            byte current = 0;
+
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                for (int y = 0; y < bitmap.Height; y++)
+                {
+                    byte bit = (byte)(bitmap.GetPixel(x, y).Alpha & 1);
+                    current = (byte)((current << 1) | bit);
+                    bitCount++;
+                    if ((bitCount & 7) == 0)
+                    {
+                        packedBytes[byteIndex++] = current;
+                        current = 0;
+                    }
+                }
+            }
+
+            ReadOnlySpan<byte> probe = packedBytes;
+            byte[] magicCompressed = Encoding.UTF8.GetBytes(StealthMagicCompressed);
+            byte[] magicPlain = Encoding.UTF8.GetBytes(StealthMagicPlain);
+            int payloadOffset;
+            bool compressed;
+
+            if (probe.Length >= magicCompressed.Length &&
+                probe[..magicCompressed.Length].SequenceEqual(magicCompressed))
+            {
+                payloadOffset = magicCompressed.Length;
+                compressed = true;
+            }
+            else if (probe.Length >= magicPlain.Length &&
+                     probe[..magicPlain.Length].SequenceEqual(magicPlain))
+            {
+                payloadOffset = magicPlain.Length;
+                compressed = false;
+            }
+            else
+            {
+                return null;
+            }
+
+            if (payloadOffset + 4 > packedBytes.Length)
+                return null;
+
+            int bitLength = ReadInt32BE(packedBytes, payloadOffset);
+            if (bitLength <= 0 || (bitLength & 7) != 0)
+                return null;
+
+            int payloadLength = bitLength / 8;
+            int payloadStart = payloadOffset + 4;
+            if (payloadStart + payloadLength > packedBytes.Length)
+                return null;
+
+            byte[] payload = new byte[payloadLength];
+            Array.Copy(packedBytes, payloadStart, payload, 0, payloadLength);
+            byte[] rawBytes = compressed ? DecompressGzip(payload) : payload;
+            return Encoding.UTF8.GetString(rawBytes);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static byte[] DecompressGzip(byte[] data)
+    {
+        using var input = new MemoryStream(data);
+        using var gzip = new GZipStream(input, CompressionMode.Decompress);
+        using var output = new MemoryStream();
+        gzip.CopyTo(output);
+        return output.ToArray();
+    }
+
+    private static byte[] CompressGzip(byte[] data)
+    {
+        using var output = new MemoryStream();
+        using (var gzip = new GZipStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
+            gzip.Write(data, 0, data.Length);
+        return output.ToArray();
+    }
+
+    private static Dictionary<string, string> NormalizeTextChunksForSavedImage(
+        IReadOnlyDictionary<string, string> sourceChunks,
+        int imageWidth,
+        int imageHeight)
+    {
+        var normalized = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var kvp in sourceChunks)
+        {
+            string value = kvp.Key == "Comment"
+                ? NormalizeCommentJsonForSavedImage(kvp.Value, imageWidth, imageHeight)
+                : kvp.Key == "signed_hash"
+                    ? UnofficialSignedHash
+                    : kvp.Value;
+            normalized[kvp.Key] = value;
+        }
+
+        if (normalized.TryGetValue("Comment", out var comment) &&
+            string.IsNullOrWhiteSpace(comment))
+        {
+            normalized.Remove("Comment");
+        }
+
+        return normalized;
+    }
+
+    private static string NormalizeCommentJsonForSavedImage(string json, int imageWidth, int imageHeight)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return json;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return json;
+
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
+            {
+                Indented = false,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            }))
+            {
+                writer.WriteStartObject();
+                bool wroteWidth = false;
+                bool wroteHeight = false;
+                bool wroteSignedHash = false;
+
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (prop.NameEquals("width"))
+                    {
+                        writer.WriteNumber("width", imageWidth);
+                        wroteWidth = true;
+                        continue;
+                    }
+
+                    if (prop.NameEquals("height"))
+                    {
+                        writer.WriteNumber("height", imageHeight);
+                        wroteHeight = true;
+                        continue;
+                    }
+
+                    if (prop.NameEquals("signed_hash"))
+                    {
+                        writer.WriteString("signed_hash", UnofficialSignedHash);
+                        wroteSignedHash = true;
+                        continue;
+                    }
+
+                    prop.WriteTo(writer);
+                }
+
+                if (!wroteWidth)
+                    writer.WriteNumber("width", imageWidth);
+                if (!wroteHeight)
+                    writer.WriteNumber("height", imageHeight);
+                if (!wroteSignedHash)
+                    writer.WriteString("signed_hash", UnofficialSignedHash);
+
+                writer.WriteEndObject();
+            }
+
+            return Encoding.UTF8.GetString(stream.ToArray());
+        }
+        catch
+        {
+            return json;
+        }
+    }
+
+    private static byte[] InjectNovelAiStealthMetadata(byte[] pngData, IReadOnlyDictionary<string, string> textChunks)
+    {
+        try
+        {
+            byte[] cleaned = SetAllAlphaToOpaque(pngData);
+            using var bitmap = SKBitmap.Decode(cleaned);
+            if (bitmap == null)
+                return pngData;
+
+            string jsonText = SerializeTextChunks(textChunks);
+            byte[] hiddenStream = BuildStealthPayload(jsonText, compressed: true);
+            byte[] bitStream = ExpandToBits(hiddenStream);
+
+            int capacity = bitmap.Width * bitmap.Height;
+            if (bitStream.Length > capacity)
+                return cleaned;
+
+            int bitIndex = 0;
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                for (int y = 0; y < bitmap.Height; y++)
+                {
+                    byte alpha = 0xFF;
+                    if (bitIndex < bitStream.Length)
+                        alpha = (byte)(0xFE | bitStream[bitIndex++]);
+
+                    var color = bitmap.GetPixel(x, y);
+                    bitmap.SetPixel(x, y, new SKColor(color.Red, color.Green, color.Blue, alpha));
+                }
+            }
+
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            return data?.ToArray() ?? cleaned;
+        }
+        catch
+        {
+            return pngData;
+        }
+    }
+
+    private static byte[] SetAllAlphaToOpaque(byte[] pngData)
+    {
+        try
+        {
+            using var bitmap = SKBitmap.Decode(pngData);
+            if (bitmap == null)
+                return pngData;
+
+            for (int y = 0; y < bitmap.Height; y++)
+            {
+                for (int x = 0; x < bitmap.Width; x++)
+                {
+                    var color = bitmap.GetPixel(x, y);
+                    if (color.Alpha != 255)
+                        bitmap.SetPixel(x, y, new SKColor(color.Red, color.Green, color.Blue, 255));
+                }
+            }
+
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            return data?.ToArray() ?? pngData;
+        }
+        catch
+        {
+            return pngData;
+        }
+    }
+
+    private static string SerializeTextChunks(IReadOnlyDictionary<string, string> textChunks)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
+        {
+            Indented = false,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        }))
+        {
+            writer.WriteStartObject();
+            foreach (var kvp in textChunks)
+                writer.WriteString(kvp.Key, kvp.Value);
+            writer.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static byte[] BuildStealthPayload(string jsonText, bool compressed)
+    {
+        byte[] raw = Encoding.UTF8.GetBytes(jsonText);
+        byte[] payload = compressed ? CompressGzip(raw) : raw;
+        string magic = compressed ? StealthMagicCompressed : StealthMagicPlain;
+        byte[] magicBytes = Encoding.UTF8.GetBytes(magic);
+        byte[] result = new byte[magicBytes.Length + 4 + payload.Length];
+        Array.Copy(magicBytes, result, magicBytes.Length);
+        WriteInt32BE(result, magicBytes.Length, payload.Length * 8);
+        Array.Copy(payload, 0, result, magicBytes.Length + 4, payload.Length);
+        return result;
+    }
+
+    private static byte[] ExpandToBits(byte[] data)
+    {
+        var bits = new byte[data.Length * 8];
+        int index = 0;
+        foreach (byte value in data)
+        {
+            for (int shift = 7; shift >= 0; shift--)
+                bits[index++] = (byte)((value >> shift) & 1);
+        }
+
+        return bits;
+    }
+
+    private static void WriteInt32BE(byte[] buffer, int offset, int value)
+    {
+        buffer[offset] = (byte)(value >> 24);
+        buffer[offset + 1] = (byte)(value >> 16);
+        buffer[offset + 2] = (byte)(value >> 8);
+        buffer[offset + 3] = (byte)value;
     }
 
     private static void ParseVibeTransfers(JsonElement root, ImageMetadata meta)

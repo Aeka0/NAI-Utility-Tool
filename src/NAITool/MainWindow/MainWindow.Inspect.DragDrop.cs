@@ -41,6 +41,9 @@ public sealed partial class MainWindow
         try
         {
             var bytes = await File.ReadAllBytesAsync(filePath);
+            _lastGeneratedImageBytes = null;
+            _i2iImageTextChunks = await Task.Run(() => ImageMetadataService.ReadRoundTripTextChunks(bytes));
+            _pendingResultTextChunks = null;
             var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
             if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat))
                 ApplyMetadataToI2I(meta, Path.GetFileName(filePath));

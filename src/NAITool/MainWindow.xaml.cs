@@ -166,6 +166,8 @@ public sealed partial class MainWindow : Window
     // ═══ 重绘预览工作流 ═══
     private CanvasBitmap? _pendingResultBitmap;
     private byte[]? _pendingResultBytes;
+    private Dictionary<string, string>? _pendingResultTextChunks;
+    private Dictionary<string, string>? _i2iImageTextChunks;
 
     // ═══ 生图结果 ═══
     private byte[]? _currentGenImageBytes;
