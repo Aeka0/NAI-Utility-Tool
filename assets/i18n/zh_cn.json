@@ -1,4 +1,4 @@
-﻿{
+{
     "automation.dialog.cancel":  "取消",
     "automation.dialog.run":  "开始运行",
     "automation.dialog.title":  "自动化",
@@ -303,6 +303,10 @@
     "generate.status.completed_post_saved":  "生成完成，已执行 {0}，保存到: {1}",
     "generate.status.completed_saved":  "生成完成，已保存到: {0}",
     "generate.status.generating":  "正在生成...",
+    "generate.duplicate_guard.title":  "重复参数提醒",
+    "generate.duplicate_guard.message":  "本次生成参数与上次完全一致，将返回完全相同的结果。是否将种子改为 0（随机）后继续生成？",
+    "generate.duplicate_guard.note":  "若继续使用当前固定种子，NovelAI 会返回相同结果。",
+    "generate.duplicate_guard.cancelled":  "已取消发送重复生成请求。",
     "post.error.no_image_to_send":  "没有图像可发送到后期。",
     "post.error.send_failed":  "发送到后期失败: {0}",
     "i2i.error.no_image_to_send":  "没有图像可发送到重绘。",

@@ -51,9 +51,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        SyncUIToParams();
-        if (IsAdvancedWindowOpen)
-            SaveAdvancedPanelToSettings();
+        SyncPromptGenerationInputsToState();
 
         if (GetSizeWarningLevel() == SizeWarningLevel.Red)
         {
@@ -65,6 +63,14 @@ public sealed partial class MainWindow
         _settings.Save();
 
         await ExecuteCurrentGenerationAsync();
+    }
+
+    private void SyncPromptGenerationInputsToState()
+    {
+        SaveCurrentPromptToBuffer();
+        SyncUIToParams();
+        if (IsAdvancedWindowOpen)
+            SaveAdvancedPanelToSettings();
     }
 
     private Task<bool> ExecuteCurrentGenerationAsync(bool forceRandomSeed = false) =>
@@ -86,52 +92,78 @@ public sealed partial class MainWindow
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
         var p = _settings.Settings.GenParameters;
-        int origSeed = p.Seed;
+        int restoreSeed = p.Seed;
 
         try
         {
             _generateCts?.Cancel();
             _generateCts = new CancellationTokenSource();
             var ct = _generateCts.Token;
-
-            int actualSeed = (!forceRandomSeed && p.Seed > 0) ? p.Seed : Random.Shared.Next(1, int.MaxValue);
-            p.Seed = actualSeed;
-            var wildcardContext = CreateWildcardContext(actualSeed, p.Model);
             SaveCurrentPromptToBuffer();
-            string automationPrompt = autoContext?.CurrentPromptOverride ?? _genPositivePrompt;
-            string positiveRaw = MergeStyleAndMain(_genStylePrompt, automationPrompt);
-            string negativeRaw = _genNegativePrompt;
             if (!TryValidateReferenceRequest(out string referenceError))
             {
                 TxtStatus.Text = referenceError;
                 return false;
             }
-            if (_autoGenRunning && _activeAutomationSettings?.Randomization.RandomizeStyleTags == true)
+
+            int actualSeed;
+            string prompt;
+            string negPrompt;
+            List<CharacterPromptInfo>? chars;
+            List<VibeTransferInfo>? vibes;
+            List<PreciseReferenceInfo>? preciseReferences;
+            while (true)
             {
-                string? stylePrefix = BuildRandomStylePrefixForRequest();
-                if (string.IsNullOrWhiteSpace(stylePrefix))
+                actualSeed = (!forceRandomSeed && p.Seed > 0) ? p.Seed : Random.Shared.Next(1, int.MaxValue);
+                p.Seed = actualSeed;
+
+                var wildcardContext = CreateWildcardContext(actualSeed, p.Model);
+                string automationPrompt = autoContext?.CurrentPromptOverride ?? _genPositivePrompt;
+                string positiveRaw = MergeStyleAndMain(_genStylePrompt, automationPrompt);
+                string negativeRaw = _genNegativePrompt;
+                if (_autoGenRunning && _activeAutomationSettings?.Randomization.RandomizeStyleTags == true)
+                {
+                    string? stylePrefix = BuildRandomStylePrefixForRequest();
+                    if (string.IsNullOrWhiteSpace(stylePrefix))
+                        return false;
+                    positiveRaw = MergeStyleAndMain(_genStylePrompt, MergeStyleAndMain(stylePrefix, automationPrompt));
+                }
+
+                prompt = ExpandPromptFeatures(positiveRaw, wildcardContext);
+                negPrompt = ExpandPromptFeatures(negativeRaw, wildcardContext, isNegativeText: true);
+                if (string.IsNullOrWhiteSpace(prompt))
+                {
+                    TxtStatus.Text = L("generate.error.prompt_required");
                     return false;
-                positiveRaw = MergeStyleAndMain(_genStylePrompt, MergeStyleAndMain(stylePrefix, automationPrompt));
-            }
-            string prompt = ExpandPromptFeatures(positiveRaw, wildcardContext);
-            string negPrompt = ExpandPromptFeatures(negativeRaw, wildcardContext, isNegativeText: true);
-            if (string.IsNullOrWhiteSpace(prompt))
-            {
-                TxtStatus.Text = L("generate.error.prompt_required");
-                return false;
+                }
+
+                if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
+                chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+                if (autoContext?.CurrentVibeOverride == null && _genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+                {
+                    string? encodeError = await EnsureVibesEncodedAsync(p.Model, ct);
+                    if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
+                }
+
+                vibes = autoContext?.CurrentVibeOverride ?? GetVibeTransferData();
+                preciseReferences = GetPreciseReferenceData();
+                var signature = BuildImageGenerationRequestSignature(
+                    p, w, h, actualSeed, prompt, negPrompt, chars, vibes, preciseReferences);
+                var duplicateDecision = await CheckDuplicateGenerationRequestAsync(signature, restoreSeed);
+                if (duplicateDecision == DuplicateGenerationDecision.Cancel)
+                    return false;
+                if (duplicateDecision == DuplicateGenerationDecision.ProceedWithRandomSeed)
+                {
+                    restoreSeed = 0;
+                    forceRandomSeed = true;
+                    continue;
+                }
+
+                RememberLastGenerationRequest(signature);
+                break;
             }
 
             DebugLog($"[Generate] Start | {w}x{h} | Model={p.Model} | Seed={actualSeed}");
-
-            if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
-            var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
-            if (autoContext?.CurrentVibeOverride == null && _genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
-            {
-                string? encodeError = await EnsureVibesEncodedAsync(p.Model, ct);
-                if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
-            }
-            var vibes = autoContext?.CurrentVibeOverride ?? GetVibeTransferData();
-            var preciseReferences = GetPreciseReferenceData();
             IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
                 ? new Progress<byte[]>(bytes =>
                 {
@@ -188,7 +220,7 @@ public sealed partial class MainWindow
         {
             _generateRequestRunning = false;
             UpdateBtnGenerateForApiKey();
-            p.Seed = origSeed;
+            p.Seed = restoreSeed;
         }
     }
 

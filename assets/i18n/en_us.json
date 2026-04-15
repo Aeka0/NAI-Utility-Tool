@@ -1,4 +1,4 @@
-﻿{
+{
   "align.bottom_center": "Bottom Center",
   "align.bottom_left": "Bottom Left",
   "align.bottom_right": "Bottom Right",
@@ -303,6 +303,10 @@
   "generate.status.completed_post_saved": "Generation complete. Applied {0} and saved to: {1}",
   "generate.status.completed_saved": "Generation complete. Saved to: {0}",
   "generate.status.generating": "Generating...",
+  "generate.duplicate_guard.title": "Duplicate Parameters",
+  "generate.duplicate_guard.message": "This generation uses exactly the same parameters as the previous one and will return the exact same result. Do you want to switch the seed to 0 (random) and continue?",
+  "generate.duplicate_guard.note": "If you keep the current fixed seed, NovelAI will return the same result.",
+  "generate.duplicate_guard.cancelled": "Cancelled the duplicate generation request.",
   "post.error.no_image_to_send": "No image is available to send to post-processing.",
   "post.error.send_failed": "Failed to send to post-processing: {0}",
   "i2i.error.no_image_to_send": "No image is available to send to inpaint.",

@@ -141,7 +141,7 @@ public sealed partial class MainWindow
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
         var ip = _settings.Settings.InpaintParameters;
-        int origSeed = ip.Seed;
+        int restoreSeed = ip.Seed;
 
         try
         {
@@ -157,28 +157,70 @@ public sealed partial class MainWindow
             var maskBase64 = await NovelAIService.EncodeRenderTargetAsync(MaskCanvas.Document.MaskTarget!, isMask: true);
 
             exportImage.Dispose();
+            if (!TryValidateReferenceRequest(out string referenceError))
+            {
+                TxtStatus.Text = referenceError;
+                return false;
+            }
 
-            int actualSeed = (!forceRandomSeed && ip.Seed > 0) ? ip.Seed : Random.Shared.Next(1, int.MaxValue);
-            ip.Seed = actualSeed;
-            var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
-            var (prompt, negPrompt) = GetPrompts(wildcardContext);
+            int actualSeed;
+            while (true)
+            {
+                actualSeed = (!forceRandomSeed && ip.Seed > 0) ? ip.Seed : Random.Shared.Next(1, int.MaxValue);
+                ip.Seed = actualSeed;
+                var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
+                var (prompt, negPrompt) = GetPrompts(wildcardContext);
+                if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
+                if (_genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+                {
+                    string? encodeError = await EnsureVibesEncodedAsync(ip.Model, ct);
+                    if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
+                }
+                var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+                var vibes = GetVibeTransferData();
+                var preciseReferences = GetPreciseReferenceData();
+                var signature = BuildI2IGenerationRequestSignature(
+                    "i2i-inpaint",
+                    ip,
+                    MaskCanvas.CanvasW,
+                    MaskCanvas.CanvasH,
+                    actualSeed,
+                    prompt,
+                    negPrompt,
+                    chars,
+                    vibes,
+                    preciseReferences,
+                    imageBase64,
+                    maskBase64,
+                    MaskCanvas.Document.PixelAlignedImageOffset);
+                var duplicateDecision = await CheckDuplicateGenerationRequestAsync(signature, restoreSeed);
+                if (duplicateDecision == DuplicateGenerationDecision.Cancel)
+                    return false;
+                if (duplicateDecision == DuplicateGenerationDecision.ProceedWithRandomSeed)
+                {
+                    restoreSeed = 0;
+                    forceRandomSeed = true;
+                    continue;
+                }
 
-            DebugLog($"[Inpaint] Start | Model={ip.Model} | Seed={actualSeed}");
+                RememberLastGenerationRequest(signature);
+                DebugLog($"[Inpaint] Start | Model={ip.Model} | Seed={actualSeed}");
 
-            var resultBitmap = await SendInpaintRequestAsync(imageBase64, maskBase64, prompt, negPrompt, wildcardContext, ct);
-            _lastUsedSeed = actualSeed;
+                var resultBitmap = await SendInpaintRequestAsync(imageBase64, maskBase64, prompt, negPrompt, wildcardContext, ct);
+                _lastUsedSeed = actualSeed;
 
-            if (resultBitmap == null) return false;
+                if (resultBitmap == null) return false;
 
-            MaskCanvas.SetPreview(resultBitmap);
-            _i2iPreviewDirty = true;
-            ShowResultBar();
-            if (!keepGenerateButtonInteractive)
-                BtnGenerate.IsEnabled = true;
-            _ = RefreshAnlasInfoAsync(forceRefresh: true);
-            DebugLog($"[Inpaint] Completed | Seed={actualSeed}");
-            TxtStatus.Text = L("generate.status.completed");
-            return true;
+                MaskCanvas.SetPreview(resultBitmap);
+                _i2iPreviewDirty = true;
+                ShowResultBar();
+                if (!keepGenerateButtonInteractive)
+                    BtnGenerate.IsEnabled = true;
+                _ = RefreshAnlasInfoAsync(forceRefresh: true);
+                DebugLog($"[Inpaint] Completed | Seed={actualSeed}");
+                TxtStatus.Text = L("generate.status.completed");
+                return true;
+            }
         }
         catch (OperationCanceledException)
         {
@@ -200,7 +242,7 @@ public sealed partial class MainWindow
         {
             _generateRequestRunning = false;
             UpdateBtnGenerateForApiKey();
-            ip.Seed = origSeed;
+            ip.Seed = restoreSeed;
         }
     }
 
@@ -291,7 +333,7 @@ public sealed partial class MainWindow
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
         var dp = _settings.Settings.I2IDenoiseParameters;
-        int origSeed = dp.Seed;
+        int restoreSeed = dp.Seed;
 
         try
         {
@@ -305,28 +347,70 @@ public sealed partial class MainWindow
 
             var imageBase64 = await NovelAIService.EncodeRenderTargetAsync(exportImage, isMask: false);
             exportImage.Dispose();
+            if (!TryValidateReferenceRequest(out string referenceError))
+            {
+                TxtStatus.Text = referenceError;
+                return false;
+            }
 
-            int actualSeed = (!forceRandomSeed && dp.Seed > 0) ? dp.Seed : Random.Shared.Next(1, int.MaxValue);
-            dp.Seed = actualSeed;
-            var wildcardContext = CreateWildcardContext(actualSeed, dp.Model);
-            var (prompt, negPrompt) = GetPrompts(wildcardContext);
+            int actualSeed;
+            while (true)
+            {
+                actualSeed = (!forceRandomSeed && dp.Seed > 0) ? dp.Seed : Random.Shared.Next(1, int.MaxValue);
+                dp.Seed = actualSeed;
+                var wildcardContext = CreateWildcardContext(actualSeed, dp.Model);
+                var (prompt, negPrompt) = GetPrompts(wildcardContext);
+                if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
+                if (_genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+                {
+                    string? encodeError = await EnsureVibesEncodedAsync(dp.Model, ct);
+                    if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
+                }
+                var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+                var vibes = GetVibeTransferData();
+                var preciseReferences = GetPreciseReferenceData();
+                var signature = BuildI2IGenerationRequestSignature(
+                    "i2i-denoise",
+                    dp,
+                    MaskCanvas.CanvasW,
+                    MaskCanvas.CanvasH,
+                    actualSeed,
+                    prompt,
+                    negPrompt,
+                    chars,
+                    vibes,
+                    preciseReferences,
+                    imageBase64,
+                    null,
+                    MaskCanvas.Document.PixelAlignedImageOffset);
+                var duplicateDecision = await CheckDuplicateGenerationRequestAsync(signature, restoreSeed);
+                if (duplicateDecision == DuplicateGenerationDecision.Cancel)
+                    return false;
+                if (duplicateDecision == DuplicateGenerationDecision.ProceedWithRandomSeed)
+                {
+                    restoreSeed = 0;
+                    forceRandomSeed = true;
+                    continue;
+                }
 
-            DebugLog($"[Denoise] Start | Model={dp.Model} | Seed={actualSeed} | Strength={dp.DenoiseStrength:0.##} | Noise={dp.DenoiseNoise:0.##}");
+                RememberLastGenerationRequest(signature);
+                DebugLog($"[Denoise] Start | Model={dp.Model} | Seed={actualSeed} | Strength={dp.DenoiseStrength:0.##} | Noise={dp.DenoiseNoise:0.##}");
 
-            var resultBitmap = await SendDenoiseRequestAsync(imageBase64, prompt, negPrompt, wildcardContext, ct);
-            _lastUsedSeed = actualSeed;
+                var resultBitmap = await SendDenoiseRequestAsync(imageBase64, prompt, negPrompt, wildcardContext, ct);
+                _lastUsedSeed = actualSeed;
 
-            if (resultBitmap == null) return false;
+                if (resultBitmap == null) return false;
 
-            MaskCanvas.SetPreview(resultBitmap);
-            _i2iPreviewDirty = true;
-            ShowResultBar();
-            if (!keepGenerateButtonInteractive)
-                BtnGenerate.IsEnabled = true;
-            _ = RefreshAnlasInfoAsync(forceRefresh: true);
-            DebugLog($"[Denoise] Completed | Seed={actualSeed}");
-            TxtStatus.Text = L("generate.status.completed");
-            return true;
+                MaskCanvas.SetPreview(resultBitmap);
+                _i2iPreviewDirty = true;
+                ShowResultBar();
+                if (!keepGenerateButtonInteractive)
+                    BtnGenerate.IsEnabled = true;
+                _ = RefreshAnlasInfoAsync(forceRefresh: true);
+                DebugLog($"[Denoise] Completed | Seed={actualSeed}");
+                TxtStatus.Text = L("generate.status.completed");
+                return true;
+            }
         }
         catch (OperationCanceledException)
         {
@@ -348,7 +432,7 @@ public sealed partial class MainWindow
         {
             _generateRequestRunning = false;
             UpdateBtnGenerateForApiKey();
-            dp.Seed = origSeed;
+            dp.Seed = restoreSeed;
         }
     }
 
@@ -454,7 +538,7 @@ public sealed partial class MainWindow
         var ip = editMode == I2IEditMode.Denoise
             ? _settings.Settings.I2IDenoiseParameters
             : _settings.Settings.InpaintParameters;
-        int origSeed = ip.Seed;
+        int restoreSeed = ip.Seed;
 
         try
         {
@@ -470,26 +554,70 @@ public sealed partial class MainWindow
             string? maskBase64 = editMode == I2IEditMode.Inpaint
                 ? await NovelAIService.EncodeRenderTargetAsync(MaskCanvas.Document.MaskTarget!, isMask: true)
                 : null;
-
-            int actualSeed = (!forceRandomSeed && ip.Seed > 0) ? ip.Seed : Random.Shared.Next(1, int.MaxValue);
-            ip.Seed = actualSeed;
-            var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
-            var (prompt, negPrompt) = GetPrompts(wildcardContext);
-
-            var resultBitmap = editMode == I2IEditMode.Denoise
-                ? await SendDenoiseRequestAsync(imageBase64, prompt, negPrompt, wildcardContext, ct)
-                : await SendInpaintRequestAsync(
-                    imageBase64, maskBase64!,
-                    prompt, negPrompt, wildcardContext, ct);
-            _lastUsedSeed = actualSeed;
-
-            if (resultBitmap != null)
+            if (!TryValidateReferenceRequest(out string referenceError))
             {
-                MaskCanvas.SetPreview(resultBitmap);
-                _i2iPreviewDirty = true;
-                _ = RefreshAnlasInfoAsync(forceRefresh: true);
-                TxtStatus.Text = L("generate.status.regenerated");
-                return true;
+                TxtStatus.Text = referenceError;
+                return false;
+            }
+
+            int actualSeed;
+            while (true)
+            {
+                actualSeed = (!forceRandomSeed && ip.Seed > 0) ? ip.Seed : Random.Shared.Next(1, int.MaxValue);
+                ip.Seed = actualSeed;
+                var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
+                var (prompt, negPrompt) = GetPrompts(wildcardContext);
+                if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
+                if (_genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+                {
+                    string? encodeError = await EnsureVibesEncodedAsync(ip.Model, ct);
+                    if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
+                }
+                var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+                var vibes = GetVibeTransferData();
+                var preciseReferences = GetPreciseReferenceData();
+                var signature = BuildI2IGenerationRequestSignature(
+                    editMode == I2IEditMode.Denoise ? "i2i-denoise" : "i2i-inpaint",
+                    ip,
+                    MaskCanvas.CanvasW,
+                    MaskCanvas.CanvasH,
+                    actualSeed,
+                    prompt,
+                    negPrompt,
+                    chars,
+                    vibes,
+                    preciseReferences,
+                    imageBase64,
+                    maskBase64,
+                    MaskCanvas.Document.PixelAlignedImageOffset);
+                var duplicateDecision = await CheckDuplicateGenerationRequestAsync(signature, restoreSeed);
+                if (duplicateDecision == DuplicateGenerationDecision.Cancel)
+                    return false;
+                if (duplicateDecision == DuplicateGenerationDecision.ProceedWithRandomSeed)
+                {
+                    restoreSeed = 0;
+                    forceRandomSeed = true;
+                    continue;
+                }
+
+                RememberLastGenerationRequest(signature);
+                var resultBitmap = editMode == I2IEditMode.Denoise
+                    ? await SendDenoiseRequestAsync(imageBase64, prompt, negPrompt, wildcardContext, ct)
+                    : await SendInpaintRequestAsync(
+                        imageBase64, maskBase64!,
+                        prompt, negPrompt, wildcardContext, ct);
+                _lastUsedSeed = actualSeed;
+
+                if (resultBitmap != null)
+                {
+                    MaskCanvas.SetPreview(resultBitmap);
+                    _i2iPreviewDirty = true;
+                    _ = RefreshAnlasInfoAsync(forceRefresh: true);
+                    TxtStatus.Text = L("generate.status.regenerated");
+                    return true;
+                }
+
+                break;
             }
         }
         catch (OperationCanceledException) { TxtStatus.Text = L("generate.status.cancelled"); }
@@ -498,7 +626,7 @@ public sealed partial class MainWindow
         {
             _generateRequestRunning = false;
             UpdateBtnGenerateForApiKey();
-            ip.Seed = origSeed;
+            ip.Seed = restoreSeed;
             SetResultBarEnabled(true);
         }
         return false;
@@ -506,6 +634,14 @@ public sealed partial class MainWindow
 
     private async void OnRedoGenerate(object sender, RoutedEventArgs e)
     {
+        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+        {
+            OnNetworkSettings(sender, e);
+            return;
+        }
+
+        SyncPromptGenerationInputsToState();
+        _settings.Save();
         await RedoInpaintGenerateAsync();
     }
 

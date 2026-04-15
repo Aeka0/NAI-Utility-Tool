@@ -36,6 +36,8 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
+    private const double ContinuousGenerationFlyoutContentWidth = 260;
+
     private bool IsAnyGenerateLoopRunning() => _autoGenRunning || _continuousGenRunning;
 
     private void SetupGenerateButtonContextFlyout()
@@ -44,6 +46,8 @@ public sealed partial class MainWindow
         {
             Text = L("generate.continuous.title"),
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            MaxWidth = ContinuousGenerationFlyoutContentWidth,
+            TextWrapping = TextWrapping.Wrap,
         };
         var countRow = new StackPanel
         {
@@ -54,6 +58,7 @@ public sealed partial class MainWindow
         {
             Text = L("generate.continuous.hint"),
             TextWrapping = TextWrapping.Wrap,
+            MaxWidth = ContinuousGenerationFlyoutContentWidth,
             Opacity = 0.72,
             FontSize = 12,
         };
@@ -81,6 +86,7 @@ public sealed partial class MainWindow
 
         var panel = new StackPanel
         {
+            Width = ContinuousGenerationFlyoutContentWidth,
             Spacing = 10,
             Children =
             {
@@ -103,7 +109,7 @@ public sealed partial class MainWindow
         {
             bool canStart = !_autoGenRunning &&
                             !_continuousGenRunning &&
-                            IsPromptMode(_currentMode) &&
+                            _currentMode == AppMode.ImageGeneration &&
                             !string.IsNullOrWhiteSpace(_settings.Settings.ApiToken);
             foreach (var button in buttons)
                 button.IsEnabled = canStart;
@@ -116,7 +122,7 @@ public sealed partial class MainWindow
 
     private void StartContinuousGeneration(int count)
     {
-        if (count <= 0 || IsAnyGenerateLoopRunning())
+        if (count <= 0 || _currentMode != AppMode.ImageGeneration || IsAnyGenerateLoopRunning())
             return;
 
         _ = RunContinuousGenerationAsync(count);
