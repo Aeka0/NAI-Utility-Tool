@@ -174,7 +174,7 @@ public sealed partial class MainWindow
                 var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
                 var (prompt, negPrompt) = GetPrompts(wildcardContext);
                 if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
-                if (_genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+                if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
                 {
                     string? encodeError = await EnsureVibesEncodedAsync(ip.Model, ct);
                     if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
@@ -262,7 +262,7 @@ public sealed partial class MainWindow
         }
         if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
         var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
-        if (_genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+        if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
         {
             string? encodeError = await EnsureVibesEncodedAsync(_settings.Settings.GenParameters.Model, ct);
             if (encodeError != null) { TxtStatus.Text = encodeError; return null; }
@@ -365,7 +365,7 @@ public sealed partial class MainWindow
                 var wildcardContext = CreateWildcardContext(actualSeed, dp.Model);
                 var (prompt, negPrompt) = GetPrompts(wildcardContext);
                 if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
-                if (_genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+                if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
                 {
                     string? encodeError = await EnsureVibesEncodedAsync(dp.Model, ct);
                     if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
@@ -453,7 +453,7 @@ public sealed partial class MainWindow
         }
         if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
         var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
-        if (_genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+        if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
         {
             string? encodeError = await EnsureVibesEncodedAsync(_settings.Settings.GenParameters.Model, ct);
             if (encodeError != null) { TxtStatus.Text = encodeError; return null; }
@@ -573,7 +573,7 @@ public sealed partial class MainWindow
                 var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
                 var (prompt, negPrompt) = GetPrompts(wildcardContext);
                 if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
-                if (_genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+                if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
                 {
                     string? encodeError = await EnsureVibesEncodedAsync(ip.Model, ct);
                     if (encodeError != null) { TxtStatus.Text = encodeError; return false; }

@@ -29,6 +29,7 @@ public sealed partial class MainWindow
                 })
                 .ToList(),
             VibePool = _genVibeTransfers
+                .Where(x => !x.IsDisabled)
                 .Select(CloneVibeTransferEntry)
                 .ToList(),
         };
@@ -113,6 +114,7 @@ public sealed partial class MainWindow
         InformationExtracted = x.InformationExtracted,
         IsEncodedFile = x.IsEncodedFile,
         IsCollapsed = x.IsCollapsed,
+        IsDisabled = x.IsDisabled,
         OriginalImageHash = x.OriginalImageHash,
         OriginalThumbnailHash = x.OriginalThumbnailHash,
         OriginalImageBase64 = x.OriginalImageBase64,

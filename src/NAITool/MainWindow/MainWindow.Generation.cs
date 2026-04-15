@@ -139,7 +139,9 @@ public sealed partial class MainWindow
 
                 if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
                 chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
-                if (autoContext?.CurrentVibeOverride == null && _genVibeTransfers.Count > 0 && _genPreciseReferences.Count == 0)
+                if (autoContext?.CurrentVibeOverride == null &&
+                    ActiveVibeTransferCount() > 0 &&
+                    ActivePreciseReferenceCount() == 0)
                 {
                     string? encodeError = await EnsureVibesEncodedAsync(p.Model, ct);
                     if (encodeError != null) { TxtStatus.Text = encodeError; return false; }

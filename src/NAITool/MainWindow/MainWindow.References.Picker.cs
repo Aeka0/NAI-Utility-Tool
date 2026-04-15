@@ -22,9 +22,9 @@ public sealed partial class MainWindow
     private async void OnAddVibeTransfer(object sender, RoutedEventArgs e)
     {
         int maxVibeTransfers = GetMaxAllowedVibeTransfers();
-        if (!CanEditVibeTransferFeature() || _genVibeTransfers.Count >= maxVibeTransfers)
+        if (!CanEditVibeTransferFeature() || ActiveVibeTransferCount() >= maxVibeTransfers)
         {
-            if (IsAssetProtectionPaidFeatureLimitEnabled() && _genVibeTransfers.Count >= maxVibeTransfers)
+            if (IsAssetProtectionPaidFeatureLimitEnabled() && ActiveVibeTransferCount() >= maxVibeTransfers)
                 TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
             return;
         }
@@ -33,7 +33,7 @@ public sealed partial class MainWindow
         if (newEntry == null)
             return;
 
-        if (_genVibeTransfers.Count >= maxVibeTransfers)
+        if (ActiveVibeTransferCount() >= maxVibeTransfers)
         {
             if (IsAssetProtectionPaidFeatureLimitEnabled())
                 TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
@@ -41,15 +41,14 @@ public sealed partial class MainWindow
         }
 
         _genVibeTransfers.Add(newEntry);
-        RefreshVibeTransferPanel();
-        UpdateReferenceButtonAndPanelState();
+        RefreshReferencePanels();
         UpdateGenerateButtonWarning();
         TxtStatus.Text = Lf("references.status.added_vibe", newEntry.FileName);
     }
 
     private async void OnAddPreciseReference(object sender, RoutedEventArgs e)
     {
-        if (!CanEditPreciseReferenceFeature() || _genPreciseReferences.Count >= MaxPreciseReferences)
+        if (!CanEditPreciseReferenceFeature() || ActivePreciseReferenceCount() >= MaxPreciseReferences)
             return;
 
         var newEntry = await CreatePreciseReferenceEntryAsync();
@@ -57,8 +56,7 @@ public sealed partial class MainWindow
             return;
 
         _genPreciseReferences.Add(newEntry);
-        RefreshPreciseReferencePanel();
-        UpdateReferenceButtonAndPanelState();
+        RefreshReferencePanels();
         UpdateGenerateButtonWarning();
         TxtStatus.Text = Lf("references.status.added_precise", newEntry.FileName);
     }
@@ -228,9 +226,9 @@ public sealed partial class MainWindow
     private async Task AddDroppedVibeTransferAsync(StorageFile file)
     {
         int maxVibeTransfers = GetMaxAllowedVibeTransfers();
-        if (!CanEditVibeTransferFeature() || _genVibeTransfers.Count >= maxVibeTransfers)
+        if (!CanEditVibeTransferFeature() || ActiveVibeTransferCount() >= maxVibeTransfers)
         {
-            if (IsAssetProtectionPaidFeatureLimitEnabled() && _genVibeTransfers.Count >= maxVibeTransfers)
+            if (IsAssetProtectionPaidFeatureLimitEnabled() && ActiveVibeTransferCount() >= maxVibeTransfers)
                 TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
             return;
         }
@@ -239,7 +237,7 @@ public sealed partial class MainWindow
         if (newEntry == null)
             return;
 
-        if (_genVibeTransfers.Count >= maxVibeTransfers)
+        if (ActiveVibeTransferCount() >= maxVibeTransfers)
         {
             if (IsAssetProtectionPaidFeatureLimitEnabled())
                 TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
@@ -247,8 +245,7 @@ public sealed partial class MainWindow
         }
 
         _genVibeTransfers.Add(newEntry);
-        RefreshVibeTransferPanel();
-        UpdateReferenceButtonAndPanelState();
+        RefreshReferencePanels();
         UpdateGenerateButtonWarning();
         TxtStatus.Text = Lf("references.status.added_vibe", newEntry.FileName);
     }
@@ -261,7 +258,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (!CanEditPreciseReferenceFeature() || _genPreciseReferences.Count >= MaxPreciseReferences)
+        if (!CanEditPreciseReferenceFeature() || ActivePreciseReferenceCount() >= MaxPreciseReferences)
             return;
 
         var newEntry = CreatePreciseReferenceEntry(await CreateReferenceImagePickResultAsync(file));
@@ -269,8 +266,7 @@ public sealed partial class MainWindow
             return;
 
         _genPreciseReferences.Add(newEntry);
-        RefreshPreciseReferencePanel();
-        UpdateReferenceButtonAndPanelState();
+        RefreshReferencePanels();
         UpdateGenerateButtonWarning();
         TxtStatus.Text = Lf("references.status.added_precise", newEntry.FileName);
     }

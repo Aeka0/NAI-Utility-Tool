@@ -43,6 +43,12 @@ public sealed partial class MainWindow
         UpdateReferenceButtonAndPanelState();
     }
 
+    private void RefreshReferencePanels()
+    {
+        RefreshVibeTransferPanel();
+        RefreshPreciseReferencePanel();
+    }
+
     private UIElement BuildVibeTransferUI(VibeTransferEntry entry, int index)
     {
         var root = new StackPanel { Spacing = 6 };
@@ -51,6 +57,7 @@ public sealed partial class MainWindow
         var header = BuildReferenceHeader(
             vibeTitle,
             entry.IsCollapsed,
+            entry.IsDisabled,
             canMoveUp: index > 0,
             canMoveDown: index < _genVibeTransfers.Count - 1,
             onMoveUp: () => MoveVibeTransfer(index, -1),
@@ -58,19 +65,25 @@ public sealed partial class MainWindow
             onDelete: () =>
             {
                 _genVibeTransfers.Remove(entry);
-                RefreshVibeTransferPanel();
+                RefreshReferencePanels();
                 UpdateGenerateButtonWarning();
             },
             onCollapse: () =>
             {
                 entry.IsCollapsed = !entry.IsCollapsed;
                 RefreshVibeTransferPanel();
+            },
+            onToggleDisabled: () =>
+            {
+                entry.IsDisabled = !entry.IsDisabled;
+                RefreshReferencePanels();
+                UpdateGenerateButtonWarning();
             });
         root.Children.Add(header);
 
         if (!entry.IsCollapsed)
         {
-            bool canEdit = CanEditVibeTransferFeature();
+            bool canEdit = CanEditVibeTransferFeature() && !entry.IsDisabled;
 
             var infoGrid = new Grid { ColumnSpacing = 10, Margin = new Thickness(0, 2, 0, 0) };
             infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -195,7 +208,7 @@ public sealed partial class MainWindow
 
         if (index < _genVibeTransfers.Count - 1)
             root.Children.Add(CreateReferenceSeparator());
-        root.Opacity = CanEditVibeTransferFeature() ? 1.0 : 0.72;
+        root.Opacity = entry.IsDisabled ? 0.52 : CanEditVibeTransferFeature() ? 1.0 : 0.72;
         return root;
     }
 
@@ -243,6 +256,7 @@ public sealed partial class MainWindow
         var header = BuildReferenceHeader(
             Lf("references.precise.cached", index + 1),
             entry.IsCollapsed,
+            entry.IsDisabled,
             canMoveUp: index > 0,
             canMoveDown: index < _genPreciseReferences.Count - 1,
             onMoveUp: () => MovePreciseReference(index, -1),
@@ -250,19 +264,25 @@ public sealed partial class MainWindow
             onDelete: () =>
             {
                 _genPreciseReferences.Remove(entry);
-                RefreshPreciseReferencePanel();
+                RefreshReferencePanels();
                 UpdateGenerateButtonWarning();
             },
             onCollapse: () =>
             {
                 entry.IsCollapsed = !entry.IsCollapsed;
                 RefreshPreciseReferencePanel();
+            },
+            onToggleDisabled: () =>
+            {
+                entry.IsDisabled = !entry.IsDisabled;
+                RefreshReferencePanels();
+                UpdateGenerateButtonWarning();
             });
         root.Children.Add(header);
 
         if (!entry.IsCollapsed)
         {
-            bool canEdit = CanEditPreciseReferenceFeature();
+            bool canEdit = CanEditPreciseReferenceFeature() && !entry.IsDisabled;
 
             var infoGrid = new Grid { ColumnSpacing = 10, Margin = new Thickness(0, 2, 0, 0) };
             infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -374,6 +394,7 @@ public sealed partial class MainWindow
 
         if (index < _genPreciseReferences.Count - 1)
             root.Children.Add(CreateReferenceSeparator());
+        root.Opacity = entry.IsDisabled ? 0.52 : CanEditPreciseReferenceFeature() ? 1.0 : 0.72;
         return root;
     }
 
@@ -405,16 +426,19 @@ public sealed partial class MainWindow
     private UIElement BuildReferenceHeader(
         string title,
         bool isCollapsed,
+        bool isDisabled,
         bool canMoveUp,
         bool canMoveDown,
         Action onMoveUp,
         Action onMoveDown,
         Action onDelete,
-        Action onCollapse)
+        Action onCollapse,
+        Action onToggleDisabled)
     {
         var headerGrid = new Grid();
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -430,6 +454,8 @@ public sealed partial class MainWindow
             Margin = new Thickness(0, 0, 8, 0),
             Style = (Style)((Grid)this.Content).Resources["InspectCaptionStyle"],
         };
+        if (isDisabled)
+            label.TextDecorations = Windows.UI.Text.TextDecorations.Strikethrough;
         Grid.SetColumn(label, 1);
         headerGrid.Children.Add(label);
 
@@ -450,11 +476,21 @@ public sealed partial class MainWindow
         Grid.SetColumn(movePanel, 2);
         headerGrid.Children.Add(movePanel);
 
+        var disableBtn = CreateCharacterActionButton(
+            isDisabled ? "\uF570" : "\uE790",
+            isDisabled ? L("references.action.restore") : L("references.action.disable"),
+            true);
+        disableBtn.Margin = new Thickness(4, 0, 0, 0);
+        disableBtn.Click += (_, _) => onToggleDisabled();
+        disableBtn.Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        Grid.SetColumn(disableBtn, 3);
+        headerGrid.Children.Add(disableBtn);
+
         var delBtn = CreateCharacterActionButton("\uE74D", L("references.action.delete"), true, isDelete: true);
         delBtn.Margin = new Thickness(4, 0, 0, 0);
         delBtn.Click += (_, _) => onDelete();
         delBtn.Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        Grid.SetColumn(delBtn, 3);
+        Grid.SetColumn(delBtn, 4);
         headerGrid.Children.Add(delBtn);
 
         return headerGrid;

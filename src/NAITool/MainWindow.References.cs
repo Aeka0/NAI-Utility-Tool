@@ -33,6 +33,7 @@ public sealed partial class MainWindow
         public double InformationExtracted { get; set; } = 1.0;
         public bool IsEncodedFile { get; set; }
         public bool IsCollapsed { get; set; }
+        public bool IsDisabled { get; set; }
         /// <summary>原始图片 SHA256 前缀（仅原始图片条目）</summary>
         public string? OriginalImageHash { get; set; }
         /// <summary>缩略图 SHA256 前缀（仅原始图片条目）</summary>
@@ -51,7 +52,14 @@ public sealed partial class MainWindow
         public double Strength { get; set; } = 1.0;
         public double Fidelity { get; set; }
         public bool IsCollapsed { get; set; }
+        public bool IsDisabled { get; set; }
     }
+
+    private int ActiveVibeTransferCount() =>
+        _genVibeTransfers.Count(x => !x.IsDisabled);
+
+    private int ActivePreciseReferenceCount() =>
+        _genPreciseReferences.Count(x => !x.IsDisabled);
 
     private string GetCurrentModelKey() => GetSelectedComboText(CboModel) ?? CurrentParams.Model;
 
@@ -90,11 +98,11 @@ public sealed partial class MainWindow
 
     private bool CanEditVibeTransferFeature() =>
         SupportsVibeTransferFeature() &&
-        _genPreciseReferences.Count == 0;
+        ActivePreciseReferenceCount() == 0;
 
     private bool CanEditPreciseReferenceFeature() =>
         SupportsPreciseReferenceFeature() &&
-        _genVibeTransfers.Count == 0;
+        ActiveVibeTransferCount() == 0;
 
     private bool ShouldShowVibeTransferPanel() =>
         SupportsVibeTransferFeature() && _genVibeTransfers.Count > 0;
@@ -143,16 +151,18 @@ public sealed partial class MainWindow
         int refCost = 0;
         bool isV4Plus = IsV4PlusModelKey(GetCurrentModelKey());
 
-        if (isV4Plus && !IsAssetProtectionPaidFeatureLimitEnabled() && _genVibeTransfers.Count > 0)
+        var activeVibes = _genVibeTransfers.Where(v => !v.IsDisabled).ToList();
+        if (isV4Plus && !IsAssetProtectionPaidFeatureLimitEnabled() && activeVibes.Count > 0)
         {
-            int encodingCost = _genVibeTransfers.Count(v => !v.IsEncodedFile) * 2;
-            int slotCost = Math.Max(_genVibeTransfers.Count - 4, 0) * 2;
+            int encodingCost = activeVibes.Count(v => !v.IsEncodedFile) * 2;
+            int slotCost = Math.Max(activeVibes.Count - 4, 0) * 2;
             refCost += encodingCost + slotCost;
         }
 
-        if (SupportsPreciseReferenceFeature() && _genPreciseReferences.Count > 0)
+        int activePreciseCount = ActivePreciseReferenceCount();
+        if (SupportsPreciseReferenceFeature() && activePreciseCount > 0)
         {
-            refCost += _genPreciseReferences.Count * 5;
+            refCost += activePreciseCount * 5;
         }
 
         return baseCost + refCost;
@@ -167,8 +177,11 @@ public sealed partial class MainWindow
         if (!IsPromptMode(_currentMode))
             return true;
 
-        if (_genVibeTransfers.Count > 0 &&
-            _genPreciseReferences.Count > 0 &&
+        int activeVibeCount = ActiveVibeTransferCount();
+        int activePreciseCount = ActivePreciseReferenceCount();
+
+        if (activeVibeCount > 0 &&
+            activePreciseCount > 0 &&
             !IsAssetProtectionPaidFeatureLimitEnabled() &&
             IsV45ModelKey(GetCurrentModelKey()))
         {
@@ -177,14 +190,14 @@ public sealed partial class MainWindow
         }
 
         if (RequiresEncodedVibeFileOnly() &&
-            _genVibeTransfers.Any(x => !x.IsEncodedFile))
+            _genVibeTransfers.Any(x => !x.IsDisabled && !x.IsEncodedFile))
         {
             error = L("references.error.asset_protection_requires_encoded_vibe");
             return false;
         }
 
         if (IsAssetProtectionPaidFeatureLimitEnabled() &&
-            _genVibeTransfers.Count > AssetProtectionFreeVibeLimit)
+            activeVibeCount > AssetProtectionFreeVibeLimit)
         {
             error = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
             return false;
@@ -255,7 +268,7 @@ public sealed partial class MainWindow
         string cacheDir = VibeCacheService.GetCacheDir(AppRootDir);
         bool anyEncoded = false;
 
-        foreach (var entry in _genVibeTransfers)
+        foreach (var entry in _genVibeTransfers.Where(x => !x.IsDisabled))
         {
             if (entry.IsEncodedFile || string.IsNullOrWhiteSpace(entry.ImageBase64))
                 continue;
@@ -297,10 +310,10 @@ public sealed partial class MainWindow
     private List<VibeTransferInfo>? GetVibeTransferData()
     {
         if (!SupportsVibeTransferFeature()) return null;
-        if (_genPreciseReferences.Count > 0) return null;
+        if (ActivePreciseReferenceCount() > 0) return null;
 
         var result = _genVibeTransfers
-            .Where(x => !string.IsNullOrWhiteSpace(x.ImageBase64))
+            .Where(x => !x.IsDisabled && !string.IsNullOrWhiteSpace(x.ImageBase64))
             .Select(x => new VibeTransferInfo
             {
                 FileName = x.FileName,
@@ -317,10 +330,10 @@ public sealed partial class MainWindow
     private List<PreciseReferenceInfo>? GetPreciseReferenceData()
     {
         if (!SupportsPreciseReferenceFeature()) return null;
-        if (_genVibeTransfers.Count > 0) return null;
+        if (ActiveVibeTransferCount() > 0) return null;
 
         var result = _genPreciseReferences
-            .Where(x => !string.IsNullOrWhiteSpace(x.ImageBase64))
+            .Where(x => !x.IsDisabled && !string.IsNullOrWhiteSpace(x.ImageBase64))
             .Select(x => new PreciseReferenceInfo
             {
                 FileName = x.FileName,

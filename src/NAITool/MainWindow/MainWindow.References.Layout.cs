@@ -29,11 +29,11 @@ public sealed partial class MainWindow
             : Visibility.Collapsed;
         BtnAddCharacter.IsEnabled = SupportsCharacterFeature() && _genCharacters.Count < MaxCharacters;
 
-        BtnAddVibeTransfer.Visibility = SupportsVibeTransferFeature() && _genPreciseReferences.Count == 0
+        BtnAddVibeTransfer.Visibility = SupportsVibeTransferFeature() && ActivePreciseReferenceCount() == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
         int maxVibeTransfers = GetMaxAllowedVibeTransfers();
-        bool vibeLimitReached = _genVibeTransfers.Count >= maxVibeTransfers;
+        bool vibeLimitReached = ActiveVibeTransferCount() >= maxVibeTransfers;
         BtnAddVibeTransfer.IsEnabled = CanEditVibeTransferFeature() && !vibeLimitReached;
 
         string vibeToolTip = vibeLimitReached && IsAssetProtectionPaidFeatureLimitEnabled()
@@ -43,10 +43,10 @@ public sealed partial class MainWindow
                 : L("references.tooltips.vibe");
         ToolTipService.SetToolTip(BtnAddVibeTransfer, vibeToolTip);
 
-        BtnAddPreciseReference.Visibility = SupportsPreciseReferenceFeature() && _genVibeTransfers.Count == 0
+        BtnAddPreciseReference.Visibility = SupportsPreciseReferenceFeature() && ActiveVibeTransferCount() == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
-        BtnAddPreciseReference.IsEnabled = CanEditPreciseReferenceFeature() && _genPreciseReferences.Count < MaxPreciseReferences;
+        BtnAddPreciseReference.IsEnabled = CanEditPreciseReferenceFeature() && ActivePreciseReferenceCount() < MaxPreciseReferences;
         ToolTipService.SetToolTip(BtnAddPreciseReference, L("references.tooltips.precise"));
 
         CharacterPanel.Visibility = SupportsCharacterFeature()
@@ -56,7 +56,7 @@ public sealed partial class MainWindow
         VibeTransferPanel.Visibility = ShouldShowVibeTransferPanel()
             ? Visibility.Visible
             : Visibility.Collapsed;
-        TxtVibeTransferHint.Visibility = IsAssetProtectionPaidFeatureLimitEnabled() && _genVibeTransfers.Count > 0
+        TxtVibeTransferHint.Visibility = IsAssetProtectionPaidFeatureLimitEnabled() && ActiveVibeTransferCount() > 0
             ? Visibility.Visible
             : Visibility.Collapsed;
         TxtVibeTransferHint.Text = L("references.hint.asset_protection_vibe");
