@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Effects;
@@ -20,6 +21,7 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.UI;
 using Colors = Microsoft.UI.Colors;
+using WinRT;
 
 namespace NAITool.Controls;
 
@@ -70,6 +72,16 @@ public sealed partial class MaskCanvasControl : UserControl
     private int _cleanCanvasWidth;
     private int _cleanCanvasHeight;
     private byte[]? _cleanMaskPixels;
+    private byte[]? _originalImagePixels;
+    private int _originalImagePixelWidth;
+    private int _originalImagePixelHeight;
+    private byte[]? _previewPixels;
+    private int _previewPixelWidth;
+    private int _previewPixelHeight;
+    private byte[]? _maskPixelsCache;
+    private bool _maskPixelsDirty = true;
+    private InputCursor? _hiddenCursor;
+    private nint _hiddenCursorHandle;
 
     private bool _previewMaskOnly;
     private int _canvasWidth = 832;
@@ -80,6 +92,10 @@ public sealed partial class MaskCanvasControl : UserControl
     private const int AssetProtectionMinMatchedSide = 512;
     private const int AssetProtectionMaxMatchedSide = 2048;
     private const long AssetProtectionMaxPixels = 1024L * 1024L;
+    private const int CheckerCellSize = 16;
+    private static readonly Color CheckerLightColor = Color.FromArgb(255, 204, 204, 204);
+    private static readonly Color CheckerDarkColor = Color.FromArgb(255, 170, 170, 170);
+    private static readonly Color MaskOverlayTint = Color.FromArgb(255, 255, 51, 51);
 
     private static readonly Matrix5x4 MaskOverlayMatrix = new()
     {
@@ -126,7 +142,17 @@ public sealed partial class MaskCanvasControl : UserControl
     public bool IsActivelyDrawing => _isDrawing || _isRectDrawing || _isPanning || _isImageDragging;
     public bool IsInPreviewMode => _previewBitmap != null;
     public bool IsImageFileDropEnabled { get; set; } = true;
-    public bool IsMaskEditingEnabled { get; set; } = true;
+    private bool _isMaskEditingEnabled = true;
+    public bool IsMaskEditingEnabled
+    {
+        get => _isMaskEditingEnabled;
+        set
+        {
+            if (_isMaskEditingEnabled == value) return;
+            _isMaskEditingEnabled = value;
+            ApplySystemCursorVisibility();
+        }
+    }
     public bool IsMaskOverlayVisible { get; set; } = true;
     public bool UseAssetProtectionCanvasSizing { get; set; } = true;
 
@@ -328,6 +354,7 @@ public sealed partial class MaskCanvasControl : UserControl
         this.InitializeComponent();
 
         _device = CanvasDevice.GetSharedDevice();
+        _hiddenCursorHandle = CreateHiddenCursorHandle();
 
         _canvas = new CanvasAnimatedControl();
         _canvas.CustomDevice = _device;
@@ -366,6 +393,7 @@ public sealed partial class MaskCanvasControl : UserControl
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _resourcesReady = false;
+        RestoreSystemCursor();
         if (_canvas != null)
         {
             _canvas.RemoveFromVisualTree();
@@ -378,6 +406,13 @@ public sealed partial class MaskCanvasControl : UserControl
         _thumbnailMaskOverlayEffect?.Dispose();
         _thumbnailMaskOverlayEffect = null;
         _previewBitmap = null;
+        _previewPixels = null;
+        _maskPixelsCache = null;
+        if (_hiddenCursorHandle != 0)
+        {
+            DestroyCursor(_hiddenCursorHandle);
+            _hiddenCursorHandle = 0;
+        }
         _document.Dispose();
     }
 
@@ -388,14 +423,11 @@ public sealed partial class MaskCanvasControl : UserControl
         if (_device == null) return;
         _checkerboardCache = new CanvasRenderTarget(_device, _canvasWidth, _canvasHeight, 96f);
         using var ds = _checkerboardCache.CreateDrawingSession();
-        var light = Color.FromArgb(255, 204, 204, 204);
-        var dark = Color.FromArgb(255, 170, 170, 170);
-        const int cell = 16;
-        ds.Clear(light);
-        for (int y = 0; y < _canvasHeight; y += cell)
-            for (int x = 0; x < _canvasWidth; x += cell)
-                if (((x / cell) + (y / cell)) % 2 == 1)
-                    ds.FillRectangle(x, y, Math.Min(cell, _canvasWidth - x), Math.Min(cell, _canvasHeight - y), dark);
+        ds.Clear(CheckerLightColor);
+        for (int y = 0; y < _canvasHeight; y += CheckerCellSize)
+            for (int x = 0; x < _canvasWidth; x += CheckerCellSize)
+                if (((x / CheckerCellSize) + (y / CheckerCellSize)) % 2 == 1)
+                    ds.FillRectangle(x, y, Math.Min(CheckerCellSize, _canvasWidth - x), Math.Min(CheckerCellSize, _canvasHeight - y), CheckerDarkColor);
     }
 
     public void InitializeCanvas(int width, int height)
@@ -407,6 +439,7 @@ public sealed partial class MaskCanvasControl : UserControl
             _resourcesReady = false;
             lock (_renderLock) { _document.Initialize(_device, width, height); }
             RegenerateCheckerboard();
+            MarkMaskPixelsDirty();
             _resourcesReady = true;
             _undoManager.Clear();
             FitToScreen();
@@ -447,6 +480,11 @@ public sealed partial class MaskCanvasControl : UserControl
 
             _document.SetOriginalImage(bitmap);
             lock (_renderLock) { _document.ClearMask(); }
+            CacheOriginalImagePixels(bitmap);
+            _previewPixels = null;
+            _previewPixelWidth = 0;
+            _previewPixelHeight = 0;
+            MarkMaskPixelsDirty();
             _resourcesReady = true;
             _undoManager.Clear();
             _loadedFilePath = file.Path;
@@ -478,6 +516,11 @@ public sealed partial class MaskCanvasControl : UserControl
         sizeChanged = ApplyImportCanvasSize(imgW, imgH);
         _document.SetOriginalImage(bitmap);
         lock (_renderLock) { _document.ClearMask(); }
+        CacheOriginalImagePixels(bitmap);
+        _previewPixels = null;
+        _previewPixelWidth = 0;
+        _previewPixelHeight = 0;
+        MarkMaskPixelsDirty();
         _resourcesReady = true;
         _undoManager.Clear();
         _loadedFilePath = !string.IsNullOrWhiteSpace(filePath) ? filePath : null;
@@ -505,6 +548,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
             _resourcesReady = false;
             _document.SetOriginalImage(bitmap, preserveImageOffset: true);
+            CacheOriginalImagePixels(bitmap);
             _resourcesReady = true;
             _loadedFilePath = file.Path;
             ContentChanged?.Invoke();
@@ -531,6 +575,7 @@ public sealed partial class MaskCanvasControl : UserControl
         {
             lock (_renderLock) { _document.RestoreMaskSnapshot(snapshot.Value.MaskPixels); }
             lock (_stateLock) { _document.ImageOffset = snapshot.Value.ImageOffset; }
+            MarkMaskPixelsDirty();
             ContentChanged?.Invoke();
         }
     }
@@ -545,6 +590,7 @@ public sealed partial class MaskCanvasControl : UserControl
         {
             lock (_renderLock) { _document.RestoreMaskSnapshot(snapshot.Value.MaskPixels); }
             lock (_stateLock) { _document.ImageOffset = snapshot.Value.ImageOffset; }
+            MarkMaskPixelsDirty();
             ContentChanged?.Invoke();
         }
     }
@@ -555,6 +601,7 @@ public sealed partial class MaskCanvasControl : UserControl
         if (current != null && current.Length > 0)
             _undoManager.PushState(current, _document.ImageOffset);
         lock (_renderLock) { _document.ClearMask(); }
+        MarkMaskPixelsDirty();
         ContentChanged?.Invoke();
     }
 
@@ -774,6 +821,7 @@ public sealed partial class MaskCanvasControl : UserControl
             }
         }
 
+        MarkMaskPixelsDirty();
         ContentChanged?.Invoke();
     }
 
@@ -819,6 +867,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
         lock (_stateLock) { _document.ImageOffset = Vector2.Zero; }
         RegenerateCheckerboard();
+        MarkMaskPixelsDirty();
         _resourcesReady = true;
         _undoManager.Clear();
         FitToScreen();
@@ -829,12 +878,16 @@ public sealed partial class MaskCanvasControl : UserControl
     public void SetPreview(CanvasBitmap bitmap)
     {
         _previewBitmap = bitmap;
+        CachePreviewPixels(bitmap);
         ContentChanged?.Invoke();
     }
 
     public void ClearPreview()
     {
         _previewBitmap = null;
+        _previewPixels = null;
+        _previewPixelWidth = 0;
+        _previewPixelHeight = 0;
         ContentChanged?.Invoke();
     }
 
@@ -862,6 +915,7 @@ public sealed partial class MaskCanvasControl : UserControl
             { px[i] = 255; px[i + 1] = 255; px[i + 2] = 255; px[i + 3] = 255; }
         }
         lock (_renderLock) { _document.MaskTarget.SetPixelBytes(px); }
+        MarkMaskPixelsDirty();
         ContentChanged?.Invoke();
     }
 
@@ -893,6 +947,7 @@ public sealed partial class MaskCanvasControl : UserControl
             if (found) { dst[idx] = 255; dst[idx + 1] = 255; dst[idx + 2] = 255; dst[idx + 3] = 255; }
         }
         lock (_renderLock) { _document.MaskTarget.SetPixelBytes(dst); }
+        MarkMaskPixelsDirty();
         ContentChanged?.Invoke();
     }
 
@@ -924,6 +979,7 @@ public sealed partial class MaskCanvasControl : UserControl
             if (edge) { dst[idx] = 0; dst[idx + 1] = 0; dst[idx + 2] = 0; dst[idx + 3] = 0; }
         }
         lock (_renderLock) { _document.MaskTarget.SetPixelBytes(dst); }
+        MarkMaskPixelsDirty();
         ContentChanged?.Invoke();
     }
 
@@ -963,6 +1019,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
             if (hasStrokes)
             {
+                MarkMaskPixelsDirty();
                 DispatcherQueue.TryEnqueue(() => ContentChanged?.Invoke());
             }
         }
@@ -1091,8 +1148,7 @@ public sealed partial class MaskCanvasControl : UserControl
         if (_brushSettings.CurrentTool == StrokeTool.Rectangle)
         {
             float len = 10f / viewScale;
-            ds.DrawLine(canvasPos.X - len, canvasPos.Y, canvasPos.X + len, canvasPos.Y, Colors.White, sw);
-            ds.DrawLine(canvasPos.X, canvasPos.Y - len, canvasPos.X, canvasPos.Y + len, Colors.White, sw);
+            DrawInvertedCrosshair(ds, canvasPos, len, sw, viewScale);
         }
         else
         {
@@ -1292,6 +1348,7 @@ public sealed partial class MaskCanvasControl : UserControl
         else
         {
             _showCursor = true;
+            ApplySystemCursorVisibility();
             if (float.IsNaN(_cursorScreenPos.X) || Vector2.DistanceSquared(newCursorPos, _cursorScreenPos) > 1f)
             {
                 _cursorScreenPos = newCursorPos;
@@ -1318,6 +1375,7 @@ public sealed partial class MaskCanvasControl : UserControl
                         using var maskDs = _document.MaskTarget!.CreateDrawingSession();
                         maskDs.FillRectangle(rx, ry, rw, rh, Color.FromArgb(255, 255, 255, 255));
                     }
+                    MarkMaskPixelsDirty();
                 }
             }
             _isRectDrawing = false;
@@ -1363,11 +1421,16 @@ public sealed partial class MaskCanvasControl : UserControl
         }
     }
 
-    private void OnPointerEntered(object sender, PointerRoutedEventArgs e) { _showCursor = true; }
+    private void OnPointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        _showCursor = true;
+        ApplySystemCursorVisibility();
+    }
 
     private void OnPointerExited(object sender, PointerRoutedEventArgs e)
     {
         _showCursor = false;
+        RestoreSystemCursor();
     }
 
     private void OnPointerWheelChanged(object sender, PointerRoutedEventArgs e)
@@ -1420,6 +1483,240 @@ public sealed partial class MaskCanvasControl : UserControl
         ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
         ext.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
         ext.Equals(".webp", StringComparison.OrdinalIgnoreCase);
+
+    private void CacheOriginalImagePixels(CanvasBitmap bitmap)
+    {
+        _originalImagePixels = bitmap.GetPixelBytes();
+        _originalImagePixelWidth = (int)bitmap.SizeInPixels.Width;
+        _originalImagePixelHeight = (int)bitmap.SizeInPixels.Height;
+    }
+
+    private void CachePreviewPixels(CanvasBitmap bitmap)
+    {
+        _previewPixels = bitmap.GetPixelBytes();
+        _previewPixelWidth = (int)bitmap.SizeInPixels.Width;
+        _previewPixelHeight = (int)bitmap.SizeInPixels.Height;
+    }
+
+    private void MarkMaskPixelsDirty()
+    {
+        _maskPixelsDirty = true;
+    }
+
+    private byte[]? GetMaskPixels()
+    {
+        if (!_maskPixelsDirty)
+            return _maskPixelsCache;
+
+        _maskPixelsCache = _document.MaskTarget?.GetPixelBytes();
+        _maskPixelsDirty = false;
+        return _maskPixelsCache;
+    }
+
+    private void ApplySystemCursorVisibility()
+    {
+        if (!_showCursor || !_isMaskEditingEnabled)
+        {
+            RestoreSystemCursor();
+            return;
+        }
+
+        _hiddenCursor ??= CreateHiddenInputCursor();
+        if (_canvas != null)
+            SetProtectedCursor(_canvas, _hiddenCursor);
+        ProtectedCursor = _hiddenCursor;
+    }
+
+    private void RestoreSystemCursor()
+    {
+        if (_canvas != null)
+            SetProtectedCursor(_canvas, null);
+        ProtectedCursor = null;
+    }
+
+    private static nint CreateHiddenCursorHandle()
+    {
+        const int cursorSize = 32;
+        var andMask = new byte[(cursorSize * cursorSize) / 8];
+        var xorMask = new byte[(cursorSize * cursorSize) / 8];
+        Array.Fill(andMask, (byte)0xFF);
+        return CreateCursor(nint.Zero, 0, 0, cursorSize, cursorSize, andMask, xorMask);
+    }
+
+    private InputCursor? CreateHiddenInputCursor()
+    {
+        if (_hiddenCursorHandle == 0)
+            _hiddenCursorHandle = CreateHiddenCursorHandle();
+
+        if (_hiddenCursorHandle == 0)
+            return null;
+
+        var factory = InputCursor.As<IInputCursorStaticsInterop>();
+        Marshal.ThrowExceptionForHR(factory.CreateFromHCursor(_hiddenCursorHandle, out var cursorAbi));
+        return MarshalInterface<InputCursor>.FromAbi(cursorAbi);
+    }
+
+    private static void SetProtectedCursor(UIElement element, InputCursor? cursor)
+    {
+        typeof(UIElement).InvokeMember(
+            "ProtectedCursor",
+            System.Reflection.BindingFlags.NonPublic |
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.SetProperty,
+            binder: null,
+            target: element,
+            args: [cursor]);
+    }
+
+    private Color SampleInvertedCursorColor(Vector2 canvasPos)
+    {
+        var sample = SampleVisibleCanvasColor(canvasPos);
+        return Color.FromArgb(255,
+            (byte)(255 - sample.R),
+            (byte)(255 - sample.G),
+            (byte)(255 - sample.B));
+    }
+
+    private void DrawInvertedCrosshair(CanvasDrawingSession ds, Vector2 center, float halfLen, float thickness, float viewScale)
+    {
+        float step = Math.Max(0.5f / viewScale, 1f / Math.Max(viewScale, 1f));
+        float horizontalStart = center.X - halfLen;
+        float horizontalEnd = center.X + halfLen;
+        float verticalStart = center.Y - halfLen;
+        float verticalEnd = center.Y + halfLen;
+
+        for (float x = horizontalStart; x < horizontalEnd; x += step)
+        {
+            float x2 = Math.Min(x + step, horizontalEnd);
+            var samplePos = new Vector2((x + x2) * 0.5f, center.Y);
+            var color = SampleInvertedCursorColor(samplePos);
+            ds.DrawLine(x, center.Y, x2, center.Y, color, thickness);
+        }
+
+        for (float y = verticalStart; y < verticalEnd; y += step)
+        {
+            float y2 = Math.Min(y + step, verticalEnd);
+            var samplePos = new Vector2(center.X, (y + y2) * 0.5f);
+            var color = SampleInvertedCursorColor(samplePos);
+            ds.DrawLine(center.X, y, center.X, y2, color, thickness);
+        }
+    }
+
+    private Color SampleVisibleCanvasColor(Vector2 canvasPos)
+    {
+        int x = (int)MathF.Floor(canvasPos.X);
+        int y = (int)MathF.Floor(canvasPos.Y);
+
+        if (x < 0 || x >= _canvasWidth || y < 0 || y >= _canvasHeight)
+            return CanvasAreaTint;
+
+        Color color = GetCheckerColor(x, y);
+
+        var preview = _previewBitmap;
+        if (preview != null && !_isComparing)
+            return SamplePreviewColor(x, y);
+
+        var origPixels = _originalImagePixels;
+        if (origPixels != null && _document.OriginalImage != null)
+        {
+            var offset = _document.PixelAlignedImageOffset;
+            int imgX = x - (int)offset.X;
+            int imgY = y - (int)offset.Y;
+            if (imgX >= 0 && imgY >= 0 && imgX < _originalImagePixelWidth && imgY < _originalImagePixelHeight)
+                color = ReadCachedColor(origPixels, _originalImagePixelWidth, imgX, imgY);
+        }
+
+        if (!_isComparing && IsMaskOverlayVisible)
+        {
+            byte maskAlpha = SampleMaskAlpha(x, y);
+            if (maskAlpha > 0)
+            {
+                if (_previewMaskOnly)
+                    color = BlendColors(Colors.Black, Color.FromArgb(maskAlpha, 255, 255, 255));
+                else
+                    color = BlendColors(color, Color.FromArgb((byte)(maskAlpha / 2), MaskOverlayTint.R, MaskOverlayTint.G, MaskOverlayTint.B));
+            }
+        }
+
+        return color;
+    }
+
+    private Color SamplePreviewColor(int x, int y)
+    {
+        var previewPixels = _previewPixels;
+        if (previewPixels == null || _previewPixelWidth <= 0 || _previewPixelHeight <= 0)
+            return GetCheckerColor(x, y);
+
+        int px = Math.Clamp((int)((long)x * _previewPixelWidth / Math.Max(1, _canvasWidth)), 0, _previewPixelWidth - 1);
+        int py = Math.Clamp((int)((long)y * _previewPixelHeight / Math.Max(1, _canvasHeight)), 0, _previewPixelHeight - 1);
+        return ReadCachedColor(previewPixels, _previewPixelWidth, px, py);
+    }
+
+    private byte SampleMaskAlpha(int x, int y)
+    {
+        var maskPixels = GetMaskPixels();
+        if (maskPixels == null || x < 0 || y < 0 || x >= _canvasWidth || y >= _canvasHeight)
+            return 0;
+
+        int idx = ((y * _canvasWidth) + x) * 4 + 3;
+        return idx >= 0 && idx < maskPixels.Length ? maskPixels[idx] : (byte)0;
+    }
+
+    private static Color GetCheckerColor(int x, int y)
+    {
+        return (((x / CheckerCellSize) + (y / CheckerCellSize)) & 1) == 0
+            ? CheckerLightColor
+            : CheckerDarkColor;
+    }
+
+    private static Color ReadCachedColor(byte[] pixels, int width, int x, int y)
+    {
+        int idx = ((y * width) + x) * 4;
+        if (idx < 0 || idx + 3 >= pixels.Length)
+            return Colors.Transparent;
+
+        return Color.FromArgb(
+            pixels[idx + 3],
+            pixels[idx + 2],
+            pixels[idx + 1],
+            pixels[idx]);
+    }
+
+    private static Color BlendColors(Color background, Color overlay)
+    {
+        float a = overlay.A / 255f;
+        byte r = (byte)Math.Clamp(MathF.Round((background.R * (1f - a)) + (overlay.R * a)), 0, 255);
+        byte g = (byte)Math.Clamp(MathF.Round((background.G * (1f - a)) + (overlay.G * a)), 0, 255);
+        byte b = (byte)Math.Clamp(MathF.Round((background.B * (1f - a)) + (overlay.B * a)), 0, 255);
+        return Color.FromArgb(255, r, g, b);
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern nint CreateCursor(
+        nint hInst,
+        int xHotSpot,
+        int yHotSpot,
+        int nWidth,
+        int nHeight,
+        byte[] pvANDPlane,
+        byte[] pvXORPlane);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DestroyCursor(nint hCursor);
+
+    [ComImport]
+    [Guid("ac6f5065-90c4-46ce-beb7-05e138e54117")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IInputCursorStaticsInterop
+    {
+        void GetIids();
+        void GetRuntimeClassName();
+        void GetTrustLevel();
+
+        [PreserveSig]
+        int CreateFromHCursor(nint hCursor, out nint inputCursor);
+    }
 
     public void RenderThumbnail(CanvasDrawingSession ds, float targetWidth, float targetHeight)
     {
