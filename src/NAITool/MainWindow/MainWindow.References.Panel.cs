@@ -477,7 +477,7 @@ public sealed partial class MainWindow
         headerGrid.Children.Add(movePanel);
 
         var disableBtn = CreateCharacterActionButton(
-            isDisabled ? "\uF570" : "\uE790",
+            isDisabled ? "\uE790" : "\uF570",
             isDisabled ? L("references.action.restore") : L("references.action.disable"),
             true);
         disableBtn.Margin = new Thickness(4, 0, 0, 0);
