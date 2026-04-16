@@ -575,6 +575,7 @@
     "metadata.drop_no_nai_data":  "已拖入 {0}，但未找到可用的 NAI 元数据",
     "metadata.no_usable_generation_metadata":  "未在 {0} 中找到可用的生成元数据。",
     "metadata.note.quality_extracted":  "已提取质量词并启用「添加质量词」",
+    "metadata.note.negative_quality_extracted":  "已提取负面质量词并设置为「{0}」",
     "metadata.note.seed_skipped":  "已跳过种子",
     "metadata.note.skipped":  "已跳过: {0}",
     "metadata.note.sd_converted":  "已转换 SD 格式提示词",

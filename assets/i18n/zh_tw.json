@@ -575,6 +575,7 @@
     "metadata.drop_no_nai_data":  "已拖入 {0}，但未找到可用的 NAI 中繼資料",
     "metadata.no_usable_generation_metadata":  "未在 {0} 中找到可用的生成中繼資料。",
     "metadata.note.quality_extracted":  "已提取品質詞並啟用「加入品質詞」",
+    "metadata.note.negative_quality_extracted":  "已提取負面品質詞並設為「{0}」",
     "metadata.note.seed_skipped":  "已略過種子",
     "metadata.note.skipped":  "已略過: {0}",
     "metadata.note.sd_converted":  "已轉換 SD 格式提示詞",

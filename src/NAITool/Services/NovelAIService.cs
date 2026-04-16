@@ -295,7 +295,7 @@ public class NovelAIService : IDisposable
             ? model[..^"-inpainting".Length]
             : model;
 
-    private static string GetQualityTagSuffix(string model) => NormalizeModelKey(model) switch
+    internal static string GetQualityTagSuffix(string model) => NormalizeModelKey(model) switch
     {
         "nai-diffusion-4-5-full" => "very aesthetic, masterpiece, no text",
         "nai-diffusion-4-5-curated" => "masterpiece, no text, -0.8::feet::, rating:general",
@@ -306,7 +306,7 @@ public class NovelAIService : IDisposable
         _ => "",
     };
 
-    private static string GetUcPresetText(string model, int ucPreset) => (NormalizeModelKey(model), ucPreset) switch
+    internal static string GetUcPresetText(string model, int ucPreset) => (NormalizeModelKey(model), ucPreset) switch
     {
         (_, 2) => "",
         ("nai-diffusion-4-5-full", 0) => "lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page",

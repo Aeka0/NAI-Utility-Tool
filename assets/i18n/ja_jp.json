@@ -575,6 +575,7 @@
     "metadata.drop_no_nai_data":  "{0} をドロップしましたが、有効な NAI メタデータは見つかりませんでした",
     "metadata.no_usable_generation_metadata":  "{0} に利用可能な生成メタデータが見つかりませんでした。",
     "metadata.note.quality_extracted":  "品質タグを抽出し「品質タグを追加」を有効化しました",
+    "metadata.note.negative_quality_extracted":  "ネガティブ品質タグを抽出し、プリセットを「{0}」に設定しました",
     "metadata.note.seed_skipped":  "シードをスキップしました",
     "metadata.note.skipped":  "スキップ: {0}",
     "metadata.note.sd_converted":  "SD 形式のプロンプトを変換しました",

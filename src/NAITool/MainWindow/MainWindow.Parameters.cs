@@ -123,6 +123,182 @@ public sealed partial class MainWindow
         return AvailableSchedules.FirstOrDefault() ?? "karras";
     }
 
+    private sealed class ImportedPromptPresetMatch
+    {
+        public string PositivePrompt { get; init; } = "";
+        public string NegativePrompt { get; init; } = "";
+        public bool QualityMatched { get; init; }
+        public int? UcPresetMatched { get; init; }
+    }
+
+    private sealed class PromptPresetCandidateMatch
+    {
+        public string Model { get; init; } = "";
+        public string StrippedPrompt { get; init; } = "";
+        public int PresetIndex { get; init; } = -1;
+        public int TagCount { get; init; }
+    }
+
+    private ImportedPromptPresetMatch ExtractImportedPromptPresetMatch(string positivePrompt, string negativePrompt, string model)
+    {
+        var qualityMatch = FindBestQualityPresetMatch(positivePrompt, model);
+        var ucMatch = FindBestUcPresetMatch(negativePrompt, model);
+
+        return new ImportedPromptPresetMatch
+        {
+            PositivePrompt = qualityMatch?.StrippedPrompt ?? positivePrompt,
+            NegativePrompt = ucMatch?.StrippedPrompt ?? negativePrompt,
+            QualityMatched = qualityMatch != null,
+            UcPresetMatched = ucMatch?.PresetIndex,
+        };
+    }
+
+    private PromptPresetCandidateMatch? FindBestQualityPresetMatch(string prompt, string currentModel)
+    {
+        PromptPresetCandidateMatch? bestMatch = null;
+        foreach (string candidateModel in GetPromptPresetRecognitionModelCandidates(currentModel))
+        {
+            string presetText = NovelAIService.GetQualityTagSuffix(candidateModel);
+            int tagCount = SplitPromptPresetTags(presetText).Count;
+            if (tagCount == 0)
+                continue;
+            if (!TryStripPromptPreset(prompt, presetText, out string strippedPrompt))
+                continue;
+
+            var match = new PromptPresetCandidateMatch
+            {
+                Model = candidateModel,
+                StrippedPrompt = strippedPrompt,
+                TagCount = tagCount,
+            };
+            if (IsBetterPromptPresetMatch(match, bestMatch))
+                bestMatch = match;
+        }
+
+        return bestMatch;
+    }
+
+    private PromptPresetCandidateMatch? FindBestUcPresetMatch(string prompt, string currentModel)
+    {
+        PromptPresetCandidateMatch? bestMatch = null;
+        foreach (string candidateModel in GetPromptPresetRecognitionModelCandidates(currentModel))
+        {
+            foreach (int presetIndex in new[] { 0, 1 })
+            {
+                string presetText = NovelAIService.GetUcPresetText(candidateModel, presetIndex);
+                int tagCount = SplitPromptPresetTags(presetText).Count;
+                if (tagCount == 0)
+                    continue;
+                if (!TryStripPromptPreset(prompt, presetText, out string strippedPrompt))
+                    continue;
+
+                var match = new PromptPresetCandidateMatch
+                {
+                    Model = candidateModel,
+                    PresetIndex = presetIndex,
+                    StrippedPrompt = strippedPrompt,
+                    TagCount = tagCount,
+                };
+                if (IsBetterPromptPresetMatch(match, bestMatch))
+                    bestMatch = match;
+            }
+        }
+
+        return bestMatch;
+    }
+
+    private IEnumerable<string> GetPromptPresetRecognitionModelCandidates(string currentModel)
+    {
+        string normalizedCurrentModel = NormalizePromptPresetModelKey(currentModel);
+        if (!string.IsNullOrWhiteSpace(normalizedCurrentModel))
+            yield return normalizedCurrentModel;
+
+        foreach (string model in GenerationModels.Concat(I2IModels))
+        {
+            string normalizedModel = NormalizePromptPresetModelKey(model);
+            if (string.IsNullOrWhiteSpace(normalizedModel) ||
+                string.Equals(normalizedModel, normalizedCurrentModel, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            yield return normalizedModel;
+        }
+    }
+
+    private static string NormalizePromptPresetModelKey(string model) =>
+        model.EndsWith("-inpainting", StringComparison.Ordinal)
+            ? model[..^"-inpainting".Length]
+            : model;
+
+    private static bool IsBetterPromptPresetMatch(PromptPresetCandidateMatch candidate, PromptPresetCandidateMatch? currentBest)
+    {
+        if (currentBest == null)
+            return true;
+        if (candidate.TagCount != currentBest.TagCount)
+            return candidate.TagCount > currentBest.TagCount;
+
+        // Keep the earlier candidate on ties so the current model still wins.
+        return false;
+    }
+
+    private static bool TryStripPromptPreset(string prompt, string presetText, out string strippedPrompt)
+    {
+        strippedPrompt = prompt;
+
+        var promptTags = SplitPromptPresetTags(prompt);
+        var presetTags = SplitPromptPresetTags(presetText);
+        if (promptTags.Count == 0 || presetTags.Count == 0)
+            return false;
+
+        var consumed = new bool[promptTags.Count];
+        foreach (var presetTag in presetTags)
+        {
+            string normalizedPresetTag = NormalizePromptTagForComparison(presetTag);
+            int matchIndex = -1;
+            for (int i = 0; i < promptTags.Count; i++)
+            {
+                if (consumed[i])
+                    continue;
+                if (!string.Equals(NormalizePromptTagForComparison(promptTags[i]), normalizedPresetTag, StringComparison.Ordinal))
+                    continue;
+
+                matchIndex = i;
+                break;
+            }
+
+            if (matchIndex < 0)
+                return false;
+
+            consumed[matchIndex] = true;
+        }
+
+        strippedPrompt = string.Join(", ", promptTags.Where((_, index) => !consumed[index]));
+        return true;
+    }
+
+    private static List<string> SplitPromptPresetTags(string prompt) =>
+        (prompt ?? "")
+            .Replace('，', ',')
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(tag => tag.Trim())
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .ToList();
+
+    private static string NormalizePromptTagForComparison(string tag)
+    {
+        string normalized = (tag ?? "").Replace('，', ',').Trim();
+        normalized = Regex.Replace(normalized, @"\s+", " ");
+        return normalized.ToLowerInvariant();
+    }
+
+    private string GetUcPresetDisplayName(int ucPreset) => ucPreset switch
+    {
+        0 => L("dialog.advanced.uc_preset.full"),
+        1 => L("dialog.advanced.uc_preset.light"),
+        _ => L("dialog.advanced.uc_preset.none"),
+    };
+
     private void RefreshAdvancedSamplerOptions()
     {
         if (_advCboSampler == null)

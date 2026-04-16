@@ -62,11 +62,14 @@ public sealed partial class MainWindow
     private void SyncSidebarToAdvanced()
     {
         if (!IsAdvancedWindowOpen) return;
+        var p = CurrentParams;
         _isSyncingSidebarAdv = true;
         _advNbSeed.Value = NbSeed.Value;
         _advChkVariety.IsChecked = ChkVariety.IsChecked;
         _advNbMaxWidth.Value = _customWidth;
         _advNbMaxHeight.Value = _customHeight;
+        _advCboQuality.SelectedIndex = p.QualityToggle ? 0 : 1;
+        _advCboUcPreset.SelectedIndex = Math.Clamp(p.UcPreset, 0, 2);
         _isSyncingSidebarAdv = false;
     }
 

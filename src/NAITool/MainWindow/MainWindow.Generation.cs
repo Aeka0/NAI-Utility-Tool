@@ -594,28 +594,19 @@ public sealed partial class MainWindow
         bool blockOversizedSteps = IsAssetProtectionStepLimitEnabled();
         bool blockOversizedDimensions = IsAssetProtectionSizeLimitEnabled();
         var skipped = new List<string>();
-
-        string positivePrompt = meta.PositivePrompt;
-        bool strippedQuality = false;
-        if (positivePrompt.Contains(QualityTagBlock))
-        {
-            positivePrompt = positivePrompt.Replace(QualityTagBlock, "");
-            positivePrompt = System.Text.RegularExpressions.Regex.Replace(positivePrompt, @",\s*,", ",");
-            positivePrompt = positivePrompt.Trim(' ', ',');
-            strippedQuality = true;
-        }
-
-        _genPositivePrompt = positivePrompt;
-        _genNegativePrompt = meta.NegativePrompt;
-        _genStylePrompt = "";
-
+        var notes = new List<string>();
         var p = _settings.Settings.GenParameters;
 
-        if (strippedQuality)
-        {
-            p.QualityToggle = true;
-            if (IsAdvancedWindowOpen) _advCboQuality.SelectedIndex = 0;
-        }
+        var presetMatch = ExtractImportedPromptPresetMatch(meta.PositivePrompt, meta.NegativePrompt, p.Model);
+        string positivePrompt = presetMatch.PositivePrompt;
+        string negativePrompt = presetMatch.NegativePrompt;
+
+        _genPositivePrompt = positivePrompt;
+        _genNegativePrompt = negativePrompt;
+        _genStylePrompt = "";
+
+        p.QualityToggle = presetMatch.QualityMatched;
+        p.UcPreset = presetMatch.UcPresetMatched ?? 2;
 
         if (meta.Steps > 0)
         {
@@ -659,8 +650,9 @@ public sealed partial class MainWindow
 
         if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();
 
-        var notes = new List<string>();
-        if (strippedQuality) notes.Add(L("metadata.note.quality_extracted"));
+        if (presetMatch.QualityMatched) notes.Add(L("metadata.note.quality_extracted"));
+        if (presetMatch.UcPresetMatched.HasValue)
+            notes.Add(Lf("metadata.note.negative_quality_extracted", GetUcPresetDisplayName(presetMatch.UcPresetMatched.Value)));
         if (skipSeed) notes.Add(L("metadata.note.seed_skipped"));
         if (skipped.Count > 0) notes.Add(Lf("metadata.note.skipped", string.Join(", ", skipped)));
         AppendReferenceImportNotes(meta, notes);

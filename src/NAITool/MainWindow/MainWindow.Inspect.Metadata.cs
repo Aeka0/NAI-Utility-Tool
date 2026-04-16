@@ -388,8 +388,6 @@ public sealed partial class MainWindow
         InspectImageScroller.ChangeView(0, 0, zoom);
     }
 
-    private static readonly string QualityTagBlock = "rating:general, best quality, very aesthetic, absurdres";
-
     private void OnSendInspectToI2I(object sender, RoutedEventArgs e)
     {
         if (_inspectImageBytes == null) return;
@@ -443,14 +441,10 @@ public sealed partial class MainWindow
             notes.Add(L("metadata.note.sd_converted"));
         }
 
-        bool strippedQuality = false;
-        if (positivePrompt.Contains(QualityTagBlock))
-        {
-            positivePrompt = positivePrompt.Replace(QualityTagBlock, "");
-            positivePrompt = System.Text.RegularExpressions.Regex.Replace(positivePrompt, @",\s*,", ",");
-            positivePrompt = positivePrompt.Trim(' ', ',');
-            strippedQuality = true;
-        }
+        var p = _settings.Settings.GenParameters;
+        var presetMatch = ExtractImportedPromptPresetMatch(positivePrompt, negativePrompt, p.Model);
+        positivePrompt = presetMatch.PositivePrompt;
+        negativePrompt = presetMatch.NegativePrompt;
 
         _genPositivePrompt = positivePrompt;
         _genNegativePrompt = negativePrompt;
@@ -469,13 +463,8 @@ public sealed partial class MainWindow
             return;
         }
 
-        var p = _settings.Settings.GenParameters;
-
-        if (strippedQuality)
-        {
-            p.QualityToggle = true;
-            if (IsAdvancedWindowOpen) _advCboQuality.SelectedIndex = 0;
-        }
+        p.QualityToggle = presetMatch.QualityMatched;
+        p.UcPreset = presetMatch.UcPresetMatched ?? 2;
 
         if (meta.Steps > 0)
         {
@@ -522,7 +511,9 @@ public sealed partial class MainWindow
         UpdateSplitVisibility();
         UpdateSizeWarningVisuals();
 
-        if (strippedQuality) notes.Add(L("metadata.note.quality_extracted"));
+        if (presetMatch.QualityMatched) notes.Add(L("metadata.note.quality_extracted"));
+        if (presetMatch.UcPresetMatched.HasValue)
+            notes.Add(Lf("metadata.note.negative_quality_extracted", GetUcPresetDisplayName(presetMatch.UcPresetMatched.Value)));
         if (skipped.Count > 0) notes.Add(Lf("metadata.note.incompatible_skipped", string.Join(", ", skipped)));
         if (meta.CharacterPrompts.Count > 0) notes.Add(Lf("metadata.note.characters_imported", meta.CharacterPrompts.Count));
         AppendReferenceImportNotes(meta, notes);
@@ -548,26 +539,17 @@ public sealed partial class MainWindow
             notes.Add(L("metadata.note.sd_converted"));
         }
 
-        bool strippedQuality = false;
-        if (positivePrompt.Contains(QualityTagBlock))
-        {
-            positivePrompt = positivePrompt.Replace(QualityTagBlock, "");
-            positivePrompt = System.Text.RegularExpressions.Regex.Replace(positivePrompt, @",\s*,", ",");
-            positivePrompt = positivePrompt.Trim(' ', ',');
-            strippedQuality = true;
-        }
+        var p = _settings.Settings.InpaintParameters;
+        var presetMatch = ExtractImportedPromptPresetMatch(positivePrompt, negativePrompt, p.Model);
+        positivePrompt = presetMatch.PositivePrompt;
+        negativePrompt = presetMatch.NegativePrompt;
 
         _i2iPositivePrompt = positivePrompt;
         _i2iNegativePrompt = negativePrompt;
         _i2iStylePrompt = "";
 
-        var p = _settings.Settings.InpaintParameters;
-
-        if (strippedQuality)
-        {
-            p.QualityToggle = true;
-            if (IsAdvancedWindowOpen) _advCboQuality.SelectedIndex = 0;
-        }
+        p.QualityToggle = presetMatch.QualityMatched;
+        p.UcPreset = presetMatch.UcPresetMatched ?? 2;
 
         if (meta.Steps > 0)
         {
@@ -603,7 +585,9 @@ public sealed partial class MainWindow
         UpdateSplitVisibility();
         if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();
 
-        if (strippedQuality) notes.Add(L("metadata.note.quality_extracted"));
+        if (presetMatch.QualityMatched) notes.Add(L("metadata.note.quality_extracted"));
+        if (presetMatch.UcPresetMatched.HasValue)
+            notes.Add(Lf("metadata.note.negative_quality_extracted", GetUcPresetDisplayName(presetMatch.UcPresetMatched.Value)));
         if (skipped.Count > 0) notes.Add(Lf("metadata.note.skipped", string.Join(", ", skipped)));
         if (meta.IsNaiParsed && meta.CharacterPrompts.Count > 0)
             notes.Add(Lf("metadata.note.characters_imported", meta.CharacterPrompts.Count));
