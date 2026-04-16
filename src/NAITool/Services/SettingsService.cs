@@ -195,7 +195,7 @@ public class ReverseTaggerSettings
     public bool AddCharacterTags { get; set; } = true;
     public bool AddCopyrightTags { get; set; }
     public bool ReplaceUnderscoresWithSpaces { get; set; } = true;
-    public double GeneralThreshold { get; set; } = 0.6;
+    public double GeneralThreshold { get; set; } = 0.7;
     public double CharacterThreshold { get; set; } = 0.9;
     public bool UnloadModelAfterInference { get; set; } = true;
 }
