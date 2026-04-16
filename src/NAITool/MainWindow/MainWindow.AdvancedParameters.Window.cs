@@ -454,8 +454,14 @@ public sealed partial class MainWindow
     private void UpdateSeedRandomizeButtonStyle()
     {
         bool isFixed = !double.IsNaN(NbSeed.Value) && (int)NbSeed.Value != 0;
-        var accentStyle = (Style)Application.Current.Resources["AccentButtonStyle"];
-        BtnSeedRandomize.Style = isFixed ? accentStyle : null;
+        if (isFixed)
+        {
+            BtnSeedRandomize.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
+        }
+        else
+        {
+            BtnSeedRandomize.ClearValue(FrameworkElement.StyleProperty);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════
