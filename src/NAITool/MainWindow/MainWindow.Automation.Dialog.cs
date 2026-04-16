@@ -81,10 +81,10 @@ public sealed partial class MainWindow
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
 
-        var chkRandomSize = new CheckBox { Content = L("automation.random_size"), IsChecked = workingSettings.Randomization.RandomizeSize };
-        var chkRandomVibe = new CheckBox { Content = L("automation.random_vibe"), IsChecked = workingSettings.Randomization.RandomizeVibeFiles };
-        var chkRandomStyle = new CheckBox { Content = L("automation.random_style"), IsChecked = workingSettings.Randomization.RandomizeStyleTags };
-        var chkRandomPrompt = new CheckBox { Content = L("automation.random_prompt"), IsChecked = workingSettings.Randomization.RandomizePrompt };
+        var chkRandomSize = CreateAutomationToggleSwitch(workingSettings.Randomization.RandomizeSize);
+        var chkRandomVibe = CreateAutomationToggleSwitch(workingSettings.Randomization.RandomizeVibeFiles);
+        var chkRandomStyle = CreateAutomationToggleSwitch(workingSettings.Randomization.RandomizeStyleTags);
+        var chkRandomPrompt = CreateAutomationToggleSwitch(workingSettings.Randomization.RandomizePrompt);
         var sizePresetChecks = new Dictionary<string, CheckBox>(StringComparer.OrdinalIgnoreCase);
         var sizeGrid = new Grid { ColumnSpacing = 8, RowSpacing = 0 };
         sizeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -138,8 +138,8 @@ public sealed partial class MainWindow
             },
         };
 
-        var chkEnableUpscale = new CheckBox { Content = L("automation.enable_auto_upscale"), IsChecked = workingSettings.Effects.UpscaleEnabled };
-        var chkEnableFx = new CheckBox { Content = L("automation.enable_post_preset"), IsChecked = workingSettings.Effects.FxEnabled };
+        var chkEnableUpscale = CreateAutomationToggleSwitch(workingSettings.Effects.UpscaleEnabled);
+        var chkEnableFx = CreateAutomationToggleSwitch(workingSettings.Effects.FxEnabled);
         var cboUpscaleModel = new ComboBox { Header = L("automation.upscale_model"), HorizontalAlignment = HorizontalAlignment.Stretch };
         var upscaleModels = UpscaleService.ScanModels(Path.Combine(ModelsDir, "upscaler"));
         foreach (var model in upscaleModels)
@@ -167,15 +167,15 @@ public sealed partial class MainWindow
             nbRequestCount.Value = settings.Generation.RequestLimit;
             nbRetryCount.Value = settings.Generation.FailureRetryLimit;
 
-            chkRandomSize.IsChecked = settings.Randomization.RandomizeSize;
-            chkRandomVibe.IsChecked = settings.Randomization.RandomizeVibeFiles;
-            chkRandomStyle.IsChecked = settings.Randomization.RandomizeStyleTags;
-            chkRandomPrompt.IsChecked = settings.Randomization.RandomizePrompt;
+            chkRandomSize.IsOn = settings.Randomization.RandomizeSize;
+            chkRandomVibe.IsOn = settings.Randomization.RandomizeVibeFiles;
+            chkRandomStyle.IsOn = settings.Randomization.RandomizeStyleTags;
+            chkRandomPrompt.IsOn = settings.Randomization.RandomizePrompt;
             foreach (var pair in sizePresetChecks)
                 pair.Value.IsChecked = settings.Randomization.SizePresets.Contains(pair.Key, StringComparer.OrdinalIgnoreCase);
 
-            chkEnableUpscale.IsChecked = settings.Effects.UpscaleEnabled;
-            chkEnableFx.IsChecked = settings.Effects.FxEnabled;
+            chkEnableUpscale.IsOn = settings.Effects.UpscaleEnabled;
+            chkEnableFx.IsOn = settings.Effects.FxEnabled;
             SelectComboText(cboUpscaleModel, settings.Effects.UpscaleModel);
             SelectComboTag(cboUpscaleScale, settings.Effects.UpscaleScale);
             SelectComboText(cboEffectsPreset, settings.Effects.FxPresetName);
@@ -192,7 +192,7 @@ public sealed partial class MainWindow
                 .Select(x => (string)x.Value.Tag)
                 .ToList();
 
-            if (chkRandomSize.IsChecked == true && sizePresets.Count == 0)
+            if (chkRandomSize.IsOn && sizePresets.Count == 0)
             {
                 var (w, h) = GetSelectedSize();
                 sizePresets.Add(FormatAutomationSizePreset(w, h));
@@ -210,20 +210,20 @@ public sealed partial class MainWindow
                 },
                 Randomization = new AutomationRandomizationOptions
                 {
-                    RandomizeSize = chkRandomSize.IsChecked == true,
+                    RandomizeSize = chkRandomSize.IsOn,
                     SizePresets = sizePresets,
-                    RandomizeVibeFiles = chkRandomVibe.IsChecked == true,
-                    RandomizeStyleTags = chkRandomStyle.IsChecked == true,
-                    RandomizePrompt = chkRandomPrompt.IsChecked == true,
+                    RandomizeVibeFiles = chkRandomVibe.IsOn,
+                    RandomizeStyleTags = chkRandomStyle.IsOn,
+                    RandomizePrompt = chkRandomPrompt.IsOn,
                 },
                 Effects = new AutomationEffectsOptions
                 {
                     UpscaleEnabled = chkEnableUpscale.IsEnabled &&
-                                     chkEnableUpscale.IsChecked == true &&
+                                     chkEnableUpscale.IsOn &&
                                      !string.IsNullOrWhiteSpace(GetSelectedComboText(cboUpscaleModel)),
                     UpscaleModel = GetSelectedComboText(cboUpscaleModel) ?? "",
                     UpscaleScale = GetSelectedComboTagInt(cboUpscaleScale, workingSettings.Effects.UpscaleScale),
-                    FxEnabled = chkEnableFx.IsChecked == true,
+                    FxEnabled = chkEnableFx.IsOn,
                     FxPresetName = GetSelectedComboText(cboEffectsPreset) ?? "",
                 },
             };
@@ -252,7 +252,7 @@ public sealed partial class MainWindow
 
         void UpdateRandomSizePanelState()
         {
-            btnSelectSizes.IsEnabled = chkRandomSize.IsChecked == true;
+            btnSelectSizes.IsEnabled = chkRandomSize.IsOn;
         }
 
         void UpdateEffectsPanelState()
@@ -260,12 +260,12 @@ public sealed partial class MainWindow
             bool hasUpscaleModels = upscaleModels.Count > 0;
             chkEnableUpscale.IsEnabled = hasUpscaleModels;
             if (!hasUpscaleModels)
-                chkEnableUpscale.IsChecked = false;
-            bool upscaleOn = chkEnableUpscale.IsChecked == true;
+                chkEnableUpscale.IsOn = false;
+            bool upscaleOn = chkEnableUpscale.IsOn;
             cboUpscaleModel.IsEnabled = upscaleOn && hasUpscaleModels;
             cboUpscaleScale.IsEnabled = upscaleOn;
 
-            cboEffectsPreset.IsEnabled = chkEnableFx.IsChecked == true;
+            cboEffectsPreset.IsEnabled = chkEnableFx.IsOn;
         }
 
         async Task LoadSelectedPresetAsync()
@@ -357,9 +357,9 @@ public sealed partial class MainWindow
                 txtPresetName.Text = selected;
         };
 
-        chkRandomSize.Click += (_, _) => UpdateRandomSizePanelState();
-        chkEnableUpscale.Click += (_, _) => UpdateEffectsPanelState();
-        chkEnableFx.Click += (_, _) => UpdateEffectsPanelState();
+        chkRandomSize.Toggled += (_, _) => UpdateRandomSizePanelState();
+        chkEnableUpscale.Toggled += (_, _) => UpdateEffectsPanelState();
+        chkEnableFx.Toggled += (_, _) => UpdateEffectsPanelState();
 
         var presetPage = new StackPanel
         {
@@ -601,6 +601,15 @@ public sealed partial class MainWindow
             FractionDigits = 1,
             IntegerDigits = 1,
         },
+    };
+
+    private static ToggleSwitch CreateAutomationToggleSwitch(bool isOn) => new()
+    {
+        IsOn = isOn,
+        OnContent = "",
+        OffContent = "",
+        MinWidth = 56,
+        HorizontalAlignment = HorizontalAlignment.Right,
     };
 
     private static Grid CreateAutomationTwoColumnRow(FrameworkElement left, FrameworkElement right)
