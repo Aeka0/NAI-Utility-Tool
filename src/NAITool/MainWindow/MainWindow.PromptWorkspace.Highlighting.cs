@@ -144,6 +144,7 @@ public sealed partial class MainWindow
     }
 
     private static readonly Regex WildcardTokenPreserveRegex = new(@"__(.+?)__", RegexOptions.Compiled);
+    private static readonly Regex EmptyWeightRegex = new(@"\[[\s_,，]*\]|\{[\s_,，]*\}|\([\s_,，]*\)|\<[\s_,，]*\>|(?:-?\d+\.?\d*)?::[\s_,，]*::", RegexOptions.Compiled);
 
     private static string NormalizeAnnotation(string text, NormalizeOptions opts)
     {
@@ -210,6 +211,15 @@ public sealed partial class MainWindow
 
         if (opts.RemoveNonAscii)
             text = new string(text.Where(c => c <= 127 || c == '\x01').ToArray());
+
+        bool changed;
+        do
+        {
+            changed = false;
+            int len = text.Length;
+            text = EmptyWeightRegex.Replace(text, "");
+            if (text.Length != len) changed = true;
+        } while (changed);
 
         string tempText = text.Replace('，', ',');
         var tags = tempText.Split(',', StringSplitOptions.RemoveEmptyEntries);

@@ -255,7 +255,7 @@ public sealed partial class MainWindow
             IsSpellCheckEnabled = false,
             FontFamily = new FontFamily("Consolas"),
             FontSize = 12,
-            MinWidth = 560,
+            Width = 720,
             MinHeight = 400,
             MaxHeight = 600,
         };
@@ -271,6 +271,7 @@ public sealed partial class MainWindow
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
         };
+        dialog.Resources["ContentDialogMaxWidth"] = 800.0;
 
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
         {

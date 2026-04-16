@@ -295,6 +295,17 @@ public sealed partial class MainWindow
         }
     }
 
+    private async void OnExportCanvasMask(object sender, RoutedEventArgs e)
+    {
+        if (_currentMode != AppMode.I2I || MaskCanvas.Document?.OriginalImage == null)
+        {
+            TxtStatus.Text = L("i2i.export.error.no_image");
+            return;
+        }
+
+        await ShowExportCanvasMaskDialogAsync();
+    }
+
     private async Task<byte[]?> CreatePreviewCompositeBytes()
     {
         var device = MaskCanvas.GetDevice();
@@ -790,6 +801,260 @@ public sealed partial class MainWindow
         {
             MaskCanvas.AlignImage(tag);
             TxtStatus.Text = L("image.aligned");
+        }
+    }
+
+    private async Task ShowExportCanvasMaskDialogAsync()
+    {
+        var device = MaskCanvas.GetDevice();
+        if (device == null || MaskCanvas.Document?.OriginalImage == null) return;
+
+        var cbArea = new ComboBox
+        {
+            ItemsSource = new[] { L("i2i.export.area.canvas"), L("i2i.export.area.whole") },
+            SelectedIndex = 0,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 0, 0, 16)
+        };
+
+        var cbType = new ComboBox
+        {
+            ItemsSource = new[]
+            {
+                L("i2i.export.type.image"),
+                L("i2i.export.type.mask"),
+                L("i2i.export.type.merged"),
+                L("i2i.export.type.separated")
+            },
+            SelectedIndex = 2, // Default to merged
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 0, 0, 16)
+        };
+
+        var cbColor = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 0, 0, 16)
+        };
+
+        void UpdateColorOptions()
+        {
+            if (cbType.SelectedIndex == 0) // Image Only
+            {
+                cbColor.ItemsSource = new[] { L("i2i.export.color.white_on_black") };
+                cbColor.SelectedIndex = 0;
+                cbColor.IsEnabled = false;
+            }
+            else if (cbType.SelectedIndex == 2) // Merged
+            {
+                cbColor.ItemsSource = new[]
+                {
+                    L("i2i.export.color.red"),
+                    L("i2i.export.color.green"),
+                    L("i2i.export.color.blue"),
+                    L("i2i.export.color.yellow"),
+                    L("i2i.export.color.cyan"),
+                    L("i2i.export.color.magenta"),
+                    L("i2i.export.color.black"),
+                    L("i2i.export.color.white")
+                };
+                cbColor.SelectedIndex = 1; // Default to Green
+                cbColor.IsEnabled = true;
+            }
+            else // Mask Only or Separated
+            {
+                cbColor.ItemsSource = new[]
+                {
+                    L("i2i.export.color.white_on_black"),
+                    L("i2i.export.color.black_on_white")
+                };
+                cbColor.SelectedIndex = 0;
+                cbColor.IsEnabled = true;
+            }
+        }
+
+        cbType.SelectionChanged += (_, _) => UpdateColorOptions();
+        UpdateColorOptions();
+
+        var panel = new StackPanel { Spacing = 4 };
+        panel.Children.Add(new TextBlock { Text = L("i2i.export.area") });
+        panel.Children.Add(cbArea);
+        panel.Children.Add(new TextBlock { Text = L("i2i.export.type") });
+        panel.Children.Add(cbType);
+        panel.Children.Add(new TextBlock { Text = L("i2i.export.color") });
+        panel.Children.Add(cbColor);
+
+        var dialog = new ContentDialog
+        {
+            Title = L("i2i.export.title"),
+            Content = panel,
+            PrimaryButtonText = L("i2i.export.btn_export"),
+            CloseButtonText = L("i2i.export.btn_cancel"),
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.Content.XamlRoot
+        };
+        dialog.Resources["ContentDialogMaxWidth"] = 400.0;
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        // Export Logic
+        bool isCanvasArea = cbArea.SelectedIndex == 0;
+        int exportType = cbType.SelectedIndex; // 0: Image, 1: Mask, 2: Merged, 3: Separated
+        int colorMode = cbColor.SelectedIndex;
+
+        var picker = new FileSavePicker();
+        picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
+        picker.FileTypeChoices.Add("PNG Image", new[] { ".png" });
+        picker.SuggestedFileName = "export";
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+
+        var file = await picker.PickSaveFileAsync();
+        if (file == null) return;
+
+        try
+        {
+            await ExportCanvasMaskInternalAsync(file, isCanvasArea, exportType, colorMode);
+            TxtStatus.Text = Lf("file.saved_path", file.Path);
+        }
+        catch (Exception ex)
+        {
+            TxtStatus.Text = Lf("common.save_failed", ex.Message);
+        }
+    }
+
+    private async Task ExportCanvasMaskInternalAsync(StorageFile file, bool isCanvasArea, int exportType, int colorMode)
+    {
+        var device = MaskCanvas.GetDevice();
+        var doc = MaskCanvas.Document;
+        if (device == null || doc == null || doc.OriginalImage == null) return;
+
+        int canvasW = MaskCanvas.CanvasW;
+        int canvasH = MaskCanvas.CanvasH;
+        int origW = (int)doc.OriginalImage.SizeInPixels.Width;
+        int origH = (int)doc.OriginalImage.SizeInPixels.Height;
+
+        int outW = isCanvasArea ? canvasW : origW;
+        int outH = isCanvasArea ? canvasH : origH;
+
+        Vector2 imageOffset = doc.PixelAlignedImageOffset;
+
+        void DrawImage(CanvasDrawingSession ds)
+        {
+            if (isCanvasArea)
+            {
+                ds.DrawImage(doc.OriginalImage, imageOffset);
+            }
+            else
+            {
+                ds.DrawImage(doc.OriginalImage, Vector2.Zero);
+            }
+        }
+
+        void DrawMask(CanvasDrawingSession ds, Windows.UI.Color color, Windows.UI.Color bg)
+        {
+            ds.Clear(bg);
+            if (doc.MaskTarget == null) return;
+
+            using var effect = new Microsoft.Graphics.Canvas.Effects.ColorMatrixEffect
+            {
+                Source = doc.MaskTarget,
+                ColorMatrix = new Microsoft.Graphics.Canvas.Effects.Matrix5x4
+                {
+                    M11 = 0, M12 = 0, M13 = 0, M14 = 0,
+                    M21 = 0, M22 = 0, M23 = 0, M24 = 0,
+                    M31 = 0, M32 = 0, M33 = 0, M34 = 0,
+                    M41 = color.R / 255f, M42 = color.G / 255f, M43 = color.B / 255f, M44 = color.A / 255f,
+                    M51 = 0, M52 = 0, M53 = 0, M54 = 0
+                }
+            };
+
+            if (isCanvasArea)
+            {
+                ds.DrawImage(effect, Vector2.Zero);
+            }
+            else
+            {
+                ds.DrawImage(effect, -imageOffset);
+            }
+        }
+
+        async Task<byte[]> GetTargetBytesAsync(Action<CanvasDrawingSession> draw)
+        {
+            using var target = new CanvasRenderTarget(device, outW, outH, 96f);
+            using (var ds = target.CreateDrawingSession())
+            {
+                draw(ds);
+            }
+            using var saveStream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+            await target.SaveAsync(saveStream, CanvasBitmapFileFormat.Png);
+            saveStream.Seek(0);
+            var bytes = new byte[saveStream.Size];
+            using var reader = new Windows.Storage.Streams.DataReader(saveStream);
+            await reader.LoadAsync((uint)saveStream.Size);
+            reader.ReadBytes(bytes);
+            return bytes;
+        }
+
+        if (exportType == 0) // Image Only
+        {
+            var bytes = await GetTargetBytesAsync(ds =>
+            {
+                ds.Clear(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+                DrawImage(ds);
+            });
+            await Windows.Storage.FileIO.WriteBytesAsync(file, bytes);
+        }
+        else if (exportType == 1) // Mask Only
+        {
+            var fg = colorMode == 0 ? Windows.UI.Color.FromArgb(255, 255, 255, 255) : Windows.UI.Color.FromArgb(255, 0, 0, 0);
+            var bg = colorMode == 0 ? Windows.UI.Color.FromArgb(255, 0, 0, 0) : Windows.UI.Color.FromArgb(255, 255, 255, 255);
+            var bytes = await GetTargetBytesAsync(ds => DrawMask(ds, fg, bg));
+            await Windows.Storage.FileIO.WriteBytesAsync(file, bytes);
+        }
+        else if (exportType == 2) // Merged
+        {
+            var fg = colorMode switch
+            {
+                0 => Windows.UI.Color.FromArgb(128, 255, 0, 0),   // Red
+                1 => Windows.UI.Color.FromArgb(128, 0, 255, 0),   // Green
+                2 => Windows.UI.Color.FromArgb(128, 0, 0, 255),   // Blue
+                3 => Windows.UI.Color.FromArgb(128, 255, 255, 0), // Yellow
+                4 => Windows.UI.Color.FromArgb(128, 0, 255, 255), // Cyan
+                5 => Windows.UI.Color.FromArgb(128, 255, 0, 255), // Magenta
+                6 => Windows.UI.Color.FromArgb(128, 0, 0, 0),     // Black
+                _ => Windows.UI.Color.FromArgb(128, 255, 255, 255)// White
+            };
+            var bg = Windows.UI.Color.FromArgb(0, 0, 0, 0);
+
+            var bytes = await GetTargetBytesAsync(ds =>
+            {
+                ds.Clear(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+                DrawImage(ds);
+                DrawMask(ds, fg, bg);
+            });
+            await Windows.Storage.FileIO.WriteBytesAsync(file, bytes);
+        }
+        else if (exportType == 3) // Separated
+        {
+            // Save image
+            var imgBytes = await GetTargetBytesAsync(ds =>
+            {
+                ds.Clear(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+                DrawImage(ds);
+            });
+            await Windows.Storage.FileIO.WriteBytesAsync(file, imgBytes);
+
+            // Save mask
+            var fg = colorMode == 0 ? Windows.UI.Color.FromArgb(255, 255, 255, 255) : Windows.UI.Color.FromArgb(255, 0, 0, 0);
+            var bg = colorMode == 0 ? Windows.UI.Color.FromArgb(255, 0, 0, 0) : Windows.UI.Color.FromArgb(255, 255, 255, 255);
+            var maskBytes = await GetTargetBytesAsync(ds => DrawMask(ds, fg, bg));
+            
+            string dir = Path.GetDirectoryName(file.Path) ?? "";
+            string name = Path.GetFileNameWithoutExtension(file.Path);
+            string ext = Path.GetExtension(file.Path);
+            string maskPath = Path.Combine(dir, $"{name}_Mask{ext}");
+            
+            await File.WriteAllBytesAsync(maskPath, maskBytes);
         }
     }
 

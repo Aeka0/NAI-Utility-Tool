@@ -121,6 +121,7 @@ public sealed partial class MainWindow
         MenuSave.Text = L("menu.file.save");
         MenuSaveAs.Text = L("menu.file.save_as");
         MenuSaveStripped.Text = L("menu.file.save_as_stripped");
+        MenuExportCanvasMask.Text = L("menu.file.export_canvas_mask");
         MenuOpenImageFolder.Text = L("menu.file.open_folder");
         MenuExit.Text = L("menu.file.exit");
 

@@ -466,6 +466,7 @@ public sealed partial class MainWindow
         MenuSaveStripped.Visibility = (_currentMode == AppMode.Inspect || _currentMode == AppMode.ImageGeneration || _currentMode == AppMode.I2I)
             ? Visibility.Visible
             : Visibility.Collapsed;
+        MenuExportCanvasMask.Visibility = _currentMode == AppMode.I2I ? Visibility.Visible : Visibility.Collapsed;
         MenuSaveStripped.IsEnabled = _currentMode switch
         {
             AppMode.Inspect => hasReaderImage,
@@ -473,6 +474,7 @@ public sealed partial class MainWindow
             AppMode.I2I => hasI2IImage,
             _ => false,
         };
+        MenuExportCanvasMask.IsEnabled = _currentMode == AppMode.I2I && hasI2IImage;
     }
 
     private static FontFamily SymbolFontFamily =>

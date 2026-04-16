@@ -111,6 +111,7 @@ public sealed partial class MainWindow
 
         UpdateFileMenuState();
         MenuSaveStripped.Visibility = (isReader || isGen) ? Visibility.Visible : Visibility.Collapsed;
+        MenuExportCanvasMask.Visibility = _currentMode == AppMode.I2I ? Visibility.Visible : Visibility.Collapsed;
 
         TabGenerate.IsChecked = isGen;
         TabI2I.IsChecked = isI2I;
