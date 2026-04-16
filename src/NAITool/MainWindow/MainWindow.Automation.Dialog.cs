@@ -64,7 +64,6 @@ public sealed partial class MainWindow
         var nbMaxDelay = CreateAutomationDecimalBox(L("automation.max_delay"), workingSettings.Generation.MaxDelaySeconds);
         var nbRequestCount = new NumberBox
         {
-            Header = L("automation.request_count"),
             Minimum = 0,
             Maximum = 100000,
             Value = workingSettings.Generation.RequestLimit,
@@ -73,7 +72,6 @@ public sealed partial class MainWindow
         };
         var nbRetryCount = new NumberBox
         {
-            Header = L("automation.failure_retry_count"),
             Minimum = 0,
             Maximum = 100000,
             Value = workingSettings.Generation.FailureRetryLimit,
@@ -416,7 +414,9 @@ public sealed partial class MainWindow
                 CreateAutomationSection(
                     L("automation.section.run_limits.title"),
                     L("automation.section.run_limits.description"),
-                    CreateAutomationTwoColumnRow(nbRequestCount, nbRetryCount)),
+                    CreateAutomationTwoColumnRow(
+                        CreateAutomationLabeledField(L("automation.request_count"), nbRequestCount, 40),
+                        CreateAutomationLabeledField(L("automation.failure_retry_count"), nbRetryCount, 40))),
             }
         };
 
@@ -611,6 +611,29 @@ public sealed partial class MainWindow
         MinWidth = 56,
         HorizontalAlignment = HorizontalAlignment.Right,
     };
+
+    private static StackPanel CreateAutomationLabeledField(string label, FrameworkElement control, double minHeaderHeight = 0)
+    {
+        control.HorizontalAlignment = HorizontalAlignment.Stretch;
+
+        return new StackPanel
+        {
+            Spacing = 6,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = label,
+                    TextWrapping = TextWrapping.Wrap,
+                    MinHeight = minHeaderHeight,
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                },
+                control
+            }
+        };
+    }
 
     private static Grid CreateAutomationTwoColumnRow(FrameworkElement left, FrameworkElement right)
     {

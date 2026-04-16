@@ -35,7 +35,7 @@ public sealed class AutomationGenerationOptions
 {
     public double MinDelaySeconds { get; set; } = 5.0;
     public double MaxDelaySeconds { get; set; } = 15.0;
-    public int RequestLimit { get; set; }
+    public int RequestLimit { get; set; } = 100;
     public int FailureRetryLimit { get; set; }
 
     public AutomationGenerationOptions Clone() => new()
