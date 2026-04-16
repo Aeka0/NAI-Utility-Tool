@@ -879,6 +879,7 @@ public sealed partial class MaskCanvasControl : UserControl
     {
         _previewBitmap = bitmap;
         CachePreviewPixels(bitmap);
+        ApplySystemCursorVisibility();
         ContentChanged?.Invoke();
     }
 
@@ -888,6 +889,7 @@ public sealed partial class MaskCanvasControl : UserControl
         _previewPixels = null;
         _previewPixelWidth = 0;
         _previewPixelHeight = 0;
+        ApplySystemCursorVisibility();
         ContentChanged?.Invoke();
     }
 
@@ -1121,7 +1123,7 @@ public sealed partial class MaskCanvasControl : UserControl
                     }
                 }
 
-                if (IsMaskEditingEnabled)
+                if (ShouldShowEditingCursor())
                     DrawToolCursor(ds, viewScale);
             }
 
@@ -1515,7 +1517,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     private void ApplySystemCursorVisibility()
     {
-        if (!_showCursor || !_isMaskEditingEnabled)
+        if (!_showCursor || !ShouldShowEditingCursor())
         {
             RestoreSystemCursor();
             return;
@@ -1566,6 +1568,11 @@ public sealed partial class MaskCanvasControl : UserControl
             binder: null,
             target: element,
             args: [cursor]);
+    }
+
+    private bool ShouldShowEditingCursor()
+    {
+        return _isMaskEditingEnabled && !IsInPreviewMode;
     }
 
     private Color SampleInvertedCursorColor(Vector2 canvasPos)
