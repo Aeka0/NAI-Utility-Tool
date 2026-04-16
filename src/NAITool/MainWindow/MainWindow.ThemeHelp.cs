@@ -512,6 +512,7 @@ public sealed partial class MainWindow
             ("EinAeffchen", L("about.thanks.einaeffchen"), "\uE74C"),
             (L("about.name.qinglong"), L("about.thanks.qinglong"), "\uE74C"),
             ("jiarandiana0307", L("about.thanks.jiarandiana0307"), "\uF404"),
+            ("NovelAI", L("about.thanks.novelai"), "\uE8BA"),
         };
 
         var thanksHeader = new TextBlock
