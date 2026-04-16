@@ -950,9 +950,8 @@ public sealed partial class MainWindow
             }
         }
 
-        void DrawMask(CanvasDrawingSession ds, Windows.UI.Color color, Windows.UI.Color bg)
+        void DrawMask(CanvasDrawingSession ds, Windows.UI.Color color)
         {
-            ds.Clear(bg);
             if (doc.MaskTarget == null) return;
 
             using var effect = new Microsoft.Graphics.Canvas.Effects.ColorMatrixEffect
@@ -1008,29 +1007,32 @@ public sealed partial class MainWindow
         {
             var fg = colorMode == 0 ? Windows.UI.Color.FromArgb(255, 255, 255, 255) : Windows.UI.Color.FromArgb(255, 0, 0, 0);
             var bg = colorMode == 0 ? Windows.UI.Color.FromArgb(255, 0, 0, 0) : Windows.UI.Color.FromArgb(255, 255, 255, 255);
-            var bytes = await GetTargetBytesAsync(ds => DrawMask(ds, fg, bg));
+            var bytes = await GetTargetBytesAsync(ds =>
+            {
+                ds.Clear(bg);
+                DrawMask(ds, fg);
+            });
             await Windows.Storage.FileIO.WriteBytesAsync(file, bytes);
         }
         else if (exportType == 2) // Merged
         {
             var fg = colorMode switch
             {
-                0 => Windows.UI.Color.FromArgb(128, 255, 0, 0),   // Red
-                1 => Windows.UI.Color.FromArgb(128, 0, 255, 0),   // Green
-                2 => Windows.UI.Color.FromArgb(128, 0, 0, 255),   // Blue
-                3 => Windows.UI.Color.FromArgb(128, 255, 255, 0), // Yellow
-                4 => Windows.UI.Color.FromArgb(128, 0, 255, 255), // Cyan
-                5 => Windows.UI.Color.FromArgb(128, 255, 0, 255), // Magenta
-                6 => Windows.UI.Color.FromArgb(128, 0, 0, 0),     // Black
-                _ => Windows.UI.Color.FromArgb(128, 255, 255, 255)// White
+                0 => Windows.UI.Color.FromArgb(255, 255, 0, 0),   // Red
+                1 => Windows.UI.Color.FromArgb(255, 0, 255, 0),   // Green
+                2 => Windows.UI.Color.FromArgb(255, 0, 0, 255),   // Blue
+                3 => Windows.UI.Color.FromArgb(255, 255, 255, 0), // Yellow
+                4 => Windows.UI.Color.FromArgb(255, 0, 255, 255), // Cyan
+                5 => Windows.UI.Color.FromArgb(255, 255, 0, 255), // Magenta
+                6 => Windows.UI.Color.FromArgb(255, 0, 0, 0),     // Black
+                _ => Windows.UI.Color.FromArgb(255, 255, 255, 255)// White
             };
-            var bg = Windows.UI.Color.FromArgb(0, 0, 0, 0);
 
             var bytes = await GetTargetBytesAsync(ds =>
             {
                 ds.Clear(Windows.UI.Color.FromArgb(0, 0, 0, 0));
                 DrawImage(ds);
-                DrawMask(ds, fg, bg);
+                DrawMask(ds, fg);
             });
             await Windows.Storage.FileIO.WriteBytesAsync(file, bytes);
         }
@@ -1047,7 +1049,11 @@ public sealed partial class MainWindow
             // Save mask
             var fg = colorMode == 0 ? Windows.UI.Color.FromArgb(255, 255, 255, 255) : Windows.UI.Color.FromArgb(255, 0, 0, 0);
             var bg = colorMode == 0 ? Windows.UI.Color.FromArgb(255, 0, 0, 0) : Windows.UI.Color.FromArgb(255, 255, 255, 255);
-            var maskBytes = await GetTargetBytesAsync(ds => DrawMask(ds, fg, bg));
+            var maskBytes = await GetTargetBytesAsync(ds =>
+            {
+                ds.Clear(bg);
+                DrawMask(ds, fg);
+            });
             
             string dir = Path.GetDirectoryName(file.Path) ?? "";
             string name = Path.GetFileNameWithoutExtension(file.Path);
