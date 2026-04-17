@@ -357,6 +357,7 @@
                                                   IsChecked="True" Click="OnPromptTabSwitch"
                                                   HorizontalAlignment="Stretch"
                                                   HorizontalContentAlignment="Center"
+                                                  Height="34"
                                                   MinWidth="0"
                                                   CornerRadius="4,0,0,4"/>
                                     <ToggleButton x:Name="TabNegative" Content=""
@@ -364,6 +365,7 @@
                                                   Click="OnPromptTabSwitch"
                                                   HorizontalAlignment="Stretch"
                                                   HorizontalContentAlignment="Center"
+                                                  Height="34"
                                                   MinWidth="0"
                                                   CornerRadius="0,4,4,0"/>
                                 </Grid>
@@ -371,7 +373,7 @@
                                               HorizontalAlignment="Right"
                                               Click="OnSplitPromptToggle"
                                               ToolTipService.ToolTip=""
-                                              Width="32" Height="32" Padding="0">
+                                              Width="34" Height="34" Padding="0">
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
                                               Glyph="&#xE737;" FontSize="14"/>
                                 </ToggleButton>

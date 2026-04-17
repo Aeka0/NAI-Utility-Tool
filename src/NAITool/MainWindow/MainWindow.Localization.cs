@@ -294,7 +294,7 @@ public sealed partial class MainWindow
         if (availableWidth < 1)
             availableWidth = (PanelLeftMain?.ActualWidth ?? MainContentGrid?.ColumnDefinitions[0].ActualWidth ?? 300) - 24;
 
-        double reservedRight = BtnSplitPrompt?.Visibility == Visibility.Visible ? 40 : 0;
+        double reservedRight = BtnSplitPrompt?.Visibility == Visibility.Visible ? 42 : 0;
         double perTabWidth = Math.Max(0, (availableWidth - reservedRight) / 2.0);
         return perTabWidth < threshold;
     }
