@@ -582,6 +582,10 @@ public sealed partial class MainWindow
             }
         }
 
+        // 通过 WndProc 子类化把客户区向上扩 1px，遮盖 WinUI3+Acrylic 标题栏遗留的
+        // 顶端 1px 不透明非客户区线，并在每次 ApplyWindowChrome 调用时确保已安装。
+        WindowTopBorderTrim.Install(window);
+
         if (appWindow.TitleBar == null) return;
 
         var tb = appWindow.TitleBar;
