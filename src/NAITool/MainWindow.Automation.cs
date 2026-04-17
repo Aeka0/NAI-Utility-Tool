@@ -18,6 +18,7 @@ public sealed partial class MainWindow
     private readonly AutomationPresetService _automationPresetService = new(AppRootDir);
     private AutomationSettings? _activeAutomationSettings;
     private AutomationRunContext? _automationRunContext;
+    private int? _lastGenerationFailureStatusCode;
 
     private sealed class AutomationRunContext
     {

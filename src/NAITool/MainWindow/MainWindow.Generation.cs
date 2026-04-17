@@ -84,6 +84,7 @@ public sealed partial class MainWindow
 
     private async Task<bool> DoImageGenerationAsync(bool forceRandomSeed = false)
     {
+        _lastGenerationFailureStatusCode = null;
         var autoContext = _autoGenRunning ? _automationRunContext : null;
         var (w, h) = autoContext?.CurrentSizeOverride ?? GetSelectedSize();
         bool keepGenerateButtonInteractive = _autoGenRunning || _continuousGenRunning;
@@ -178,7 +179,13 @@ public sealed partial class MainWindow
                 chars, vibes, preciseReferences, progress, ct);
             _lastUsedSeed = actualSeed;
 
-            if (error != null) { DebugLog($"[Generate] API error: {error}"); TxtStatus.Text = error; return false; }
+            if (error != null)
+            {
+                _lastGenerationFailureStatusCode = _naiService.LastGenerationErrorStatusCode;
+                DebugLog($"[Generate] API error: {error}");
+                TxtStatus.Text = error;
+                return false;
+            }
             if (imageBytes == null) { DebugLog("[Generate] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); return false; }
 
             byte[] finalBytes = imageBytes;

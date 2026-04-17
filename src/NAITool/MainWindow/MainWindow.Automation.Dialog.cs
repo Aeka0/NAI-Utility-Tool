@@ -70,14 +70,9 @@ public sealed partial class MainWindow
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
-        var nbRetryCount = new NumberBox
-        {
-            Minimum = 0,
-            Maximum = 100000,
-            Value = workingSettings.Generation.FailureRetryLimit,
-            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-        };
+        var errorRetryBoxes = AutomationErrorHandlingOptions.SupportedStatusCodes.ToDictionary(
+            statusCode => statusCode,
+            statusCode => CreateAutomationRetryLimitBox(workingSettings.ErrorHandling.GetRetryLimit(statusCode)));
 
         var chkRandomSize = CreateAutomationToggleSwitch(workingSettings.Randomization.RandomizeSize);
         var chkRandomVibe = CreateAutomationToggleSwitch(workingSettings.Randomization.RandomizeVibeFiles);
@@ -176,7 +171,8 @@ public sealed partial class MainWindow
             SetComboNumberBoxValue(nbMinDelay, settings.Generation.MinDelaySeconds);
             SetComboNumberBoxValue(nbMaxDelay, settings.Generation.MaxDelaySeconds);
             nbRequestCount.Value = settings.Generation.RequestLimit;
-            nbRetryCount.Value = settings.Generation.FailureRetryLimit;
+            foreach (var pair in errorRetryBoxes)
+                pair.Value.Value = settings.ErrorHandling.GetRetryLimit(pair.Key);
 
             chkRandomSize.IsOn = settings.Randomization.RandomizeSize;
             chkRandomVibe.IsOn = settings.Randomization.RandomizeVibeFiles;
@@ -209,6 +205,10 @@ public sealed partial class MainWindow
                 sizePresets.Add(FormatAutomationSizePreset(w, h));
             }
 
+            var errorHandling = new AutomationErrorHandlingOptions();
+            foreach (var pair in errorRetryBoxes)
+                errorHandling.SetRetryLimit(pair.Key, ReadAutomationInteger(pair.Value, -1, 100000));
+
             var collected = new AutomationSettings
             {
                 SelectedPresetName = GetSelectedComboText(presetCombo) ?? "",
@@ -216,9 +216,9 @@ public sealed partial class MainWindow
                 {
                     MinDelaySeconds = Math.Max(0.5, nbMinDelay.Value),
                     MaxDelaySeconds = Math.Max(nbMaxDelay.Value, nbMinDelay.Value),
-                    RequestLimit = Math.Max(0, (int)nbRequestCount.Value),
-                    FailureRetryLimit = Math.Max(0, (int)nbRetryCount.Value),
+                    RequestLimit = ReadAutomationInteger(nbRequestCount, 0, 100000),
                 },
+                ErrorHandling = errorHandling,
                 Randomization = new AutomationRandomizationOptions
                 {
                     RandomizeSize = chkRandomSize.IsOn,
@@ -427,9 +427,55 @@ public sealed partial class MainWindow
                 CreateAutomationSection(
                     L("automation.section.run_limits.title"),
                     L("automation.section.run_limits.description"),
-                    CreateAutomationTwoColumnRow(
-                        CreateAutomationLabeledField(L("automation.request_count"), nbRequestCount, 40),
-                        CreateAutomationLabeledField(L("automation.failure_retry_count"), nbRetryCount, 40))),
+                    CreateAutomationLabeledField(L("automation.request_count"), nbRequestCount, 0)),
+            }
+        };
+
+        var errorHandlingFields = new StackPanel
+        {
+            Spacing = 10,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        for (int i = 0; i < AutomationErrorHandlingOptions.SupportedStatusCodes.Count; i += 2)
+        {
+            int leftCode = AutomationErrorHandlingOptions.SupportedStatusCodes[i];
+            var left = CreateAutomationLabeledField(
+                Lf("automation.error_handling.status_code", leftCode),
+                errorRetryBoxes[leftCode],
+                0);
+
+            if (i + 1 < AutomationErrorHandlingOptions.SupportedStatusCodes.Count)
+            {
+                int rightCode = AutomationErrorHandlingOptions.SupportedStatusCodes[i + 1];
+                var right = CreateAutomationLabeledField(
+                    Lf("automation.error_handling.status_code", rightCode),
+                    errorRetryBoxes[rightCode],
+                    0);
+                errorHandlingFields.Children.Add(CreateAutomationTwoColumnRow(left, right));
+            }
+            else
+            {
+                errorHandlingFields.Children.Add(left);
+            }
+        }
+
+        var errorHandlingPage = new StackPanel
+        {
+            Spacing = 10,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Children =
+            {
+                CreateAutomationSection(
+                    L("automation.section.error_handling.title"),
+                    L("automation.section.error_handling.description"),
+                    errorHandlingFields),
+                new TextBlock
+                {
+                    Text = L("automation.error_handling.note"),
+                    TextWrapping = TextWrapping.Wrap,
+                    Opacity = 0.65,
+                    FontSize = 12,
+                },
             }
         };
 
@@ -519,6 +565,7 @@ public sealed partial class MainWindow
         {
             ["preset"] = WrapPage(presetPage),
             ["generation"] = WrapPage(generationPage),
+            ["errorHandling"] = WrapPage(errorHandlingPage),
             ["randomization"] = WrapPage(randomizationPage),
             ["post"] = WrapPage(postProcessPage),
         };
@@ -546,6 +593,7 @@ public sealed partial class MainWindow
         };
         nav.MenuItems.Add(new NavigationViewItem { Content = L("automation.tab.preset"), Tag = "preset" });
         nav.MenuItems.Add(new NavigationViewItem { Content = L("automation.tab.generation"), Tag = "generation" });
+        nav.MenuItems.Add(new NavigationViewItem { Content = L("automation.tab.error_handling"), Tag = "errorHandling" });
         nav.MenuItems.Add(new NavigationViewItem { Content = L("automation.tab.randomization"), Tag = "randomization" });
         nav.MenuItems.Add(new NavigationViewItem { Content = L("automation.tab.post"), Tag = "post" });
         nav.SelectionChanged += (_, args) =>
@@ -580,7 +628,8 @@ public sealed partial class MainWindow
                 SuppressNumberBoxInitialSelection(nbMinDelay);
                 SuppressNumberBoxInitialSelection(nbMaxDelay);
                 SuppressNumberBoxInitialSelection(nbRequestCount);
-                SuppressNumberBoxInitialSelection(nbRetryCount);
+                foreach (var box in errorRetryBoxes.Values)
+                    SuppressNumberBoxInitialSelection(box);
             });
         };
 
@@ -610,6 +659,23 @@ public sealed partial class MainWindow
             IntegerDigits = 1,
         },
     };
+
+    private static NumberBox CreateAutomationRetryLimitBox(int value) => new()
+    {
+        Minimum = -1,
+        Maximum = 100000,
+        Value = value,
+        SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+    };
+
+    private static int ReadAutomationInteger(NumberBox box, int minimum, int maximum)
+    {
+        double value = box.Value;
+        if (double.IsNaN(value) || double.IsInfinity(value))
+            return minimum;
+        return Math.Clamp((int)Math.Round(value), minimum, maximum);
+    }
 
     private static ToggleSwitch CreateAutomationToggleSwitch(bool isOn) => new()
     {
@@ -815,11 +881,14 @@ public sealed partial class MainWindow
     {
         settings.Normalize();
         var gen = settings.Generation;
+        var errorHandling = settings.ErrorHandling;
         var rand = settings.Randomization;
         var post = settings.Effects;
 
         string reqLabel = gen.RequestLimit > 0 ? $"{gen.RequestLimit}" : "\u221e";
-        string retryLabel = gen.FailureRetryLimit > 0 ? $"{gen.FailureRetryLimit}" : "\u221e";
+        string errorHandlingLabel = string.Join(", ",
+            AutomationErrorHandlingOptions.SupportedStatusCodes.Select(
+                statusCode => $"{statusCode}={FormatAutomationRetryLimit(errorHandling.GetRetryLimit(statusCode))}"));
 
         string sizeLabel = rand.RandomizeSize ? Lf("automation.summary.size_count", rand.SizePresets.Count) : L("common.off");
         string vibeLabel = rand.RandomizeVibeFiles ? L("common.on") : L("common.off");
@@ -833,8 +902,12 @@ public sealed partial class MainWindow
             ? post.FxPresetName
             : L("common.off");
 
-        return Lf("automation.summary.line1", gen.MinDelaySeconds, gen.MaxDelaySeconds, reqLabel, retryLabel) + "\n" +
+        return Lf("automation.summary.line1", gen.MinDelaySeconds, gen.MaxDelaySeconds, reqLabel) + "\n" +
+               Lf("automation.summary.line_error_handling", errorHandlingLabel) + "\n" +
                Lf("automation.summary.line2", sizeLabel, vibeLabel, styleLabel, promptLabel) + "\n" +
                Lf("automation.summary.line3", upscaleLabel, fxLabel);
     }
+
+    private static string FormatAutomationRetryLimit(int retryLimit) =>
+        retryLimit < 0 ? "\u221e" : retryLimit.ToString();
 }

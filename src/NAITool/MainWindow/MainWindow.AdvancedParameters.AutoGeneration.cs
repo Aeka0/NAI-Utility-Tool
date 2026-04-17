@@ -58,7 +58,8 @@ public sealed partial class MainWindow
         _automationRunContext = CreateAutomationRunContext(automationSettings);
         UpdateAutoGenUI();
         int requestCount = 0;
-        int consecutiveFailures = 0;
+        int? consecutiveErrorStatusCode = null;
+        int consecutiveRetriesForCurrentError = 0;
 
         try
         {
@@ -76,17 +77,37 @@ public sealed partial class MainWindow
 
                 if (success)
                 {
-                    consecutiveFailures = 0;
+                    consecutiveErrorStatusCode = null;
+                    consecutiveRetriesForCurrentError = 0;
                 }
                 else
                 {
-                    consecutiveFailures++;
-                    if (automationSettings.Generation.FailureRetryLimit > 0 &&
-                        consecutiveFailures >= automationSettings.Generation.FailureRetryLimit)
+                    int? statusCode = _lastGenerationFailureStatusCode;
+                    int retryLimit = automationSettings.ErrorHandling.GetRetryLimit(statusCode);
+
+                    if (retryLimit == 0)
                     {
-                        TxtStatus.Text = Lf("generate.continuous.stopped_failures", consecutiveFailures);
+                        TxtStatus.Text = statusCode.HasValue
+                            ? Lf("automation.status.stopped_error_retry", statusCode.Value, retryLimit)
+                            : L("automation.status.stopped_unhandled_error");
                         break;
                     }
+
+                    if (consecutiveErrorStatusCode != statusCode)
+                    {
+                        consecutiveErrorStatusCode = statusCode;
+                        consecutiveRetriesForCurrentError = 0;
+                    }
+
+                    if (retryLimit > 0 && consecutiveRetriesForCurrentError >= retryLimit)
+                    {
+                        TxtStatus.Text = statusCode.HasValue
+                            ? Lf("automation.status.stopped_error_retry", statusCode.Value, retryLimit)
+                            : L("automation.status.stopped_unhandled_error");
+                        break;
+                    }
+
+                    consecutiveRetriesForCurrentError++;
                 }
 
                 if (automationSettings.Generation.RequestLimit > 0 &&

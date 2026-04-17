@@ -63,6 +63,8 @@ public class NovelAIService : IDisposable
 
     public NovelAIService(SettingsService settings) { _settings = settings; }
 
+    public int? LastGenerationErrorStatusCode { get; private set; }
+
     private static string L(string key) => LocalizationService.Instance.GetString(key);
     private static string Lf(string key, params object?[] args) => LocalizationService.Instance.Format(key, args);
 
@@ -1061,6 +1063,8 @@ public class NovelAIService : IDisposable
         IProgress<byte[]>? progress = null,
         CancellationToken ct = default)
     {
+        LastGenerationErrorStatusCode = null;
+
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
             return (null, L("api.error.token_missing_network_api"));
 
@@ -1200,6 +1204,7 @@ public class NovelAIService : IDisposable
             {
                 var errorText = await response.Content.ReadAsStringAsync(ct);
                 stopwatch.Stop();
+                LastGenerationErrorStatusCode = (int)response.StatusCode;
                 WriteRequestLog("Image generation", payload, stopwatch.ElapsedMilliseconds, response, errorText);
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
