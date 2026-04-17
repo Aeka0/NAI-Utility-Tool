@@ -747,20 +747,28 @@ public sealed partial class MainWindow
 
         menu.Items.Add(new MenuFlyoutSeparator());
 
-        var alignSub = CreateLocalizedSubItem(MenuCommandAlignImage, "menu.inpaint.align_image");
-        string[,] alignments =
+        var alignSub = CreateLocalizedSubItem(
+            MenuCommandAlignImage,
+            "menu.inpaint.align_image",
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uF599" });
+        (string Key, string Tag, string Glyph)[] alignments =
         {
-            {"align.top_left","TL"}, {"align.top_center","TC"}, {"align.top_right","TR"},
-            {"-",""}, {"align.center_left","CL"}, {"align.center","CC"}, {"align.center_right","CR"},
-            {"-",""}, {"align.bottom_left","BL"}, {"align.bottom_center","BC"}, {"align.bottom_right","BR"},
+            ("align.top_left", "TL", "\uF599"), ("align.top_center", "TC", "\uF59E"), ("align.top_right", "TR", "\uF59A"),
+            ("-", "", ""), ("align.center_left", "CL", "\uF59C"), ("align.center", "CC", "\uF58E"), ("align.center_right", "CR", "\uF59D"),
+            ("-", "", ""), ("align.bottom_left", "BL", "\uF5AE"), ("align.bottom_center", "BC", "\uF59F"), ("align.bottom_right", "BR", "\uF59B"),
         };
-        for (int i = 0; i < alignments.GetLength(0); i++)
+        foreach (var alignment in alignments)
         {
-            if (alignments[i, 0] == "-")
+            if (alignment.Key == "-")
                 alignSub.Items.Add(new MenuFlyoutSeparator());
             else
             {
-                var ai = new MenuFlyoutItem { Text = L(alignments[i, 0]), Tag = alignments[i, 1] };
+                var ai = new MenuFlyoutItem
+                {
+                    Text = L(alignment.Key),
+                    Tag = alignment.Tag,
+                    Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = alignment.Glyph },
+                };
                 ai.Click += OnAlign;
                 alignSub.Items.Add(ai);
             }
