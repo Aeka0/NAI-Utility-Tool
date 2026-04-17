@@ -139,12 +139,19 @@ public sealed partial class MainWindow
         };
         _advSliderCfgRescale.ValueChanged += (_, args) => _advTxtCfgRescale.Text = $"{args.NewValue:F2}";
 
-        _advChkVariety = new CheckBox { Content = L("dialog.advanced.variety"), IsChecked = p.Variety };
+        _advChkVariety = new CheckBox
+        {
+            Content = L("dialog.advanced.variety"),
+            IsChecked = p.Variety,
+            Language = "en-US",
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
         _advChkVariety.Visibility = Visibility.Visible;
         _advChkSmea = new CheckBox
         {
             Content = "SMEA",
             IsChecked = p.Sm,
+            VerticalContentAlignment = VerticalAlignment.Center,
             Visibility = (_currentMode == AppMode.ImageGeneration && IsCurrentModelV3())
                 ? Visibility.Visible : Visibility.Collapsed,
         };
@@ -313,6 +320,7 @@ public sealed partial class MainWindow
         paramsGrid.Children.Add(_advChkSmea);
 
         var rootPanel = new StackPanel();
+        rootPanel.Language = UiLanguageTag;
         rootPanel.Children.Add(titleBarGrid);
         rootPanel.Children.Add(paramsGrid);
         rootPanel.IsTabStop = true;

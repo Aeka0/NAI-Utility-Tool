@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -95,6 +95,7 @@ public sealed partial class MainWindow
         RefreshLocalizedDynamicInterface();
         ReplaceEditMenu();
         ReplaceToolMenu();
+        ApplyStaticMenuAndComboTypography();
         RefreshVibeTransferPanel();
         RefreshPreciseReferencePanel();
         RefreshHistoryPanel();
@@ -113,6 +114,10 @@ public sealed partial class MainWindow
 
     private void ApplyLocalization()
     {
+        RootGrid.Language = UiLanguageTag;
+        if (_advRootPanel != null)
+            _advRootPanel.Language = UiLanguageTag;
+
         Title = L("app.title");
         AppTitleText.Text = L("app.title");
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -480,17 +480,30 @@ public sealed partial class MainWindow
     private static FontFamily SymbolFontFamily =>
         (FontFamily)Application.Current.Resources["SymbolThemeFontFamily"];
 
-    private static FontFamily UiTextFontFamily => new("Microsoft YaHei UI");
-    private const string UiLanguageTag = "zh-CN";
+    private string UiLanguageTag => _settings.Settings.LanguageCode switch
+    {
+        "zh_cn" => "zh-CN",
+        "zh_tw" => "zh-TW",
+        "ja_jp" => "ja-JP",
+        _ => "en-US"
+    };
 
-    private static ComboBoxItem CreateTextComboBoxItem(string text) => new()
+    private FontFamily UiTextFontFamily => new(UiLanguageTag switch
+    {
+        "zh-CN" => "Microsoft YaHei UI",
+        "zh-TW" => "Microsoft JhengHei UI",
+        "ja-JP" => "Yu Gothic UI",
+        _ => "Segoe UI Variable"
+    });
+
+    private ComboBoxItem CreateTextComboBoxItem(string text) => new()
     {
         Content = text,
         FontFamily = UiTextFontFamily,
         Language = UiLanguageTag,
     };
 
-    private static void ApplyMenuTypography(object? item)
+    private void ApplyMenuTypography(object? item)
     {
         switch (item)
         {
