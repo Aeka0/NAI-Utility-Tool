@@ -96,8 +96,10 @@ public sealed partial class MainWindow
                 Content = preset.Label,
                 Tag = key,
                 IsChecked = workingSettings.Randomization.SizePresets.Contains(key, StringComparer.OrdinalIgnoreCase),
-                Padding = new Thickness(4, 0, 0, 0),
+                Padding = new Thickness(6, 0, 0, 0),
                 MinHeight = 32,
+                VerticalAlignment = VerticalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center,
             };
             sizePresetChecks[key] = box;
             int row = sizeIdx / 2;
@@ -111,6 +113,17 @@ public sealed partial class MainWindow
         }
 
         var btnSelectSizes = new Button { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
+        var randomSizeControl = new Grid
+        {
+            ColumnSpacing = 6,
+            HorizontalAlignment = HorizontalAlignment.Right,
+        };
+        randomSizeControl.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        randomSizeControl.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(btnSelectSizes, 0);
+        Grid.SetColumn(chkRandomSize, 1);
+        randomSizeControl.Children.Add(btnSelectSizes);
+        randomSizeControl.Children.Add(chkRandomSize);
 
         void UpdateSizeButtonText()
         {
@@ -429,12 +442,7 @@ public sealed partial class MainWindow
                 CreateAutomationSettingRow(
                     L("automation.random_size"),
                     L("automation.random_size_description"),
-                    new StackPanel
-                    {
-                        Orientation = Orientation.Horizontal,
-                        Spacing = 6,
-                        Children = { chkRandomSize, btnSelectSizes }
-                    }),
+                    randomSizeControl),
                 CreateAutomationSettingRow(
                     L("automation.random_vibe"),
                     L("automation.random_vibe_description"),
