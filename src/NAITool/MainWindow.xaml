@@ -207,6 +207,25 @@
                                 <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE708;"/>
                             </ToggleMenuFlyoutItem.Icon>
                         </ToggleMenuFlyoutItem>
+                        <MenuFlyoutSeparator/>
+                        <ToggleMenuFlyoutItem x:Name="MenuTransparencyStandard" Text=""
+                                              IsChecked="True" Click="OnTransparencyChanged" Tag="Standard">
+                            <ToggleMenuFlyoutItem.Icon>
+                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE904;"/>
+                            </ToggleMenuFlyoutItem.Icon>
+                        </ToggleMenuFlyoutItem>
+                        <ToggleMenuFlyoutItem x:Name="MenuTransparencyLesser" Text=""
+                                              Click="OnTransparencyChanged" Tag="Lesser">
+                            <ToggleMenuFlyoutItem.Icon>
+                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE906;"/>
+                            </ToggleMenuFlyoutItem.Icon>
+                        </ToggleMenuFlyoutItem>
+                        <ToggleMenuFlyoutItem x:Name="MenuTransparencyOpaque" Text=""
+                                              Click="OnTransparencyChanged" Tag="Opaque">
+                            <ToggleMenuFlyoutItem.Icon>
+                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE908;"/>
+                            </ToggleMenuFlyoutItem.Icon>
+                        </ToggleMenuFlyoutItem>
                     </MenuFlyoutSubItem>
                     <MenuFlyoutSeparator/>
                     <MenuFlyoutSubItem x:Name="MenuLanguage" Text="">

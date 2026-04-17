@@ -91,8 +91,6 @@ public sealed partial class MainWindow
 
         var window = new Window();
         window.Title = L("dialog.advanced.title");
-        if (IsWindows11OrGreater())
-        window.SystemBackdrop = new DesktopAcrylicBackdrop();
         window.ExtendsContentIntoTitleBar = true;
 
         _advCboSize = new ComboBox
@@ -366,6 +364,7 @@ public sealed partial class MainWindow
         };
 
         bool isDark = IsDarkTheme();
+        ApplyTransparencyToWindow(window, _settings.Settings.AppearanceTransparency, rootPanel);
         ApplyWindowChrome(window, isDark, titleBarGrid, rootPanel);
         window.Activated += (_, _) => ApplyWindowChrome(window, IsDarkTheme(), titleBarGrid, rootPanel);
         window.Activate();

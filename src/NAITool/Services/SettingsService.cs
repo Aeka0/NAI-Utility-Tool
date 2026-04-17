@@ -138,6 +138,7 @@ public class AppSettings
     public string ProxyPort { get; set; } = "10808";
     public bool UseWebp { get; set; }
     public string ThemeMode { get; set; } = "System";
+    public string AppearanceTransparency { get; set; } = "Standard";
     public string LanguageCode { get; set; } = "";
     public bool DevLogEnabled { get; set; }
     public bool StreamGeneration { get; set; }
@@ -154,6 +155,11 @@ public class AppSettings
     {
         if (!string.IsNullOrWhiteSpace(LanguageCode))
             LanguageCode = LocalizationService.NormalizeLanguageCode(LanguageCode);
+        AppearanceTransparency = AppearanceTransparency switch
+        {
+            "Standard" or "Lesser" or "Opaque" => AppearanceTransparency,
+            _ => "Standard",
+        };
         ReverseTagger ??= new();
         GenParameters ??= new() { Model = "nai-diffusion-4-5-full" };
         InpaintParameters ??= new() { Model = "nai-diffusion-4-5-full-inpainting" };

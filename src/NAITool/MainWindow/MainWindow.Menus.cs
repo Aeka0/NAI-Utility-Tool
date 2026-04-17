@@ -562,10 +562,20 @@ public sealed partial class MainWindow
             ? Windows.UI.Color.FromArgb(0, 0, 0, 0)
             : surfaceColor;
 
+        // 透明度为"不透明"时，主窗口标题栏底色需要填实色以避免穿透。
+        bool backdropIsOpaque = _settings.Settings.AppearanceTransparency == "Opaque";
+        if (backdropIsOpaque && isMainWindow)
+            titleBarBaseColor = surfaceColor;
+
         if (titleBarPanel != null)
             titleBarPanel.Background = new SolidColorBrush(surfaceColor);
         if (rootPanel != null)
-            rootPanel.Background = new SolidColorBrush(surfaceColor);
+        {
+            // 有亚克力背景时让根面板透明，让系统背景渗透显示；不透明时填实色。
+            rootPanel.Background = backdropIsOpaque
+                ? new SolidColorBrush(surfaceColor)
+                : null;
+        }
 
         var appWindow = isMainWindow ? AppWindow : GetAppWindowForWindow(window);
         if (appWindow == null) return;

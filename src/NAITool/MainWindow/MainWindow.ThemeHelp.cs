@@ -63,17 +63,20 @@ public sealed partial class MainWindow
                 "Dark" => ElementTheme.Dark,
                 _ => GetSystemTheme(),
             };
-            UpdateTitleBarColors(root.RequestedTheme == ElementTheme.Dark ||
-                (root.RequestedTheme == ElementTheme.Default && root.ActualTheme == ElementTheme.Dark));
+            bool isDark = root.RequestedTheme == ElementTheme.Dark ||
+                (root.RequestedTheme == ElementTheme.Default && root.ActualTheme == ElementTheme.Dark);
+            UpdateTitleBarColors(isDark);
             UpdateSizeWarningVisuals();
+
+            // 主窗口 RootGrid 背景需随主题刷新（仅在不透明模式下才填色，其余保持透明）。
+            RootGrid.Background = _settings.Settings.AppearanceTransparency == "Opaque"
+                ? new SolidColorBrush(GetWindowSurfaceColor(isDark))
+                : null;
 
             if (_advParamsWindow?.Content is FrameworkElement advRoot)
                 advRoot.RequestedTheme = root.RequestedTheme;
             if (_advParamsWindow != null)
-                ApplyWindowChrome(_advParamsWindow,
-                    root.RequestedTheme == ElementTheme.Dark ||
-                    (root.RequestedTheme == ElementTheme.Default && root.ActualTheme == ElementTheme.Dark),
-                    _advTitleBarGrid, _advRootPanel);
+                ApplyWindowChrome(_advParamsWindow, isDark, _advTitleBarGrid, _advRootPanel);
 
             RefreshEffectsPanel();
             RefreshEffectsOverlay();
@@ -671,6 +674,69 @@ public sealed partial class MainWindow
         MenuThemeSystem.IsChecked = mode == "System";
         MenuThemeLight.IsChecked = mode == "Light";
         MenuThemeDark.IsChecked = mode == "Dark";
+    }
+
+    private void OnTransparencyChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleMenuFlyoutItem item || item.Tag is not string mode)
+            return;
+
+        ApplyTransparency(mode);
+        SyncTransparencyMenuChecks(mode);
+        _settings.Settings.AppearanceTransparency = mode;
+        _settings.Save();
+        DebugLog($"[外观] 透明度已切换为 {mode}");
+        TxtStatus.Text = mode switch
+        {
+            "Lesser" => L("status.transparency_lesser"),
+            "Opaque" => L("status.transparency_opaque"),
+            _ => L("status.transparency_standard"),
+        };
+    }
+
+    private void SyncTransparencyMenuChecks(string mode)
+    {
+        MenuTransparencyStandard.IsChecked = mode == "Standard";
+        MenuTransparencyLesser.IsChecked = mode == "Lesser";
+        MenuTransparencyOpaque.IsChecked = mode == "Opaque";
+    }
+
+    private void ApplyTransparency(string mode)
+    {
+        ApplyTransparencyToWindow(this, mode, null);
+        bool isDark = IsDarkTheme();
+        // 主窗口的 RootGrid 背景由此处直接管理：亚克力时透明，不透明时填表面色。
+        RootGrid.Background = mode == "Opaque"
+            ? new SolidColorBrush(GetWindowSurfaceColor(isDark))
+            : null;
+        ApplyWindowChrome(this, isDark, null, null);
+        if (_advParamsWindow != null)
+        {
+            ApplyTransparencyToWindow(_advParamsWindow, mode, _advRootPanel);
+            ApplyWindowChrome(_advParamsWindow, isDark, _advTitleBarGrid, _advRootPanel);
+        }
+    }
+
+    private void ApplyTransparencyToWindow(Window window, string mode, Panel? rootPanel)
+    {
+        try
+        {
+            if (mode == "Opaque")
+            {
+                window.SystemBackdrop = null;
+                return;
+            }
+
+            // "减少"透明度使用 Mica（比 Desktop Acrylic 更不透明），
+            // "标准"透明度继续使用 Desktop Acrylic（强模糊、强透明）。
+            window.SystemBackdrop = mode == "Lesser"
+                ? new MicaBackdrop { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base }
+                : new DesktopAcrylicBackdrop();
+        }
+        catch (Exception ex)
+        {
+            DebugLog($"[外观] 应用透明度失败: {ex.Message}");
+        }
     }
 
     // ═══════════════════════════════════════════════════════════

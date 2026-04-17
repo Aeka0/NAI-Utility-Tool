@@ -141,6 +141,9 @@ public sealed partial class MainWindow
         MenuThemeSystem.Text = L("menu.settings.theme.system");
         MenuThemeLight.Text = L("menu.settings.theme.light");
         MenuThemeDark.Text = L("menu.settings.theme.dark");
+        MenuTransparencyStandard.Text = L("menu.settings.transparency.standard");
+        MenuTransparencyLesser.Text = L("menu.settings.transparency.lesser");
+        MenuTransparencyOpaque.Text = L("menu.settings.transparency.opaque");
         MenuLanguage.Text = L("menu.settings.language");
         MenuLanguageEnglish.Text = _loc.GetLanguageDisplayName("en_us");
         MenuLanguageZhCn.Text = _loc.GetLanguageDisplayName("zh_cn");

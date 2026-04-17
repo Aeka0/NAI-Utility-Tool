@@ -336,6 +336,8 @@ public sealed partial class MainWindow : Window
 
         ApplyTheme(_settings.Settings.ThemeMode);
         SyncThemeMenuChecks(_settings.Settings.ThemeMode);
+        ApplyTransparency(_settings.Settings.AppearanceTransparency);
+        SyncTransparencyMenuChecks(_settings.Settings.AppearanceTransparency);
 
         MaskCanvas.ZoomChanged += z => TxtZoomInfo.Text = Lf("status.zoom", z * 100);
         MaskCanvas.UseAssetProtectionCanvasSizing = IsAssetProtectionSizeLimitEnabled();
