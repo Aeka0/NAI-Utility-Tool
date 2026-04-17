@@ -143,7 +143,7 @@ public sealed partial class MainWindow
         {
             Content = L("dialog.advanced.variety"),
             IsChecked = p.Variety,
-            Language = "en-US",
+            Language = UiLanguageTag,
             VerticalContentAlignment = VerticalAlignment.Center
         };
         _advChkVariety.Visibility = Visibility.Visible;

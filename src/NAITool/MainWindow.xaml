@@ -631,7 +631,6 @@
 
                             <CheckBox x:Name="ChkVariety"
                                       Content=""
-                                      Language="en-US"
                                       VerticalContentAlignment="Center"/>
 
                             <Button x:Name="BtnAdvancedParams" Click="OnAdvancedParams"

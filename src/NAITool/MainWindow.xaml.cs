@@ -291,6 +291,22 @@ public sealed partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine($"[Startup] App root: {AppRootDir}");
         System.Diagnostics.Debug.WriteLine($"[Startup] BaseDirectory: {AppContext.BaseDirectory}");
 
+        _settings.Load();
+        try
+        {
+            bool persistDetectedLanguage = string.IsNullOrWhiteSpace(_settings.Settings.LanguageCode);
+            _settings.Settings.LanguageCode = _loc.Initialize(_settings.Settings.LanguageCode);
+            if (persistDetectedLanguage)
+                _settings.Save();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Localization] MainWindow initialization failed: {ex.Message}");
+            _settings.Settings.LanguageCode = LocalizationService.NormalizeLanguageCode(_settings.Settings.LanguageCode);
+        }
+
+        _loc.LanguageChanged += OnAppLanguageChanged;
+
         this.InitializeComponent();
 
         ExtendsContentIntoTitleBar = true;
@@ -317,13 +333,6 @@ public sealed partial class MainWindow : Window
             _settings.Save();
             _reverseTaggerService.Dispose();
         };
-
-        _settings.Load();
-        bool persistDetectedLanguage = string.IsNullOrWhiteSpace(_settings.Settings.LanguageCode);
-        _settings.Settings.LanguageCode = _loc.Initialize(_settings.Settings.LanguageCode);
-        _loc.LanguageChanged += OnAppLanguageChanged;
-        if (persistDetectedLanguage)
-            _settings.Save();
 
         DebugLog($"[Startup] App root={AppRootDir} | DevLog={_settings.Settings.DevLogEnabled} | Language={_settings.Settings.LanguageCode}");
         ApplyRememberedPromptAndParameterPreference();

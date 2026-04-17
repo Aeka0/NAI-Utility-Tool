@@ -4,7 +4,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using Windows.Globalization;
 using Windows.System.UserProfile;
 
 namespace NAITool.Services;
@@ -104,14 +106,93 @@ public sealed class LocalizationService
 
     public string DetectSystemLanguageCode()
     {
+        if (TryGetSystemPreferredLanguageCode(out string systemLanguage))
+            return systemLanguage;
+
+        if (TryGetSupportedLanguageCode(CultureInfo.CurrentCulture.Name, out string currentCulture))
+            return currentCulture;
+
+        if (TryGetSupportedLanguageCode(CultureInfo.CurrentUICulture.Name, out string currentUiCulture))
+            return currentUiCulture;
+
         foreach (string language in GlobalizationPreferences.Languages)
         {
-            string normalized = NormalizeLanguageCode(language);
-            if (SupportedLanguages.Any(x => x.Code == normalized))
+            if (TryGetSupportedLanguageCode(language, out string normalized))
                 return normalized;
         }
 
-        return NormalizeLanguageCode(CultureInfo.CurrentUICulture.Name);
+        return NormalizeLanguageCode(null);
+    }
+
+    private static bool TryGetSystemPreferredLanguageCode(out string normalized)
+    {
+        normalized = "";
+
+        try
+        {
+            const uint muiLanguageName = 0x8;
+            uint bufferLength = 0;
+            bool sizeRead = GetSystemPreferredUILanguages(muiLanguageName, out uint languageCount, null, ref bufferLength);
+            if (!sizeRead && bufferLength == 0)
+                return false;
+
+            if (languageCount == 0 || bufferLength == 0)
+                return false;
+
+            char[] buffer = new char[bufferLength];
+            if (!GetSystemPreferredUILanguages(muiLanguageName, out languageCount, buffer, ref bufferLength))
+                return false;
+
+            foreach (string language in new string(buffer).Split('\0', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (TryGetSupportedLanguageCode(language, out normalized))
+                    return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Localization] System preferred language detection failed: {ex.Message}");
+        }
+
+        normalized = "";
+        return false;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool GetSystemPreferredUILanguages(
+        uint dwFlags,
+        out uint pulNumLanguages,
+        [Out] char[]? pwszLanguagesBuffer,
+        ref uint pcchLanguagesBuffer);
+
+    private static bool TryGetSupportedLanguageCode(string? languageCode, out string normalized)
+    {
+        normalized = "";
+        if (string.IsNullOrWhiteSpace(languageCode))
+            return false;
+
+        string value = languageCode.Trim().Replace('-', '_').ToLowerInvariant();
+        string? mapped = value switch
+        {
+            "en" or "en_us" or "en_gb" or "english" => "en_us",
+            "zh" or "zh_cn" or "zh_sg" or "zh_hans" or "zh_chs" or "chs" or "simplified_chinese" => "zh_cn",
+            "zh_tw" or "zh_hk" or "zh_mo" or "zh_hant" or "zh_cht" or "cht" or "traditional_chinese" => "zh_tw",
+            "ja" or "ja_jp" or "japanese" => "ja_jp",
+            _ when value.StartsWith("zh_hant", StringComparison.Ordinal) ||
+                   value.StartsWith("zh_tw", StringComparison.Ordinal) ||
+                   value.StartsWith("zh_hk", StringComparison.Ordinal) ||
+                   value.StartsWith("zh_mo", StringComparison.Ordinal) => "zh_tw",
+            _ when value.StartsWith("zh", StringComparison.Ordinal) => "zh_cn",
+            _ when value.StartsWith("ja", StringComparison.Ordinal) => "ja_jp",
+            _ when value.StartsWith("en", StringComparison.Ordinal) => "en_us",
+            _ => null,
+        };
+
+        if (mapped == null || !SupportedLanguages.Any(x => x.Code == mapped))
+            return false;
+
+        normalized = mapped;
+        return true;
     }
 
     private static string MapCultureName(string normalized)
@@ -164,6 +245,15 @@ public sealed class LocalizationService
     {
         string cultureName = SupportedLanguages.FirstOrDefault(x => x.Code == languageCode)?.CultureName ?? "en-US";
         var culture = CultureInfo.GetCultureInfo(cultureName);
+        try
+        {
+            ApplicationLanguages.PrimaryLanguageOverride = cultureName;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Localization] PrimaryLanguageOverride failed: {ex.Message}");
+        }
+
         CultureInfo.CurrentCulture = culture;
         CultureInfo.CurrentUICulture = culture;
         CultureInfo.DefaultThreadCurrentCulture = culture;

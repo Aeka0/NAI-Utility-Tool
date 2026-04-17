@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
+using NAITool.Services;
 
 namespace NAITool;
 
@@ -14,8 +15,29 @@ public partial class App : Application
         this.UnhandledException += OnUnhandledException;
     }
 
+    private static void InitializeLocalization()
+    {
+        try
+        {
+            var settings = new SettingsService();
+            settings.Load();
+
+            bool persistDetectedLanguage = string.IsNullOrWhiteSpace(settings.Settings.LanguageCode);
+            settings.Settings.LanguageCode = LocalizationService.Instance.Initialize(settings.Settings.LanguageCode);
+
+            if (persistDetectedLanguage)
+                settings.Save();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Localization] Startup initialization failed: {ex.Message}");
+        }
+    }
+
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
+        InitializeLocalization();
+
         _splashWindow = new SplashWindow();
         _splashWindow.Activate();
 
