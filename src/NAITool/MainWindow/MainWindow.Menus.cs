@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -549,6 +549,66 @@ public sealed partial class MainWindow
 
         ApplyMenuTypography(CboModel);
         ApplyMenuTypography(CboSize);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  统一应用 UI 字体到可视树
+    //  WinAppSDK 1.8 默认字体 Segoe UI Variable Text 渲染中文时会退化到 font fallback，
+    //  line metrics 仍沿用西文字体，造成中文与 Icon 基线错位（视觉上整体偏上）。
+    //  这里递归把 Control/TextBlock 的字体设成当前语言对应的 UI 字体，
+    //  但保留 FontIcon/SymbolIcon 的符号字体、保留 Consolas 等显式等宽字体、
+    //  以及跳过 PromptTextBox（自己管理字体）。
+    // ═══════════════════════════════════════════════════════════
+    private void ApplyUiFontToVisualTree(DependencyObject? root)
+    {
+        if (root == null)
+            return;
+
+        ApplyUiFontToElement(root);
+
+        int count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            ApplyUiFontToVisualTree(child);
+        }
+    }
+
+    private void ApplyUiFontToElement(DependencyObject element)
+    {
+        switch (element)
+        {
+            case IconElement:
+                return;
+            case NAITool.Controls.PromptTextBox:
+                return;
+            case TextBlock tb:
+                if (!IsExplicitNonUiFont(tb.FontFamily))
+                {
+                    tb.FontFamily = UiTextFontFamily;
+                    tb.Language = UiLanguageTag;
+                }
+                break;
+            case Control c:
+                if (!IsExplicitNonUiFont(c.FontFamily))
+                {
+                    c.FontFamily = UiTextFontFamily;
+                    c.Language = UiLanguageTag;
+                }
+                break;
+        }
+    }
+
+    private static bool IsExplicitNonUiFont(FontFamily? font)
+    {
+        if (font?.Source is not { Length: > 0 } source)
+            return false;
+
+        return source.Contains("Consolas", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("Segoe Fluent Icons", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("Segoe MDL2 Assets", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("Courier", StringComparison.OrdinalIgnoreCase)
+            || source.Contains("Cascadia", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? GetSelectedComboText(ComboBox comboBox) =>

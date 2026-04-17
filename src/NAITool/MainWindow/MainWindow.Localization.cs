@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -100,6 +100,10 @@ public sealed partial class MainWindow
         RefreshPreciseReferencePanel();
         RefreshHistoryPanel();
         RefreshEffectsPanel();
+
+        ApplyUiFontToVisualTree(RootGrid);
+        if (_advRootPanel != null)
+            ApplyUiFontToVisualTree(_advRootPanel);
         TxtStatus.Text = Lf("status.language_changed", _loc.GetLanguageDisplayName(_settings.Settings.LanguageCode));
     }
 
@@ -115,8 +119,12 @@ public sealed partial class MainWindow
     private void ApplyLocalization()
     {
         RootGrid.Language = UiLanguageTag;
+        ApplyUiFontToVisualTree(RootGrid);
         if (_advRootPanel != null)
+        {
             _advRootPanel.Language = UiLanguageTag;
+            ApplyUiFontToVisualTree(_advRootPanel);
+        }
 
         Title = L("app.title");
         AppTitleText.Text = L("app.title");
