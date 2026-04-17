@@ -221,9 +221,11 @@ public sealed partial class MainWindow : Window
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _historyDateRefreshTimer;
     private string _historyTodayDateMarker = DateTime.Now.ToString("yyyy-MM-dd");
     private bool _superDropOverlayVisible;
+    private bool _superDropOverlayOpening;
     private bool _superDropWindowRaisedTopmost;
     private bool _superDropWindowWasTopmost;
     private int _superDropDragVersion;
+    private int _superDropBackdropVersion;
 
     // ═══ 预览拖拽 ═══
     private bool _imgDragging;

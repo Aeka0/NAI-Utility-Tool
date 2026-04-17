@@ -36,6 +36,8 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
+    private const float SuperDropBackdropBlurSigma = 18f;
+
     private bool IsSuperDropEnabled => _settings.Settings.SuperDropEnabled;
 
     private void ApplyDragDropModeSetting()
@@ -88,16 +90,31 @@ public sealed partial class MainWindow
                (includeBmp && ext.Equals(".bmp", StringComparison.OrdinalIgnoreCase));
     }
 
-    private void ShowSuperDropOverlay()
+    private async void ShowSuperDropOverlay()
     {
         if (!IsSuperDropEnabled)
             return;
 
         RaiseSuperDropWindowToTopmost();
 
-        if (_superDropOverlayVisible)
+        if (_superDropOverlayVisible || _superDropOverlayOpening)
             return;
 
+        _superDropOverlayOpening = true;
+        int backdropVersion = ++_superDropBackdropVersion;
+        SuperDropOverlay.Visibility = Visibility.Collapsed;
+        SuperDropOverlay.Opacity = 0;
+        SuperDropBlurredBackdrop.Opacity = 0;
+        SuperDropBlurredBackdrop.Source = null;
+        await RefreshSuperDropBackdropAsync(backdropVersion);
+
+        if (!IsSuperDropEnabled || backdropVersion != _superDropBackdropVersion)
+        {
+            _superDropOverlayOpening = false;
+            return;
+        }
+
+        _superDropOverlayOpening = false;
         _superDropOverlayVisible = true;
         SuperDropOverlay.Visibility = Visibility.Visible;
         SuperDropOverlay.Opacity = 0;
@@ -112,8 +129,16 @@ public sealed partial class MainWindow
 
     private void HideSuperDropOverlay()
     {
-        if (SuperDropOverlay == null || !_superDropOverlayVisible)
+        if (SuperDropOverlay == null || (!_superDropOverlayVisible && !_superDropOverlayOpening))
             return;
+
+        _superDropBackdropVersion++;
+        if (_superDropOverlayOpening && !_superDropOverlayVisible)
+        {
+            _superDropOverlayOpening = false;
+            RestoreSuperDropWindowTopmost();
+            return;
+        }
 
         _superDropOverlayVisible = false;
         ResetSuperDropCardHighlights();
@@ -127,9 +152,107 @@ public sealed partial class MainWindow
         storyboard.Completed += (_, _) =>
         {
             if (!_superDropOverlayVisible)
+            {
                 SuperDropOverlay.Visibility = Visibility.Collapsed;
+                SuperDropBlurredBackdrop.Opacity = 0;
+                SuperDropBlurredBackdrop.Source = null;
+            }
         };
         storyboard.Begin();
+    }
+
+    private async Task RefreshSuperDropBackdropAsync(int version)
+    {
+        try
+        {
+            if (RootGrid.ActualWidth <= 0 || RootGrid.ActualHeight <= 0)
+                return;
+
+            var renderTarget = new RenderTargetBitmap();
+            await renderTarget.RenderAsync(RootGrid);
+            if (version != _superDropBackdropVersion)
+                return;
+
+            int width = renderTarget.PixelWidth;
+            int height = renderTarget.PixelHeight;
+            if (width <= 0 || height <= 0)
+                return;
+
+            var buffer = await renderTarget.GetPixelsAsync();
+            byte[] pixels = buffer.ToArray();
+            bool isDark = IsDarkTheme();
+            byte[] blurredPixels = await Task.Run(() =>
+                CreateSuperDropBlurredPixels(pixels, width, height, isDark));
+            if (version != _superDropBackdropVersion)
+                return;
+
+            var bitmap = new WriteableBitmap(width, height);
+            using (var stream = bitmap.PixelBuffer.AsStream())
+                stream.Write(blurredPixels, 0, blurredPixels.Length);
+            bitmap.Invalidate();
+
+            SuperDropBlurredBackdrop.Source = bitmap;
+            SuperDropBlurredBackdrop.Opacity = 1;
+        }
+        catch
+        {
+            SuperDropBlurredBackdrop.Source = null;
+            SuperDropBlurredBackdrop.Opacity = 0;
+        }
+    }
+
+    private static byte[] CreateSuperDropBlurredPixels(byte[] pixels, int width, int height, bool isDark)
+    {
+        byte fallbackR = isDark ? (byte)32 : (byte)248;
+        byte fallbackG = isDark ? (byte)32 : (byte)248;
+        byte fallbackB = isDark ? (byte)34 : (byte)248;
+        CompositeTransparentPixelsOverFallback(pixels, fallbackR, fallbackG, fallbackB);
+
+        var imageInfo = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Opaque);
+        using var sourceBitmap = new SKBitmap(imageInfo);
+        Marshal.Copy(pixels, 0, sourceBitmap.GetPixels(), Math.Min(pixels.Length, sourceBitmap.ByteCount));
+
+        using var surface = SKSurface.Create(imageInfo);
+        using var image = SKImage.FromBitmap(sourceBitmap);
+        using var filter = SKImageFilter.CreateBlur(
+            SuperDropBackdropBlurSigma,
+            SuperDropBackdropBlurSigma,
+            SKShaderTileMode.Clamp);
+        using var paint = new SKPaint { ImageFilter = filter };
+        surface.Canvas.Clear(SKColors.Transparent);
+        surface.Canvas.DrawImage(image, 0, 0, paint);
+        surface.Canvas.Flush();
+
+        using var snapshot = surface.Snapshot();
+        using var blurredBitmap = SKBitmap.FromImage(snapshot);
+        byte[] blurredPixels = new byte[width * height * 4];
+        Marshal.Copy(blurredBitmap.GetPixels(), blurredPixels, 0, blurredPixels.Length);
+        return blurredPixels;
+    }
+
+    private static void CompositeTransparentPixelsOverFallback(byte[] pixels, byte fallbackR, byte fallbackG, byte fallbackB)
+    {
+        for (int i = 0; i + 3 < pixels.Length; i += 4)
+        {
+            byte alpha = pixels[i + 3];
+            if (alpha == 255)
+                continue;
+
+            if (alpha == 0)
+            {
+                pixels[i] = fallbackB;
+                pixels[i + 1] = fallbackG;
+                pixels[i + 2] = fallbackR;
+                pixels[i + 3] = 255;
+                continue;
+            }
+
+            int inverseAlpha = 255 - alpha;
+            pixels[i] = (byte)Math.Min(255, pixels[i] + ((fallbackB * inverseAlpha + 127) / 255));
+            pixels[i + 1] = (byte)Math.Min(255, pixels[i + 1] + ((fallbackG * inverseAlpha + 127) / 255));
+            pixels[i + 2] = (byte)Math.Min(255, pixels[i + 2] + ((fallbackR * inverseAlpha + 127) / 255));
+            pixels[i + 3] = 255;
+        }
     }
 
     private void RaiseSuperDropWindowToTopmost()
@@ -297,8 +420,14 @@ public sealed partial class MainWindow
 
     private void OnSuperDropDragLeave(object sender, DragEventArgs e)
     {
-        if (!IsSuperDropEnabled || SuperDropOverlay.Visibility != Visibility.Visible)
+        if (!IsSuperDropEnabled || (SuperDropOverlay.Visibility != Visibility.Visible && !_superDropOverlayOpening))
             return;
+
+        if (_superDropOverlayOpening)
+        {
+            HideSuperDropOverlay();
+            return;
+        }
 
         var p = e.GetPosition(RootGrid);
         if (p.X < 0 || p.Y < 0 || p.X > RootGrid.ActualWidth || p.Y > RootGrid.ActualHeight)

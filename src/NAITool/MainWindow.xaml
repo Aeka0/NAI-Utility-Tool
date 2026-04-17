@@ -1207,15 +1207,12 @@
               DragOver="OnSuperDropDragOver"
               DragLeave="OnSuperDropDragLeave"
               Drop="OnSuperDropRootDrop">
-            <!-- 模糊层：如果遇到透明区域，会使用 Transparent 回退，避免黑块 -->
-            <Border>
-                <Border.Background>
-                    <AcrylicBrush TintColor="Black"
-                                  TintOpacity="0.0"
-                                  TintLuminosityOpacity="0"
-                                  FallbackColor="Transparent"/>
-                </Border.Background>
-            </Border>
+            <Border x:Name="SuperDropBackdropFallback"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+            <Image x:Name="SuperDropBlurredBackdrop"
+                   Stretch="Fill"
+                   Opacity="0"
+                   IsHitTestVisible="False"/>
             <!-- 压暗层：提供统一的 25% 黑色遮罩，确保空白区域和内容区域亮度一致 -->
             <Border Background="#40000000"/>
             
