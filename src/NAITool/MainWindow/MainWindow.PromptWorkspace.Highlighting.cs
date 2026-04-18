@@ -304,8 +304,8 @@ public sealed partial class MainWindow
         });
     }
 
-    private static readonly Regex PromptWeightHighlightRegex = new(@"(\d+\.?\d*)::", RegexOptions.Compiled);
     private static readonly Regex WildcardHighlightExplicitRegex = new(@"__(.+?)__", RegexOptions.Compiled);
+    private readonly record struct PromptWeightHighlightSpan(int Start, int Length, double Weight);
 
     private void ApplyHighlightsFor(PromptTextBox textBox)
     {
@@ -323,42 +323,105 @@ public sealed partial class MainWindow
             ? Windows.UI.Color.FromArgb(55, 168, 85, 247)
             : Windows.UI.Color.FromArgb(65, 147, 51, 234);
 
-        var matches = PromptWeightHighlightRegex.Matches(text);
+        var weightSpans = FindPromptWeightHighlightSpans(text);
         if (_settings.Settings.DevLogEnabled)
-            DebugLog($"ApplyHighlightsFor: textBox={textBox.Name}, text.len={text.Length}, matches={matches.Count}, textBox.W={textBox.ActualWidth}, textBox.H={textBox.ActualHeight}");
+            DebugLog($"ApplyHighlightsFor: textBox={textBox.Name}, text.len={text.Length}, matches={weightSpans.Count}, textBox.W={textBox.ActualWidth}, textBox.H={textBox.ActualHeight}");
 
         var highlights = new List<PromptTextHighlight>();
         int drawn = 0;
-        for (int i = 0; i < matches.Count; i++)
+        for (int i = 0; i < weightSpans.Count; i++)
         {
-            var m = matches[i];
-            if (!double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out double w) || w == 1.0)
+            var span = weightSpans[i];
+            if (span.Weight == 1.0)
             {
                 if (_settings.Settings.DevLogEnabled)
-                    DebugLog($"  match[{i}] '{m.Value}' w={m.Groups[1].Value} -> skip (w=1 or parse fail)");
+                    DebugLog($"  match[{i}] start={span.Start}, len={span.Length}, w=1 -> skip");
                 continue;
             }
 
-            int contentStart = m.Index + m.Length;
-            int searchEnd = (i + 1 < matches.Count) ? matches[i + 1].Index : text.Length;
-
-            int closingIdx = -1;
-            int searchLen = searchEnd - contentStart;
-            if (searchLen >= 2)
-                closingIdx = text.IndexOf("::", contentStart, searchLen);
-
-            int segEnd = (closingIdx >= 0) ? closingIdx + 2 : searchEnd;
             if (_settings.Settings.DevLogEnabled)
-                DebugLog($"  match[{i}] '{m.Value}' w={w}, start={m.Index}, len={segEnd - m.Index}");
+                DebugLog($"  match[{i}] w={span.Weight}, start={span.Start}, len={span.Length}");
 
-            AddSegmentHighlight(highlights, text.Length, m.Index, segEnd - m.Index, w > 1 ? greenColor : redColor);
+            AddSegmentHighlight(highlights, text.Length, span.Start, span.Length, span.Weight > 1 ? greenColor : redColor);
             drawn++;
         }
 
         AddWildcardHighlights(highlights, text, purpleColor);
         textBox.ApplyHighlights(highlights);
         if (_settings.Settings.DevLogEnabled) DebugLog($"  drawn={drawn}, highlights={highlights.Count}");
+    }
+
+    private static List<PromptWeightHighlightSpan> FindPromptWeightHighlightSpans(string text)
+    {
+        var spans = new List<PromptWeightHighlightSpan>();
+        int index = 0;
+        while (index < text.Length)
+        {
+            if (!IsPromptWeightBoundary(text, index)
+                || !TryReadPromptWeightPrefix(text, index, out double weight, out int contentStart))
+            {
+                index++;
+                continue;
+            }
+
+            int close = text.IndexOf("::", contentStart, StringComparison.Ordinal);
+            if (close < 0)
+            {
+                index = contentStart;
+                continue;
+            }
+
+            int end = close + 2;
+            spans.Add(new PromptWeightHighlightSpan(index, end - index, weight));
+            index = end;
+        }
+
+        return spans;
+    }
+
+    private static bool IsPromptWeightBoundary(string text, int index)
+    {
+        if (index <= 0) return true;
+        char previous = text[index - 1];
+        return char.IsWhiteSpace(previous)
+            || previous is ',' or '，' or '(' or '[' or '{' or '<';
+    }
+
+    private static bool TryReadPromptWeightPrefix(string text, int start, out double weight, out int contentStart)
+    {
+        weight = 1.0;
+        contentStart = start;
+
+        int i = start;
+        if (i < text.Length && text[i] is '+' or '-')
+            i++;
+
+        bool hasDigits = false;
+        while (i < text.Length && char.IsDigit(text[i]))
+        {
+            hasDigits = true;
+            i++;
+        }
+
+        if (i < text.Length && text[i] == '.')
+        {
+            i++;
+            while (i < text.Length && char.IsDigit(text[i]))
+            {
+                hasDigits = true;
+                i++;
+            }
+        }
+
+        if (!hasDigits || i + 1 >= text.Length || text[i] != ':' || text[i + 1] != ':')
+            return false;
+
+        string numberText = text[start..i];
+        if (!double.TryParse(numberText, NumberStyles.Float, CultureInfo.InvariantCulture, out weight))
+            return false;
+
+        contentStart = i + 2;
+        return true;
     }
 
     private void AddWildcardHighlights(List<PromptTextHighlight> highlights, string text, Windows.UI.Color color)

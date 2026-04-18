@@ -173,7 +173,6 @@ public sealed partial class MainWindow
         var textBox = new PromptTextBox
         {
             Background = (Brush)Application.Current.Resources["ControlFillColorTransparentBrush"],
-            Foreground = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"],
             AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
             IsSpellCheckEnabled = false,
             PlaceholderText = entry.IsPositiveTab ? L("character.prompt_positive_placeholder") : L("character.prompt_negative_placeholder"),
