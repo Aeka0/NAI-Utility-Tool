@@ -75,7 +75,7 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock x:Name="AppTitleText" Grid.Column="0" Text="NAI Utility Tool"
-                       FontSize="14" FontWeight="SemiBold"
+                       FontSize="14" FontWeight="Bold"
                        VerticalAlignment="Center" Margin="16,0,16,0"
                        IsHitTestVisible="False"/>
 
