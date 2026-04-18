@@ -303,14 +303,29 @@ public sealed partial class MainWindow
         UpdateFileMenuState();
     }
 
-    private async Task<byte[]?> GetInspectSaveBytesAsync(bool stripMetadata)
+    private async Task<byte[]?> GetInspectSaveBytesAsync(bool stripMetadata, bool forcePng = false)
     {
         if (_inspectImageBytes == null) return null;
+
+        var imageBytes = forcePng && !HasPngSignature(_inspectImageBytes)
+            ? await Task.Run(() => EnsurePngEncoded(_inspectImageBytes))
+            : _inspectImageBytes;
+
         if (stripMetadata)
-            return await Task.Run(() => ImageMetadataService.StripPngMetadata(_inspectImageBytes));
+        {
+            if (!HasPngSignature(imageBytes))
+                imageBytes = await Task.Run(() => EnsurePngEncoded(imageBytes));
+            return await Task.Run(() => ImageMetadataService.StripPngMetadata(imageBytes));
+        }
+
         if (_inspectRawModified && _inspectMetadata != null)
-            return await Task.Run(() => ImageMetadataService.ReplacePngComment(_inspectImageBytes, _inspectMetadata.RawJson));
-        return _inspectImageBytes;
+        {
+            if (!HasPngSignature(imageBytes))
+                imageBytes = await Task.Run(() => EnsurePngEncoded(imageBytes));
+            return await Task.Run(() => ImageMetadataService.ReplacePngComment(imageBytes, _inspectMetadata.RawJson));
+        }
+
+        return imageBytes;
     }
 
     private async Task SaveInspectOverwriteAsync()
@@ -318,19 +333,21 @@ public sealed partial class MainWindow
         if (!_inspectRawModified)
         { TxtStatus.Text = L("inspect.raw.unchanged"); return; }
 
-        var bytesToSave = await GetInspectSaveBytesAsync(stripMetadata: false);
-        if (bytesToSave == null)
-        { TxtStatus.Text = L("file.error.no_image_to_save"); return; }
-
         if (!string.IsNullOrEmpty(_inspectImagePath) && File.Exists(_inspectImagePath))
         {
+            var savePath = ResolveOverwriteSavePath(_inspectImagePath, out bool redirectedToPng);
+            var bytesToSave = await GetInspectSaveBytesAsync(stripMetadata: false, forcePng: redirectedToPng);
+            if (bytesToSave == null)
+            { TxtStatus.Text = L("file.error.no_image_to_save"); return; }
+
             try
             {
-                await File.WriteAllBytesAsync(_inspectImagePath, bytesToSave);
+                await File.WriteAllBytesAsync(savePath, bytesToSave);
                 _inspectImageBytes = bytesToSave;
+                _inspectImagePath = savePath;
                 _inspectRawModified = false;
                 UpdateInspectSaveState();
-                TxtStatus.Text = Lf("file.saved_path", _inspectImagePath);
+                TxtStatus.Text = Lf("file.saved_path", savePath);
             }
             catch (Exception ex) { TxtStatus.Text = Lf("common.save_failed", ex.Message); }
         }
@@ -351,15 +368,20 @@ public sealed partial class MainWindow
 
         if (!string.IsNullOrEmpty(_effectsImagePath) && File.Exists(_effectsImagePath))
         {
+            var savePath = ResolveOverwriteSavePath(_effectsImagePath, out bool redirectedToPng);
+            if (redirectedToPng)
+                bytesToSave = await Task.Run(() => EnsurePngEncoded(bytesToSave));
+
             try
             {
-                await File.WriteAllBytesAsync(_effectsImagePath, bytesToSave);
+                await File.WriteAllBytesAsync(savePath, bytesToSave);
                 _effectsImageBytes = bytesToSave;
                 _effectsPreviewImageBytes = bytesToSave;
+                _effectsImagePath = savePath;
                 ReplaceEffectsSourceBitmap(bytesToSave);
                 MarkEffectsWorkspaceClean();
                 UpdateFileMenuState();
-                TxtStatus.Text = Lf("file.saved_path", _effectsImagePath);
+                TxtStatus.Text = Lf("file.saved_path", savePath);
             }
             catch (Exception ex)
             {

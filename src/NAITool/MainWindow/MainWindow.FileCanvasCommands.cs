@@ -36,6 +36,40 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
+    private static bool IsPngFilePath(string filePath) =>
+        string.Equals(Path.GetExtension(filePath), ".png", StringComparison.OrdinalIgnoreCase);
+
+    private static string ResolveOverwriteSavePath(string filePath, out bool redirectedToPng)
+    {
+        redirectedToPng = !IsPngFilePath(filePath);
+        return redirectedToPng ? Path.ChangeExtension(filePath, ".png") : filePath;
+    }
+
+    private static bool HasPngSignature(byte[] data) =>
+        data.Length >= 8 &&
+        data[0] == 137 &&
+        data[1] == 80 &&
+        data[2] == 78 &&
+        data[3] == 71 &&
+        data[4] == 13 &&
+        data[5] == 10 &&
+        data[6] == 26 &&
+        data[7] == 10;
+
+    private static byte[] EnsurePngEncoded(byte[] imageBytes)
+    {
+        if (HasPngSignature(imageBytes))
+            return imageBytes;
+
+        using var bitmap = SKBitmap.Decode(imageBytes);
+        if (bitmap == null)
+            return imageBytes;
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        return data?.ToArray() ?? imageBytes;
+    }
+
     // ═══════════════════════════════════════════════════════════
     //  菜单事件
     // ═══════════════════════════════════════════════════════════
@@ -126,37 +160,42 @@ public sealed partial class MainWindow
         if (previewBytes == null || previewBytes.Length == 0)
         { TxtStatus.Text = L("file.error.no_image_content_to_save"); return; }
 
-        string sizeWarning = "";
-        try
+        var savePath = ResolveOverwriteSavePath(filePath, out bool redirectedToPng);
+
+        if (!redirectedToPng)
         {
-            var fileInfo = new FileInfo(filePath);
-            if (fileInfo.Exists)
+            string sizeWarning = "";
+            try
             {
-                using var origStream = File.OpenRead(filePath);
-                using var skBmp = SkiaSharp.SKBitmap.Decode(origStream);
-                if (skBmp != null)
+                var fileInfo = new FileInfo(filePath);
+                if (fileInfo.Exists)
                 {
-                    using var newStream = new MemoryStream(previewBytes);
-                    using var newBmp = SkiaSharp.SKBitmap.Decode(newStream);
-                    if (newBmp != null && (skBmp.Width != newBmp.Width || skBmp.Height != newBmp.Height))
-                        sizeWarning = Lf("file.confirm_save.size_warning", skBmp.Width, skBmp.Height, newBmp.Width, newBmp.Height);
+                    using var origStream = File.OpenRead(filePath);
+                    using var skBmp = SkiaSharp.SKBitmap.Decode(origStream);
+                    if (skBmp != null)
+                    {
+                        using var newStream = new MemoryStream(previewBytes);
+                        using var newBmp = SkiaSharp.SKBitmap.Decode(newStream);
+                        if (newBmp != null && (skBmp.Width != newBmp.Width || skBmp.Height != newBmp.Height))
+                            sizeWarning = Lf("file.confirm_save.size_warning", skBmp.Width, skBmp.Height, newBmp.Width, newBmp.Height);
+                    }
                 }
             }
+            catch { }
+
+            var dialog = new ContentDialog
+            {
+                Title = L("file.confirm_save.title"),
+                Content = Lf("file.confirm_save.overwrite", filePath, sizeWarning),
+                PrimaryButtonText = L("common.save"),
+                CloseButtonText = L("common.cancel"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.Content.XamlRoot,
+                RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         }
-        catch { }
-
-        var dialog = new ContentDialog
-        {
-            Title = L("file.confirm_save.title"),
-            Content = Lf("file.confirm_save.overwrite", filePath, sizeWarning),
-            PrimaryButtonText = L("common.save"),
-            CloseButtonText = L("common.cancel"),
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = this.Content.XamlRoot,
-            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
-        };
-
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
         byte[]? bytesToSave;
         try { bytesToSave = await BuildI2ISaveBytesAsync(stripMetadata: false); }
@@ -165,11 +204,16 @@ public sealed partial class MainWindow
         if (bytesToSave == null || bytesToSave.Length == 0)
         { TxtStatus.Text = L("file.error.no_image_content_to_save"); return; }
 
+        if (redirectedToPng)
+            bytesToSave = await Task.Run(() => EnsurePngEncoded(bytesToSave));
+
         try
         {
-            await File.WriteAllBytesAsync(filePath, bytesToSave);
+            await File.WriteAllBytesAsync(savePath, bytesToSave);
+            if (redirectedToPng)
+                MaskCanvas.SetLoadedFilePath(savePath);
             MarkI2IWorkspaceClean();
-            TxtStatus.Text = Lf("file.saved_path", filePath);
+            TxtStatus.Text = Lf("file.saved_path", savePath);
         }
         catch (Exception ex) { TxtStatus.Text = Lf("common.save_failed", ex.Message); }
     }
@@ -271,6 +315,8 @@ public sealed partial class MainWindow
 
             if (bytesToSave == null || bytesToSave.Length == 0)
             { TxtStatus.Text = L("file.error.no_image_to_save"); return; }
+
+            bytesToSave = await Task.Run(() => EnsurePngEncoded(bytesToSave));
 
             try
             {

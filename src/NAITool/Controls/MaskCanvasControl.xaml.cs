@@ -159,6 +159,11 @@ public sealed partial class MaskCanvasControl : UserControl
     /// <summary>导入图片的原始文件路径（用于"保存"覆盖写回）。</summary>
     public string? LoadedFilePath => _loadedFilePath;
 
+    public void SetLoadedFilePath(string? filePath)
+    {
+        _loadedFilePath = !string.IsNullOrWhiteSpace(filePath) ? filePath : null;
+    }
+
     /// <summary>对比模式：按住时临时隐藏预览结果，显示底图。</summary>
     public bool IsComparing
     {
