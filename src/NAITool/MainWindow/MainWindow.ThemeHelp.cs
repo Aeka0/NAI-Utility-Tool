@@ -73,10 +73,8 @@ public sealed partial class MainWindow
                 ? new SolidColorBrush(GetWindowSurfaceColor(isDark))
                 : null;
 
-            if (_advParamsWindow?.Content is FrameworkElement advRoot)
-                advRoot.RequestedTheme = root.RequestedTheme;
-            if (_advParamsWindow != null)
-                ApplyWindowChrome(_advParamsWindow, isDark, _advTitleBarGrid, _advRootPanel);
+            if (_advRootPanel != null)
+                _advRootPanel.RequestedTheme = root.RequestedTheme;
 
             RefreshEffectsPanel();
             RefreshEffectsOverlay();
@@ -710,11 +708,6 @@ public sealed partial class MainWindow
             ? new SolidColorBrush(GetWindowSurfaceColor(isDark))
             : null;
         ApplyWindowChrome(this, isDark, null, null);
-        if (_advParamsWindow != null)
-        {
-            ApplyTransparencyToWindow(_advParamsWindow, mode, _advRootPanel);
-            ApplyWindowChrome(_advParamsWindow, isDark, _advTitleBarGrid, _advRootPanel);
-        }
     }
 
     private void ApplyTransparencyToWindow(Window window, string mode, Panel? rootPanel)

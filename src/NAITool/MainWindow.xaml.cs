@@ -124,8 +124,8 @@ public sealed partial class MainWindow : Window
     private int _customHeight = 1216;
     private bool _isUpdatingMaxSize;
 
-    // ═══ 高级参数独立窗口 ═══
-    private Window? _advParamsWindow;
+    // ═══ 高级参数 Flyout ═══
+    private Flyout? _advParamsFlyout;
     private ComboBox _advCboSize = null!;
     private ComboBox _advCboSampler = null!;
     private ComboBox _advCboSchedule = null!;
@@ -142,7 +142,6 @@ public sealed partial class MainWindow : Window
     private NumberBox _advNbMaxHeight = null!;
     private Grid _advMaxSizePanel = null!;
     private StackPanel? _advRootPanel;
-    private Grid? _advTitleBarGrid;
 
     // ═══ 权重高亮 ═══
     private int _promptHighlightVer;

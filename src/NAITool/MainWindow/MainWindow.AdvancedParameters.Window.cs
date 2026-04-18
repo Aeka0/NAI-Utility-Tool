@@ -36,7 +36,7 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
-    private bool IsAdvancedWindowOpen => _advParamsWindow != null;
+    private bool IsAdvancedWindowOpen => _advParamsFlyout != null;
     private bool _isSyncingSidebarAdv;
 
     private void SetupSidebarAdvancedSync()
@@ -75,9 +75,9 @@ public sealed partial class MainWindow
 
     private void OnAdvancedParams(object sender, RoutedEventArgs e)
     {
-        if (_advParamsWindow != null)
+        if (IsAdvancedWindowOpen)
         {
-            _advParamsWindow.Activate();
+            _advRootPanel?.Focus(FocusState.Programmatic);
             return;
         }
         ShowAdvancedParamsWindow();
@@ -88,10 +88,6 @@ public sealed partial class MainWindow
         SyncUIToParams();
         var p = CurrentParams;
         int maxSteps = IsAssetProtectionStepLimitEnabled() ? 28 : 50;
-
-        var window = new Window();
-        window.Title = L("dialog.advanced.title");
-        window.ExtendsContentIntoTitleBar = true;
 
         _advCboSize = new ComboBox
         {
@@ -249,26 +245,13 @@ public sealed partial class MainWindow
         sizeStack.Children.Add(_advCboSize);
         sizeStack.Children.Add(_advMaxSizePanel);
 
-        // Custom title bar with grip and label
-        var titleBarGrid = new Grid { Height = 40, Padding = new Thickness(12, 0, 0, 0) };
-        titleBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        titleBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var gripIcon = new FontIcon
-        {
-            FontFamily = SymbolFontFamily, Glyph = "\uE76F", FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center, Opacity = 0.5,
-        };
-        Grid.SetColumn(gripIcon, 0);
         var titleText = new TextBlock
         {
             Text = L("dialog.advanced.title"), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, FontSize = 13,
-            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0),
+            Margin = new Thickness(0, 0, 0, 12),
         };
-        Grid.SetColumn(titleText, 1);
-        titleBarGrid.Children.Add(gripIcon);
-        titleBarGrid.Children.Add(titleText);
 
-        var paramsGrid = new Grid { Padding = new Thickness(16, 4, 16, 16), ColumnSpacing = 10, RowSpacing = 10 };
+        var paramsGrid = new Grid { ColumnSpacing = 10, RowSpacing = 10 };
         paramsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         paramsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         for (int i = 0; i < 5; i++)
@@ -319,63 +302,54 @@ public sealed partial class MainWindow
         paramsGrid.Children.Add(_advChkVariety);
         paramsGrid.Children.Add(_advChkSmea);
 
-        var rootPanel = new StackPanel();
+        var rootPanel = new StackPanel
+        {
+            Width = 500,
+            Padding = new Thickness(4),
+        };
         rootPanel.Language = UiLanguageTag;
-        rootPanel.Children.Add(titleBarGrid);
+        rootPanel.Children.Add(titleText);
         rootPanel.Children.Add(paramsGrid);
         rootPanel.IsTabStop = true;
         rootPanel.Loaded += (_, _) => rootPanel.Focus(FocusState.Programmatic);
 
-        window.Content = rootPanel;
-        window.SetTitleBar(titleBarGrid);
-
         if (this.Content is FrameworkElement mainRoot)
-            ((FrameworkElement)window.Content).RequestedTheme = mainRoot.RequestedTheme;
+            rootPanel.RequestedTheme = mainRoot.RequestedTheme;
 
-        _advParamsWindow = window;
+        var flyout = new Flyout
+        {
+            Content = rootPanel,
+            Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.RightEdgeAlignedTop,
+            ShouldConstrainToRootBounds = false,
+            FlyoutPresenterStyle = CreateUnconstrainedAdvancedFlyoutPresenterStyle(),
+        };
+
+        _advParamsFlyout = flyout;
         _advRootPanel = rootPanel;
-        _advTitleBarGrid = titleBarGrid;
 
         UpdateAdvSizeWarningVisuals();
         UpdateAdvStepsWarning();
 
-        var appWindow = GetAppWindowForWindow(window);
-        if (appWindow != null)
-        {
-            double dpiScale = this.Content.XamlRoot?.RasterizationScale ?? 1.0;
-            int physW = (int)(540 * dpiScale);
-            int physH = (int)(480 * dpiScale);
-            appWindow.Resize(new SizeInt32(physW, physH));
-            appWindow.SetIcon("NAIT.ico");
-            if (appWindow.Presenter is OverlappedPresenter presenter)
-            {
-                presenter.IsMinimizable = false;
-                presenter.IsMaximizable = false;
-                presenter.IsResizable = false;
-            }
-            if (AppWindow != null)
-            {
-                var mainPos = AppWindow.Position;
-                var mainSize = AppWindow.Size;
-                appWindow.Move(new Windows.Graphics.PointInt32(
-                    mainPos.X + mainSize.Width / 2 - physW / 2,
-                    mainPos.Y + mainSize.Height / 2 - physH / 2));
-            }
-        }
-
-        window.Closed += (_, _) =>
+        flyout.Closed += (_, _) =>
         {
             SaveAdvancedPanelToSettings();
-            _advParamsWindow = null;
+            _advParamsFlyout = null;
             _advRootPanel = null;
-            _advTitleBarGrid = null;
         };
 
-        bool isDark = IsDarkTheme();
-        ApplyTransparencyToWindow(window, _settings.Settings.AppearanceTransparency, rootPanel);
-        ApplyWindowChrome(window, isDark, titleBarGrid, rootPanel);
-        window.Activated += (_, _) => ApplyWindowChrome(window, IsDarkTheme(), titleBarGrid, rootPanel);
-        window.Activate();
+        flyout.ShowAt(BtnAdvancedParams);
+    }
+
+    private static Style CreateUnconstrainedAdvancedFlyoutPresenterStyle()
+    {
+        var style = new Style(typeof(FlyoutPresenter));
+        style.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty, 10000d));
+        style.Setters.Add(new Setter(FrameworkElement.MaxHeightProperty, 10000d));
+        style.Setters.Add(new Setter(ScrollViewer.HorizontalScrollModeProperty, ScrollMode.Disabled));
+        style.Setters.Add(new Setter(ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled));
+        style.Setters.Add(new Setter(ScrollViewer.VerticalScrollModeProperty, ScrollMode.Disabled));
+        style.Setters.Add(new Setter(ScrollViewer.VerticalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled));
+        return style;
     }
 
     private static AppWindow? GetAppWindowForWindow(Window window)
@@ -387,10 +361,11 @@ public sealed partial class MainWindow
 
     private void CloseAdvancedParamsWindow()
     {
-        if (_advParamsWindow != null)
+        if (_advParamsFlyout != null)
         {
-            _advParamsWindow.Close();
-            _advParamsWindow = null;
+            _advParamsFlyout.Hide();
+            _advParamsFlyout = null;
+            _advRootPanel = null;
         }
     }
 
