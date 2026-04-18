@@ -19,6 +19,8 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
+    private bool _promptAreaHeightUpdateQueued;
+
     private void UpdateReferenceButtonAndPanelState()
     {
         if (BtnAddCharacter == null || BtnAddVibeTransfer == null || BtnAddPreciseReference == null)
@@ -68,6 +70,7 @@ public sealed partial class MainWindow
 
         UpdateReferenceButtonRowLayout();
         UpdatePromptAreaHeight();
+        QueuePromptAreaHeightUpdate();
     }
 
     private void UpdateReferenceButtonRowLayout()
@@ -125,20 +128,22 @@ public sealed partial class MainWindow
     private void OnLeftPanelScrollViewerSizeChanged(object sender, SizeChangedEventArgs e)
     {
         UpdatePromptTabText();
-        UpdatePromptAreaHeight();
+        UpdatePromptAreaHeight(e.NewSize.Height);
+        QueuePromptAreaHeightUpdate();
     }
 
     private void OnBottomContentPanelSizeChanged(object sender, SizeChangedEventArgs e)
     {
         UpdatePromptAreaHeight();
+        QueuePromptAreaHeightUpdate();
     }
 
-    private void UpdatePromptAreaHeight()
+    private void UpdatePromptAreaHeight(double? viewportOverride = null)
     {
         if (LeftPanelScrollViewer == null || PromptAreaGrid == null || BottomContentPanel == null)
             return;
 
-        double viewport = LeftPanelScrollViewer.ActualHeight;
+        double viewport = viewportOverride ?? LeftPanelScrollViewer.ActualHeight;
         if (viewport <= 0 || double.IsNaN(viewport) || double.IsInfinity(viewport))
             return;
 
@@ -150,7 +155,26 @@ public sealed partial class MainWindow
         const double overhead = 24 + 30; // Grid Padding (12*2) + RowSpacing (10*3)
 
         double desired = viewport - modelH - tabH - bottomH - overhead;
-        PromptAreaGrid.MinHeight = Math.Max(80, desired);
+        double height = Math.Max(80, desired);
+        PromptAreaGrid.MinHeight = 80;
+        PromptAreaGrid.Height = height;
+    }
+
+    private void QueuePromptAreaHeightUpdate()
+    {
+        if (_promptAreaHeightUpdateQueued)
+            return;
+
+        _promptAreaHeightUpdateQueued = true;
+        if (!DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            _promptAreaHeightUpdateQueued = false;
+            UpdatePromptAreaHeight();
+        }))
+        {
+            _promptAreaHeightUpdateQueued = false;
+            UpdatePromptAreaHeight();
+        }
     }
 
     private static double MeasureVisibleHeight(FrameworkElement? element, Windows.Foundation.Size availableSize)

@@ -165,6 +165,7 @@ public sealed partial class MainWindow
     {
         UpdatePromptTabText();
         UpdatePromptAreaHeight();
+        QueuePromptAreaHeightUpdate();
     }
 
     private static string MergeStyleAndMain(string style, string main)
