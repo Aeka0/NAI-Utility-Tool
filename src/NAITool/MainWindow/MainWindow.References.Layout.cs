@@ -67,6 +67,7 @@ public sealed partial class MainWindow
         TxtPreciseReferenceHint.Visibility = Visibility.Collapsed;
 
         UpdateReferenceButtonRowLayout();
+        UpdatePromptAreaHeight();
     }
 
     private void UpdateReferenceButtonRowLayout()
@@ -138,12 +139,33 @@ public sealed partial class MainWindow
             return;
 
         double viewport = LeftPanelScrollViewer.ActualHeight;
-        double modelH = ModelHeaderPanel?.ActualHeight ?? CboModel?.ActualHeight ?? 0;
-        double tabH = PromptTabRow?.ActualHeight ?? 0;
-        double bottomH = BottomContentPanel.ActualHeight;
+        if (viewport <= 0 || double.IsNaN(viewport) || double.IsInfinity(viewport))
+            return;
+
+        double availableWidth = Math.Max(0, LeftPanelScrollViewer.ActualWidth - 24);
+        var availableSize = new Windows.Foundation.Size(availableWidth, double.PositiveInfinity);
+        double modelH = MeasureVisibleHeight(ModelHeaderPanel, availableSize);
+        double tabH = MeasureVisibleHeight(PromptTabRow, availableSize);
+        double bottomH = MeasureVisibleHeight(BottomContentPanel, availableSize);
         const double overhead = 24 + 30; // Grid Padding (12*2) + RowSpacing (10*3)
 
         double desired = viewport - modelH - tabH - bottomH - overhead;
         PromptAreaGrid.MinHeight = Math.Max(80, desired);
+    }
+
+    private static double MeasureVisibleHeight(FrameworkElement? element, Windows.Foundation.Size availableSize)
+    {
+        if (element == null || element.Visibility != Visibility.Visible)
+            return 0;
+
+        element.Measure(availableSize);
+        double desiredHeight = element.DesiredSize.Height;
+        if (desiredHeight > 0 && !double.IsNaN(desiredHeight) && !double.IsInfinity(desiredHeight))
+            return desiredHeight;
+
+        double actualHeight = element.ActualHeight;
+        return actualHeight > 0 && !double.IsNaN(actualHeight) && !double.IsInfinity(actualHeight)
+            ? actualHeight
+            : 0;
     }
 }

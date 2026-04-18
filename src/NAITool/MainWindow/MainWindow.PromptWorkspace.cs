@@ -164,6 +164,7 @@ public sealed partial class MainWindow
     private void OnPromptTabRowSizeChanged(object sender, SizeChangedEventArgs e)
     {
         UpdatePromptTabText();
+        UpdatePromptAreaHeight();
     }
 
     private static string MergeStyleAndMain(string style, string main)
