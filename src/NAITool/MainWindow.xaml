@@ -925,17 +925,39 @@
                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                           VerticalAlignment="Center"/>
                             </Border>
-                            <Button Click="OnSendToI2I" Style="{StaticResource AccentButtonStyle}" Height="32">
+                            <Button x:Name="BtnEnhanceGenResult"
+                                    Click="OnEnhanceGenResult"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Height="32"/>
+                            <Button x:Name="BtnSendGenResult" Height="32">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8B9;" FontSize="16"/>
-                                    <TextBlock x:Name="TxtSendGenToI2I" Text=""/>
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEA53;" FontSize="16"/>
+                                    <TextBlock x:Name="TxtSendGenResult" Text=""/>
                                 </StackPanel>
-                            </Button>
-                            <Button Click="OnSendToEffectsFromGen" Style="{StaticResource AccentButtonStyle}" Height="32">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEB3C;" FontSize="16"/>
-                                    <TextBlock x:Name="TxtSendGenToEffects" Text=""/>
-                                </StackPanel>
+                                <Button.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem x:Name="MenuSendGenToI2I" Text="" Click="OnSendToI2I">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEDFB;"/>
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem x:Name="MenuSendGenToUpscale" Text="" Click="OnSendToUpscaleFromGen">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xECE9;"/>
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem x:Name="MenuSendGenToEffects" Text="" Click="OnSendToEffectsFromGen">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEB3C;"/>
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem x:Name="MenuSendGenToInspect" Text="" Click="OnGenSendToInspect">
+                                            <MenuFlyoutItem.Icon>
+                                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEE6F;"/>
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </Button.Flyout>
                             </Button>
                             <Button Click="OnDeleteGenResult" Foreground="#E74856" Height="32">
                                 <StackPanel Orientation="Horizontal" Spacing="6">

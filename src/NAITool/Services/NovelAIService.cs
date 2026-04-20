@@ -870,12 +870,13 @@ public class NovelAIService : IDisposable
         List<VibeTransferInfo>? vibeTransfers = null,
         List<PreciseReferenceInfo>? preciseReferences = null,
         IProgress<byte[]>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        NAIParameters? parametersOverride = null)
     {
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
             return (null, L("api.error.token_missing_network"));
 
-        var naiParams = _settings.Settings.I2IDenoiseParameters;
+        var naiParams = parametersOverride ?? _settings.Settings.I2IDenoiseParameters;
         int seed = naiParams.Seed > 0 ? naiParams.Seed : Random.Shared.Next(1, int.MaxValue);
         bool isV4Plus = IsV4PlusModel(naiParams.Model);
         bool isV45 = IsV45Model(naiParams.Model);

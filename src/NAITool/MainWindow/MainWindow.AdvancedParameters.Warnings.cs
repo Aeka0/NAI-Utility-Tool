@@ -245,10 +245,65 @@ public sealed partial class MainWindow
         return content;
     }
 
-    private void ApplyGoldAccentButtonStyle(Button button)
+    private StackPanel CreateFontIconActionButtonContent(string glyph, string actionText, int? anlasCost = null)
     {
-        if (button == null) return;
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = anlasCost.HasValue ? 8 : 6 };
+        content.Children.Add(new FontIcon
+        {
+            FontFamily = SymbolFontFamily,
+            Glyph = glyph,
+            FontSize = 16,
+        });
+        if (anlasCost.HasValue)
+        {
+            content.Children.Add(new TextBlock
+            {
+                Text = anlasCost.Value.ToString(),
+                Opacity = 0.9,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+        }
+        content.Children.Add(new TextBlock
+        {
+            Text = actionText,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        return content;
+    }
 
+    private static bool TryGetImageDimensions(byte[] imageBytes, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+
+        using var bitmap = SKBitmap.Decode(imageBytes);
+        if (bitmap == null)
+            return false;
+
+        width = bitmap.Width;
+        height = bitmap.Height;
+        return width > 0 && height > 0;
+    }
+
+    private int EstimateGenEnhanceAnlasCost()
+    {
+        if (_currentGenImageBytes == null ||
+            !TryGetImageDimensions(_currentGenImageBytes, out int width, out int height))
+        {
+            return 0;
+        }
+
+        return EstimateGenEnhanceAnlasCost(width, height);
+    }
+
+    private int EstimateGenEnhanceAnlasCost(int width, int height)
+    {
+        var parameters = CreateGenEnhanceParameters(_settings.Settings.GenParameters);
+        return EstimatePromptRequestAnlasCost(parameters, parameters.Model, width, height);
+    }
+
+    private void ApplyGoldAccentResources(ResourceDictionary resources)
+    {
         bool isLight = GetResolvedTheme() != ElementTheme.Dark;
         const byte darkGoldR = 0xB2, darkGoldG = 0x8E, darkGoldB = 0x36;
         const byte lightGoldR = 0xF6, lightGoldG = 0xD2, lightGoldB = 0x7E;
@@ -278,18 +333,25 @@ public sealed partial class MainWindow
         byte baseEndG = isLight ? Brighten(lightGoldG, 0.18) : lightGoldG;
         byte baseEndB = isLight ? Brighten(lightGoldB, 0.18) : lightGoldB;
 
-        button.Resources["AccentButtonBackground"] = CreateDiagonalGold(baseStartR, baseStartG, baseStartB, baseEndR, baseEndG, baseEndB);
-        button.Resources["AccentButtonBackgroundPointerOver"] = CreateDiagonalGold(
+        resources["AccentButtonBackground"] = CreateDiagonalGold(baseStartR, baseStartG, baseStartB, baseEndR, baseEndG, baseEndB);
+        resources["AccentButtonBackgroundPointerOver"] = CreateDiagonalGold(
             Brighten(baseStartR, isLight ? 0.16 : 0.08), Brighten(baseStartG, isLight ? 0.16 : 0.08), Brighten(baseStartB, isLight ? 0.16 : 0.08),
             Brighten(baseEndR, isLight ? 0.12 : 0.06), Brighten(baseEndG, isLight ? 0.12 : 0.06), Brighten(baseEndB, isLight ? 0.12 : 0.06));
-        button.Resources["AccentButtonBackgroundPressed"] = CreateDiagonalGold(
+        resources["AccentButtonBackgroundPressed"] = CreateDiagonalGold(
             (byte)(baseStartR * 0.88), (byte)(baseStartG * 0.88), (byte)(baseStartB * 0.88),
             (byte)(baseEndR * 0.88), (byte)(baseEndG * 0.88), (byte)(baseEndB * 0.88));
 
         var fgBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 32, 28, 20));
-        button.Resources["AccentButtonForeground"] = fgBrush;
-        button.Resources["AccentButtonForegroundPointerOver"] = fgBrush;
-        button.Resources["AccentButtonForegroundPressed"] = fgBrush;
+        resources["AccentButtonForeground"] = fgBrush;
+        resources["AccentButtonForegroundPointerOver"] = fgBrush;
+        resources["AccentButtonForegroundPressed"] = fgBrush;
+    }
+
+    private void ApplyGoldAccentButtonStyle(Button button)
+    {
+        if (button == null) return;
+
+        ApplyGoldAccentResources(button.Resources);
 
         RefreshButtonStyle(button);
     }
@@ -316,6 +378,7 @@ public sealed partial class MainWindow
             ClearGoldAccentButtonStyle(BtnGenerate);
 
         UpdateI2IRedoButtonWarning();
+        UpdateGenEnhanceButtonWarning();
     }
 
     private void UpdateI2IRedoButtonWarning()
@@ -335,6 +398,24 @@ public sealed partial class MainWindow
         {
             BtnRedoGenerate.Content = CreateSymbolActionButtonContent(Symbol.Refresh, L("button.regenerate"));
             ClearGoldAccentButtonStyle(BtnRedoGenerate);
+        }
+    }
+
+    private void UpdateGenEnhanceButtonWarning()
+    {
+        if (BtnEnhanceGenResult == null) return;
+
+        BtnEnhanceGenResult.IsEnabled = _currentGenImageBytes != null && !_generateRequestRunning;
+        int estimatedAnlas = EstimateGenEnhanceAnlasCost();
+        if (estimatedAnlas > 0)
+        {
+            BtnEnhanceGenResult.Content = CreateFontIconActionButtonContent("\uE771", L("button.enhance"), estimatedAnlas);
+            ApplyGoldAccentButtonStyle(BtnEnhanceGenResult);
+        }
+        else
+        {
+            BtnEnhanceGenResult.Content = CreateFontIconActionButtonContent("\uE771", L("button.enhance"));
+            ClearGoldAccentButtonStyle(BtnEnhanceGenResult);
         }
     }
 

@@ -115,7 +115,8 @@ public sealed partial class MainWindow
         if (!IsPromptMode(_currentMode) || string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
             return 0;
 
-        int steps = IsAdvancedWindowOpen ? (int)_advNbSteps.Value : CurrentParams.Steps;
+        var parameters = CurrentParams;
+        int steps = IsAdvancedWindowOpen ? (int)_advNbSteps.Value : parameters.Steps;
         int width;
         int height;
         if (_currentMode == AppMode.ImageGeneration)
@@ -128,8 +129,22 @@ public sealed partial class MainWindow
             height = MaskCanvas.CanvasH > 0 ? MaskCanvas.CanvasH : _customHeight;
         }
 
+        return EstimatePromptRequestAnlasCost(parameters, GetCurrentModelKey(), width, height, steps);
+    }
+
+    private int EstimatePromptRequestAnlasCost(
+        NAIParameters parameters,
+        string model,
+        int width,
+        int height,
+        int? stepOverride = null)
+    {
+        if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+            return 0;
+
+        int steps = stepOverride ?? parameters.Steps;
         long pixelCount = (long)width * height;
-        bool isSmEnabled = CurrentParams.Sm;
+        bool isSmEnabled = parameters.Sm;
         bool isSmDynamic = false;
 
         long dimension = Math.Max(pixelCount, 65536);
@@ -149,7 +164,7 @@ public sealed partial class MainWindow
 
         // ── 氛围迁移 / 精确参考额外费用 ──
         int refCost = 0;
-        bool isV4Plus = IsV4PlusModelKey(GetCurrentModelKey());
+        bool isV4Plus = IsV4PlusModelKey(model);
 
         var activeVibes = _genVibeTransfers.Where(v => !v.IsDisabled).ToList();
         if (isV4Plus && !IsAssetProtectionPaidFeatureLimitEnabled() && activeVibes.Count > 0)
@@ -160,7 +175,7 @@ public sealed partial class MainWindow
         }
 
         int activePreciseCount = ActivePreciseReferenceCount();
-        if (SupportsPreciseReferenceFeature() && activePreciseCount > 0)
+        if (IsV45ModelKey(model) && !IsAssetProtectionPaidFeatureLimitEnabled() && activePreciseCount > 0)
         {
             refCost += activePreciseCount * 5;
         }

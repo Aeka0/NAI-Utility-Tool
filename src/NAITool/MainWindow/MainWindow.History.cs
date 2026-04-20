@@ -406,6 +406,14 @@ public sealed partial class MainWindow
         };
         copyItem.Click += OnHistoryCopyImage;
         menu.Items.Add(copyItem);
+        var enhanceItem = new MenuFlyoutItem
+        {
+            Text = L("button.enhance"), Tag = filePath,
+            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE771" },
+            IsEnabled = !_generateRequestRunning,
+        };
+        enhanceItem.Click += OnHistoryEnhance;
+        menu.Items.Add(enhanceItem);
         menu.Items.Add(new MenuFlyoutSeparator());
         var readerItem = new MenuFlyoutItem
         {
@@ -529,6 +537,19 @@ public sealed partial class MainWindow
             UpdateDynamicMenuStates();
         }
         catch (Exception ex) { TxtStatus.Text = Lf("common.load_failed", ex.Message); }
+    }
+
+    private async void OnHistoryEnhance(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuFlyoutItem item || item.Tag is not string filePath)
+            return;
+
+        try
+        {
+            var bytes = await File.ReadAllBytesAsync(filePath);
+            await BeginGenEnhanceAsync(bytes, filePath);
+        }
+        catch (Exception ex) { TxtStatus.Text = Lf("common.read_failed", ex.Message); }
     }
 
     private void OnHistorySendToI2I(object sender, RoutedEventArgs e)

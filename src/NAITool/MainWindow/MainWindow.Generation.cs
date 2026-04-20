@@ -213,6 +213,7 @@ public sealed partial class MainWindow
             {
                 GenResultBarTranslate.X = 0;
                 GenResultBarTranslate.Y = 0;
+                UpdateGenEnhanceButtonWarning();
                 GenResultBar.Visibility = Visibility.Visible;
             }
             _ = RefreshAnlasInfoAsync(forceRefresh: true);
@@ -288,6 +289,276 @@ public sealed partial class MainWindow
     }
 
     // ═══ 生图模式浮动操作窗 ═══
+
+    private async void OnEnhanceGenResult(object sender, RoutedEventArgs e)
+    {
+        if (_currentGenImageBytes == null)
+        { TxtStatus.Text = L("generate.error.no_result_to_send"); return; }
+
+        await BeginGenEnhanceAsync(_currentGenImageBytes, _currentGenImagePath);
+    }
+
+    private async Task<bool> BeginGenEnhanceAsync(byte[] imageBytes, string? imagePath, bool forceRandomSeed = false)
+    {
+        if (_generateRequestRunning)
+            return false;
+
+        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+        {
+            OnNetworkSettings(this, new RoutedEventArgs());
+            return false;
+        }
+
+        if (!TryGetImageDimensions(imageBytes, out int width, out int height))
+        {
+            TxtStatus.Text = L("generate.error.empty_result");
+            return false;
+        }
+
+        SyncPromptGenerationInputsToState();
+        if (!await ConfirmGenEnhanceSizeAsync(width, height))
+            return false;
+
+        _settings.Save();
+        GenResultBar.Visibility = Visibility.Collapsed;
+        return await DoGenEnhanceAsync(imageBytes, imagePath, forceRandomSeed);
+    }
+
+    private async Task<bool> ConfirmGenEnhanceSizeAsync(int width, int height)
+    {
+        if ((long)width * height <= 1024L * 1024)
+            return true;
+
+        if (IsAssetProtectionSizeLimitEnabled())
+        {
+            var blockedDialog = new ContentDialog
+            {
+                Title = L("dialog.notify.title"),
+                Content = new TextBlock
+                {
+                    Text = L("generate.enhance.asset_protection_oversized_blocked"),
+                    TextWrapping = TextWrapping.Wrap,
+                },
+                CloseButtonText = L("common.ok"),
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.Content.XamlRoot,
+                RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
+            };
+            blockedDialog.Resources["ContentDialogMaxWidth"] = 520.0;
+            await blockedDialog.ShowAsync();
+            TxtStatus.Text = L("generate.enhance.asset_protection_oversized_blocked");
+            return false;
+        }
+
+        int anlasCost = EstimateGenEnhanceAnlasCost(width, height);
+        var panel = new StackPanel { Spacing = 10 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = anlasCost > 0
+                ? Lf("generate.enhance.oversized_confirm_message_with_cost", anlasCost)
+                : L("generate.enhance.oversized_confirm_message"),
+            TextWrapping = TextWrapping.Wrap,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = Lf("generate.enhance.oversized_confirm_size", width, height),
+            TextWrapping = TextWrapping.Wrap,
+            Opacity = 0.72,
+            FontSize = 12,
+        });
+
+        var dialog = new ContentDialog
+        {
+            Title = L("dialog.notify.title"),
+            Content = panel,
+            PrimaryButtonText = L("common.yes"),
+            CloseButtonText = L("common.no"),
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.Content.XamlRoot,
+            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
+        };
+        dialog.PrimaryButtonStyle = (Style)Application.Current.Resources["AccentButtonStyle"];
+        ApplyGoldAccentResources(dialog.Resources);
+        dialog.Resources["ContentDialogMaxWidth"] = 520.0;
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            return true;
+
+        TxtStatus.Text = L("generate.enhance.cancelled");
+        return false;
+    }
+
+    private async Task<bool> DoGenEnhanceAsync(byte[] sourceImageBytes, string? sourceImagePath, bool forceRandomSeed = false)
+    {
+        if (!TryGetImageDimensions(sourceImageBytes, out int width, out int height))
+        { TxtStatus.Text = L("generate.error.empty_result"); return false; }
+
+        BtnGenerate.IsEnabled = false;
+        _generateRequestRunning = true;
+        UpdateBtnGenerateForApiKey();
+        UpdateGenEnhanceButtonWarning();
+        TxtStatus.Text = L("generate.status.generating");
+
+        _currentGenImageBytes = sourceImageBytes;
+        _currentGenImagePath = sourceImagePath;
+        await ShowGenPreviewAsync(sourceImageBytes, width, height);
+
+        var enhanceParams = CreateGenEnhanceParameters(_settings.Settings.GenParameters);
+        int requestedSeed = enhanceParams.Seed;
+
+        try
+        {
+            _generateCts?.Cancel();
+            _generateCts = new CancellationTokenSource();
+            var ct = _generateCts.Token;
+            SaveCurrentPromptToBuffer();
+
+            string imageBase64 = Convert.ToBase64String(sourceImageBytes);
+            int actualSeed;
+            string prompt;
+            string negPrompt;
+            List<CharacterPromptInfo>? chars;
+            List<VibeTransferInfo>? vibes;
+            List<PreciseReferenceInfo>? preciseReferences;
+
+            while (true)
+            {
+                actualSeed = (!forceRandomSeed && requestedSeed > 0) ? requestedSeed : Random.Shared.Next(1, int.MaxValue);
+                enhanceParams.Seed = actualSeed;
+
+                var wildcardContext = CreateWildcardContext(actualSeed, enhanceParams.Model);
+                (prompt, negPrompt) = GetPrompts(wildcardContext);
+                if (string.IsNullOrWhiteSpace(prompt))
+                {
+                    TxtStatus.Text = L("generate.error.prompt_required");
+                    return false;
+                }
+
+                if (_genCharacters.Count > 0)
+                    ApplyCharCountPrefixStrip();
+                if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
+                {
+                    string? encodeError = await EnsureVibesEncodedAsync(enhanceParams.Model, ct);
+                    if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
+                }
+
+                chars = (_genCharacters.Count > 0 && !IsV3ModelKey(enhanceParams.Model)) ? GetCharacterData(wildcardContext) : null;
+                vibes = GetVibeTransferData();
+                preciseReferences = GetPreciseReferenceData();
+
+                var signature = BuildI2IGenerationRequestSignature(
+                    "gen-enhance",
+                    enhanceParams,
+                    width,
+                    height,
+                    actualSeed,
+                    prompt,
+                    negPrompt,
+                    chars,
+                    vibes,
+                    preciseReferences,
+                    imageBase64,
+                    null,
+                    Vector2.Zero);
+                var duplicateDecision = await CheckDuplicateGenerationRequestAsync(signature, requestedSeed);
+                if (duplicateDecision == DuplicateGenerationDecision.Cancel)
+                    return false;
+                if (duplicateDecision == DuplicateGenerationDecision.ProceedWithRandomSeed)
+                {
+                    requestedSeed = 0;
+                    forceRandomSeed = true;
+                    continue;
+                }
+
+                RememberLastGenerationRequest(signature);
+                break;
+            }
+
+            IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
+                ? new Progress<byte[]>(bytes =>
+                {
+                    _currentGenImageBytes = bytes;
+                    _ = ShowGenPreviewAsync(bytes, width, height);
+                })
+                : null;
+
+            DebugLog($"[Enhance] Start | {width}x{height} | Model={enhanceParams.Model} | Seed={actualSeed} | Strength=0.5");
+            var (imageBytes, error) = await _naiService.ImageToImageAsync(
+                imageBase64,
+                width, height,
+                prompt, negPrompt, chars, vibes, preciseReferences, progress, ct,
+                parametersOverride: enhanceParams);
+            _lastUsedSeed = actualSeed;
+
+            if (error != null)
+            {
+                DebugLog($"[Enhance] API error: {error}");
+                TxtStatus.Text = error;
+                return false;
+            }
+            if (imageBytes == null)
+            {
+                DebugLog("[Enhance] API returned no image");
+                TxtStatus.Text = L("generate.error.empty_result");
+                return false;
+            }
+
+            string? savedPath = await SaveToOutputAsync(imageBytes, "enhance");
+            _currentGenImageBytes = imageBytes;
+            _currentGenImagePath = savedPath;
+
+            await ShowGenPreviewAsync(imageBytes, width, height);
+            if (savedPath != null)
+                AddHistoryItem(savedPath);
+
+            GenResultBarTranslate.X = 0;
+            GenResultBarTranslate.Y = 0;
+            UpdateGenEnhanceButtonWarning();
+            if (_settings.Settings.ShowGenerationResultBar)
+                GenResultBar.Visibility = Visibility.Visible;
+
+            _ = RefreshAnlasInfoAsync(forceRefresh: true);
+            UpdateDynamicMenuStates();
+            DebugLog($"[Enhance] Completed | Seed={actualSeed} | Saved={savedPath}");
+            TxtStatus.Text = Lf("generate.status.completed_saved", savedPath);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            DebugLog("[Enhance] Cancelled");
+            TxtStatus.Text = L("generate.status.cancelled");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            DebugLog($"[Enhance] Failed: {ex}");
+            TxtStatus.Text = Lf("generate.status.failed", ex.Message);
+            return false;
+        }
+        finally
+        {
+            _generateRequestRunning = false;
+            UpdateBtnGenerateForApiKey();
+            UpdateGenEnhanceButtonWarning();
+        }
+    }
+
+    private static NAIParameters CreateGenEnhanceParameters(NAIParameters source) => new()
+    {
+        Model = source.Model,
+        Sampler = source.Sampler,
+        Schedule = source.Schedule,
+        Scale = source.Scale,
+        CfgRescale = source.CfgRescale,
+        Sm = source.Sm,
+        Variety = source.Variety,
+        QualityToggle = source.QualityToggle,
+        Steps = source.Steps,
+        Seed = source.Seed,
+        UcPreset = source.UcPreset,
+        DenoiseStrength = 0.5,
+        DenoiseNoise = 0,
+    };
 
     private void OnSendToI2I(object sender, RoutedEventArgs e)
     {
@@ -466,6 +737,19 @@ public sealed partial class MainWindow
                     CopyImageToClipboard(_currentGenImageBytes);
             };
             flyout.Items.Add(copyItem);
+
+            var enhanceItem = new MenuFlyoutItem
+            {
+                Text = L("button.enhance"),
+                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE771" },
+                IsEnabled = hasImage && !_generateRequestRunning,
+            };
+            enhanceItem.Click += async (_, _) =>
+            {
+                if (_currentGenImageBytes != null)
+                    await BeginGenEnhanceAsync(_currentGenImageBytes, _currentGenImagePath);
+            };
+            flyout.Items.Add(enhanceItem);
 
             flyout.Items.Add(new MenuFlyoutSeparator());
 

@@ -78,6 +78,7 @@ public sealed partial class MainWindow
 
             RefreshEffectsPanel();
             RefreshEffectsOverlay();
+            UpdateGenerateButtonWarning();
         }
     }
 

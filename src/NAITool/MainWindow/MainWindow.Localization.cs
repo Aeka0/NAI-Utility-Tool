@@ -217,8 +217,11 @@ public sealed partial class MainWindow
         TxtStartUpscaleButton.Text = _upscaleRunning ? L("button.upscaling") : L("button.start_upscale");
 
         GenPlaceholder.Text = L("placeholder.generate");
-        TxtSendGenToI2I.Text = L("button.send_to_i2i");
-        TxtSendGenToEffects.Text = L("button.send_to_post");
+        TxtSendGenResult.Text = L("button.send_to_menu");
+        MenuSendGenToI2I.Text = L("action.send_to_i2i");
+        MenuSendGenToUpscale.Text = L("action.send_to_upscale");
+        MenuSendGenToEffects.Text = L("action.send_to_post");
+        MenuSendGenToInspect.Text = L("action.send_to_inspect");
         TxtDeleteGenResult.Text = L("button.delete");
         TxtCloseGenResult.Text = L("button.close");
         TxtApplyResult.Text = L("button.apply");
@@ -322,6 +325,7 @@ public sealed partial class MainWindow
         UpdateAutoGenUI();
         UpdateGenerateButtonWarning();
         UpdateI2IRedoButtonWarning();
+        UpdateGenEnhanceButtonWarning();
     }
 
     private void OnLanguageChanged(object sender, RoutedEventArgs e)
