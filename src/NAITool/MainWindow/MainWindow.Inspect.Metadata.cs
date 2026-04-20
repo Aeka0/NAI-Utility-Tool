@@ -375,11 +375,9 @@ public sealed partial class MainWindow
             try
             {
                 await File.WriteAllBytesAsync(savePath, bytesToSave);
-                _effectsImageBytes = bytesToSave;
-                _effectsPreviewImageBytes = bytesToSave;
                 _effectsImagePath = savePath;
-                ReplaceEffectsSourceBitmap(bytesToSave);
                 MarkEffectsWorkspaceClean();
+                RefreshEffectsPanel();
                 UpdateFileMenuState();
                 TxtStatus.Text = Lf("file.saved_path", savePath);
             }

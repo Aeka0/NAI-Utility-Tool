@@ -390,7 +390,30 @@ public sealed partial class MainWindow
             });
         }
 
-        EffectsPanel.Children.Add(CreateAddEffectButton());
+        EffectsPanel.Children.Add(CreateEffectsActionButtons());
+    }
+
+    private Grid CreateEffectsActionButtons()
+    {
+        var row = new Grid { ColumnSpacing = 8 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var refreshBtn = new Button
+        {
+            Content = L("post.button.refresh_source"),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            IsEnabled = !string.IsNullOrWhiteSpace(_effectsImagePath) && File.Exists(_effectsImagePath),
+        };
+        ApplyEffectsButtonTheme(refreshBtn);
+        refreshBtn.Click += OnReloadImage;
+        row.Children.Add(refreshBtn);
+
+        var addBtn = CreateAddEffectButton();
+        Grid.SetColumn(addBtn, 1);
+        row.Children.Add(addBtn);
+
+        return row;
     }
 
     private void AddEffectSlider(

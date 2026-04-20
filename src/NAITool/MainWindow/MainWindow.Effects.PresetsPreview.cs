@@ -315,6 +315,7 @@ public sealed partial class MainWindow
         ReplaceEffectsSourceBitmap(bytes);
         _effectsImagePath = filePath;
         MarkEffectsWorkspaceClean();
+        RefreshEffectsPanel();
         if (_currentMode == AppMode.Effects)
             ReplaceEditMenu();
         UpdateFileMenuState();
@@ -332,7 +333,8 @@ public sealed partial class MainWindow
             int width = bitmap?.Width ?? 0;
             int height = bitmap?.Height ?? 0;
             await LoadEffectsImageFromBytesAsync(bytes, filePath);
-            _effectsWorkspaceDirty = wasDirty;
+            _effectsWorkspaceDirty = wasDirty || _effects.Count > 0;
+            UpdateFileMenuState();
             TxtStatus.Text = Lf("image.reload.loaded", Path.GetFileName(filePath), width, height);
         }
         catch (Exception ex)

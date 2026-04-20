@@ -332,6 +332,7 @@ public sealed partial class MainWindow
                 {
                     _effectsImagePath = file.Path;
                     MarkEffectsWorkspaceClean();
+                    RefreshEffectsPanel();
                 }
                 TxtStatus.Text = stripMetadata
                     ? Lf("file.saved_path_stripped", file.Path)

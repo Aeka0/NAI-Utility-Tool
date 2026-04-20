@@ -823,6 +823,7 @@
     "post.slider.opacity":  "不透明度",
     "post.button.add_effect":  "エフェクト追加",
     "post.button.color_picker":  "カラーパレット",
+    "post.button.refresh_source":  "更新",
     "post.status.region_selected":  "領域エフェクトを選択中。プレビュー上でドラッグして編集できます。",
     "post.status.selected_effect":  "選択中のエフェクト: {0}",
     "post.status.removed_effect":  "エフェクトを削除しました",

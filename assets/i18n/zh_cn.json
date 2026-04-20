@@ -823,6 +823,7 @@
     "post.slider.opacity":  "透明度",
     "post.button.add_effect":  "添加效果",
     "post.button.color_picker":  "调色盘",
+    "post.button.refresh_source":  "刷新",
     "post.status.region_selected":  "已选择区域效果，可在预览区直接拖动编辑",
     "post.status.selected_effect":  "已选中特效：{0}",
     "post.status.removed_effect":  "已移除效果",
