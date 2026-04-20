@@ -56,19 +56,24 @@ public sealed partial class MainWindow
         public string Prompt { get; set; } = "";
     }
 
+    private List<CharacterEntry> CurrentCharacterEntries =>
+        _currentMode == AppMode.I2I ? _i2iCharacters : _genCharacters;
+
     private void OnAddCharacter(object sender, RoutedEventArgs e)
     {
-        if (_genCharacters.Count >= MaxCharacters) return;
-        _genCharacters.Add(new CharacterEntry());
+        var characters = CurrentCharacterEntries;
+        if (characters.Count >= MaxCharacters) return;
+        characters.Add(new CharacterEntry());
         RefreshCharacterPanel();
     }
 
     private void RefreshCharacterPanel()
     {
         SaveAllCharacterPrompts();
+        var characters = CurrentCharacterEntries;
         CharacterContainer.Children.Clear();
-        for (int i = 0; i < _genCharacters.Count; i++)
-            CharacterContainer.Children.Add(BuildCharacterUI(_genCharacters[i], i));
+        for (int i = 0; i < characters.Count; i++)
+            CharacterContainer.Children.Add(BuildCharacterUI(characters[i], i));
         RefreshVibeTransferPanel();
         RefreshPreciseReferencePanel();
         UpdateReferenceButtonAndPanelState();
@@ -141,7 +146,7 @@ public sealed partial class MainWindow
 
         var movePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         var upBtn = CreateCharacterActionButton("\uE70E", L("references.action.move_up"), index > 0);
-        var downBtn = CreateCharacterActionButton("\uE70D", L("references.action.move_down"), index < _genCharacters.Count - 1);
+        var downBtn = CreateCharacterActionButton("\uE70D", L("references.action.move_down"), index < CurrentCharacterEntries.Count - 1);
         movePanel.Children.Add(upBtn);
         movePanel.Children.Add(downBtn);
         Grid.SetColumn(movePanel, 2);
@@ -228,7 +233,7 @@ public sealed partial class MainWindow
         delBtn.Click += (_, _) =>
         {
             SaveCharacterPrompt(entry);
-            _genCharacters.Remove(entry);
+            CurrentCharacterEntries.Remove(entry);
             RefreshCharacterPanel();
         };
 
@@ -492,7 +497,7 @@ public sealed partial class MainWindow
 
     private void SaveAllCharacterPrompts()
     {
-        foreach (var entry in _genCharacters)
+        foreach (var entry in CurrentCharacterEntries)
             SaveCharacterPrompt(entry);
     }
 
@@ -506,19 +511,20 @@ public sealed partial class MainWindow
 
     private void MoveCharacter(int index, int direction)
     {
+        var characters = CurrentCharacterEntries;
         int newIndex = index + direction;
-        if (newIndex < 0 || newIndex >= _genCharacters.Count) return;
+        if (newIndex < 0 || newIndex >= characters.Count) return;
         SaveAllCharacterPrompts();
-        var entry = _genCharacters[index];
-        _genCharacters.RemoveAt(index);
-        _genCharacters.Insert(newIndex, entry);
+        var entry = characters[index];
+        characters.RemoveAt(index);
+        characters.Insert(newIndex, entry);
         RefreshCharacterPanel();
     }
 
     private void ApplyCharCountPrefixStrip()
     {
         SaveAllCharacterPrompts();
-        foreach (var entry in _genCharacters)
+        foreach (var entry in CurrentCharacterEntries)
         {
             if (entry.IsDisabled) continue;
             entry.PositivePrompt = StripCharCountPrefix(entry.PositivePrompt);
@@ -534,7 +540,7 @@ public sealed partial class MainWindow
     {
         SaveAllCharacterPrompts();
         var result = new List<CharacterPromptInfo>();
-        foreach (var entry in _genCharacters)
+        foreach (var entry in CurrentCharacterEntries)
         {
             if (entry.IsDisabled) continue;
             result.Add(new CharacterPromptInfo
@@ -555,7 +561,17 @@ public sealed partial class MainWindow
 
     private void SetGenCharactersFromMetadata(ImageMetadata meta)
     {
-        _genCharacters.Clear();
+        SetCharactersFromMetadata(_genCharacters, meta);
+    }
+
+    private void SetI2ICharactersFromMetadata(ImageMetadata meta)
+    {
+        SetCharactersFromMetadata(_i2iCharacters, meta);
+    }
+
+    private static void SetCharactersFromMetadata(List<CharacterEntry> target, ImageMetadata meta)
+    {
+        target.Clear();
         int count = Math.Min(meta.CharacterPrompts.Count, MaxCharacters);
         for (int i = 0; i < count; i++)
         {
@@ -567,7 +583,7 @@ public sealed partial class MainWindow
                 CenterX = i < meta.CharacterCenters.Count ? meta.CharacterCenters[i].X : 0.5,
                 CenterY = i < meta.CharacterCenters.Count ? meta.CharacterCenters[i].Y : 0.5,
             };
-            _genCharacters.Add(entry);
+            target.Add(entry);
         }
     }
 }

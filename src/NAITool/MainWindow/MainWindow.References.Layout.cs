@@ -29,7 +29,7 @@ public sealed partial class MainWindow
         BtnAddCharacter.Visibility = SupportsCharacterFeature()
             ? Visibility.Visible
             : Visibility.Collapsed;
-        BtnAddCharacter.IsEnabled = SupportsCharacterFeature() && _genCharacters.Count < MaxCharacters;
+        BtnAddCharacter.IsEnabled = SupportsCharacterFeature() && CurrentCharacterEntries.Count < MaxCharacters;
 
         BtnAddVibeTransfer.Visibility = SupportsVibeTransferFeature() && ActivePreciseReferenceCount() == 0
             ? Visibility.Visible

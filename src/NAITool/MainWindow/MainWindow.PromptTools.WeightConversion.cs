@@ -264,7 +264,7 @@ public sealed partial class MainWindow
             _i2iStylePrompt = ConvertPromptWeightSyntax(_i2iStylePrompt, source, target);
         }
 
-        foreach (var entry in _genCharacters)
+        foreach (var entry in CurrentCharacterEntries)
         {
             entry.PositivePrompt = ConvertPromptWeightSyntax(entry.PositivePrompt, source, target);
             entry.NegativePrompt = ConvertPromptWeightSyntax(entry.NegativePrompt, source, target);

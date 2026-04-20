@@ -111,8 +111,9 @@ public sealed partial class MainWindow : Window
     private bool? _promptTabsUsingCompact;
     private string _promptTabLanguageCode = "";
 
-    // ═══ 角色提示词 ═══
+    // ═══ 角色提示词（生图与重绘独立） ═══
     private readonly List<CharacterEntry> _genCharacters = new();
+    private readonly List<CharacterEntry> _i2iCharacters = new();
     private const int MaxCharacters = 6;
     private readonly List<PromptShortcutEntry> _promptShortcuts = new();
 

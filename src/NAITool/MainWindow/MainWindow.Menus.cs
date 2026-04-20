@@ -743,7 +743,7 @@ public sealed partial class MainWindow
             _i2iPositivePrompt = "";
             _i2iNegativePrompt = "";
             _i2iStylePrompt = "";
-            _genCharacters.Clear();
+            _i2iCharacters.Clear();
             ClearReferenceFeatures();
             RefreshCharacterPanel();
         }

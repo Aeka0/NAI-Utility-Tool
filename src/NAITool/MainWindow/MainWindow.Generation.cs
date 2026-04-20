@@ -138,8 +138,8 @@ public sealed partial class MainWindow
                     return false;
                 }
 
-                if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
-                chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+                if (CurrentCharacterEntries.Count > 0) ApplyCharCountPrefixStrip();
+                chars = (CurrentCharacterEntries.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
                 if (autoContext?.CurrentVibeOverride == null &&
                     ActiveVibeTransferCount() > 0 &&
                     ActivePreciseReferenceCount() == 0)
@@ -434,7 +434,7 @@ public sealed partial class MainWindow
                     return false;
                 }
 
-                if (_genCharacters.Count > 0)
+                if (CurrentCharacterEntries.Count > 0)
                     ApplyCharCountPrefixStrip();
                 if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
                 {
@@ -442,7 +442,7 @@ public sealed partial class MainWindow
                     if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
                 }
 
-                chars = (_genCharacters.Count > 0 && !IsV3ModelKey(enhanceParams.Model)) ? GetCharacterData(wildcardContext) : null;
+                chars = (CurrentCharacterEntries.Count > 0 && !IsV3ModelKey(enhanceParams.Model)) ? GetCharacterData(wildcardContext) : null;
                 vibes = GetVibeTransferData();
                 preciseReferences = GetPreciseReferenceData();
 

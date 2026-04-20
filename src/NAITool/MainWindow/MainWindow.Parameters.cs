@@ -446,6 +446,7 @@ public sealed partial class MainWindow
             _i2iStylePrompt = "";
             _isSplitPrompt = false;
             _genCharacters.Clear();
+            _i2iCharacters.Clear();
             return;
         }
 
@@ -459,10 +460,16 @@ public sealed partial class MainWindow
         _isSplitPrompt = remembered.IsSplitPrompt;
         _customWidth = SnapToMultipleOf64(_settings.Settings.RememberedCustomWidth);
         _customHeight = SnapToMultipleOf64(_settings.Settings.RememberedCustomHeight);
-        _genCharacters.Clear();
-        foreach (var item in (remembered.GenCharacters ?? new List<RememberedCharacterState>()).Take(MaxCharacters))
+        LoadRememberedCharacters(_genCharacters, remembered.GenCharacters);
+        LoadRememberedCharacters(_i2iCharacters, remembered.I2ICharacters);
+    }
+
+    private static void LoadRememberedCharacters(List<CharacterEntry> target, List<RememberedCharacterState>? rememberedCharacters)
+    {
+        target.Clear();
+        foreach (var item in (rememberedCharacters ?? new List<RememberedCharacterState>()).Take(MaxCharacters))
         {
-            _genCharacters.Add(new CharacterEntry
+            target.Add(new CharacterEntry
             {
                 PositivePrompt = item.PositivePrompt ?? "",
                 NegativePrompt = item.NegativePrompt ?? "",
@@ -498,19 +505,22 @@ public sealed partial class MainWindow
             I2INegativePrompt = _i2iNegativePrompt,
             I2IStylePrompt = _i2iStylePrompt,
             IsSplitPrompt = _isSplitPrompt,
-            GenCharacters = _genCharacters.Select(entry => new RememberedCharacterState
-            {
-                PositivePrompt = entry.PositivePrompt,
-                NegativePrompt = entry.NegativePrompt,
-                CenterX = entry.CenterX,
-                CenterY = entry.CenterY,
-                IsPositiveTab = entry.IsPositiveTab,
-                IsCollapsed = entry.IsCollapsed,
-                IsDisabled = entry.IsDisabled,
-                UseCustomPosition = entry.UseCustomPosition,
-            }).ToList(),
+            GenCharacters = _genCharacters.Select(CreateRememberedCharacterState).ToList(),
+            I2ICharacters = _i2iCharacters.Select(CreateRememberedCharacterState).ToList(),
         };
         _settings.Settings.RememberedCustomWidth = _customWidth;
         _settings.Settings.RememberedCustomHeight = _customHeight;
     }
+
+    private static RememberedCharacterState CreateRememberedCharacterState(CharacterEntry entry) => new()
+    {
+        PositivePrompt = entry.PositivePrompt,
+        NegativePrompt = entry.NegativePrompt,
+        CenterX = entry.CenterX,
+        CenterY = entry.CenterY,
+        IsPositiveTab = entry.IsPositiveTab,
+        IsCollapsed = entry.IsCollapsed,
+        IsDisabled = entry.IsDisabled,
+        UseCustomPosition = entry.UseCustomPosition,
+    };
 }

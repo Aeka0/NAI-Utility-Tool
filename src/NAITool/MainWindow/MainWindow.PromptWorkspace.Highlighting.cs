@@ -129,7 +129,7 @@ public sealed partial class MainWindow
             _i2iStylePrompt = NormalizeAnnotation(_i2iStylePrompt, options);
         }
 
-        foreach (var entry in _genCharacters)
+        foreach (var entry in CurrentCharacterEntries)
         {
             entry.PositivePrompt = NormalizeAnnotation(entry.PositivePrompt, options);
             entry.NegativePrompt = NormalizeAnnotation(entry.NegativePrompt, options);

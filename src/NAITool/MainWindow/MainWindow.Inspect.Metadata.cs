@@ -594,9 +594,9 @@ public sealed partial class MainWindow
         if (meta.IsNaiParsed)
         {
             if (meta.CharacterPrompts.Count > 0)
-                SetGenCharactersFromMetadata(meta);
+                SetI2ICharactersFromMetadata(meta);
             else
-                _genCharacters.Clear();
+                _i2iCharacters.Clear();
             ApplyReferenceDataFromMetadata(meta);
         }
 

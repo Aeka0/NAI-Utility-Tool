@@ -181,6 +181,7 @@ public class RememberedPromptState
     public string I2IStylePrompt { get; set; } = "";
     public bool IsSplitPrompt { get; set; }
     public List<RememberedCharacterState> GenCharacters { get; set; } = new();
+    public List<RememberedCharacterState> I2ICharacters { get; set; } = new();
 }
 
 public class RememberedCharacterState

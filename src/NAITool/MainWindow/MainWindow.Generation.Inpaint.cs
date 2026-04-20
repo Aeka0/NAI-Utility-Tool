@@ -57,9 +57,10 @@ public sealed partial class MainWindow
                 if (meta.IsNaiParsed)
                 {
                     if (meta.CharacterPrompts.Count > 0)
-                        SetGenCharactersFromMetadata(meta);
+                        SetI2ICharactersFromMetadata(meta);
+                    else
+                        _i2iCharacters.Clear();
                     ApplyReferenceDataFromMetadata(meta);
-                    RefreshCharacterPanel();
                 }
             }
             else
@@ -173,13 +174,13 @@ public sealed partial class MainWindow
                 ip.Seed = actualSeed;
                 var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
                 var (prompt, negPrompt) = GetPrompts(wildcardContext);
-                if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
+                if (CurrentCharacterEntries.Count > 0) ApplyCharCountPrefixStrip();
                 if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
                 {
                     string? encodeError = await EnsureVibesEncodedAsync(ip.Model, ct);
                     if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
                 }
-                var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+                var chars = (CurrentCharacterEntries.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
                 var vibes = GetVibeTransferData();
                 var preciseReferences = GetPreciseReferenceData();
                 var signature = BuildI2IGenerationRequestSignature(
@@ -260,8 +261,8 @@ public sealed partial class MainWindow
             BtnGenerate.IsEnabled = true;
             return null;
         }
-        if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
-        var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+        if (CurrentCharacterEntries.Count > 0) ApplyCharCountPrefixStrip();
+        var chars = (CurrentCharacterEntries.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
         if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
         {
             string? encodeError = await EnsureVibesEncodedAsync(_settings.Settings.GenParameters.Model, ct);
@@ -364,13 +365,13 @@ public sealed partial class MainWindow
                 dp.Seed = actualSeed;
                 var wildcardContext = CreateWildcardContext(actualSeed, dp.Model);
                 var (prompt, negPrompt) = GetPrompts(wildcardContext);
-                if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
+                if (CurrentCharacterEntries.Count > 0) ApplyCharCountPrefixStrip();
                 if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
                 {
                     string? encodeError = await EnsureVibesEncodedAsync(dp.Model, ct);
                     if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
                 }
-                var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+                var chars = (CurrentCharacterEntries.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
                 var vibes = GetVibeTransferData();
                 var preciseReferences = GetPreciseReferenceData();
                 var signature = BuildI2IGenerationRequestSignature(
@@ -451,8 +452,8 @@ public sealed partial class MainWindow
             BtnGenerate.IsEnabled = true;
             return null;
         }
-        if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
-        var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+        if (CurrentCharacterEntries.Count > 0) ApplyCharCountPrefixStrip();
+        var chars = (CurrentCharacterEntries.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
         if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
         {
             string? encodeError = await EnsureVibesEncodedAsync(_settings.Settings.GenParameters.Model, ct);
@@ -572,13 +573,13 @@ public sealed partial class MainWindow
                 ip.Seed = actualSeed;
                 var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
                 var (prompt, negPrompt) = GetPrompts(wildcardContext);
-                if (_genCharacters.Count > 0) ApplyCharCountPrefixStrip();
+                if (CurrentCharacterEntries.Count > 0) ApplyCharCountPrefixStrip();
                 if (ActiveVibeTransferCount() > 0 && ActivePreciseReferenceCount() == 0)
                 {
                     string? encodeError = await EnsureVibesEncodedAsync(ip.Model, ct);
                     if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
                 }
-                var chars = (_genCharacters.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
+                var chars = (CurrentCharacterEntries.Count > 0 && !IsCurrentModelV3()) ? GetCharacterData(wildcardContext) : null;
                 var vibes = GetVibeTransferData();
                 var preciseReferences = GetPreciseReferenceData();
                 var signature = BuildI2IGenerationRequestSignature(

@@ -182,7 +182,7 @@ public sealed partial class MainWindow
         }
         else
         {
-            CharacterEntry? entry = _genCharacters.FirstOrDefault(x => ReferenceEquals(x.PromptBox, textBox));
+            CharacterEntry? entry = CurrentCharacterEntries.FirstOrDefault(x => ReferenceEquals(x.PromptBox, textBox));
             if (entry != null)
             {
                 SaveCharacterPrompt(entry);
