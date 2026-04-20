@@ -43,6 +43,7 @@ public sealed partial class MainWindow
         BtnBrush.IsChecked = tool == StrokeTool.Brush;
         BtnEraser.IsChecked = tool == StrokeTool.Eraser;
         BtnRect.IsChecked = tool == StrokeTool.Rectangle;
+        MaskCanvas.RefreshToolCursor();
     }
 
     private void OnToolBrush(object sender, RoutedEventArgs e) => SetToolSelection(StrokeTool.Brush);
@@ -54,6 +55,7 @@ public sealed partial class MainWindow
     {
         if (MaskCanvas == null) return;
         MaskCanvas.Brush.BrushSize = (float)e.NewValue;
+        MaskCanvas.RefreshToolCursor();
         if (TxtBrushSize != null) TxtBrushSize.Text = $"{(int)e.NewValue}";
     }
 
