@@ -453,7 +453,7 @@
   "about.thanks.smilingwolf": "Author of the WD14 tagger model and methodology",
   "about.thanks.xinntao": "Author of the upscale model",
   "about.thanks.novelai": "Official / PNG steganographic data code reference",
-  "about.version": "Version Pre-Release 16",
+  "about.version": "Version Pre-Release 17",
   "help.highlights.actions.body": "Users can quickly insert interaction prefixes from the context menu action helpers in both the main prompt and character prompt.\n\nThe initiator uses source#, the passive side uses target#, and mutual interactions use mutual#. If nothing is selected, the prefix is inserted at the current caret position. This matches the standard format used in post-NAI4 versions and is helpful for character interactions, gaze relationships, and action direction.",
   "help.highlights.actions.title": "Action Interactions",
   "help.highlights.automation.body": "Supports standard one-off generation as well as automated continuous runs.\n\nYou can lock in a base prompt and parameters, then let the tool send requests in a loop and combine that with random style prompt features to produce many variations for style tests, composition tests, and inspiration sweeps.",
