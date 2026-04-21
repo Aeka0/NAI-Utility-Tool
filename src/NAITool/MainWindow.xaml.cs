@@ -76,7 +76,7 @@ public sealed partial class MainWindow : Window
     private const string MenuCommandClearAllEffects = "clear_all_effects";
     private const string MenuCommandApplyEffects = "apply_effects";
     private const string MenuCommandWeightConverter = "weight_converter";
-    private const string MenuCommandVibeEncode = "vibe_encode";
+    private const string MenuCommandVibeManager = "vibe_manager";
     private const string MenuCommandWildcard = "wildcard";
     private const string MenuCommandPromptGenerator = "prompt_generator";
     private const string MenuCommandAutomation = "automation";

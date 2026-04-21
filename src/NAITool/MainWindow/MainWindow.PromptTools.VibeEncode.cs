@@ -1,50 +1,41 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Text.Json;
-using System.Text.RegularExpressions;
-using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Numerics;
-using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Graphics.Canvas;
-using Microsoft.Graphics.Canvas.UI.Xaml;
-using Microsoft.UI;
-using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Animation;
-using Microsoft.UI.Xaml.Media.Imaging;
-using NAITool.Controls;
-using NAITool.Models;
 using NAITool.Services;
-using SkiaSharp;
-using Windows.ApplicationModel.DataTransfer;
-using Windows.Foundation;
-using Windows.Graphics;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using WinRT.Interop;
-using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace NAITool;
 
 public sealed partial class MainWindow
 {
-    private async void ShowVibeEncodeDialog()
+    /// <summary>
+    /// 氛围预编码二级窗口的上下文。null = 标准模式（用户自选图）；非 null = 再编码模式（锁定 ImageHash，图源由上下文提供）。
+    /// </summary>
+    private sealed record VibeEncodeContext(
+        string? FixedImageHash,
+        byte[]? PresetImageBytes,
+        string? PresetImagePath,
+        string? PresetFileName,
+        bool OriginalMissingFallback);
+
+    /// <summary>
+    /// 展示氛围预编码二级窗口。context 不为 null 时图片锁定且禁用选图按钮。
+    /// </summary>
+    private async Task<bool> ShowVibeEncodeDialog(VibeEncodeContext? context = null)
     {
-        if (_isVibeEncodeDialogOpen) return;
+        if (_isVibeEncodeDialogOpen) return false;
         _isVibeEncodeDialogOpen = true;
+
+        bool didEncode = false;
 
         try
         {
-            byte[]? selectedImageBytes = null;
-            string? selectedFileName = null;
+            bool isReencodeMode = context != null;
+            byte[]? selectedImageBytes = context?.PresetImageBytes;
+            string? selectedFileName = context?.PresetFileName;
+            string? selectedImagePath = context?.PresetImagePath;
 
             string[] vibeModels = ["nai-diffusion-4-5-curated", "nai-diffusion-4-5-full", "nai-diffusion-4-curated-preview", "nai-diffusion-4-full"];
 
@@ -58,11 +49,11 @@ public sealed partial class MainWindow
 
             var fileNameBlock = new TextBlock
             {
-                Text = L("dialog.vibe_encode.no_image_selected"),
+                Text = selectedFileName ?? L("dialog.vibe_encode.no_image_selected"),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxWidth = 260,
-                Opacity = 0.6,
+                Opacity = selectedFileName != null ? 1.0 : 0.6,
             };
 
             var browseBtn = new Button
@@ -114,10 +105,35 @@ public sealed partial class MainWindow
                 Content = CreateAnlasActionButtonContent(L("dialog.vibe_encode.start_encoding"), 2),
                 HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
                 Style = (Style)Application.Current.Resources["AccentButtonStyle"],
-                IsEnabled = false,
+                IsEnabled = selectedImageBytes != null && selectedImageBytes.Length > 0,
                 Margin = new Thickness(0, 4, 0, 0),
             };
             ApplyGoldAccentButtonStyle(encodeBtn);
+
+            async Task LoadThumbFromBytesAsync(byte[] bytes)
+            {
+                try
+                {
+                    using var ms = new MemoryStream(bytes);
+                    var bmp = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
+                    await bmp.SetSourceAsync(ms.AsRandomAccessStream());
+                    thumbImage.Source = bmp;
+                    thumbImage.Visibility = Visibility.Visible;
+                }
+                catch
+                {
+                    thumbImage.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            if (isReencodeMode)
+            {
+                browseBtn.IsEnabled = false;
+                browseBtn.Visibility = Visibility.Collapsed;
+
+                if (selectedImageBytes != null && selectedImageBytes.Length > 0)
+                    await LoadThumbFromBytesAsync(selectedImageBytes);
+            }
 
             browseBtn.Click += async (_, _) =>
             {
@@ -142,23 +158,13 @@ public sealed partial class MainWindow
 
                 selectedImageBytes = pngBytes;
                 selectedFileName = file.Name;
+                selectedImagePath = string.IsNullOrWhiteSpace(file.Path) ? null : file.Path;
                 fileNameBlock.Text = file.Name;
                 fileNameBlock.Opacity = 1.0;
                 encodeBtn.IsEnabled = true;
                 statusBlock.Text = "";
 
-                try
-                {
-                    using var ms = new MemoryStream(pngBytes);
-                    var bmp = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
-                    await bmp.SetSourceAsync(ms.AsRandomAccessStream());
-                    thumbImage.Source = bmp;
-                    thumbImage.Visibility = Visibility.Visible;
-                }
-                catch
-                {
-                    thumbImage.Visibility = Visibility.Collapsed;
-                }
+                await LoadThumbFromBytesAsync(pngBytes);
             };
 
             encodeBtn.Click += async (_, _) =>
@@ -189,11 +195,21 @@ public sealed partial class MainWindow
                 string cacheDir = VibeCacheService.GetCacheDir(AppRootDir);
                 string imageHash = VibeCacheService.ComputeImageHash(selectedImageBytes);
 
+                if (isReencodeMode &&
+                    !string.IsNullOrWhiteSpace(context!.FixedImageHash) &&
+                    !string.Equals(imageHash, context.FixedImageHash, StringComparison.Ordinal))
+                {
+                    statusBlock.Text = Lf("dialog.vibe_encode.hash_mismatch",
+                        context.FixedImageHash, imageHash);
+                    return;
+                }
+
                 string? cached = VibeCacheService.TryGetCachedVibeByLookup(
                     cacheDir, imageHash, ie, model);
                 if (cached != null)
                 {
                     statusBlock.Text = Lf("dialog.vibe_encode.cache_hit", ie, cacheDir);
+                    didEncode = true;
                     return;
                 }
 
@@ -202,28 +218,28 @@ public sealed partial class MainWindow
                 statusBlock.Text = L("dialog.vibe_encode.encoding");
 
                 string imageBase64 = Convert.ToBase64String(selectedImageBytes);
-                DebugLog($"[VibeEncode] Start | Model={model} | IE={ie:0.00}");
+                DebugLog($"[VibeEncode] 开始编码 | 模型={model} | IE={ie:0.00} | 再编码模式={isReencodeMode}");
                 var (vibeData, error) = await _naiService.EncodeVibeAsync(imageBase64, model, ie);
 
                 if (vibeData != null && vibeData.Length > 0)
                 {
                     string savePath = VibeCacheService.SaveVibe(
-                        cacheDir, selectedImageBytes, selectedImageBytes, vibeData, ie, model);
-                    DebugLog($"[VibeEncode] Completed | Saved={savePath}");
+                        cacheDir, selectedImageBytes, selectedImageBytes, vibeData, ie, model,
+                        originalImagePath: selectedImagePath);
+                    DebugLog($"[VibeEncode] 完成 | 保存={savePath}");
                     statusBlock.Text = Lf("dialog.vibe_encode.success", savePath);
+                    didEncode = true;
                     _ = RefreshAnlasInfoAsync(forceRefresh: true);
                 }
                 else
                 {
-                    DebugLog($"[VibeEncode] Failed: {error ?? "Unknown error"}");
+                    DebugLog($"[VibeEncode] 失败: {error ?? "未知错误"}");
                     statusBlock.Text = Lf("dialog.vibe_encode.failed", error ?? L("dialog.vibe_encode.unknown_error"));
                 }
 
                 encodeBtn.IsEnabled = true;
-                browseBtn.IsEnabled = true;
+                browseBtn.IsEnabled = !isReencodeMode;
             };
-
-            var rootGrid = (Grid)this.Content;
 
             var panel = new StackPanel { Spacing = 10, MinWidth = 400 };
 
@@ -241,6 +257,40 @@ public sealed partial class MainWindow
             panel.Children.Add(CreateThemedSubLabel(L("dialog.vibe_encode.reference_image")));
             panel.Children.Add(fileRow);
             panel.Children.Add(thumbImage);
+
+            if (isReencodeMode)
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = L("dialog.vibe_encode.locked_image_hint"),
+                    FontSize = 12,
+                    Opacity = 0.7,
+                    TextWrapping = TextWrapping.WrapWholeWords,
+                });
+
+                if (!string.IsNullOrWhiteSpace(context!.PresetImagePath))
+                {
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = Lf("dialog.vibe_encode.using_original_path", context.PresetImagePath),
+                        FontSize = 11,
+                        Opacity = 0.6,
+                        TextWrapping = TextWrapping.WrapWholeWords,
+                    });
+                }
+
+                if (context.OriginalMissingFallback)
+                {
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = L("dialog.vibe_encode.using_thumbnail_warning"),
+                        FontSize = 12,
+                        Opacity = 0.9,
+                        TextWrapping = TextWrapping.WrapWholeWords,
+                        Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 160, 60)),
+                    });
+                }
+            }
 
             panel.Children.Add(CreateThemedSubLabel(L("dialog.vibe_encode.ie_label")));
             var ieGrid = new Grid();
@@ -265,9 +315,13 @@ public sealed partial class MainWindow
             };
             panel.Children.Add(hintBlock);
 
+            string dialogTitle = isReencodeMode
+                ? L("dialog.vibe_encode.reencode_title")
+                : L("dialog.vibe_encode.title");
+
             var dialog = new ContentDialog
             {
-                Title = L("dialog.vibe_encode.title"),
+                Title = dialogTitle,
                 Content = panel,
                 CloseButtonText = L("button.close"),
                 DefaultButton = ContentDialogButton.Close,
@@ -282,5 +336,7 @@ public sealed partial class MainWindow
         {
             _isVibeEncodeDialogOpen = false;
         }
+
+        return didEncode;
     }
 }

@@ -260,12 +260,12 @@ public sealed partial class MainWindow
         weightItem.Click += (_, _) => ShowWeightConversionDialog();
         newTools.Items.Add(weightItem);
 
-        var vibeEncodeItem = CreateLocalizedMenuItem(
-            MenuCommandVibeEncode,
-            "menu.tools.vibe_encode",
+        var vibeManagerItem = CreateLocalizedMenuItem(
+            MenuCommandVibeManager,
+            "menu.tools.vibe_manager",
             new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE706" });
-        vibeEncodeItem.Click += (_, _) => ShowVibeEncodeDialog();
-        newTools.Items.Add(vibeEncodeItem);
+        vibeManagerItem.Click += (_, _) => ShowVibeManagerDialog();
+        newTools.Items.Add(vibeManagerItem);
 
         var wildcardItem = CreateLocalizedMenuItem(
             MenuCommandWildcard,

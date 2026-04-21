@@ -40,6 +40,8 @@ public sealed partial class MainWindow
         public string? OriginalThumbnailHash { get; set; }
         /// <summary>原始图片 Base64（缓存失效时回退）</summary>
         public string? OriginalImageBase64 { get; set; }
+        /// <summary>用户导入时的原始图片绝对路径（用于写入索引）</summary>
+        public string? OriginalImagePath { get; set; }
         /// <summary>当前使用的是本地缓存编码数据</summary>
         public bool IsCachedEncoding { get; set; }
     }
@@ -306,7 +308,8 @@ public sealed partial class MainWindow
                 entry.OriginalThumbnailHash ??= VibeCacheService.ComputeThumbnailHash(
                     VibeCacheService.CreateCanonicalThumbnail(originalBytes));
                 VibeCacheService.SaveVibe(
-                    cacheDir, originalBytes, originalBytes, vibeData, entry.InformationExtracted, model);
+                    cacheDir, originalBytes, originalBytes, vibeData, entry.InformationExtracted, model,
+                    originalImagePath: entry.OriginalImagePath);
             }
 
             DebugLog($"[Generate] Vibe 自动编码并缓存: {entry.FileName}");

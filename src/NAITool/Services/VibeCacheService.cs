@@ -17,16 +17,20 @@ public static class VibeCacheService
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private const string LookupFileName = "vibe_cache_lookup.json";
 
-    private sealed class VibeCacheLookupEntry
+    public sealed class VibeCacheLookupEntry
     {
         public string ImageHash { get; set; } = "";
         public string ThumbnailHash { get; set; } = "";
         public string Model { get; set; } = "";
         public string InformationExtractedKey { get; set; } = "";
         public string VibeFileName { get; set; } = "";
+        /// <summary>用户导入原图时的绝对路径（可能为 null）。</summary>
+        public string? OriginalImagePath { get; set; }
+        /// <summary>索引条目创建时间（ISO8601 UTC），用于排序与展示。</summary>
+        public string? CreatedAtUtc { get; set; }
     }
 
-    private sealed class VibeCacheLookupData
+    public sealed class VibeCacheLookupData
     {
         public int Version { get; set; } = 1;
         public List<VibeCacheLookupEntry> Entries { get; set; } = new();
@@ -250,7 +254,8 @@ public static class VibeCacheService
         byte[] thumbnailBytes,
         byte[] vibeData,
         double infoExtracted,
-        string model)
+        string model,
+        string? originalImagePath = null)
     {
         Directory.CreateDirectory(cacheDir);
 
@@ -306,6 +311,8 @@ public static class VibeCacheService
                 Model = model,
                 InformationExtractedKey = ieKey,
                 VibeFileName = vibeFileName,
+                OriginalImagePath = string.IsNullOrWhiteSpace(originalImagePath) ? null : originalImagePath,
+                CreatedAtUtc = DateTimeOffset.UtcNow.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
             });
             SaveLookup(cacheDir, lookup);
         }
@@ -380,5 +387,198 @@ public static class VibeCacheService
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// 列出索引内所有条目（不过滤丢失项），按 CreatedAtUtc 升序；无 CreatedAtUtc 的排在末尾。
+    /// </summary>
+    public static IReadOnlyList<VibeCacheLookupEntry> ListAllEntries(string cacheDir)
+    {
+        if (!Directory.Exists(cacheDir))
+            return Array.Empty<VibeCacheLookupEntry>();
+
+        var lookup = LoadLookup(cacheDir);
+        return lookup.Entries
+            .OrderBy(e => string.IsNullOrEmpty(e.CreatedAtUtc) ? 1 : 0)
+            .ThenBy(e => e.CreatedAtUtc ?? "", StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 按原图哈希分组索引条目。每组内按 CreatedAtUtc 升序。
+    /// </summary>
+    public static IReadOnlyList<IGrouping<string, VibeCacheLookupEntry>> GroupEntriesByImage(string cacheDir)
+    {
+        var all = ListAllEntries(cacheDir);
+        return all
+            .GroupBy(e => e.ImageHash, StringComparer.Ordinal)
+            .OrderBy(g => g.Min(e => e.CreatedAtUtc ?? "\uFFFF"), StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 检查 .naiv4vibe 编码文件是否存在。
+    /// </summary>
+    public static bool VibeFileExists(string cacheDir, VibeCacheLookupEntry entry)
+    {
+        if (entry == null || string.IsNullOrWhiteSpace(entry.VibeFileName))
+            return false;
+        return File.Exists(Path.Combine(cacheDir, entry.VibeFileName));
+    }
+
+    /// <summary>
+    /// 检查规范缩略图文件是否存在。
+    /// </summary>
+    public static bool ThumbnailExists(string cacheDir, VibeCacheLookupEntry entry)
+    {
+        if (entry == null ||
+            string.IsNullOrWhiteSpace(entry.ImageHash) ||
+            string.IsNullOrWhiteSpace(entry.ThumbnailHash))
+            return false;
+        string path = Path.Combine(cacheDir, $"{entry.ImageHash}_{entry.ThumbnailHash}_thumb.png");
+        return File.Exists(path);
+    }
+
+    /// <summary>
+    /// 检查用户原始导入的图片文件是否仍可读。OriginalImagePath 为空时返回 false（UI 侧应区分"未记录"与"丢失"）。
+    /// </summary>
+    public static bool OriginalExists(VibeCacheLookupEntry entry)
+    {
+        if (entry == null || string.IsNullOrWhiteSpace(entry.OriginalImagePath))
+            return false;
+        try
+        {
+            return File.Exists(entry.OriginalImagePath);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 删除单条索引。可选同时删除对应 .naiv4vibe 物理文件。
+    /// </summary>
+    public static bool DeleteEntry(string cacheDir, VibeCacheLookupEntry entry, bool deletePhysicalFile)
+    {
+        if (!Directory.Exists(cacheDir) || entry == null)
+            return false;
+
+        var lookup = LoadLookup(cacheDir);
+        int removed = lookup.Entries.RemoveAll(x =>
+            string.Equals(x.ImageHash, entry.ImageHash, StringComparison.Ordinal) &&
+            string.Equals(x.Model, entry.Model, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(x.InformationExtractedKey, entry.InformationExtractedKey, StringComparison.Ordinal) &&
+            string.Equals(x.VibeFileName, entry.VibeFileName, StringComparison.OrdinalIgnoreCase));
+
+        if (removed == 0)
+            return false;
+
+        SaveLookup(cacheDir, lookup);
+
+        if (deletePhysicalFile && !string.IsNullOrWhiteSpace(entry.VibeFileName))
+        {
+            string vibePath = Path.Combine(cacheDir, entry.VibeFileName);
+            try { if (File.Exists(vibePath)) File.Delete(vibePath); }
+            catch { }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 删除某原图下的所有索引条目，可选删除对应 .naiv4vibe 与缩略图物理文件。
+    /// </summary>
+    public static bool DeleteGroup(string cacheDir, string imageHash, bool deletePhysicalFiles)
+    {
+        if (!Directory.Exists(cacheDir) || string.IsNullOrWhiteSpace(imageHash))
+            return false;
+
+        var lookup = LoadLookup(cacheDir);
+        var toRemove = lookup.Entries
+            .Where(x => string.Equals(x.ImageHash, imageHash, StringComparison.Ordinal))
+            .ToList();
+
+        if (toRemove.Count == 0)
+            return false;
+
+        foreach (var entry in toRemove)
+            lookup.Entries.Remove(entry);
+
+        SaveLookup(cacheDir, lookup);
+
+        if (deletePhysicalFiles)
+        {
+            var thumbHashes = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var entry in toRemove)
+            {
+                if (!string.IsNullOrWhiteSpace(entry.VibeFileName))
+                {
+                    string vibePath = Path.Combine(cacheDir, entry.VibeFileName);
+                    try { if (File.Exists(vibePath)) File.Delete(vibePath); }
+                    catch { }
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.ThumbnailHash))
+                    thumbHashes.Add(entry.ThumbnailHash);
+            }
+
+            foreach (string thumbHash in thumbHashes)
+            {
+                string thumbPath = Path.Combine(cacheDir, $"{imageHash}_{thumbHash}_thumb.png");
+                try { if (File.Exists(thumbPath)) File.Delete(thumbPath); }
+                catch { }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 重新为某原图分组设置原始文件路径（用于管理器中的"重新定位原图"）。
+    /// </summary>
+    public static bool UpdateOriginalPath(string cacheDir, string imageHash, string? newPath)
+    {
+        if (!Directory.Exists(cacheDir) || string.IsNullOrWhiteSpace(imageHash))
+            return false;
+
+        var lookup = LoadLookup(cacheDir);
+        bool changed = false;
+        string? normalized = string.IsNullOrWhiteSpace(newPath) ? null : newPath;
+
+        foreach (var entry in lookup.Entries)
+        {
+            if (!string.Equals(entry.ImageHash, imageHash, StringComparison.Ordinal))
+                continue;
+            if (!string.Equals(entry.OriginalImagePath, normalized, StringComparison.Ordinal))
+            {
+                entry.OriginalImagePath = normalized;
+                changed = true;
+            }
+        }
+
+        if (changed)
+            SaveLookup(cacheDir, lookup);
+        return changed;
+    }
+
+    /// <summary>
+    /// 清理编码文件已丢失的索引条目；返回被清理的数量。
+    /// </summary>
+    public static int PruneMissingEntries(string cacheDir)
+    {
+        if (!Directory.Exists(cacheDir))
+            return 0;
+
+        var lookup = LoadLookup(cacheDir);
+        int before = lookup.Entries.Count;
+        lookup.Entries.RemoveAll(e =>
+            string.IsNullOrWhiteSpace(e.VibeFileName) ||
+            !File.Exists(Path.Combine(cacheDir, e.VibeFileName)));
+
+        int removed = before - lookup.Entries.Count;
+        if (removed > 0)
+            SaveLookup(cacheDir, lookup);
+        return removed;
     }
 }

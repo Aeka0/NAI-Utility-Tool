@@ -86,6 +86,7 @@ public sealed partial class MainWindow
             OriginalImageHash = picked.ImageHash,
             OriginalThumbnailHash = picked.ThumbnailHash,
             OriginalImageBase64 = picked.OriginalBase64,
+            OriginalImagePath = picked.OriginalImagePath,
             IsCachedEncoding = picked.IsCachedHit,
         };
     }
@@ -138,7 +139,8 @@ public sealed partial class MainWindow
         string? ImageHash = null,
         string? ThumbnailHash = null,
         string? OriginalBase64 = null,
-        bool IsCachedHit = false);
+        bool IsCachedHit = false,
+        string? OriginalImagePath = null);
 
     private async Task<VibePickResult?> PickVibeTransferSourceAsync()
     {
@@ -200,6 +202,7 @@ public sealed partial class MainWindow
         string originalBase64 = Convert.ToBase64String(pngBytes);
         string currentModel = GetCurrentModelKey();
         string cacheDir = VibeCacheService.GetCacheDir(AppRootDir);
+        string? originalPath = string.IsNullOrWhiteSpace(file.Path) ? null : file.Path;
 
         string? cachedEncoding = VibeCacheService.TryGetCachedVibeByLookup(
             cacheDir, imageHash, 1.0, currentModel);
@@ -207,7 +210,8 @@ public sealed partial class MainWindow
         {
             TxtStatus.Text = Lf("references.status.cached_vibe_loaded", file.Name, currentModel);
             return new VibePickResult(file.Name, cachedEncoding, IsEncodedFile: true,
-                ImageHash: imageHash, ThumbnailHash: thumbnailHash, OriginalBase64: originalBase64, IsCachedHit: true);
+                ImageHash: imageHash, ThumbnailHash: thumbnailHash, OriginalBase64: originalBase64, IsCachedHit: true,
+                OriginalImagePath: originalPath);
         }
 
         var (thumbnailMatchedEncoding, matchedImageHash) = VibeCacheService.TryGetCachedVibeByThumbnailHash(
@@ -216,11 +220,13 @@ public sealed partial class MainWindow
         {
             TxtStatus.Text = Lf("references.status.cached_vibe_loaded", file.Name, currentModel);
             return new VibePickResult(file.Name, thumbnailMatchedEncoding, IsEncodedFile: true,
-                ImageHash: matchedImageHash, ThumbnailHash: thumbnailHash, OriginalBase64: originalBase64, IsCachedHit: true);
+                ImageHash: matchedImageHash, ThumbnailHash: thumbnailHash, OriginalBase64: originalBase64, IsCachedHit: true,
+                OriginalImagePath: originalPath);
         }
 
         return new VibePickResult(file.Name, originalBase64, IsEncodedFile: false,
-            ImageHash: imageHash, ThumbnailHash: thumbnailHash, OriginalBase64: originalBase64);
+            ImageHash: imageHash, ThumbnailHash: thumbnailHash, OriginalBase64: originalBase64,
+            OriginalImagePath: originalPath);
     }
 
     private async Task AddDroppedVibeTransferAsync(StorageFile file)
