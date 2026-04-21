@@ -178,11 +178,6 @@ public sealed partial class MainWindow
         }
         else if (_currentMode == AppMode.Effects)
         {
-            var reloadItem = CreateReloadImageMenuItem();
-            reloadItem.Click += OnReloadImage;
-            newEdit.Items.Add(reloadItem);
-            newEdit.Items.Add(new MenuFlyoutSeparator());
-
             var undoItem = CreateLocalizedMenuItem(MenuCommandUndo, "menu.edit.undo", new SymbolIcon(Symbol.Undo));
             undoItem.Click += OnUndo;
             undoItem.KeyboardAccelerators.Add(new KeyboardAccelerator
@@ -194,6 +189,12 @@ public sealed partial class MainWindow
             redoItem.KeyboardAccelerators.Add(new KeyboardAccelerator
             { Modifiers = Windows.System.VirtualKeyModifiers.Control, Key = Windows.System.VirtualKey.Y });
             newEdit.Items.Add(redoItem);
+
+            newEdit.Items.Add(new MenuFlyoutSeparator());
+
+            var reloadItem = CreateReloadImageMenuItem();
+            reloadItem.Click += OnReloadImage;
+            newEdit.Items.Add(reloadItem);
 
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
