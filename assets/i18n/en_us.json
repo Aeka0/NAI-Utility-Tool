@@ -823,7 +823,6 @@
   "post.slider.opacity": "Opacity",
   "post.button.add_effect": "Add Effect",
   "post.button.color_picker": "Color Picker",
-  "post.button.refresh_source": "Refresh",
   "post.status.region_selected": "Region effect selected. Drag on the preview to edit.",
   "post.status.selected_effect": "Selected effect: {0}",
   "post.status.removed_effect": "Effect removed",

@@ -173,7 +173,7 @@ public sealed partial class MainWindow
         int height = bitmap.Height;
         if (width <= 1 || height <= 1) return;
 
-        float glowSize = (float)Math.Clamp(sizeValue, 1, 120);
+        float glowSize = (float)Math.Clamp(sizeValue, 1, 500);
         float threshold = (float)Math.Clamp(thresholdValue, 0, 100) / 100f * 255f;
         float strength = (float)Math.Clamp(strengthValue, 0, 200) / 100f;
         float aspectRatio = (float)Math.Clamp(aspectRatioValue, 0.05, 8.0);
