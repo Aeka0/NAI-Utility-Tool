@@ -414,6 +414,20 @@ public sealed partial class MainWindow
         };
         enhanceItem.Click += OnHistoryEnhance;
         menu.Items.Add(enhanceItem);
+        var saveAsItem = new MenuFlyoutItem
+        {
+            Text = L("menu.file.save_as"), Tag = filePath,
+            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE792" },
+        };
+        saveAsItem.Click += OnHistorySaveAs;
+        menu.Items.Add(saveAsItem);
+        var saveAsStrippedItem = new MenuFlyoutItem
+        {
+            Text = L("menu.file.save_as_stripped"), Tag = filePath,
+            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE792" },
+        };
+        saveAsStrippedItem.Click += OnHistorySaveAsStripped;
+        menu.Items.Add(saveAsStrippedItem);
         menu.Items.Add(new MenuFlyoutSeparator());
         var readerItem = new MenuFlyoutItem
         {
@@ -548,6 +562,32 @@ public sealed partial class MainWindow
         {
             var bytes = await File.ReadAllBytesAsync(filePath);
             await BeginGenEnhanceAsync(bytes, filePath);
+        }
+        catch (Exception ex) { TxtStatus.Text = Lf("common.read_failed", ex.Message); }
+    }
+
+    private async void OnHistorySaveAs(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuFlyoutItem item || item.Tag is not string filePath)
+            return;
+
+        try
+        {
+            var bytes = await File.ReadAllBytesAsync(filePath);
+            await SaveImageBytesAsAsync(bytes, stripMetadata: false, filePath);
+        }
+        catch (Exception ex) { TxtStatus.Text = Lf("common.read_failed", ex.Message); }
+    }
+
+    private async void OnHistorySaveAsStripped(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuFlyoutItem item || item.Tag is not string filePath)
+            return;
+
+        try
+        {
+            var bytes = await File.ReadAllBytesAsync(filePath);
+            await SaveImageBytesAsAsync(bytes, stripMetadata: true, filePath);
         }
         catch (Exception ex) { TxtStatus.Text = Lf("common.read_failed", ex.Message); }
     }

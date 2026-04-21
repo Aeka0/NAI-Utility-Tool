@@ -265,6 +265,60 @@ public sealed partial class MainWindow
         await SaveAsInternal(stripMetadata: true);
     }
 
+    private static string GetSuggestedSaveFileName(string? sourcePath)
+    {
+        if (!string.IsNullOrWhiteSpace(sourcePath))
+        {
+            var fileName = Path.GetFileNameWithoutExtension(sourcePath);
+            if (!string.IsNullOrWhiteSpace(fileName))
+                return fileName;
+        }
+
+        return $"nai_{DateTime.Now:yyyyMMdd_HHmmss}";
+    }
+
+    private async Task SaveImageBytesAsAsync(byte[]? imageBytes, bool stripMetadata, string? sourcePath = null)
+    {
+        if (imageBytes == null || imageBytes.Length == 0)
+        {
+            TxtStatus.Text = L("file.error.no_image_to_save");
+            return;
+        }
+
+        var picker = new FileSavePicker();
+        picker.FileTypeChoices.Add(L("file.png_image"), new List<string> { ".png" });
+        picker.SuggestedFileName = GetSuggestedSaveFileName(sourcePath);
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+
+        var file = await picker.PickSaveFileAsync();
+        if (file == null)
+            return;
+
+        var bytesToSave = stripMetadata
+            ? await Task.Run(() => ImageMetadataService.StripPngMetadata(imageBytes))
+            : imageBytes;
+
+        if (bytesToSave == null || bytesToSave.Length == 0)
+        {
+            TxtStatus.Text = L("file.error.no_image_to_save");
+            return;
+        }
+
+        bytesToSave = await Task.Run(() => EnsurePngEncoded(bytesToSave));
+
+        try
+        {
+            await Windows.Storage.FileIO.WriteBytesAsync(file, bytesToSave);
+            TxtStatus.Text = stripMetadata
+                ? Lf("file.saved_path_stripped", file.Path)
+                : Lf("file.saved_path", file.Path);
+        }
+        catch (Exception ex)
+        {
+            TxtStatus.Text = Lf("common.save_failed", ex.Message);
+        }
+    }
+
     private async Task SaveAsInternal(bool stripMetadata)
     {
         byte[]? bytesToSave = null;

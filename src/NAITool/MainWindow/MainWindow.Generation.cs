@@ -751,6 +751,32 @@ public sealed partial class MainWindow
             };
             flyout.Items.Add(enhanceItem);
 
+            var saveAsItem = new MenuFlyoutItem
+            {
+                Text = L("menu.file.save_as"),
+                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE792" },
+                IsEnabled = hasImage,
+            };
+            saveAsItem.Click += async (_, _) =>
+            {
+                if (_currentGenImageBytes != null)
+                    await SaveImageBytesAsAsync(_currentGenImageBytes, stripMetadata: false, _currentGenImagePath);
+            };
+            flyout.Items.Add(saveAsItem);
+
+            var saveAsStrippedItem = new MenuFlyoutItem
+            {
+                Text = L("menu.file.save_as_stripped"),
+                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE792" },
+                IsEnabled = hasImage,
+            };
+            saveAsStrippedItem.Click += async (_, _) =>
+            {
+                if (_currentGenImageBytes != null)
+                    await SaveImageBytesAsAsync(_currentGenImageBytes, stripMetadata: true, _currentGenImagePath);
+            };
+            flyout.Items.Add(saveAsStrippedItem);
+
             flyout.Items.Add(new MenuFlyoutSeparator());
 
             var readerItem = new MenuFlyoutItem
