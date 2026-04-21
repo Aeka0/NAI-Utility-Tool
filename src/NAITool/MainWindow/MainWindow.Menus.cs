@@ -627,27 +627,42 @@ public sealed partial class MainWindow
             ? Windows.UI.Color.FromArgb(255, 32, 32, 32)
             : Windows.UI.Color.FromArgb(255, 243, 243, 243);
 
+    private static Windows.UI.Color WithAlpha(Windows.UI.Color color, byte alpha) =>
+        Windows.UI.Color.FromArgb(alpha, color.R, color.G, color.B);
+
+    private static byte GetBackdropOverlayAlpha(string mode) => mode switch
+    {
+        "Lesser" => 192,
+        "Opaque" => 255,
+        _ => 0,
+    };
+
+    private static Brush? CreateBackdropOverlayBrush(string mode, bool isDark)
+    {
+        byte alpha = GetBackdropOverlayAlpha(mode);
+        if (alpha == 0)
+            return null;
+
+        return new SolidColorBrush(WithAlpha(GetWindowSurfaceColor(isDark), alpha));
+    }
+
     private void ApplyWindowChrome(Window window, bool isDark, Panel? titleBarPanel = null, Panel? rootPanel = null)
     {
         var surfaceColor = GetWindowSurfaceColor(isDark);
         bool isMainWindow = ReferenceEquals(window, this);
+        string transparencyMode = _settings.Settings.AppearanceTransparency;
         var titleBarBaseColor = isMainWindow
-            ? Windows.UI.Color.FromArgb(0, 0, 0, 0)
+            ? WithAlpha(surfaceColor, GetBackdropOverlayAlpha(transparencyMode))
             : surfaceColor;
-
-        // 透明度为"不透明"时，主窗口标题栏底色需要填实色以避免穿透。
-        bool backdropIsOpaque = _settings.Settings.AppearanceTransparency == "Opaque";
-        if (backdropIsOpaque && isMainWindow)
-            titleBarBaseColor = surfaceColor;
 
         if (titleBarPanel != null)
             titleBarPanel.Background = new SolidColorBrush(surfaceColor);
         if (rootPanel != null)
         {
-            // 有亚克力背景时让根面板透明，让系统背景渗透显示；不透明时填实色。
-            rootPanel.Background = backdropIsOpaque
-                ? new SolidColorBrush(surfaceColor)
-                : null;
+            // 主窗口随透明度档位叠加表面层，其它窗口继续保持实色内容面板。
+            rootPanel.Background = isMainWindow
+                ? CreateBackdropOverlayBrush(transparencyMode, isDark)
+                : new SolidColorBrush(surfaceColor);
         }
 
         var appWindow = isMainWindow ? AppWindow : GetAppWindowForWindow(window);

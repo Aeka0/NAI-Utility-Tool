@@ -68,10 +68,8 @@ public sealed partial class MainWindow
             UpdateTitleBarColors(isDark);
             UpdateSizeWarningVisuals();
 
-            // 主窗口 RootGrid 背景需随主题刷新（仅在不透明模式下才填色，其余保持透明）。
-            RootGrid.Background = _settings.Settings.AppearanceTransparency == "Opaque"
-                ? new SolidColorBrush(GetWindowSurfaceColor(isDark))
-                : null;
+            // 主窗口 RootGrid 背景需随主题刷新，让三档透明度都能有稳定且可感知的差异。
+            RootGrid.Background = CreateBackdropOverlayBrush(_settings.Settings.AppearanceTransparency, isDark);
 
             if (_advRootPanel != null)
                 _advRootPanel.RequestedTheme = root.RequestedTheme;
@@ -704,10 +702,8 @@ public sealed partial class MainWindow
     {
         ApplyTransparencyToWindow(this, mode, null);
         bool isDark = IsDarkTheme();
-        // 主窗口的 RootGrid 背景由此处直接管理：亚克力时透明，不透明时填表面色。
-        RootGrid.Background = mode == "Opaque"
-            ? new SolidColorBrush(GetWindowSurfaceColor(isDark))
-            : null;
+        // 主窗口直接叠加对应透明度档位的表面层，保证 Lesser 视觉上介于 Standard 与 Opaque 之间。
+        RootGrid.Background = CreateBackdropOverlayBrush(mode, isDark);
         ApplyWindowChrome(this, isDark, null, null);
     }
 
@@ -721,11 +717,9 @@ public sealed partial class MainWindow
                 return;
             }
 
-            // "减少"透明度使用 Mica（比 Desktop Acrylic 更不透明），
-            // "标准"透明度继续使用 Desktop Acrylic（强模糊、强透明）。
-            window.SystemBackdrop = mode == "Lesser"
-                ? new MicaBackdrop { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base }
-                : new DesktopAcrylicBackdrop();
+            // 统一保留 Acrylic backdrop，再通过表面层控制透明度强弱，
+            // 避免 Lesser 在部分系统上看起来与 Opaque 几乎一致。
+            window.SystemBackdrop = new DesktopAcrylicBackdrop();
         }
         catch (Exception ex)
         {
