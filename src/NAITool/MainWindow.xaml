@@ -179,6 +179,11 @@
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF159;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
+                    <MenuFlyoutItem x:Name="MenuPerformanceSettings" Text="" Click="OnPerformanceSettings">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE9D9;"/>
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
                     <MenuFlyoutItem x:Name="MenuReverseTaggerSettings" Text="" Click="OnReverseTaggerSettings">
                         <MenuFlyoutItem.Icon>
                             <SymbolIcon Symbol="Tag"/>
@@ -824,14 +829,6 @@
                                 <ComboBoxItem Content="2x" Tag="2" IsSelected="True"/>
                                 <ComboBoxItem Content="3x" Tag="3"/>
                                 <ComboBoxItem Content="4x" Tag="4"/>
-                            </ComboBox>
-
-                        <TextBlock x:Name="TxtUpscaleDeviceLabel" Text=""
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       Margin="0,8,0,0"/>
-                            <ComboBox x:Name="CboUpscaleDevice" HorizontalAlignment="Stretch">
-                            <ComboBoxItem x:Name="CboUpscaleDeviceGpu" Content="" IsSelected="True"/>
-                            <ComboBoxItem x:Name="CboUpscaleDeviceCpu" Content=""/>
                             </ComboBox>
 
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"

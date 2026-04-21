@@ -147,6 +147,7 @@ public sealed partial class MainWindow
 
         MenuSettings.Title = L("menu.settings");
         MenuUsageSettings.Text = L("menu.settings.usage");
+        MenuPerformanceSettings.Text = L("menu.settings.performance");
         MenuQuotaSettings.Text = L("menu.settings.quota");
         MenuNetworkSettings.Text = L("menu.settings.network");
         MenuReverseTaggerSettings.Text = L("menu.settings.reverse_tagger");
@@ -209,9 +210,6 @@ public sealed partial class MainWindow
 
         TxtUpscaleModelLabel.Text = L("upscale.model");
         TxtUpscaleScaleLabel.Text = L("upscale.scale");
-        TxtUpscaleDeviceLabel.Text = L("upscale.device");
-        CboUpscaleDeviceGpu.Content = L("upscale.device_gpu");
-        CboUpscaleDeviceCpu.Content = L("upscale.device_cpu");
         TxtUpscaleBeforeLabel.Text = L("upscale.before");
         TxtUpscaleAfterLabel.Text = L("upscale.after_estimated");
         TxtStartUpscaleButton.Text = _upscaleRunning ? L("button.upscaling") : L("button.start_upscale");

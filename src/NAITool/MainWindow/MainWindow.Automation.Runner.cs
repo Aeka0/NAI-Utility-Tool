@@ -255,25 +255,35 @@ public sealed partial class MainWindow
             throw new InvalidOperationException(Lf("automation.error.upscale_model_not_found", options.UpscaleModel));
 
         _upscaleService ??= new UpscaleService();
-        await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath), ct);
+        bool preferCpu = PreferCpuForOnnxInference;
 
-        int modelScale = Math.Max(2, modelInfo.Scale);
-        int targetScale = options.UpscaleScale;
-        int passCount = 1;
-        int cumulativeScale = modelScale;
-        while (cumulativeScale < targetScale && passCount < 3)
+        try
         {
-            passCount++;
-            cumulativeScale *= modelScale;
-        }
+            await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath, preferCpu), ct);
 
-        byte[] currentBytes = sourceBytes;
-        for (int i = 0; i < passCount; i++)
+            int modelScale = Math.Max(2, modelInfo.Scale);
+            int targetScale = options.UpscaleScale;
+            int passCount = 1;
+            int cumulativeScale = modelScale;
+            while (cumulativeScale < targetScale && passCount < 3)
+            {
+                passCount++;
+                cumulativeScale *= modelScale;
+            }
+
+            byte[] currentBytes = sourceBytes;
+            for (int i = 0; i < passCount; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                currentBytes = await _upscaleService.UpscaleAsync(currentBytes, null, ct);
+            }
+
+            return currentBytes;
+        }
+        finally
         {
-            ct.ThrowIfCancellationRequested();
-            currentBytes = await _upscaleService.UpscaleAsync(currentBytes, null, ct);
+            if (ShouldUnloadOnnxModelsAfterInference)
+                _upscaleService?.UnloadModel();
         }
-
-        return currentBytes;
     }
 }

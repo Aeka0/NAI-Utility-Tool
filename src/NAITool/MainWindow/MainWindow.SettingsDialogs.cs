@@ -123,6 +123,73 @@ public sealed partial class MainWindow
         }
     }
 
+    private async void OnPerformanceSettings(object sender, RoutedEventArgs e)
+    {
+        var settings = OnnxPerformance;
+
+        var deviceCombo = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        deviceCombo.Items.Add(new ComboBoxItem
+        {
+            Content = L("settings.performance.device_gpu"),
+            Tag = "Gpu",
+        });
+        deviceCombo.Items.Add(new ComboBoxItem
+        {
+            Content = L("settings.performance.device_cpu"),
+            Tag = "Cpu",
+        });
+        deviceCombo.SelectedIndex = settings.PreferCpu ? 1 : 0;
+
+        var unloadAfterInferenceCheck = new CheckBox
+        {
+            Content = L("settings.performance.unload_after_inference"),
+            IsChecked = settings.UnloadModelAfterInference,
+        };
+
+        var unloadHint = new TextBlock
+        {
+            Text = L("settings.performance.unload_after_inference_hint"),
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
+            Margin = new Thickness(28, -8, 0, 0),
+        };
+
+        var panel = new StackPanel
+        {
+            Spacing = 12,
+            MinWidth = 420,
+        };
+        panel.Children.Add(new TextBlock { Text = L("settings.performance.device") });
+        panel.Children.Add(deviceCombo);
+        panel.Children.Add(unloadAfterInferenceCheck);
+        panel.Children.Add(unloadHint);
+
+        var dialog = new ContentDialog
+        {
+            Title = L("settings.performance.title"),
+            Content = panel,
+            PrimaryButtonText = L("common.save"),
+            CloseButtonText = L("common.cancel"),
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.Content.XamlRoot,
+            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            if (deviceCombo.SelectedItem is ComboBoxItem item && item.Tag is string device)
+                settings.DevicePreference = device;
+            settings.UnloadModelAfterInference = unloadAfterInferenceCheck.IsChecked == true;
+            settings.Normalize();
+            _settings.Save();
+            TxtStatus.Text = L("settings.performance.saved");
+        }
+    }
+
     private void AutoDetectTaggerModel()
     {
         var taggerSettings = _settings.Settings.ReverseTagger;
@@ -199,12 +266,6 @@ public sealed partial class MainWindow
             Content = L("settings.reverse.replace_underscores"),
             IsChecked = settings.ReplaceUnderscoresWithSpaces,
         };
-        var unloadAfterInferenceCheck = new CheckBox
-        {
-            Content = L("settings.reverse.unload_after_inference"),
-            IsChecked = settings.UnloadModelAfterInference,
-        };
-
         var generalSlider = new Slider
         {
             Minimum = 0,
@@ -305,15 +366,6 @@ public sealed partial class MainWindow
         panel.Children.Add(BuildSliderRow(generalSlider, generalValue));
         panel.Children.Add(new TextBlock { Text = L("settings.reverse.character_threshold") });
         panel.Children.Add(BuildSliderRow(characterSlider, characterValue));
-        panel.Children.Add(unloadAfterInferenceCheck);
-        panel.Children.Add(new TextBlock
-        {
-            Text = L("settings.reverse.unload_after_inference_hint"),
-            TextWrapping = TextWrapping.Wrap,
-            FontSize = 12,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
-            Margin = new Thickness(28, -8, 0, 0),
-        });
 
         var dialog = new ContentDialog
         {
@@ -347,7 +399,6 @@ public sealed partial class MainWindow
             settings.ReplaceUnderscoresWithSpaces = replaceUnderscoreCheck.IsChecked == true;
             settings.GeneralThreshold = Math.Round(generalSlider.Value, 2);
             settings.CharacterThreshold = Math.Round(characterSlider.Value, 2);
-            settings.UnloadModelAfterInference = unloadAfterInferenceCheck.IsChecked == true;
         };
 
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)

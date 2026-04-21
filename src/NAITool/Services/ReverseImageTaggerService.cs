@@ -19,6 +19,7 @@ public sealed class ReverseImageTaggerService : IDisposable
 
     private InferenceSession? _session;
     private string? _loadedModelDirectory;
+    private bool _loadedPreferCpu;
     private string _inputName = "";
     private string[] _outputNames = [];
     private string _executionProvider = "CPU";
@@ -30,6 +31,7 @@ public sealed class ReverseImageTaggerService : IDisposable
     public Task<ReverseTaggerResult> InferAsync(
         byte[] imageBytes,
         ReverseTaggerSettings settings,
+        bool preferCpu,
         CancellationToken cancellationToken = default)
     {
         if (imageBytes == null || imageBytes.Length == 0)
@@ -43,7 +45,7 @@ public sealed class ReverseImageTaggerService : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
 
             var modelDirectory = ResolveModelDirectory(settings.ModelPath);
-            EnsureModelLoaded(modelDirectory);
+            EnsureModelLoaded(modelDirectory, preferCpu);
 
             var (tensorData, tensorShape, width, height) = PreprocessImage(imageBytes, cancellationToken);
             var scores = RunInference(tensorData, tensorShape, cancellationToken);
@@ -53,24 +55,34 @@ public sealed class ReverseImageTaggerService : IDisposable
 
     public void Dispose()
     {
+        UnloadModel();
+    }
+
+    public void UnloadModel()
+    {
         lock (_sync)
         {
+            bool hadLoadedModel = _session != null || _loadedModelDirectory != null;
             _session?.Dispose();
             _session = null;
             _loadedModelDirectory = null;
+            _loadedPreferCpu = false;
             _inputName = "";
             _outputNames = [];
             _executionProvider = "CPU";
             _tagDefinitions = Array.Empty<ReverseTagDefinition>();
+            if (hadLoadedModel)
+                System.Diagnostics.Debug.WriteLine("[ReverseTagger] Model unloaded");
         }
     }
 
-    private void EnsureModelLoaded(string modelDirectory)
+    private void EnsureModelLoaded(string modelDirectory, bool preferCpu)
     {
         lock (_sync)
         {
             if (_session != null &&
-                string.Equals(_loadedModelDirectory, modelDirectory, StringComparison.OrdinalIgnoreCase))
+                string.Equals(_loadedModelDirectory, modelDirectory, StringComparison.OrdinalIgnoreCase) &&
+                _loadedPreferCpu == preferCpu)
             {
                 return;
             }
@@ -80,9 +92,10 @@ public sealed class ReverseImageTaggerService : IDisposable
             var modelPath = ResolveModelFile(modelDirectory);
             _tagDefinitions = LoadTagDefinitions(modelDirectory);
 
-            var (session, provider) = CreateSession(modelPath);
+            var (session, provider) = CreateSession(modelPath, preferCpu);
             _session = session;
             _loadedModelDirectory = modelDirectory;
+            _loadedPreferCpu = preferCpu;
             _executionProvider = provider;
             _inputName = session.InputMetadata.Keys.FirstOrDefault()
                 ?? throw new InvalidOperationException(L("reverse.error.model_missing_input"));
@@ -229,25 +242,30 @@ public sealed class ReverseImageTaggerService : IDisposable
         };
     }
 
-    private static (InferenceSession Session, string Provider) CreateSession(string modelPath)
+    private static (InferenceSession Session, string Provider) CreateSession(string modelPath, bool preferCpu)
     {
-        try
+        if (!preferCpu)
         {
-            var directMlOptions = new SessionOptions
+            try
             {
-                GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
-            };
-            directMlOptions.AppendExecutionProvider_DML(0);
-            return (new InferenceSession(modelPath, directMlOptions), "GPU (DirectML)");
+                var directMlOptions = new SessionOptions
+                {
+                    GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+                };
+                directMlOptions.AppendExecutionProvider_DML(0);
+                return (new InferenceSession(modelPath, directMlOptions), "GPU (DirectML)");
+            }
+            catch
+            {
+                // GPU 不可用时回退到 CPU。
+            }
         }
-        catch
+
+        var cpuOptions = new SessionOptions
         {
-            var cpuOptions = new SessionOptions
-            {
-                GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
-            };
-            return (new InferenceSession(modelPath, cpuOptions), "CPU");
-        }
+            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+        };
+        return (new InferenceSession(modelPath, cpuOptions), "CPU");
     }
 
     private static string ResolveModelDirectory(string? modelPath)

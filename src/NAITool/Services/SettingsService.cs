@@ -142,6 +142,7 @@ public class AppSettings
     public string LanguageCode { get; set; } = "";
     public bool DevLogEnabled { get; set; }
     public bool StreamGeneration { get; set; }
+    public OnnxPerformanceSettings OnnxPerformance { get; set; } = null!;
     public ReverseTaggerSettings ReverseTagger { get; set; } = new();
     public NAIParameters GenParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full" };
     public NAIParameters InpaintParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full-inpainting" };
@@ -160,7 +161,13 @@ public class AppSettings
             "Standard" or "Lesser" or "Opaque" => AppearanceTransparency,
             _ => "Standard",
         };
+        OnnxPerformance ??= new()
+        {
+            UnloadModelAfterInference = ReverseTagger.UnloadModelAfterInference,
+        };
+        OnnxPerformance.Normalize();
         ReverseTagger ??= new();
+        ReverseTagger.UnloadModelAfterInference = OnnxPerformance.UnloadModelAfterInference;
         GenParameters ??= new() { Model = "nai-diffusion-4-5-full" };
         InpaintParameters ??= new() { Model = "nai-diffusion-4-5-full-inpainting" };
         I2IDenoiseParameters ??= new() { Model = "nai-diffusion-4-5-full", DenoiseStrength = 0.7, DenoiseNoise = 0 };
@@ -168,6 +175,23 @@ public class AppSettings
         Automation ??= new();
         Automation.Normalize();
         AutoGenRandomStylePrefix = Automation.Randomization.RandomizeStyleTags;
+    }
+}
+
+public class OnnxPerformanceSettings
+{
+    public string DevicePreference { get; set; } = "Gpu";
+    public bool UnloadModelAfterInference { get; set; } = true;
+
+    [JsonIgnore]
+    public bool PreferCpu =>
+        string.Equals(DevicePreference, "Cpu", StringComparison.OrdinalIgnoreCase);
+
+    public void Normalize()
+    {
+        DevicePreference = string.Equals(DevicePreference, "Cpu", StringComparison.OrdinalIgnoreCase)
+            ? "Cpu"
+            : "Gpu";
     }
 }
 

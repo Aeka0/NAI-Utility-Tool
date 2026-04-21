@@ -129,7 +129,10 @@ public sealed partial class MainWindow
 
         try
         {
-            var result = await _reverseTaggerService.InferAsync(imageBytes, _settings.Settings.ReverseTagger);
+            var result = await _reverseTaggerService.InferAsync(
+                imageBytes,
+                _settings.Settings.ReverseTagger,
+                PreferCpuForOnnxInference);
             var artistTagSet = LoadReverseTaggerArtistTagSet();
             var preservedArtistTags = ExtractArtistTags(_i2iPositivePrompt, artistTagSet);
             _i2iPositivePrompt = MergePromptTagsPreservingArtists(preservedArtistTags, result.PositivePrompt);
@@ -152,8 +155,8 @@ public sealed partial class MainWindow
         }
         finally
         {
-            if (_settings.Settings.ReverseTagger.UnloadModelAfterInference)
-                _reverseTaggerService.Dispose();
+            if (ShouldUnloadOnnxModelsAfterInference)
+                _reverseTaggerService.UnloadModel();
         }
     }
 
@@ -314,7 +317,10 @@ public sealed partial class MainWindow
 
         try
         {
-            var result = await _reverseTaggerService.InferAsync(_inspectImageBytes, _settings.Settings.ReverseTagger);
+            var result = await _reverseTaggerService.InferAsync(
+                _inspectImageBytes,
+                _settings.Settings.ReverseTagger,
+                PreferCpuForOnnxInference);
 
             _inspectMetadata = new ImageMetadata
             {
@@ -342,8 +348,8 @@ public sealed partial class MainWindow
         }
         finally
         {
-            if (_settings.Settings.ReverseTagger.UnloadModelAfterInference)
-                _reverseTaggerService.Dispose();
+            if (ShouldUnloadOnnxModelsAfterInference)
+                _reverseTaggerService.UnloadModel();
         }
     }
 

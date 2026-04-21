@@ -291,10 +291,17 @@ public sealed class UpscaleService : IDisposable
     {
         lock (_sync)
         {
+            bool hadLoadedModel = _session != null || _loadedModelPath != null;
             _session?.Dispose();
             _session = null;
             _loadedModelPath = null;
-            System.Diagnostics.Debug.WriteLine("[Upscale] Model unloaded");
+            _inputName = "";
+            _outputName = "";
+            _executionProvider = "CPU";
+            _loadedPreferCpu = false;
+            _modelScale = 4;
+            if (hadLoadedModel)
+                System.Diagnostics.Debug.WriteLine("[Upscale] Model unloaded");
         }
     }
 
@@ -326,10 +333,6 @@ public sealed class UpscaleService : IDisposable
 
     public void Dispose()
     {
-        lock (_sync)
-        {
-            _session?.Dispose();
-            _session = null;
-        }
+        UnloadModel();
     }
 }

@@ -275,6 +275,9 @@ public sealed partial class MainWindow : Window
     private static string DefaultWildcardsDir => Path.Combine(AppRootDir, "user", "wildcards");
     private static string BundledWildcardsDir => Path.Combine(AppRootDir, "assets", "wildcards");
     private static string ModelsDir => Path.Combine(AppRootDir, "models");
+    private OnnxPerformanceSettings OnnxPerformance => _settings.Settings.OnnxPerformance;
+    private bool PreferCpuForOnnxInference => OnnxPerformance.PreferCpu;
+    private bool ShouldUnloadOnnxModelsAfterInference => OnnxPerformance.UnloadModelAfterInference;
 
     // ═══ 自动补全 ═══
     private readonly TagCompleteService _tagService = new();

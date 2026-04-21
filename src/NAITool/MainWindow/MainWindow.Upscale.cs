@@ -210,12 +210,13 @@ public sealed partial class MainWindow
         SetUpscaleButtonText(L("button.upscaling"));
         UpscaleProgressBar.Visibility = Visibility.Visible;
         TxtStatus.Text = L("status.upscale_loading_model");
+        bool shouldUnloadModel = ShouldUnloadOnnxModelsAfterInference;
 
         try
         {
             _upscaleService ??= new UpscaleService();
             var inputBytes = _upscaleInputImageBytes;
-            bool preferCpu = CboUpscaleDevice.SelectedIndex == 1;
+            bool preferCpu = PreferCpuForOnnxInference;
 
             DebugLog($"[Upscale] Start | Model={modelInfo.DisplayName} | Device={(preferCpu ? "CPU" : "Prefer GPU")} | Input={_upscaleSourceWidth}x{_upscaleSourceHeight}");
 
@@ -251,6 +252,12 @@ public sealed partial class MainWindow
             DebugLog($"[Upscale] Completed | Output={_upscaleSourceWidth}x{_upscaleSourceHeight} | Provider={_upscaleService.ExecutionProvider}");
             TxtStatus.Text = Lf("upscale.completed", _upscaleSourceWidth, _upscaleSourceHeight, _upscaleService.ExecutionProvider);
 
+            if (shouldUnloadModel)
+            {
+                _upscaleService.UnloadModel();
+                shouldUnloadModel = false;
+            }
+
             await PromptSaveUpscaleResultAsync(resultBytes);
         }
         catch (Exception ex)
@@ -260,6 +267,8 @@ public sealed partial class MainWindow
         }
         finally
         {
+            if (shouldUnloadModel)
+                _upscaleService?.UnloadModel();
             _upscaleRunning = false;
             BtnStartUpscale.IsEnabled = true;
             SetUpscaleButtonText(L("button.start_upscale"));
