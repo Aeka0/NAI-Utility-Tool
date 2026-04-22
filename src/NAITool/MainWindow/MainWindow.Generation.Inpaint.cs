@@ -217,7 +217,7 @@ public sealed partial class MainWindow
 
                 MaskCanvas.SetPreview(resultBitmap);
                 _i2iPreviewDirty = true;
-                ShowResultBar();
+                ShowI2IResultBar(resetPosition: true);
                 if (!keepGenerateButtonInteractive)
                     BtnGenerate.IsEnabled = true;
                 _ = RefreshAnlasInfoAsync(forceRefresh: true);
@@ -408,7 +408,7 @@ public sealed partial class MainWindow
 
                 MaskCanvas.SetPreview(resultBitmap);
                 _i2iPreviewDirty = true;
-                ShowResultBar();
+                ShowI2IResultBar(resetPosition: true);
                 if (!keepGenerateButtonInteractive)
                     BtnGenerate.IsEnabled = true;
                 _ = RefreshAnlasInfoAsync(forceRefresh: true);
@@ -666,8 +666,8 @@ public sealed partial class MainWindow
         _pendingResultBitmap = null;
         _pendingResultBytes = null;
         _pendingResultTextChunks = null;
-        ResultActionBar.Visibility = Visibility.Collapsed;
         BtnGenerate.IsEnabled = true;
+        UpdateFloatingResultBarsVisibility();
     }
 
     private void SetResultBarEnabled(bool enabled)
@@ -676,14 +676,6 @@ public sealed partial class MainWindow
         {
             if (child is Button btn) btn.IsEnabled = enabled;
         }
-    }
-
-    private void ShowResultBar()
-    {
-        ResultBarTranslate.X = 0;
-        ResultBarTranslate.Y = 0;
-        ResultActionBar.Visibility = Visibility.Visible;
-        UpdateI2IRedoButtonWarning();
     }
 
     private void OnResultBarDrag(object sender, ManipulationDeltaRoutedEventArgs e)
@@ -798,8 +790,8 @@ public sealed partial class MainWindow
         _pendingResultTextChunks = null;
         doc.ClearMask();
         MaskCanvas.UndoMgr.Clear();
-        ResultActionBar.Visibility = Visibility.Collapsed;
         BtnGenerate.IsEnabled = true;
         MaskCanvas.RefreshCanvas();
+        UpdateFloatingResultBarsVisibility();
     }
 }

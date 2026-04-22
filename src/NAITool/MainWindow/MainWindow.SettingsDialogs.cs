@@ -103,8 +103,7 @@ public sealed partial class MainWindow
             _settings.Settings.ShowGenerationResultBar = chkShowGenerationResultBar.IsChecked == true;
             _settings.Settings.WildcardsEnabled = chkWildcardsEnabled.IsChecked == true;
             _settings.Settings.WildcardsRequireExplicitSyntax = chkWildcardExplicitSyntax.IsChecked == true;
-            if (!_settings.Settings.ShowGenerationResultBar)
-                GenResultBar.Visibility = Visibility.Collapsed;
+            UpdateFloatingResultBarsVisibility();
             if (!_settings.Settings.AutoComplete) CloseAutoComplete();
             if (_settings.Settings.RememberPromptAndParameters)
             {

@@ -546,7 +546,7 @@ public sealed partial class MainWindow
             var bytes = await File.ReadAllBytesAsync(filePath);
             _currentGenImageBytes = bytes;
             _currentGenImagePath = filePath;
-            GenResultBar.Visibility = Visibility.Collapsed;
+            SetGenResultBarRequested(false);
             await ShowGenPreviewAsync(bytes);
             UpdateDynamicMenuStates();
         }
@@ -684,7 +684,7 @@ public sealed partial class MainWindow
                         _currentGenImagePath = null;
                         GenPreviewImage.Source = null;
                         GenPlaceholder.Visibility = Visibility.Visible;
-                        GenResultBar.Visibility = Visibility.Collapsed;
+                        SetGenResultBarRequested(false);
                         UpdateDynamicMenuStates();
                         TxtStatus.Text = L("common.deleted");
                     }

@@ -345,7 +345,7 @@ public sealed partial class MainWindow
             TxtStatus.Text = L("generate.error.no_result_to_send");
             return;
         }
-        GenResultBar.Visibility = Visibility.Collapsed;
+        SetGenResultBarRequested(false);
         await SendBytesToUpscaleAsync(_currentGenImageBytes, _currentGenImagePath);
     }
 

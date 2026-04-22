@@ -93,12 +93,6 @@ public sealed partial class MainWindow
         EffectsPreviewArea.Visibility = isPost ? Visibility.Visible : Visibility.Collapsed;
         InspectPreviewArea.Visibility = isReader ? Visibility.Visible : Visibility.Collapsed;
 
-        GenResultBar.Visibility = Visibility.Collapsed;
-        if (isI2I && MaskCanvas.IsInPreviewMode)
-            ResultActionBar.Visibility = Visibility.Visible;
-        else
-        ResultActionBar.Visibility = Visibility.Collapsed;
-
         PanelLeftMain.Visibility = (isReader || isPost || isUpscale) ? Visibility.Collapsed : Visibility.Visible;
         PanelLeftEffects.Visibility = isPost ? Visibility.Visible : Visibility.Collapsed;
         PanelLeftUpscale.Visibility = isUpscale ? Visibility.Visible : Visibility.Collapsed;
@@ -130,11 +124,59 @@ public sealed partial class MainWindow
         }
         UpdateSizeWarningVisuals();
         UpdateAnlasBalanceText();
+        UpdateFloatingResultBarsVisibility();
         _ = RefreshAnlasInfoAsync();
     }
 
     private static bool IsPromptMode(AppMode mode) =>
         mode == AppMode.ImageGeneration || mode == AppMode.I2I;
+
+    private void SetGenResultBarRequested(bool requested, bool resetPosition = false)
+    {
+        _genResultBarRequested = requested;
+        if (requested)
+        {
+            if (resetPosition)
+            {
+                GenResultBarTranslate.X = 0;
+                GenResultBarTranslate.Y = 0;
+            }
+
+            UpdateGenEnhanceButtonWarning();
+        }
+
+        UpdateFloatingResultBarsVisibility();
+    }
+
+    private void ShowI2IResultBar(bool resetPosition = false)
+    {
+        if (resetPosition)
+        {
+            ResultBarTranslate.X = 0;
+            ResultBarTranslate.Y = 0;
+        }
+
+        if (MaskCanvas.IsInPreviewMode)
+            UpdateI2IRedoButtonWarning();
+
+        UpdateFloatingResultBarsVisibility();
+    }
+
+    private void UpdateFloatingResultBarsVisibility()
+    {
+        bool showGenResultBar =
+            _genResultBarRequested &&
+            _currentMode == AppMode.ImageGeneration &&
+            !_autoGenRunning &&
+            _settings.Settings.ShowGenerationResultBar &&
+            _currentGenImageBytes != null;
+        GenResultBar.Visibility = showGenResultBar ? Visibility.Visible : Visibility.Collapsed;
+
+        bool showI2IResultBar =
+            _currentMode == AppMode.I2I &&
+            MaskCanvas.IsInPreviewMode;
+        ResultActionBar.Visibility = showI2IResultBar ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void OnLeftSidebarResizeStart(object sender, PointerRoutedEventArgs e)
     {

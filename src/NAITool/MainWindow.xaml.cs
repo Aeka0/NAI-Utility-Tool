@@ -172,6 +172,7 @@ public sealed partial class MainWindow : Window
     // ═══ 生图结果 ═══
     private byte[]? _currentGenImageBytes;
     private string? _currentGenImagePath;
+    private bool _genResultBarRequested;
 
     // ═══ 检视模式 ═══
     private ImageMetadata? _inspectMetadata;

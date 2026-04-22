@@ -209,13 +209,8 @@ public sealed partial class MainWindow
             if (finalSavedPath != null)
                 AddHistoryItem(finalSavedPath);
 
-            if (!_autoGenRunning && _settings.Settings.ShowGenerationResultBar)
-            {
-                GenResultBarTranslate.X = 0;
-                GenResultBarTranslate.Y = 0;
-                UpdateGenEnhanceButtonWarning();
-                GenResultBar.Visibility = Visibility.Visible;
-            }
+            if (!_autoGenRunning)
+                SetGenResultBarRequested(true, resetPosition: true);
             _ = RefreshAnlasInfoAsync(forceRefresh: true);
             UpdateDynamicMenuStates();
             DebugLog($"[Generate] Completed | Seed={actualSeed} | Saved={finalSavedPath}");
@@ -320,7 +315,7 @@ public sealed partial class MainWindow
             return false;
 
         _settings.Save();
-        GenResultBar.Visibility = Visibility.Collapsed;
+        SetGenResultBarRequested(false);
         return await DoGenEnhanceAsync(imageBytes, imagePath, forceRandomSeed);
     }
 
@@ -511,11 +506,7 @@ public sealed partial class MainWindow
             if (savedPath != null)
                 AddHistoryItem(savedPath);
 
-            GenResultBarTranslate.X = 0;
-            GenResultBarTranslate.Y = 0;
-            UpdateGenEnhanceButtonWarning();
-            if (_settings.Settings.ShowGenerationResultBar)
-                GenResultBar.Visibility = Visibility.Visible;
+            SetGenResultBarRequested(true, resetPosition: true);
 
             _ = RefreshAnlasInfoAsync(forceRefresh: true);
             UpdateDynamicMenuStates();
@@ -565,7 +556,7 @@ public sealed partial class MainWindow
         if (_currentGenImageBytes == null)
         { TxtStatus.Text = L("generate.error.no_result_to_send"); return; }
 
-        GenResultBar.Visibility = Visibility.Collapsed;
+        SetGenResultBarRequested(false);
         SendImageToI2I(_currentGenImageBytes, _currentGenImagePath);
     }
 
@@ -577,7 +568,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        GenResultBar.Visibility = Visibility.Collapsed;
+        SetGenResultBarRequested(false);
         await SendBytesToEffectsAsync(_currentGenImageBytes, _currentGenImagePath);
     }
 
@@ -614,14 +605,14 @@ public sealed partial class MainWindow
     {
         if (_currentGenImageBytes == null)
         { TxtStatus.Text = L("generate.error.no_result_to_send"); return; }
-        GenResultBar.Visibility = Visibility.Collapsed;
+        SetGenResultBarRequested(false);
         SwitchMode(AppMode.Inspect);
         await LoadInspectImageFromBytesAsync(_currentGenImageBytes, _currentGenImagePath != null ? Path.GetFileName(_currentGenImagePath) : null);
     }
 
     private async void OnDeleteGenResult(object sender, RoutedEventArgs e)
     {
-        GenResultBar.Visibility = Visibility.Collapsed;
+        SetGenResultBarRequested(false);
 
         string? deletedPath = _currentGenImagePath;
         if (!string.IsNullOrEmpty(deletedPath) && File.Exists(deletedPath))
@@ -704,7 +695,7 @@ public sealed partial class MainWindow
 
     private void OnCloseGenResultBar(object sender, RoutedEventArgs e)
     {
-        GenResultBar.Visibility = Visibility.Collapsed;
+        SetGenResultBarRequested(false);
     }
 
     private void OnGenResultBarDrag(object sender, ManipulationDeltaRoutedEventArgs e)
