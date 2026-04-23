@@ -36,187 +36,149 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
-    private async void OnUsageSettings(object sender, RoutedEventArgs e)
+    private enum SettingsHubSection
     {
-        var chkWeightHighlight = new CheckBox
-        {
-            Content = L("settings.usage.weight_highlight"),
-            IsChecked = _settings.Settings.WeightHighlight,
-        };
-        var chkAutoComplete = new CheckBox
-        {
-            Content = L("settings.usage.auto_complete"),
-            IsChecked = _settings.Settings.AutoComplete,
-        };
-        var chkRememberPromptAndParameters = new CheckBox
-        {
-            Content = L("settings.usage.remember_prompt"),
-            IsChecked = _settings.Settings.RememberPromptAndParameters,
-        };
-        var chkSuperDrop = new CheckBox
-        {
-            Content = L("settings.usage.superdrop"),
-            IsChecked = _settings.Settings.SuperDropEnabled,
-        };
-        var chkShowGenerationResultBar = new CheckBox
-        {
-            Content = L("settings.usage.show_generation_result_bar"),
-            IsChecked = _settings.Settings.ShowGenerationResultBar,
-        };
-        var chkWildcardsEnabled = new CheckBox
-        {
-            Content = L("settings.usage.wildcards_enabled"),
-            IsChecked = _settings.Settings.WildcardsEnabled,
-        };
-        var chkWildcardExplicitSyntax = new CheckBox
-        {
-            Content = L("settings.usage.wildcards_explicit"),
-            IsChecked = _settings.Settings.WildcardsRequireExplicitSyntax,
-        };
-        var deleteBehaviorCombo = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            SelectedIndex = string.Equals(_settings.Settings.ImageDeleteBehavior, "PermanentDelete", StringComparison.OrdinalIgnoreCase) ? 1 : 0,
-        };
-        deleteBehaviorCombo.Items.Add(new ComboBoxItem
-        {
-            Content = L("settings.usage.delete_behavior.recycle_bin"),
-            Tag = "RecycleBin",
-        });
-        deleteBehaviorCombo.Items.Add(new ComboBoxItem
-        {
-            Content = L("settings.usage.delete_behavior.permanent"),
-            Tag = "PermanentDelete",
-        });
-        var deleteBehaviorHint = new TextBlock
-        {
-            Text = L("settings.usage.delete_behavior_hint"),
-            TextWrapping = TextWrapping.Wrap,
-            FontSize = 12,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
-        };
-
-        var panel = new StackPanel { Spacing = 12 };
-        panel.Children.Add(chkWeightHighlight);
-        panel.Children.Add(chkAutoComplete);
-        panel.Children.Add(chkRememberPromptAndParameters);
-        panel.Children.Add(chkSuperDrop);
-        panel.Children.Add(chkShowGenerationResultBar);
-        panel.Children.Add(chkWildcardsEnabled);
-        panel.Children.Add(chkWildcardExplicitSyntax);
-        panel.Children.Add(new TextBlock { Text = L("settings.usage.delete_behavior") });
-        panel.Children.Add(deleteBehaviorCombo);
-        panel.Children.Add(deleteBehaviorHint);
-
-        var dialog = new ContentDialog
-        {
-            Title = L("settings.usage.title"),
-            Content = panel,
-            PrimaryButtonText = L("common.ok"),
-            CloseButtonText = L("common.cancel"),
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = this.Content.XamlRoot,
-            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
-        };
-
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            _settings.Settings.WeightHighlight = chkWeightHighlight.IsChecked == true;
-            _settings.Settings.AutoComplete = chkAutoComplete.IsChecked == true;
-            _settings.Settings.RememberPromptAndParameters = chkRememberPromptAndParameters.IsChecked == true;
-            _settings.Settings.SuperDropEnabled = chkSuperDrop.IsChecked == true;
-            _settings.Settings.ShowGenerationResultBar = chkShowGenerationResultBar.IsChecked == true;
-            _settings.Settings.WildcardsEnabled = chkWildcardsEnabled.IsChecked == true;
-            _settings.Settings.WildcardsRequireExplicitSyntax = chkWildcardExplicitSyntax.IsChecked == true;
-            if (deleteBehaviorCombo.SelectedItem is ComboBoxItem deleteBehaviorItem &&
-                deleteBehaviorItem.Tag is string deleteBehavior)
-            {
-                _settings.Settings.ImageDeleteBehavior = deleteBehavior;
-            }
-            UpdateFloatingResultBarsVisibility();
-            if (!_settings.Settings.AutoComplete) CloseAutoComplete();
-            if (_settings.Settings.RememberPromptAndParameters)
-            {
-                SaveCurrentPromptToBuffer();
-                SyncUIToParams();
-                SyncRememberedPromptAndParameterState();
-            }
-            else
-            {
-                ClearRememberedPromptState();
-            }
-            _settings.Save();
-            ApplyDragDropModeSetting();
-            UpdatePromptHighlights();
-            TxtStatus.Text = L("settings.usage.saved");
-        }
+        Usage,
+        Network,
+        Performance,
+        Appearance,
+        Language,
+        Developer,
     }
 
+    private async void OnUsageSettings(object sender, RoutedEventArgs e)
+        => await ShowSettingsHubDialogAsync(SettingsHubSection.Usage);
+
     private async void OnPerformanceSettings(object sender, RoutedEventArgs e)
+        => await ShowSettingsHubDialogAsync(SettingsHubSection.Performance);
+
+    private void ApplyUsageSettings(
+        bool weightHighlight,
+        bool autoComplete,
+        bool rememberPromptAndParameters,
+        bool superDropEnabled,
+        bool showGenerationResultBar,
+        bool wildcardsEnabled,
+        bool wildcardsRequireExplicitSyntax,
+        string imageDeleteBehavior)
+    {
+        _settings.Settings.WeightHighlight = weightHighlight;
+        _settings.Settings.AutoComplete = autoComplete;
+        _settings.Settings.RememberPromptAndParameters = rememberPromptAndParameters;
+        _settings.Settings.SuperDropEnabled = superDropEnabled;
+        _settings.Settings.ShowGenerationResultBar = showGenerationResultBar;
+        _settings.Settings.WildcardsEnabled = wildcardsEnabled;
+        _settings.Settings.WildcardsRequireExplicitSyntax = wildcardsRequireExplicitSyntax;
+        _settings.Settings.ImageDeleteBehavior = imageDeleteBehavior;
+
+        UpdateFloatingResultBarsVisibility();
+        if (!_settings.Settings.AutoComplete)
+            CloseAutoComplete();
+
+        if (_settings.Settings.RememberPromptAndParameters)
+        {
+            SaveCurrentPromptToBuffer();
+            SyncUIToParams();
+            SyncRememberedPromptAndParameterState();
+        }
+        else
+        {
+            ClearRememberedPromptState();
+        }
+
+        _settings.Save();
+        ApplyDragDropModeSetting();
+        UpdatePromptHighlights();
+        TxtStatus.Text = L("settings.usage.saved");
+    }
+
+    private void ApplyPerformanceSettings(string devicePreference, bool unloadModelAfterInference)
     {
         var settings = OnnxPerformance;
+        settings.DevicePreference = devicePreference;
+        settings.UnloadModelAfterInference = unloadModelAfterInference;
+        settings.Normalize();
+        _settings.Save();
+        TxtStatus.Text = L("settings.performance.saved");
+    }
 
-        var deviceCombo = new ComboBox
+    private void ApplyDeveloperLogSetting(bool enabled)
+    {
+        _settings.Settings.DevLogEnabled = enabled;
+        _settings.Save();
+        TxtStatus.Text = enabled
+            ? L("settings.dev.log_enabled_status")
+            : L("settings.dev.log_disabled_status");
+    }
+
+    private void ApplyThemeModeSetting(string mode)
+    {
+        ApplyTheme(mode);
+        SyncThemeMenuChecks(mode);
+        _settings.Settings.ThemeMode = mode;
+        _settings.Save();
+        TxtStatus.Text = mode switch
         {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
+            "Light" => L("status.theme_light"),
+            "Dark" => L("status.theme_dark"),
+            _ => L("status.theme_system"),
         };
-        deviceCombo.Items.Add(new ComboBoxItem
-        {
-            Content = L("settings.performance.device_gpu"),
-            Tag = "Gpu",
-        });
-        deviceCombo.Items.Add(new ComboBoxItem
-        {
-            Content = L("settings.performance.device_cpu"),
-            Tag = "Cpu",
-        });
-        deviceCombo.SelectedIndex = settings.PreferCpu ? 1 : 0;
+    }
 
-        var unloadAfterInferenceCheck = new CheckBox
+    private void ApplyTransparencyModeSetting(string mode)
+    {
+        ApplyTransparency(mode);
+        SyncTransparencyMenuChecks(mode);
+        _settings.Settings.AppearanceTransparency = mode;
+        _settings.Save();
+        DebugLog($"[外观] 透明度已切换为 {mode}");
+        TxtStatus.Text = mode switch
         {
-            Content = L("settings.performance.unload_after_inference"),
-            IsChecked = settings.UnloadModelAfterInference,
+            "Lesser" => L("status.transparency_lesser"),
+            "Opaque" => L("status.transparency_opaque"),
+            _ => L("status.transparency_standard"),
         };
+    }
 
-        var unloadHint = new TextBlock
-        {
-            Text = L("settings.performance.unload_after_inference_hint"),
-            TextWrapping = TextWrapping.Wrap,
-            FontSize = 12,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
-            Margin = new Thickness(28, -8, 0, 0),
-        };
+    private void ApplyLanguageCodeSetting(string languageCode)
+    {
+        _settings.Settings.LanguageCode = LocalizationService.NormalizeLanguageCode(languageCode);
+        _loc.SetLanguage(_settings.Settings.LanguageCode);
+        _settings.Save();
+        ApplyLanguageSelectionChecks();
+    }
 
-        var panel = new StackPanel
-        {
-            Spacing = 12,
-            MinWidth = 420,
-        };
-        panel.Children.Add(new TextBlock { Text = L("settings.performance.device") });
-        panel.Children.Add(deviceCombo);
-        panel.Children.Add(unloadAfterInferenceCheck);
-        panel.Children.Add(unloadHint);
+    private async Task SaveNetworkSettingsAsync(
+        string apiToken,
+        bool streamGeneration,
+        bool useProxy,
+        string proxyPort,
+        bool testConnection)
+    {
+        _settings.Settings.ApiToken = apiToken;
+        _settings.Settings.StreamGeneration = streamGeneration;
+        _settings.Settings.UseProxy = useProxy;
+        _settings.Settings.ProxyPort = proxyPort;
+        _settings.Save();
+        UpdateBtnGenerateForApiKey();
 
-        var dialog = new ContentDialog
+        TxtStatus.Text = L("settings.network.testing");
+        if (testConnection)
         {
-            Title = L("settings.performance.title"),
-            Content = panel,
-            PrimaryButtonText = L("common.save"),
-            CloseButtonText = L("common.cancel"),
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = this.Content.XamlRoot,
-            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
-        };
+            bool valid = !string.IsNullOrWhiteSpace(apiToken) && await ValidateSavedApiTokenAsync();
+            if (string.IsNullOrWhiteSpace(apiToken))
+                ClearAccountApiState(save: true);
 
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            if (deviceCombo.SelectedItem is ComboBoxItem item && item.Tag is string device)
-                settings.DevicePreference = device;
-            settings.UnloadModelAfterInference = unloadAfterInferenceCheck.IsChecked == true;
-            settings.Normalize();
-            _settings.Save();
-            TxtStatus.Text = L("settings.performance.saved");
+            TxtStatus.Text = valid
+                ? L("settings.network.test.success")
+                : L("settings.network.invalid_api_or_network");
+            return;
         }
+
+        bool saveValid = await ValidateSavedApiTokenAsync();
+        TxtStatus.Text = saveValid
+            ? L("settings.network.saved")
+            : L("settings.network.invalid_api_or_network");
     }
 
     private void AutoDetectTaggerModel()
@@ -438,47 +400,7 @@ public sealed partial class MainWindow
     }
 
     private async void OnDevSettings(object sender, RoutedEventArgs e)
-    {
-        var chkLog = new CheckBox
-        {
-            Content = L("settings.dev.log_enabled"),
-            IsChecked = _settings.Settings.DevLogEnabled,
-        };
-        var hintText = new TextBlock
-        {
-            Text = L("settings.dev.log_hint"),
-            TextWrapping = TextWrapping.Wrap,
-            FontSize = 12,
-            Margin = new Thickness(0, 4, 0, 0),
-        };
-        hintText.SetValue(TextBlock.ForegroundProperty,
-            new SolidColorBrush(((FrameworkElement)this.Content).ActualTheme == ElementTheme.Dark
-                ? Windows.UI.Color.FromArgb(255, 160, 160, 160)
-                : Windows.UI.Color.FromArgb(255, 100, 100, 100)));
-
-        var panel = new StackPanel { Spacing = 8 };
-        panel.Children.Add(chkLog);
-        panel.Children.Add(hintText);
-
-        var dialog = new ContentDialog
-        {
-            Title = L("settings.dev.title"),
-            Content = panel,
-            PrimaryButtonText = L("common.ok"),
-            CloseButtonText = L("common.cancel"),
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = this.Content.XamlRoot,
-            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
-        };
-
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            _settings.Settings.DevLogEnabled = chkLog.IsChecked == true;
-            _settings.Save();
-            TxtStatus.Text = _settings.Settings.DevLogEnabled
-                ? L("settings.dev.log_enabled_status") : L("settings.dev.log_disabled_status");
-        }
-    }
+        => await ShowSettingsHubDialogAsync(SettingsHubSection.Developer);
 
     private async void OnQuotaSettings(object sender, RoutedEventArgs e)
     {
@@ -764,89 +686,7 @@ public sealed partial class MainWindow
     }
 
     private async void OnNetworkSettings(object sender, RoutedEventArgs e)
-    {
-        var tokenBox = new PasswordBox
-        {
-            PlaceholderText = "Bearer Token",
-            Password = _settings.Settings.ApiToken ?? "", Width = 360,
-        };
-
-        var proxyCheck = new CheckBox { Content = L("settings.network.use_proxy"), IsChecked = _settings.Settings.UseProxy };
-        var proxyHint = new TextBlock
-        {
-            Text = L("settings.network.proxy_hint"),
-            FontSize = 12,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(28, -8, 0, 0),
-        };
-        var proxyPortBox = new TextBox { PlaceholderText = L("settings.network.proxy_port_placeholder"), Text = _settings.Settings.ProxyPort, Width = 120 };
-        var streamGenerationCheck = new CheckBox
-        {
-            Content = L("settings.network.stream_generation"),
-            IsChecked = _settings.Settings.StreamGeneration,
-        };
-        var streamGenerationHint = new TextBlock
-        {
-            Text = L("settings.network.stream_generation_hint"),
-            FontSize = 12,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(28, -8, 0, 0),
-        };
-
-        var panel = new StackPanel { Spacing = 12 };
-        panel.Children.Add(new TextBlock { Text = L("settings.network.api_token") });
-        panel.Children.Add(tokenBox);
-        panel.Children.Add(streamGenerationCheck);
-        panel.Children.Add(streamGenerationHint);
-        panel.Children.Add(proxyCheck);
-        panel.Children.Add(proxyHint);
-        var pp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        pp.Children.Add(new TextBlock { Text = L("settings.network.port"), VerticalAlignment = VerticalAlignment.Center });
-        pp.Children.Add(proxyPortBox);
-        panel.Children.Add(pp);
-
-        var dialog = new ContentDialog
-        {
-            Title = L("settings.network.title"), Content = panel,
-            PrimaryButtonText = L("common.save"), SecondaryButtonText = L("settings.network.test_connection"),
-            CloseButtonText = L("common.cancel"), XamlRoot = this.Content.XamlRoot,
-            DefaultButton = ContentDialogButton.Primary,
-            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
-        };
-
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary || result == ContentDialogResult.Secondary)
-        {
-            string apiToken = tokenBox.Password.Trim();
-            _settings.Settings.ApiToken = apiToken;
-            _settings.Settings.StreamGeneration = streamGenerationCheck.IsChecked == true;
-            _settings.Settings.UseProxy = proxyCheck.IsChecked == true;
-            _settings.Settings.ProxyPort = proxyPortBox.Text;
-            _settings.Save();
-            UpdateBtnGenerateForApiKey();
-
-            if (result == ContentDialogResult.Secondary)
-            {
-                TxtStatus.Text = L("settings.network.testing");
-                bool valid = !string.IsNullOrWhiteSpace(apiToken) && await ValidateSavedApiTokenAsync();
-                if (string.IsNullOrWhiteSpace(apiToken))
-                    ClearAccountApiState(save: true);
-                TxtStatus.Text = valid
-                    ? L("settings.network.test.success")
-                    : L("settings.network.invalid_api_or_network");
-            }
-            else
-            {
-                TxtStatus.Text = L("settings.network.testing");
-                bool valid = await ValidateSavedApiTokenAsync();
-                TxtStatus.Text = valid
-                    ? L("settings.network.saved")
-                    : L("settings.network.invalid_api_or_network");
-            }
-        }
-    }
+        => await ShowSettingsHubDialogAsync(SettingsHubSection.Network);
 
     private async Task<bool> ValidateSavedApiTokenAsync()
     {

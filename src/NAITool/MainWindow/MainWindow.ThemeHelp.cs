@@ -39,18 +39,7 @@ public sealed partial class MainWindow
     private void OnThemeChanged(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleMenuFlyoutItem item && item.Tag is string mode)
-        {
-            ApplyTheme(mode);
-            SyncThemeMenuChecks(mode);
-            _settings.Settings.ThemeMode = mode;
-            _settings.Save();
-            TxtStatus.Text = mode switch
-            {
-                "Light" => L("status.theme_light"),
-                "Dark" => L("status.theme_dark"),
-                _ => L("status.theme_system"),
-            };
-        }
+            ApplyThemeModeSetting(mode);
     }
 
     private void ApplyTheme(string mode)
@@ -678,17 +667,7 @@ public sealed partial class MainWindow
         if (sender is not ToggleMenuFlyoutItem item || item.Tag is not string mode)
             return;
 
-        ApplyTransparency(mode);
-        SyncTransparencyMenuChecks(mode);
-        _settings.Settings.AppearanceTransparency = mode;
-        _settings.Save();
-        DebugLog($"[外观] 透明度已切换为 {mode}");
-        TxtStatus.Text = mode switch
-        {
-            "Lesser" => L("status.transparency_lesser"),
-            "Opaque" => L("status.transparency_opaque"),
-            _ => L("status.transparency_standard"),
-        };
+        ApplyTransparencyModeSetting(mode);
     }
 
     private void SyncTransparencyMenuChecks(string mode)

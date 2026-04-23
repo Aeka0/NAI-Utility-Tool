@@ -284,17 +284,10 @@
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE713;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
-                    <MenuFlyoutItem x:Name="MenuNetworkSettings" Text="" Click="OnNetworkSettings">
-                        <MenuFlyoutItem.Icon><SymbolIcon Symbol="Globe"/></MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
+                    <MenuFlyoutSeparator/>
                     <MenuFlyoutItem x:Name="MenuQuotaSettings" Text="" Click="OnQuotaSettings">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF159;"/>
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutItem x:Name="MenuPerformanceSettings" Text="" Click="OnPerformanceSettings">
-                        <MenuFlyoutItem.Icon>
-                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE9D9;"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
                     <MenuFlyoutItem x:Name="MenuReverseTaggerSettings" Text="" Click="OnReverseTaggerSettings">
@@ -302,8 +295,15 @@
                             <SymbolIcon Symbol="Tag"/>
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
-                    <MenuFlyoutSeparator/>
-                    <MenuFlyoutSubItem x:Name="MenuAppearance" Text="">
+                    <MenuFlyoutItem x:Name="MenuNetworkSettings" Text="" Click="OnNetworkSettings" Visibility="Collapsed">
+                        <MenuFlyoutItem.Icon><SymbolIcon Symbol="Globe"/></MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem x:Name="MenuPerformanceSettings" Text="" Click="OnPerformanceSettings" Visibility="Collapsed">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE9D9;"/>
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutSubItem x:Name="MenuAppearance" Text="" Visibility="Collapsed">
                         <MenuFlyoutSubItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE790;"/>
                         </MenuFlyoutSubItem.Icon>
@@ -345,8 +345,7 @@
                             </ToggleMenuFlyoutItem.Icon>
                         </ToggleMenuFlyoutItem>
                     </MenuFlyoutSubItem>
-                    <MenuFlyoutSeparator/>
-                    <MenuFlyoutSubItem x:Name="MenuLanguage" Text="">
+                    <MenuFlyoutSubItem x:Name="MenuLanguage" Text="" Visibility="Collapsed">
                         <MenuFlyoutSubItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF2B7;"/>
                         </MenuFlyoutSubItem.Icon>
@@ -359,8 +358,7 @@
                         <ToggleMenuFlyoutItem x:Name="MenuLanguageJaJp" Text=""
                                               Click="OnLanguageChanged" Tag="ja_jp"/>
                     </MenuFlyoutSubItem>
-                    <MenuFlyoutSeparator/>
-                    <MenuFlyoutItem x:Name="MenuDevSettings" Text="" Click="OnDevSettings">
+                    <MenuFlyoutItem x:Name="MenuDevSettings" Text="" Click="OnDevSettings" Visibility="Collapsed">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEC7A;"/>
                         </MenuFlyoutItem.Icon>

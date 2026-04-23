@@ -146,7 +146,7 @@ public sealed partial class MainWindow
         MenuZoomOut.Text = L("menu.view.zoom_out");
 
         MenuSettings.Title = L("menu.settings");
-        MenuUsageSettings.Text = L("menu.settings.usage");
+        MenuUsageSettings.Text = L("menu.settings.open");
         MenuPerformanceSettings.Text = L("menu.settings.performance");
         MenuQuotaSettings.Text = L("menu.settings.quota");
         MenuNetworkSettings.Text = L("menu.settings.network");
@@ -331,9 +331,7 @@ public sealed partial class MainWindow
         if (sender is not ToggleMenuFlyoutItem item || item.Tag is not string languageCode)
             return;
 
-        _settings.Settings.LanguageCode = LocalizationService.NormalizeLanguageCode(languageCode);
-        _loc.SetLanguage(_settings.Settings.LanguageCode);
-        _settings.Save();
+        ApplyLanguageCodeSetting(languageCode);
     }
 
     // ═══════════════════════════════════════════════════════════
