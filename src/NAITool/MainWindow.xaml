@@ -14,6 +14,45 @@
           DragLeave="OnSuperDropDragLeave"
           Drop="OnSuperDropRootDrop">
         <Grid.Resources>
+            <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <LinearGradientBrush x:Key="HistoryThumbnailGlassOverlayBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#66FFFFFF" Offset="0"/>
+                        <GradientStop Color="#26FFFFFF" Offset="0.42"/>
+                        <GradientStop Color="#10FFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="HistoryThumbnailGlassBorderBrush" StartPoint="0.15,0" EndPoint="0.85,1">
+                        <GradientStop Color="#C2D0DAE2" Offset="0"/>
+                        <GradientStop Color="#7EBDC8D1" Offset="0.45"/>
+                        <GradientStop Color="#4C98A6B0" Offset="1"/>
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <LinearGradientBrush x:Key="HistoryThumbnailGlassOverlayBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#1AFFFFFF" Offset="0"/>
+                        <GradientStop Color="#0AFFFFFF" Offset="0.42"/>
+                        <GradientStop Color="#03FFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="HistoryThumbnailGlassBorderBrush" StartPoint="0.15,0" EndPoint="0.85,1">
+                        <GradientStop Color="#44FFFFFF" Offset="0"/>
+                        <GradientStop Color="#1FFFFFFF" Offset="0.45"/>
+                        <GradientStop Color="#0EFFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Default">
+                    <LinearGradientBrush x:Key="HistoryThumbnailGlassOverlayBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#66FFFFFF" Offset="0"/>
+                        <GradientStop Color="#26FFFFFF" Offset="0.42"/>
+                        <GradientStop Color="#10FFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="HistoryThumbnailGlassBorderBrush" StartPoint="0.15,0" EndPoint="0.85,1">
+                        <GradientStop Color="#C2D0DAE2" Offset="0"/>
+                        <GradientStop Color="#7EBDC8D1" Offset="0.45"/>
+                        <GradientStop Color="#4C98A6B0" Offset="1"/>
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
             <Style x:Key="InspectCaptionStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
             </Style>
@@ -31,17 +70,6 @@
                 <GradientStop Color="#26FFFFFF" Offset="0.5"/>
                 <GradientStop Color="#1AFFFFFF" Offset="1.0"/>
             </LinearGradientBrush>
-            <LinearGradientBrush x:Key="HistoryThumbnailGlassOverlayBrush" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#40FFFFFF" Offset="0"/>
-                <GradientStop Color="#14FFFFFF" Offset="0.42"/>
-                <GradientStop Color="#08FFFFFF" Offset="1"/>
-            </LinearGradientBrush>
-            <LinearGradientBrush x:Key="HistoryThumbnailGlassBorderBrush" StartPoint="0.15,0" EndPoint="0.85,1">
-                <GradientStop Color="#7AFFFFFF" Offset="0"/>
-                <GradientStop Color="#3AFFFFFF" Offset="0.45"/>
-                <GradientStop Color="#1CFFFFFF" Offset="1"/>
-            </LinearGradientBrush>
-
             <Style x:Key="SuperDropCardStyle" TargetType="Border">
                 <Setter Property="Background" Value="{StaticResource SuperDropGlassBackground}"/>
                 <Setter Property="BorderBrush" Value="{StaticResource SuperDropGlassBorder}"/>
@@ -140,6 +168,7 @@
             <local:HistoryItemTemplateSelector x:Key="HistoryTemplateSelector"
                                                SeparatorTemplate="{StaticResource HistorySeparatorTemplate}"
                                                ThumbnailTemplate="{StaticResource HistoryThumbnailTemplate}"/>
+            </ResourceDictionary>
         </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="48"/>
