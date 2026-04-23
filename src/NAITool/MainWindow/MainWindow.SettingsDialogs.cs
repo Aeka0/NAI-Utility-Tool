@@ -73,6 +73,28 @@ public sealed partial class MainWindow
             Content = L("settings.usage.wildcards_explicit"),
             IsChecked = _settings.Settings.WildcardsRequireExplicitSyntax,
         };
+        var deleteBehaviorCombo = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            SelectedIndex = string.Equals(_settings.Settings.ImageDeleteBehavior, "PermanentDelete", StringComparison.OrdinalIgnoreCase) ? 1 : 0,
+        };
+        deleteBehaviorCombo.Items.Add(new ComboBoxItem
+        {
+            Content = L("settings.usage.delete_behavior.recycle_bin"),
+            Tag = "RecycleBin",
+        });
+        deleteBehaviorCombo.Items.Add(new ComboBoxItem
+        {
+            Content = L("settings.usage.delete_behavior.permanent"),
+            Tag = "PermanentDelete",
+        });
+        var deleteBehaviorHint = new TextBlock
+        {
+            Text = L("settings.usage.delete_behavior_hint"),
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
+        };
 
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(chkWeightHighlight);
@@ -82,6 +104,9 @@ public sealed partial class MainWindow
         panel.Children.Add(chkShowGenerationResultBar);
         panel.Children.Add(chkWildcardsEnabled);
         panel.Children.Add(chkWildcardExplicitSyntax);
+        panel.Children.Add(new TextBlock { Text = L("settings.usage.delete_behavior") });
+        panel.Children.Add(deleteBehaviorCombo);
+        panel.Children.Add(deleteBehaviorHint);
 
         var dialog = new ContentDialog
         {
@@ -103,6 +128,11 @@ public sealed partial class MainWindow
             _settings.Settings.ShowGenerationResultBar = chkShowGenerationResultBar.IsChecked == true;
             _settings.Settings.WildcardsEnabled = chkWildcardsEnabled.IsChecked == true;
             _settings.Settings.WildcardsRequireExplicitSyntax = chkWildcardExplicitSyntax.IsChecked == true;
+            if (deleteBehaviorCombo.SelectedItem is ComboBoxItem deleteBehaviorItem &&
+                deleteBehaviorItem.Tag is string deleteBehavior)
+            {
+                _settings.Settings.ImageDeleteBehavior = deleteBehavior;
+            }
             UpdateFloatingResultBarsVisibility();
             if (!_settings.Settings.AutoComplete) CloseAutoComplete();
             if (_settings.Settings.RememberPromptAndParameters)

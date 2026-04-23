@@ -137,6 +137,7 @@ public class AppSettings
     public bool UseProxy { get; set; }
     public string ProxyPort { get; set; } = "10808";
     public bool UseWebp { get; set; }
+    public string ImageDeleteBehavior { get; set; } = "RecycleBin";
     public string ThemeMode { get; set; } = "System";
     public string AppearanceTransparency { get; set; } = "Standard";
     public string LanguageCode { get; set; } = "";
@@ -160,6 +161,11 @@ public class AppSettings
         {
             "Standard" or "Lesser" or "Opaque" => AppearanceTransparency,
             _ => "Standard",
+        };
+        ImageDeleteBehavior = ImageDeleteBehavior switch
+        {
+            "RecycleBin" or "PermanentDelete" => ImageDeleteBehavior,
+            _ => "RecycleBin",
         };
         OnnxPerformance ??= new()
         {

@@ -115,6 +115,7 @@ public sealed partial class MainWindow
             _historyAvailableDateSet.Clear();
             _historyAvailableDateSet.UnionWith(snapshot.AvailableDateSet);
             _historyFiles.Clear();
+            TrimHistoryFileItemCache(snapshot.ByDate);
 
             string? targetDate = requestedDate;
             if (targetDate != null && !IsHistoryDateSelectable(targetDate))
@@ -240,14 +241,31 @@ public sealed partial class MainWindow
 
     private Task<List<HistoryListItem>> BuildHistoryListItemsAsync()
     {
-        if (_historyFiles.Count == 0)
+        if (_historyFiles.Count == 0 && _historyPendingItems.Count == 0)
             return Task.FromResult(new List<HistoryListItem>());
 
         var allFiles = _historyFiles.ToArray();
+        var selectedDate = _selectedHistoryDate;
+        var pendingItems = _historyPendingItems
+            .Where(item => item.DateKey != null && IsHistoryDateVisibleForSelection(item.DateKey, selectedDate))
+            .ToArray();
         return Task.Run(() =>
         {
-            var items = new List<HistoryListItem>(allFiles.Length + Math.Min(allFiles.Length / 4, 24));
+            var items = new List<HistoryListItem>(
+                allFiles.Length + pendingItems.Length + Math.Min((allFiles.Length + pendingItems.Length) / 4, 24));
             string? lastDate = null;
+            foreach (var pendingItem in pendingItems)
+            {
+                var itemDate = pendingItem.DateKey ?? GetTodayHistoryDateString();
+                if (itemDate != lastDate)
+                {
+                    items.Add(HistoryListItem.CreateSeparator(itemDate));
+                    lastDate = itemDate;
+                }
+
+                items.Add(pendingItem);
+            }
+
             foreach (var filePath in allFiles)
             {
                 var fileDate = GetDateFromFilePath(filePath) ?? L("history.unknown_date");
@@ -257,11 +275,25 @@ public sealed partial class MainWindow
                     lastDate = fileDate;
                 }
 
-                items.Add(HistoryListItem.CreateThumbnail(filePath));
+                items.Add(GetOrCreateHistoryFileItem(filePath));
             }
 
             return items;
         });
+    }
+
+    private static bool IsHistoryDateVisibleForSelection(string dateStr, string? selectedDate) =>
+        selectedDate == null ||
+        string.Compare(dateStr, selectedDate, StringComparison.Ordinal) <= 0;
+
+    private static double ComputeHistoryThumbnailHeight(int width, int height) => HistoryThumbnailHeight;
+
+    private static double ComputeHistoryThumbnailWidth(int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+            return HistoryThumbnailHeight;
+
+        return Math.Max(56, Math.Round(HistoryThumbnailHeight * width / (double)height));
     }
 
     private static string? GetDateFromFilePath(string filePath)
@@ -305,6 +337,36 @@ public sealed partial class MainWindow
         _ = RefreshHistoryPanelAsync(resetScroll);
     }
 
+    private HistoryListItem GetOrCreateHistoryFileItem(string filePath)
+    {
+        if (_historyFileItemsByPath.TryGetValue(filePath, out var existing))
+            return existing;
+
+        var (pixelWidth, pixelHeight) = TryReadHistoryThumbnailDimensions(filePath);
+        var created = HistoryListItem.CreateThumbnail(
+            filePath,
+            ComputeHistoryThumbnailWidth(pixelWidth, pixelHeight),
+            HistoryThumbnailHeight);
+        _historyFileItemsByPath[filePath] = created;
+        return created;
+    }
+
+    private void TrimHistoryFileItemCache(Dictionary<string, List<string>> historyByDate)
+    {
+        var knownPaths = new HashSet<string>(
+            historyByDate.SelectMany(pair => pair.Value),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var filePath in _historyPendingItems.Select(item => item.FilePath).Where(path => !string.IsNullOrEmpty(path)))
+            knownPaths.Add(filePath!);
+
+        var stalePaths = _historyFileItemsByPath.Keys
+            .Where(path => !knownPaths.Contains(path))
+            .ToArray();
+        foreach (var stalePath in stalePaths)
+            _historyFileItemsByPath.Remove(stalePath);
+    }
+
     private async Task RefreshHistoryPanelAsync(bool resetScroll)
     {
         int itemsVersion = Interlocked.Increment(ref _historyItemsVersion);
@@ -317,6 +379,8 @@ public sealed partial class MainWindow
         HistoryEmptyState.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         HistoryListView.Visibility = items.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         ApplyHistoryListDiff(items);
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            RefreshRealizedHistoryThumbnails);
 
         if (resetScroll && items.Count > 0)
         {
@@ -359,6 +423,109 @@ public sealed partial class MainWindow
             _historyListItems.Insert(i, targetItems[i]);
     }
 
+    private string AddPendingHistoryItem(int width, int height)
+    {
+        var dateStr = GetTodayHistoryDateString();
+        if (_selectedHistoryDate == null)
+        {
+            _selectedHistoryDate = dateStr;
+            HistoryDatePicker.Date = DateTimeOffset.ParseExact(dateStr, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+
+        string pendingId = $"pending_{Interlocked.Increment(ref _historyPendingSequence)}";
+        _historyPendingItems.Insert(0,
+            HistoryListItem.CreatePending(
+                pendingId,
+                dateStr,
+                ComputeHistoryThumbnailWidth(width, height),
+                ComputeHistoryThumbnailHeight(width, height)));
+
+        if (IsHistoryDateVisibleForSelection(dateStr, _selectedHistoryDate))
+            RefreshHistoryPanel();
+
+        return pendingId;
+    }
+
+    private void ResolvePendingHistoryItem(string pendingId, string filePath, byte[]? thumbnailBytes = null)
+    {
+        HistoryListItem? resolvedItem = null;
+        int pendingIndex = _historyPendingItems.FindIndex(item =>
+            string.Equals(item.PendingId, pendingId, StringComparison.Ordinal));
+        if (pendingIndex >= 0)
+        {
+            var pendingItem = _historyPendingItems[pendingIndex];
+            pendingItem.Resolve(filePath);
+            _historyFileItemsByPath[filePath] = pendingItem;
+            _historyPendingItems.RemoveAt(pendingIndex);
+            _historyThumbnailRevealPendingPaths.Add(filePath);
+            RefreshVisibleHistoryItem(pendingItem, animateReveal: true);
+            resolvedItem = pendingItem;
+        }
+
+        if (thumbnailBytes != null)
+            _ = PrimeResolvedHistoryThumbnailAsync(filePath, thumbnailBytes, resolvedItem);
+
+        AddHistoryItem(filePath);
+    }
+
+    private void RemovePendingHistoryItem(string pendingId)
+    {
+        int pendingIndex = _historyPendingItems.FindIndex(item =>
+            string.Equals(item.PendingId, pendingId, StringComparison.Ordinal));
+        if (pendingIndex < 0)
+            return;
+
+        string dateStr = _historyPendingItems[pendingIndex].DateKey ?? GetTodayHistoryDateString();
+        _historyPendingItems.RemoveAt(pendingIndex);
+        if (IsHistoryDateVisibleForSelection(dateStr, _selectedHistoryDate))
+            RefreshHistoryPanel();
+    }
+
+    private int FindVisibleHistoryItemIndexByPendingId(string pendingId)
+    {
+        for (int i = 0; i < _historyListItems.Count; i++)
+        {
+            if (string.Equals(_historyListItems[i].PendingId, pendingId, StringComparison.Ordinal))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private void RefreshVisibleHistoryItem(HistoryListItem item, bool animateReveal)
+    {
+        if (HistoryListView.ContainerFromItem(item) is not ListViewItem listViewItem)
+            return;
+
+        var host = FindHistoryThumbnailHost(listViewItem);
+        var image = FindHistoryThumbnailImage(listViewItem);
+        if (host == null || image == null)
+            return;
+
+        if (animateReveal && item.FilePath != null)
+            _historyThumbnailRevealPendingPaths.Add(item.FilePath);
+
+        UpdateHistoryThumbnailHost(host);
+        _ = UpdateHistoryThumbnailImageAsync(image);
+    }
+
+    private void RefreshRealizedHistoryThumbnails()
+    {
+        foreach (var item in _historyListItems)
+        {
+            if (HistoryListView.ContainerFromItem(item) is not ListViewItem listViewItem)
+                continue;
+
+            var host = FindHistoryThumbnailHost(listViewItem);
+            var image = FindHistoryThumbnailImage(listViewItem);
+            if (host == null || image == null)
+                continue;
+
+            UpdateHistoryThumbnailHost(host);
+            _ = UpdateHistoryThumbnailImageAsync(image);
+        }
+    }
+
     private void OnHistoryListViewLoaded(object sender, RoutedEventArgs e)
     {
         _historyListScrollViewer ??= FindHistoryDescendant<ScrollViewer>(HistoryListView);
@@ -368,6 +535,7 @@ public sealed partial class MainWindow
             _historyListScrollViewer.ViewChanged += OnHistoryThumbnailViewportChanged;
         }
 
+        RefreshRealizedHistoryThumbnails();
         ReprioritizeHistoryThumbnailQueue();
     }
 
@@ -384,7 +552,7 @@ public sealed partial class MainWindow
         ReprioritizeHistoryThumbnailQueue();
     }
 
-    private static T? FindHistoryDescendant<T>(DependencyObject? root) where T : DependencyObject
+    private static T? FindHistoryDescendant<T>(DependencyObject? root, Func<T, bool>? predicate = null) where T : DependencyObject
     {
         if (root == null)
             return null;
@@ -393,16 +561,61 @@ public sealed partial class MainWindow
         for (int i = 0; i < count; i++)
         {
             var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
-            if (child is T match)
+            if (child is T match && (predicate == null || predicate(match)))
                 return match;
 
-            var nested = FindHistoryDescendant<T>(child);
+            var nested = FindHistoryDescendant(child, predicate);
             if (nested != null)
                 return nested;
         }
 
         return null;
     }
+
+    private static Border? FindHistoryThumbnailHost(DependencyObject? root) =>
+        FindHistoryDescendant<Border>(root,
+            border => string.Equals(border.Name, "HistoryThumbnailHost", StringComparison.Ordinal));
+
+    private static Image? FindHistoryThumbnailImage(DependencyObject? root) =>
+        FindHistoryDescendant<Image>(root,
+            image => string.Equals(image.Name, "HistoryThumbnailImage", StringComparison.Ordinal));
+
+    private static (int Width, int Height) TryReadHistoryThumbnailDimensions(string filePath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(filePath);
+            byte[] header = new byte[24];
+            if (stream.Read(header, 0, header.Length) < header.Length)
+                return (0, 0);
+
+            if (header[0] != 0x89 ||
+                header[1] != 0x50 ||
+                header[2] != 0x4E ||
+                header[3] != 0x47 ||
+                header[4] != 0x0D ||
+                header[5] != 0x0A ||
+                header[6] != 0x1A ||
+                header[7] != 0x0A)
+            {
+                return (0, 0);
+            }
+
+            int width = ReadBigEndianInt32(header, 16);
+            int height = ReadBigEndianInt32(header, 20);
+            return width > 0 && height > 0 ? (width, height) : (0, 0);
+        }
+        catch
+        {
+            return (0, 0);
+        }
+    }
+
+    private static int ReadBigEndianInt32(byte[] buffer, int offset) =>
+        (buffer[offset] << 24) |
+        (buffer[offset + 1] << 16) |
+        (buffer[offset + 2] << 8) |
+        buffer[offset + 3];
 
     private MenuFlyout BuildHistoryContextFlyout(string filePath)
     {
@@ -514,7 +727,7 @@ public sealed partial class MainWindow
 
     private void UpdateHistoryThumbnailHost(Border? border)
     {
-        if (border?.DataContext is not HistoryListItem item || item.IsSeparator || item.FilePath == null)
+        if (border?.DataContext is not HistoryListItem item || item.IsSeparator || item.IsPending || item.FilePath == null)
         {
             if (border != null)
             {
@@ -548,6 +761,7 @@ public sealed partial class MainWindow
 
         img.Tag = null;
         img.Source = null;
+        img.Opacity = 1;
     }
 
     private Task UpdateHistoryThumbnailImageAsync(Image? img)
@@ -555,25 +769,180 @@ public sealed partial class MainWindow
         if (img == null)
             return Task.CompletedTask;
 
-        if (img.DataContext is not HistoryListItem item || item.IsSeparator || item.FilePath == null)
+        var placeholder = GetHistoryThumbnailPlaceholder(img);
+        if (img.DataContext is not HistoryListItem item || item.IsSeparator)
         {
             img.Tag = null;
             img.Source = null;
+            img.Opacity = 1;
+            if (placeholder != null)
+            {
+                placeholder.Visibility = Visibility.Collapsed;
+                placeholder.Opacity = 0;
+            }
+            return Task.CompletedTask;
+        }
+
+        if (item.IsPending || item.FilePath == null)
+        {
+            img.Tag = null;
+            img.Source = null;
+            img.Opacity = 0;
+            if (placeholder != null)
+            {
+                placeholder.Visibility = Visibility.Visible;
+                placeholder.Opacity = 1;
+            }
             return Task.CompletedTask;
         }
 
         string filePath = item.FilePath;
         img.Tag = filePath;
-        img.Source = null;
 
         if (TryGetCachedHistoryThumbnail(filePath, out var cachedThumbnail))
         {
-            img.Source = cachedThumbnail;
+            SetHistoryThumbnailSource(img, cachedThumbnail);
             return Task.CompletedTask;
         }
 
+        img.Source = null;
         QueueHistoryThumbnailRequest(img, filePath, _historyItemsVersion);
         return Task.CompletedTask;
+    }
+
+    private Border? GetHistoryThumbnailPlaceholder(Image img) =>
+        img.Parent is Grid grid
+            ? grid.Children.OfType<Border>().FirstOrDefault(border =>
+                string.Equals(border.Name, "HistoryThumbnailPlaceholder", StringComparison.Ordinal))
+            : null;
+
+    private async Task PrimeResolvedHistoryThumbnailAsync(
+        string filePath,
+        byte[] thumbnailBytes,
+        HistoryListItem? resolvedItem)
+    {
+        var thumbnail = await CreateHistoryThumbnailBitmapAsync(filePath, thumbnailBytes);
+        if (thumbnail == null)
+            return;
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            ApplyHistoryThumbnailToResolvedItem(filePath, thumbnail, resolvedItem);
+            RefreshRealizedHistoryThumbnails();
+        });
+    }
+
+    private void ApplyHistoryThumbnailToResolvedItem(
+        string filePath,
+        BitmapImage thumbnail,
+        HistoryListItem? resolvedItem)
+    {
+        if (resolvedItem != null &&
+            TryApplyHistoryThumbnailToItem(resolvedItem, filePath, thumbnail))
+        {
+            return;
+        }
+
+        if (_historyFileItemsByPath.TryGetValue(filePath, out var mappedItem) &&
+            TryApplyHistoryThumbnailToItem(mappedItem, filePath, thumbnail))
+        {
+            return;
+        }
+
+        foreach (var item in _historyListItems)
+        {
+            if (item.IsSeparator ||
+                item.IsPending ||
+                !string.Equals(item.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (TryApplyHistoryThumbnailToItem(item, filePath, thumbnail))
+                return;
+        }
+    }
+
+    private bool TryApplyHistoryThumbnailToItem(
+        HistoryListItem item,
+        string filePath,
+        BitmapImage thumbnail)
+    {
+        if (HistoryListView.ContainerFromItem(item) is not ListViewItem listViewItem)
+            return false;
+
+        var host = FindHistoryThumbnailHost(listViewItem);
+        if (host != null)
+            UpdateHistoryThumbnailHost(host);
+
+        var image = FindHistoryThumbnailImage(listViewItem);
+        if (image == null)
+            return false;
+
+        image.Tag = filePath;
+        SetHistoryThumbnailSource(image, thumbnail);
+        return true;
+    }
+
+    private void SetHistoryThumbnailSource(Image img, BitmapImage? thumbnail)
+    {
+        if (thumbnail == null)
+            return;
+
+        var placeholder = GetHistoryThumbnailPlaceholder(img);
+        bool animateReveal = img.Tag is string filePath &&
+            _historyThumbnailRevealPendingPaths.Remove(filePath);
+        img.Source = thumbnail;
+
+        if (animateReveal && placeholder != null)
+        {
+            placeholder.Visibility = Visibility.Visible;
+            placeholder.Opacity = 1;
+            img.Opacity = 0;
+            AnimateHistoryThumbnailReveal(img, placeholder);
+            return;
+        }
+
+        img.Opacity = 1;
+        if (placeholder != null)
+        {
+            placeholder.Visibility = Visibility.Collapsed;
+            placeholder.Opacity = 0;
+        }
+    }
+
+    private static void AnimateHistoryThumbnailReveal(Image img, Border placeholder)
+    {
+        var storyboard = new Storyboard();
+        var duration = new Duration(TimeSpan.FromMilliseconds(220));
+
+        var imageFade = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = duration,
+        };
+        Storyboard.SetTarget(imageFade, img);
+        Storyboard.SetTargetProperty(imageFade, "Opacity");
+        storyboard.Children.Add(imageFade);
+
+        var placeholderFade = new DoubleAnimation
+        {
+            From = placeholder.Opacity,
+            To = 0,
+            Duration = duration,
+        };
+        Storyboard.SetTarget(placeholderFade, placeholder);
+        Storyboard.SetTargetProperty(placeholderFade, "Opacity");
+        storyboard.Children.Add(placeholderFade);
+
+        storyboard.Completed += (_, _) =>
+        {
+            img.Opacity = 1;
+            placeholder.Opacity = 0;
+            placeholder.Visibility = Visibility.Collapsed;
+        };
+        storyboard.Begin();
     }
 
     private bool TryGetCachedHistoryThumbnail(string filePath, out BitmapImage? thumbnail)
@@ -817,7 +1186,7 @@ public sealed partial class MainWindow
                     foreach (var waiter in waiters)
                     {
                         if (string.Equals(waiter.Tag as string, entry.FilePath, StringComparison.Ordinal))
-                            waiter.Source = thumbnail;
+                            SetHistoryThumbnailSource(waiter, thumbnail);
                     }
                 }
             });
@@ -923,6 +1292,8 @@ public sealed partial class MainWindow
             if (node != null)
                 _historyThumbnailCacheLru.Remove(node);
         }
+
+        _historyFileItemsByPath.Remove(filePath);
     }
 
     private void OnHistoryItemClick(object sender, PointerRoutedEventArgs e)
@@ -1065,7 +1436,7 @@ public sealed partial class MainWindow
             try
             {
                 int idx = _historyFiles.IndexOf(filePath);
-                if (File.Exists(filePath)) File.Delete(filePath);
+                DeleteImageFileWithConfiguredBehavior(filePath);
                 var delDateStr = GetDateFromFilePath(filePath);
                 if (delDateStr != null && _historyByDate.ContainsKey(delDateStr))
                 {
@@ -1094,12 +1465,8 @@ public sealed partial class MainWindow
                     }
                     else
                     {
-                        _currentGenImageBytes = null;
-                        _currentGenImagePath = null;
-                        GenPreviewImage.Source = null;
-                        GenPlaceholder.Visibility = Visibility.Visible;
+                        ClearCurrentGenPreview();
                         SetGenResultBarRequested(false);
-                        UpdateDynamicMenuStates();
                         TxtStatus.Text = L("common.deleted");
                     }
                 }

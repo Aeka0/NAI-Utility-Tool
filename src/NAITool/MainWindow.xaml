@@ -31,6 +31,16 @@
                 <GradientStop Color="#26FFFFFF" Offset="0.5"/>
                 <GradientStop Color="#1AFFFFFF" Offset="1.0"/>
             </LinearGradientBrush>
+            <LinearGradientBrush x:Key="HistoryThumbnailGlassOverlayBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#40FFFFFF" Offset="0"/>
+                <GradientStop Color="#14FFFFFF" Offset="0.42"/>
+                <GradientStop Color="#08FFFFFF" Offset="1"/>
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="HistoryThumbnailGlassBorderBrush" StartPoint="0.15,0" EndPoint="0.85,1">
+                <GradientStop Color="#7AFFFFFF" Offset="0"/>
+                <GradientStop Color="#3AFFFFFF" Offset="0.45"/>
+                <GradientStop Color="#1CFFFFFF" Offset="1"/>
+            </LinearGradientBrush>
 
             <Style x:Key="SuperDropCardStyle" TargetType="Border">
                 <Setter Property="Background" Value="{StaticResource SuperDropGlassBackground}"/>
@@ -82,20 +92,49 @@
                 </Grid>
             </DataTemplate>
             <DataTemplate x:Key="HistoryThumbnailTemplate" x:DataType="local:HistoryListItem">
-                <Border Background="Transparent"
+                <Border x:Name="HistoryThumbnailHost"
+                        Background="Transparent"
                         CornerRadius="4"
                         Padding="2"
                         Margin="8,0,8,0"
-                        Tag="{x:Bind FilePath}"
+                        Tag="{x:Bind FilePath, Mode=OneWay}"
                         PointerPressed="OnHistoryItemClick"
                         Loaded="OnHistoryThumbnailHostLoaded"
                         DataContextChanged="OnHistoryThumbnailHostDataContextChanged">
-                    <Image Height="140"
-                           Stretch="Uniform"
-                           HorizontalAlignment="Center"
-                           Loaded="OnHistoryThumbnailImageLoaded"
-                           Unloaded="OnHistoryThumbnailImageUnloaded"
-                           DataContextChanged="OnHistoryThumbnailImageDataContextChanged"/>
+                    <Grid HorizontalAlignment="Center">
+                        <Border x:Name="HistoryThumbnailPlaceholder"
+                                Width="{x:Bind ThumbnailWidth, Mode=OneWay}"
+                                Height="{x:Bind ThumbnailHeight, Mode=OneWay}"
+                                CornerRadius="8"
+                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                BorderBrush="Transparent"
+                                BorderThickness="0"
+                                HorizontalAlignment="Center">
+                            <Grid>
+                                <Border Background="{StaticResource HistoryThumbnailGlassOverlayBrush}"
+                                        CornerRadius="8"
+                                        IsHitTestVisible="False"/>
+                                <Border CornerRadius="8"
+                                        BorderBrush="{StaticResource HistoryThumbnailGlassBorderBrush}"
+                                        BorderThickness="1"
+                                        Background="Transparent"
+                                        IsHitTestVisible="False"/>
+                                <ProgressRing IsActive="True"
+                                              Width="28"
+                                              Height="28"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <Image x:Name="HistoryThumbnailImage"
+                               Width="{x:Bind ThumbnailWidth, Mode=OneWay}"
+                               Height="{x:Bind ThumbnailHeight, Mode=OneWay}"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"
+                               Loaded="OnHistoryThumbnailImageLoaded"
+                               Unloaded="OnHistoryThumbnailImageUnloaded"
+                               DataContextChanged="OnHistoryThumbnailImageDataContextChanged"/>
+                    </Grid>
                 </Border>
             </DataTemplate>
             <local:HistoryItemTemplateSelector x:Key="HistoryTemplateSelector"

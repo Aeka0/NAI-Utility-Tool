@@ -94,6 +94,7 @@ public sealed partial class MainWindow
         TxtStatus.Text = L("generate.status.generating");
         var p = _settings.Settings.GenParameters;
         int restoreSeed = p.Seed;
+        string? pendingHistoryId = null;
 
         try
         {
@@ -166,6 +167,7 @@ public sealed partial class MainWindow
                 break;
             }
 
+            pendingHistoryId = AddPendingHistoryItem(w, h);
             DebugLog($"[Generate] Start | {w}x{h} | Model={p.Model} | Seed={actualSeed}");
             IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
                 ? new Progress<byte[]>(bytes =>
@@ -181,12 +183,21 @@ public sealed partial class MainWindow
 
             if (error != null)
             {
+                if (pendingHistoryId != null)
+                    RemovePendingHistoryItem(pendingHistoryId);
                 _lastGenerationFailureStatusCode = _naiService.LastGenerationErrorStatusCode;
                 DebugLog($"[Generate] API error: {error}");
                 TxtStatus.Text = error;
                 return false;
             }
-            if (imageBytes == null) { DebugLog("[Generate] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); return false; }
+            if (imageBytes == null)
+            {
+                if (pendingHistoryId != null)
+                    RemovePendingHistoryItem(pendingHistoryId);
+                DebugLog("[Generate] API returned no image");
+                TxtStatus.Text = L("generate.error.empty_result");
+                return false;
+            }
 
             byte[] finalBytes = imageBytes;
             string? originalSavedPath = await SaveToOutputAsync(imageBytes);
@@ -207,7 +218,16 @@ public sealed partial class MainWindow
             await ShowGenPreviewAsync(finalBytes, w, h);
 
             if (finalSavedPath != null)
-                AddHistoryItem(finalSavedPath);
+            {
+                if (pendingHistoryId != null)
+                    ResolvePendingHistoryItem(pendingHistoryId, finalSavedPath, finalBytes);
+                else
+                    AddHistoryItem(finalSavedPath);
+            }
+            else if (pendingHistoryId != null)
+            {
+                RemovePendingHistoryItem(pendingHistoryId);
+            }
 
             if (!_autoGenRunning)
                 SetGenResultBarRequested(true, resetPosition: true);
@@ -219,8 +239,22 @@ public sealed partial class MainWindow
                 : Lf("generate.status.completed_post_saved", postSummary, finalSavedPath);
             return true;
         }
-        catch (OperationCanceledException) { DebugLog("[Generate] Cancelled"); TxtStatus.Text = L("generate.status.cancelled"); return false; }
-        catch (Exception ex) { DebugLog($"[Generate] Failed: {ex}"); TxtStatus.Text = Lf("generate.status.failed", ex.Message); return false; }
+        catch (OperationCanceledException)
+        {
+            if (pendingHistoryId != null)
+                RemovePendingHistoryItem(pendingHistoryId);
+            DebugLog("[Generate] Cancelled");
+            TxtStatus.Text = L("generate.status.cancelled");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            if (pendingHistoryId != null)
+                RemovePendingHistoryItem(pendingHistoryId);
+            DebugLog($"[Generate] Failed: {ex}");
+            TxtStatus.Text = Lf("generate.status.failed", ex.Message);
+            return false;
+        }
         finally
         {
             _generateRequestRunning = false;
@@ -400,6 +434,7 @@ public sealed partial class MainWindow
 
         var enhanceParams = CreateGenEnhanceParameters(_settings.Settings.GenParameters);
         int requestedSeed = enhanceParams.Seed;
+        string? pendingHistoryId = null;
 
         try
         {
@@ -477,6 +512,7 @@ public sealed partial class MainWindow
                 })
                 : null;
 
+            pendingHistoryId = AddPendingHistoryItem(width, height);
             DebugLog($"[Enhance] Start | {width}x{height} | Model={enhanceParams.Model} | Seed={actualSeed} | Strength=0.5");
             var (imageBytes, error) = await _naiService.ImageToImageAsync(
                 imageBase64,
@@ -487,12 +523,16 @@ public sealed partial class MainWindow
 
             if (error != null)
             {
+                if (pendingHistoryId != null)
+                    RemovePendingHistoryItem(pendingHistoryId);
                 DebugLog($"[Enhance] API error: {error}");
                 TxtStatus.Text = error;
                 return false;
             }
             if (imageBytes == null)
             {
+                if (pendingHistoryId != null)
+                    RemovePendingHistoryItem(pendingHistoryId);
                 DebugLog("[Enhance] API returned no image");
                 TxtStatus.Text = L("generate.error.empty_result");
                 return false;
@@ -504,7 +544,16 @@ public sealed partial class MainWindow
 
             await ShowGenPreviewAsync(imageBytes, width, height);
             if (savedPath != null)
-                AddHistoryItem(savedPath);
+            {
+                if (pendingHistoryId != null)
+                    ResolvePendingHistoryItem(pendingHistoryId, savedPath, imageBytes);
+                else
+                    AddHistoryItem(savedPath);
+            }
+            else if (pendingHistoryId != null)
+            {
+                RemovePendingHistoryItem(pendingHistoryId);
+            }
 
             SetGenResultBarRequested(true, resetPosition: true);
 
@@ -516,12 +565,16 @@ public sealed partial class MainWindow
         }
         catch (OperationCanceledException)
         {
+            if (pendingHistoryId != null)
+                RemovePendingHistoryItem(pendingHistoryId);
             DebugLog("[Enhance] Cancelled");
             TxtStatus.Text = L("generate.status.cancelled");
             return false;
         }
         catch (Exception ex)
         {
+            if (pendingHistoryId != null)
+                RemovePendingHistoryItem(pendingHistoryId);
             DebugLog($"[Enhance] Failed: {ex}");
             TxtStatus.Text = Lf("generate.status.failed", ex.Message);
             return false;
@@ -620,7 +673,7 @@ public sealed partial class MainWindow
             try
             {
                 int idx = _historyFiles.IndexOf(deletedPath);
-                File.Delete(deletedPath);
+                DeleteImageFileWithConfiguredBehavior(deletedPath);
                 var delDateStr = GetDateFromFilePath(deletedPath);
                 if (delDateStr != null && _historyByDate.ContainsKey(delDateStr))
                 {
@@ -651,11 +704,7 @@ public sealed partial class MainWindow
             catch (Exception ex) { TxtStatus.Text = Lf("common.delete_failed", ex.Message); }
         }
 
-        _currentGenImageBytes = null;
-        _currentGenImagePath = null;
-        GenPreviewImage.Source = null;
-        GenPlaceholder.Visibility = Visibility.Visible;
-        UpdateDynamicMenuStates();
+        ClearCurrentGenPreview();
     }
 
     private void CopyImageToClipboard(byte[] imageBytes)

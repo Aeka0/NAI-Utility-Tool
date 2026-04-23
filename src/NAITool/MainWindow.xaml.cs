@@ -218,6 +218,8 @@ public sealed partial class MainWindow : Window
     private readonly List<string> _historyAvailableDates = new();
     private readonly HashSet<string> _historyAvailableDateSet = new();
     private readonly ObservableCollection<HistoryListItem> _historyListItems = [];
+    private readonly List<HistoryListItem> _historyPendingItems = [];
+    private readonly Dictionary<string, HistoryListItem> _historyFileItemsByPath = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, BitmapImage> _historyThumbnailCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly LinkedList<string> _historyThumbnailCacheLru = new();
     private readonly object _historyThumbnailCacheLock = new();
@@ -226,11 +228,14 @@ public sealed partial class MainWindow : Window
     private readonly Dictionary<string, List<WeakReference<Image>>> _historyThumbnailWaiters = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _historyThumbnailQueuedPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _historyThumbnailInFlightPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _historyThumbnailRevealPendingPaths = new(StringComparer.OrdinalIgnoreCase);
     private ScrollViewer? _historyListScrollViewer;
     private string? _selectedHistoryDate;
+    private const double HistoryThumbnailHeight = 140;
     private const int HistoryThumbnailCacheLimit = 96;
     private const int HistoryThumbnailMaxConcurrentLoads = 2;
     private int _historyItemsVersion;
+    private int _historyPendingSequence;
     private int _historyThumbnailActiveLoads;
     private int _historyThumbnailRequestSequence;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _historyDateRefreshTimer;
