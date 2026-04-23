@@ -13,15 +13,18 @@ namespace NAITool;
 public sealed partial class MainWindow
 {
     private const double SettingsHubControlColumnWidth = 360;
-    private const double SettingsHubLayerWidth = 800;
+    private const double SettingsHubLayerWidth = 760;
 
     private async Task ShowSettingsHubDialogAsync(SettingsHubSection initialSection)
     {
         var root = (FrameworkElement)this.Content;
         SettingsHubSection selectedSection = initialSection;
-        bool isRefreshing = false;
 
-        var contentHost = new ContentControl();
+        var contentHost = new ContentControl
+        {
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Stretch,
+        };
         var navigationView = new NavigationView
         {
             PaneDisplayMode = NavigationViewPaneDisplayMode.Left,
@@ -36,7 +39,6 @@ public sealed partial class MainWindow
             AlwaysShowHeader = false,
             Content = contentHost,
             Width = 1080,
-            Height = 680,
             RequestedTheme = root.RequestedTheme,
         };
 
@@ -209,26 +211,65 @@ public sealed partial class MainWindow
 
         UIElement BuildNetworkSection()
         {
+            void ApplyNetworkSettingsRealtime(string tokenValue, bool useProxy, string proxyPort, bool streamGeneration)
+            {
+                string trimmedToken = tokenValue.Trim();
+                _settings.Settings.StreamGeneration = streamGeneration;
+                _settings.Settings.UseProxy = useProxy;
+                _settings.Settings.ProxyPort = proxyPort;
+
+                if (string.IsNullOrWhiteSpace(trimmedToken))
+                {
+                    ClearAccountApiState(save: true);
+                    _settings.Settings.StreamGeneration = streamGeneration;
+                    _settings.Settings.UseProxy = useProxy;
+                    _settings.Settings.ProxyPort = proxyPort;
+                    _settings.Save();
+                    return;
+                }
+
+                _settings.Settings.ApiToken = trimmedToken;
+                _settings.Save();
+                UpdateBtnGenerateForApiKey();
+            }
+
             var tokenBox = new PasswordBox
             {
                 PlaceholderText = "Bearer Token",
                 Password = _settings.Settings.ApiToken ?? "",
-                Width = 320,
-            };
-            var saveButton = new Button
-            {
-                Content = L("common.save"),
-                MinWidth = 110,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center,
             };
             var testButton = new Button
             {
                 Content = L("settings.network.test_connection"),
-                MinWidth = 110,
+                MinWidth = 96,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            var proxyToggle = new ToggleSwitch
+            {
+                IsOn = _settings.Settings.UseProxy,
+                MinWidth = 84,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            var proxyPortBox = new TextBox
+            {
+                PlaceholderText = L("settings.network.proxy_port_placeholder"),
+                Text = _settings.Settings.ProxyPort,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsEnabled = _settings.Settings.UseProxy,
+            };
+            var streamToggle = new ToggleSwitch
+            {
+                IsOn = _settings.Settings.StreamGeneration,
+                MinWidth = 84,
+                HorizontalAlignment = HorizontalAlignment.Right,
             };
 
             async Task RunNetworkActionAsync(bool testConnection)
             {
-                saveButton.IsEnabled = false;
                 testButton.IsEnabled = false;
                 try
                 {
@@ -241,81 +282,61 @@ public sealed partial class MainWindow
                 }
                 finally
                 {
-                    saveButton.IsEnabled = true;
                     testButton.IsEnabled = true;
                 }
             }
 
-            saveButton.Click += async (_, _) => await RunNetworkActionAsync(false);
             testButton.Click += async (_, _) => await RunNetworkActionAsync(true);
-
-            var tokenActions = new StackPanel
-            {
-                Spacing = 10,
-                Width = 340,
-            };
-            tokenActions.Children.Add(tokenBox);
-            tokenActions.Children.Add(new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 8,
-                Children =
-                {
-                    saveButton,
-                    testButton,
-                },
-            });
-
-            var proxyToggle = new ToggleSwitch
-            {
-                IsOn = _settings.Settings.UseProxy,
-                HorizontalAlignment = HorizontalAlignment.Right,
-            };
-            var proxyPortBox = new TextBox
-            {
-                PlaceholderText = L("settings.network.proxy_port_placeholder"),
-                Text = _settings.Settings.ProxyPort,
-                Width = 140,
-                IsEnabled = _settings.Settings.UseProxy,
-            };
+            tokenBox.PasswordChanged += (_, _) => ApplyNetworkSettingsRealtime(
+                tokenBox.Password,
+                proxyToggle.IsOn,
+                proxyPortBox.Text,
+                streamToggle.IsOn);
+            streamToggle.Toggled += (_, _) => ApplyNetworkSettingsRealtime(
+                tokenBox.Password,
+                proxyToggle.IsOn,
+                proxyPortBox.Text,
+                streamToggle.IsOn);
             proxyToggle.Toggled += (_, _) =>
             {
-                if (isRefreshing)
-                    return;
-
                 proxyPortBox.IsEnabled = proxyToggle.IsOn;
-                _settings.Settings.UseProxy = proxyToggle.IsOn;
-                _settings.Save();
+                ApplyNetworkSettingsRealtime(
+                    tokenBox.Password,
+                    proxyToggle.IsOn,
+                    proxyPortBox.Text,
+                    streamToggle.IsOn);
             };
-            proxyPortBox.LostFocus += (_, _) =>
-            {
-                if (isRefreshing)
-                    return;
+            proxyPortBox.TextChanged += (_, _) => ApplyNetworkSettingsRealtime(
+                tokenBox.Password,
+                proxyToggle.IsOn,
+                proxyPortBox.Text,
+                streamToggle.IsOn);
 
-                _settings.Settings.ProxyPort = proxyPortBox.Text;
-                _settings.Save();
+            var tokenActions = new Grid
+            {
+                ColumnSpacing = 8,
+                Width = SettingsHubControlColumnWidth,
+                VerticalAlignment = VerticalAlignment.Center,
             };
+            tokenActions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            tokenActions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.SetColumn(tokenBox, 0);
+            Grid.SetColumn(testButton, 1);
+            tokenActions.Children.Add(tokenBox);
+            tokenActions.Children.Add(testButton);
 
-            var proxyControl = new StackPanel
+            var proxyRow = new Grid
             {
-                Spacing = 8,
-                Width = 220,
+                ColumnSpacing = 10,
+                Width = SettingsHubControlColumnWidth,
+                VerticalAlignment = VerticalAlignment.Center,
             };
-            proxyControl.Children.Add(proxyToggle);
-            proxyControl.Children.Add(new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 8,
-                Children =
-                {
-                    new TextBlock
-                    {
-                        Text = L("settings.network.port"),
-                        VerticalAlignment = VerticalAlignment.Center,
-                    },
-                    proxyPortBox,
-                },
-            });
+            proxyRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            proxyRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.SetColumn(proxyPortBox, 0);
+            Grid.SetColumn(proxyToggle, 1);
+            proxyRow.Children.Add(proxyPortBox);
+            proxyRow.Children.Add(proxyToggle);
 
             return CreateSettingsHubPage(
                 CreateSettingsHubLayer(
@@ -327,16 +348,12 @@ public sealed partial class MainWindow
                     "\uE895",
                     L("settings.network.stream_generation"),
                     L("settings.network.stream_generation_hint"),
-                    CreateSettingsHubToggleSwitch(_settings.Settings.StreamGeneration, value =>
-                    {
-                        _settings.Settings.StreamGeneration = value;
-                        _settings.Save();
-                    })),
+                    streamToggle),
                 CreateSettingsHubLayer(
                     "\uE1D9",
                     L("settings.network.use_proxy"),
                     L("settings.network.proxy_hint"),
-                    proxyControl));
+                    proxyRow));
         }
 
         UIElement BuildPerformanceSection()
@@ -447,31 +464,23 @@ public sealed partial class MainWindow
             if (dialog == null)
                 return;
 
-            isRefreshing = true;
-            try
-            {
-                dialog.Title = L("menu.settings");
-                dialog.CloseButtonText = L("common.close");
-                dialog.RequestedTheme = root.RequestedTheme;
+            dialog.Title = L("menu.settings");
+            dialog.CloseButtonText = L("common.close");
+            dialog.RequestedTheme = root.RequestedTheme;
 
-                navigationView.RequestedTheme = root.RequestedTheme;
-                navigationView.Language = UiLanguageTag;
-                navigationView.FontFamily = UiTextFontFamily;
+            navigationView.RequestedTheme = root.RequestedTheme;
+            navigationView.Language = UiLanguageTag;
+            navigationView.FontFamily = UiTextFontFamily;
 
-                SetSettingsHubNavItemLabel(usageItem, L("settings.usage.title"));
-                SetSettingsHubNavItemLabel(networkItem, L("settings.network.title"));
-                SetSettingsHubNavItemLabel(performanceItem, L("settings.performance.title"));
-                SetSettingsHubNavItemLabel(appearanceItem, L("menu.settings.appearance"));
-                SetSettingsHubNavItemLabel(languageItem, L("menu.settings.language"));
-                SetSettingsHubNavItemLabel(developerItem, L("settings.dev.title"));
+            SetSettingsHubNavItemLabel(usageItem, L("settings.usage.title"));
+            SetSettingsHubNavItemLabel(networkItem, L("settings.network.title"));
+            SetSettingsHubNavItemLabel(performanceItem, L("settings.performance.title"));
+            SetSettingsHubNavItemLabel(appearanceItem, L("menu.settings.appearance"));
+            SetSettingsHubNavItemLabel(languageItem, L("menu.settings.language"));
+            SetSettingsHubNavItemLabel(developerItem, L("settings.dev.title"));
 
-                contentHost.Content = BuildSectionContent(selectedSection, RefreshDialog);
-                ApplyUiFontToVisualTree(navigationView);
-            }
-            finally
-            {
-                isRefreshing = false;
-            }
+            contentHost.Content = BuildSectionContent(selectedSection, RefreshDialog);
+            ApplyUiFontToVisualTree(navigationView);
         }
 
         navigationView.SelectionChanged += (_, args) =>
@@ -492,7 +501,22 @@ public sealed partial class MainWindow
             XamlRoot = this.Content.XamlRoot,
             RequestedTheme = root.RequestedTheme,
         };
+
+        double xamlRootHeight = this.Content.XamlRoot?.Size.Height ?? 800;
+        double dialogMaxHeight = Math.Clamp(xamlRootHeight - 60, 540, 880);
+        navigationView.Height = Math.Clamp(dialogMaxHeight - 190, 420, 720);
         dialog.Resources["ContentDialogMaxWidth"] = 1280.0;
+        dialog.Resources["ContentDialogMaxHeight"] = dialogMaxHeight;
+
+        if (Application.Current.Resources.TryGetValue("DefaultButtonStyle", out var defaultButtonStyleObj)
+            && defaultButtonStyleObj is Style defaultButtonStyle)
+        {
+            var closeButtonStyle = new Style(typeof(Button)) { BasedOn = defaultButtonStyle };
+            closeButtonStyle.Setters.Add(new Setter(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right));
+            closeButtonStyle.Setters.Add(new Setter(FrameworkElement.MinWidthProperty, 120.0));
+            closeButtonStyle.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty, 160.0));
+            dialog.CloseButtonStyle = closeButtonStyle;
+        }
 
         navigationView.SelectedItem = sectionItems[initialSection];
         RefreshDialog();
@@ -553,6 +577,8 @@ public sealed partial class MainWindow
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Padding = new Thickness(0, 0, 0, 8),
         };
     }
 
@@ -632,7 +658,7 @@ public sealed partial class MainWindow
             BorderThickness = new Thickness(1),
             BorderBrush = borderBrush,
             Background = backgroundBrush,
-            Padding = new Thickness(14, 12, 14, 12),
+            Padding = new Thickness(22, 14, 20, 14),
             Child = grid,
         };
     }
