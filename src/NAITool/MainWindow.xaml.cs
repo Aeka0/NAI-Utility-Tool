@@ -152,6 +152,7 @@ public sealed partial class MainWindow : Window
     // ═══ 自动生成 ═══
     private bool _autoGenRunning;
     private CancellationTokenSource? _autoGenCts;
+    private int _autoGenRemaining;
     private bool _continuousGenRunning;
     private bool _generateRequestRunning;
     private CancellationTokenSource? _continuousGenCts;

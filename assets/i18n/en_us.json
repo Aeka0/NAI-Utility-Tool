@@ -903,6 +903,7 @@
   "generate.continuous.stop_button": "Stop Continuous",
   "generate.continuous.stop_button_with_remaining": "Stop Continuous ({0})",
   "automation.button.stop": "Stop Automation",
+  "automation.button.stop_with_remaining": "Stop Automation ({0})",
   "common.on": "On",
   "common.off": "Off",
   "common.stopping": "Stopping...",

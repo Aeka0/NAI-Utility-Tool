@@ -62,7 +62,6 @@ public sealed partial class MainWindow
 
     private void SwitchMode(AppMode mode)
     {
-        if (_autoGenRunning) StopAutoGeneration();
         if (_continuousGenRunning) StopContinuousGeneration();
 
         if (IsPromptMode(_currentMode) && _promptBufferLoaded)

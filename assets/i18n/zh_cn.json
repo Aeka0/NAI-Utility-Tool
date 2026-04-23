@@ -903,6 +903,7 @@
     "generate.continuous.stop_button":  "停止连续生成",
     "generate.continuous.stop_button_with_remaining":  "停止连续生成 ({0})",
     "automation.button.stop":  "停止自动生成",
+    "automation.button.stop_with_remaining":  "停止自动生成 ({0})",
     "common.on":  "开",
     "common.off":  "关",
     "common.stopping":  "正在停止...",

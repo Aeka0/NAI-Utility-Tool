@@ -903,6 +903,7 @@
     "generate.continuous.stop_button":  "連続生成を停止",
     "generate.continuous.stop_button_with_remaining":  "連続生成を停止 ({0})",
     "automation.button.stop":  "自動生成を停止",
+    "automation.button.stop_with_remaining":  "自動生成を停止 ({0})",
     "common.on":  "オン",
     "common.off":  "オフ",
     "common.stopping":  "停止中...",

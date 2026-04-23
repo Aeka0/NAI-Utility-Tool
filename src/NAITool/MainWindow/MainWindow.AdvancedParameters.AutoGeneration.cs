@@ -47,13 +47,29 @@ public sealed partial class MainWindow
         await ShowAutomationDialogAsync();
     }
 
+    private void SyncImageGenerationInputsForAutoGeneration()
+    {
+        if (_currentMode != AppMode.ImageGeneration)
+            return;
+
+        SaveCurrentPromptToBuffer();
+        SyncUIToParams();
+        if (IsAdvancedWindowOpen)
+            SaveAdvancedPanelToSettings();
+    }
+
     private async Task RunAutoGenerationAsync()
     {
+        SyncImageGenerationInputsForAutoGeneration();
+        _settings.Save();
+
         var automationSettings = GetAutomationSettings().Clone();
         automationSettings.Normalize();
+        int requestLimit = automationSettings.Generation.RequestLimit;
 
         _autoGenRunning = true;
         _autoGenCts = new CancellationTokenSource();
+        _autoGenRemaining = requestLimit > 0 ? requestLimit : 0;
         _activeAutomationSettings = automationSettings;
         _automationRunContext = CreateAutomationRunContext(automationSettings);
         UpdateAutoGenUI();
@@ -65,15 +81,17 @@ public sealed partial class MainWindow
         {
             while (!_autoGenCts.IsCancellationRequested)
             {
-                SyncUIToParams();
-                if (IsAdvancedWindowOpen) SaveAdvancedPanelToSettings();
-                SaveCurrentPromptToBuffer();
+                SyncImageGenerationInputsForAutoGeneration();
                 if (_automationRunContext != null)
                     PrepareAutomationIteration(_automationRunContext);
                 _settings.Save();
 
                 bool success = await DoImageGenerationAsync();
                 requestCount++;
+                _autoGenRemaining = requestLimit > 0
+                    ? Math.Max(0, requestLimit - requestCount)
+                    : 0;
+                UpdateAutoGenUI();
 
                 if (success)
                 {
@@ -110,8 +128,7 @@ public sealed partial class MainWindow
                     consecutiveRetriesForCurrentError++;
                 }
 
-                if (automationSettings.Generation.RequestLimit > 0 &&
-                    requestCount >= automationSettings.Generation.RequestLimit)
+                if (requestLimit > 0 && requestCount >= requestLimit)
                 {
                     TxtStatus.Text = Lf("generate.continuous.stopped_requests", requestCount);
                     break;
@@ -132,6 +149,7 @@ public sealed partial class MainWindow
         {
             _autoGenRunning = false;
             _autoGenCts = null;
+            _autoGenRemaining = 0;
             _activeAutomationSettings = null;
             _automationRunContext = null;
             UpdateAutoGenUI();
@@ -199,7 +217,10 @@ public sealed partial class MainWindow
     {
         if (_autoGenRunning)
         {
-            ApplyGenerateStopButtonContent(L("automation.button.stop"));
+            string text = _autoGenRemaining > 0
+                ? Lf("automation.button.stop_with_remaining", _autoGenRemaining)
+                : L("automation.button.stop");
+            ApplyGenerateStopButtonContent(text);
         }
         else if (_continuousGenRunning)
         {
