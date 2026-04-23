@@ -23,7 +23,7 @@ namespace NAITool.Commands;
 public class UndoManager
 {
     /// <summary>遮罩快照</summary>
-    public record struct MaskSnapshot(byte[] MaskPixels, Vector2 ImageOffset);
+    public record struct MaskSnapshot(byte[] MaskPixels, Vector2 ImageOffset, int CanvasWidth, int CanvasHeight);
 
     private readonly Stack<MaskSnapshot> _undoStack = new();
     private readonly Stack<MaskSnapshot> _redoStack = new();
@@ -50,7 +50,7 @@ public class UndoManager
     /// 保存当前状态到撤销栈。
     /// 在渲染线程调用（因为需要从 GPU 读取像素数据）。
     /// </summary>
-    public void PushState(byte[] maskPixels, Vector2 imageOffset)
+    public void PushState(byte[] maskPixels, Vector2 imageOffset, int canvasWidth, int canvasHeight)
     {
         // 限制栈深度，释放最老的快照
         if (_undoStack.Count >= _maxSteps)
@@ -65,7 +65,7 @@ public class UndoManager
             }
         }
 
-        _undoStack.Push(new MaskSnapshot(maskPixels, imageOffset));
+        _undoStack.Push(new MaskSnapshot(maskPixels, imageOffset, canvasWidth, canvasHeight));
         _redoStack.Clear(); // 新操作清空重做栈
     }
 
@@ -76,22 +76,22 @@ public class UndoManager
     /// <param name="currentMaskPixels">当前遮罩像素（将推入重做栈）</param>
     /// <param name="currentImageOffset">当前图片偏移</param>
     /// <returns>需要恢复到的快照，或 null（无法撤销）</returns>
-    public MaskSnapshot? Undo(byte[] currentMaskPixels, Vector2 currentImageOffset)
+    public MaskSnapshot? Undo(byte[] currentMaskPixels, Vector2 currentImageOffset, int currentCanvasWidth, int currentCanvasHeight)
     {
         if (_undoStack.Count == 0) return null;
 
-        _redoStack.Push(new MaskSnapshot(currentMaskPixels, currentImageOffset));
+        _redoStack.Push(new MaskSnapshot(currentMaskPixels, currentImageOffset, currentCanvasWidth, currentCanvasHeight));
         return _undoStack.Pop();
     }
 
     /// <summary>
     /// 重做：弹出下一个状态。
     /// </summary>
-    public MaskSnapshot? Redo(byte[] currentMaskPixels, Vector2 currentImageOffset)
+    public MaskSnapshot? Redo(byte[] currentMaskPixels, Vector2 currentImageOffset, int currentCanvasWidth, int currentCanvasHeight)
     {
         if (_redoStack.Count == 0) return null;
 
-        _undoStack.Push(new MaskSnapshot(currentMaskPixels, currentImageOffset));
+        _undoStack.Push(new MaskSnapshot(currentMaskPixels, currentImageOffset, currentCanvasWidth, currentCanvasHeight));
         return _redoStack.Pop();
     }
 
