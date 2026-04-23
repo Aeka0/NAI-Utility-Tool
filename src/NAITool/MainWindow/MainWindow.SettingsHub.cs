@@ -42,12 +42,12 @@ public sealed partial class MainWindow
             RequestedTheme = root.RequestedTheme,
         };
 
-        var usageItem = CreateSettingsHubNavItem(SettingsHubSection.Usage, L("settings.usage.title"), "\uE713");
-        var networkItem = CreateSettingsHubNavItem(SettingsHubSection.Network, L("settings.network.title"), "\uE774");
-        var performanceItem = CreateSettingsHubNavItem(SettingsHubSection.Performance, L("settings.performance.title"), "\uE9D9");
-        var appearanceItem = CreateSettingsHubNavItem(SettingsHubSection.Appearance, L("menu.settings.appearance"), "\uE790");
-        var languageItem = CreateSettingsHubNavItem(SettingsHubSection.Language, L("menu.settings.language"), "\uF2B7");
-        var developerItem = CreateSettingsHubNavItem(SettingsHubSection.Developer, L("settings.dev.title"), "\uEC7A");
+        var usageItem = CreateSettingsHubNavItem(SettingsHubSection.Usage, L("settings.hub.usage.title"), "\uE713");
+        var networkItem = CreateSettingsHubNavItem(SettingsHubSection.Network, L("settings.hub.network.title"), "\uE774");
+        var performanceItem = CreateSettingsHubNavItem(SettingsHubSection.Performance, L("settings.hub.performance.title"), "\uE9D9");
+        var appearanceItem = CreateSettingsHubNavItem(SettingsHubSection.Appearance, L("settings.hub.appearance.title"), "\uE790");
+        var languageItem = CreateSettingsHubNavItem(SettingsHubSection.Language, L("settings.hub.language.title"), "\uF2B7");
+        var developerItem = CreateSettingsHubNavItem(SettingsHubSection.Developer, L("settings.hub.developer.title"), "\uEC7A");
 
         navigationView.MenuItems.Add(usageItem);
         navigationView.MenuItems.Add(networkItem);
@@ -72,8 +72,8 @@ public sealed partial class MainWindow
         {
             return CreateSettingsHubPage(
                 CreateSettingsHubLayer(
-                    "\uE8D2",
-                    L("settings.usage.weight_highlight"),
+                    "\uEB50",
+                    L("settings.hub.usage.weight_highlight"),
                     L("settings.hub.usage.weight_highlight.description"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.WeightHighlight, value =>
                     {
@@ -89,7 +89,7 @@ public sealed partial class MainWindow
                     })),
                 CreateSettingsHubLayer(
                     "\uE8A9",
-                    L("settings.usage.auto_complete"),
+                    L("settings.hub.usage.auto_complete"),
                     L("settings.hub.usage.auto_complete.description"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.AutoComplete, value =>
                     {
@@ -105,7 +105,7 @@ public sealed partial class MainWindow
                     })),
                 CreateSettingsHubLayer(
                     "\uE823",
-                    L("settings.usage.remember_prompt"),
+                    L("settings.hub.usage.remember_prompt"),
                     L("settings.hub.usage.remember_prompt.description"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.RememberPromptAndParameters, value =>
                     {
@@ -121,7 +121,7 @@ public sealed partial class MainWindow
                     })),
                 CreateSettingsHubLayer(
                     "\uE7C3",
-                    L("settings.usage.superdrop"),
+                    L("settings.hub.usage.superdrop"),
                     L("settings.hub.usage.superdrop.description"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.SuperDropEnabled, value =>
                     {
@@ -136,8 +136,8 @@ public sealed partial class MainWindow
                             _settings.Settings.ImageDeleteBehavior);
                     })),
                 CreateSettingsHubLayer(
-                    "\uE7F4",
-                    L("settings.usage.show_generation_result_bar"),
+                    "\uE90E",
+                    L("settings.hub.usage.show_generation_result_bar"),
                     L("settings.hub.usage.show_generation_result_bar.description"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.ShowGenerationResultBar, value =>
                     {
@@ -153,7 +153,7 @@ public sealed partial class MainWindow
                     })),
                 CreateSettingsHubLayer(
                     "\uE74C",
-                    L("settings.usage.wildcards_enabled"),
+                    L("settings.hub.usage.wildcards_enabled"),
                     L("settings.hub.usage.wildcards_enabled.description"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.WildcardsEnabled, value =>
                     {
@@ -169,7 +169,7 @@ public sealed partial class MainWindow
                     })),
                 CreateSettingsHubLayer(
                     "\uE943",
-                    L("settings.usage.wildcards_explicit"),
+                    L("settings.hub.usage.wildcards_explicit"),
                     L("settings.hub.usage.wildcards_explicit.description"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.WildcardsRequireExplicitSyntax, value =>
                     {
@@ -185,13 +185,13 @@ public sealed partial class MainWindow
                     })),
                 CreateSettingsHubLayer(
                     "\uE74D",
-                    L("settings.usage.delete_behavior"),
-                    L("settings.usage.delete_behavior_hint"),
+                    L("settings.hub.usage.delete_behavior"),
+                    L("settings.hub.usage.delete_behavior_hint"),
                     CreateSettingsHubComboBox(
                         new[]
                         {
-                            new SettingsHubComboOption(L("settings.usage.delete_behavior.recycle_bin"), "RecycleBin"),
-                            new SettingsHubComboOption(L("settings.usage.delete_behavior.permanent"), "PermanentDelete"),
+                            new SettingsHubComboOption(L("settings.hub.usage.delete_behavior.recycle_bin"), "RecycleBin"),
+                            new SettingsHubComboOption(L("settings.hub.usage.delete_behavior.permanent"), "PermanentDelete"),
                         },
                         _settings.Settings.ImageDeleteBehavior,
                         value =>
@@ -242,7 +242,7 @@ public sealed partial class MainWindow
             };
             var testButton = new Button
             {
-                Content = L("settings.network.test_connection"),
+                Content = L("settings.hub.network.test_connection"),
                 MinWidth = 96,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -255,7 +255,7 @@ public sealed partial class MainWindow
             };
             var proxyPortBox = new TextBox
             {
-                PlaceholderText = L("settings.network.proxy_port_placeholder"),
+                PlaceholderText = L("settings.hub.network.proxy_port_placeholder"),
                 Text = _settings.Settings.ProxyPort,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -340,19 +340,19 @@ public sealed partial class MainWindow
 
             return CreateSettingsHubPage(
                 CreateSettingsHubLayer(
-                    "\uE774",
-                    L("settings.network.api_token"),
+                    "\uE8D7",
+                    L("settings.hub.network.api_token"),
                     L("settings.hub.network.description"),
                     tokenActions),
                 CreateSettingsHubLayer(
-                    "\uE895",
-                    L("settings.network.stream_generation"),
-                    L("settings.network.stream_generation_hint"),
+                    "\uE93E",
+                    L("settings.hub.network.stream_generation"),
+                    L("settings.hub.network.stream_generation_hint"),
                     streamToggle),
                 CreateSettingsHubLayer(
-                    "\uE1D9",
-                    L("settings.network.use_proxy"),
-                    L("settings.network.proxy_hint"),
+                    "\uE705",
+                    L("settings.hub.network.use_proxy"),
+                    L("settings.hub.network.proxy_hint"),
                     proxyRow));
         }
 
@@ -361,22 +361,22 @@ public sealed partial class MainWindow
             string sectionDescription = L("settings.hub.performance.description");
             return CreateSettingsHubPage(
                 CreateSettingsHubLayer(
-                    "\uE9D9",
-                    L("settings.performance.device"),
+                    "\uF211",
+                    L("settings.hub.performance.device"),
                     sectionDescription,
                     CreateSettingsHubComboBox(
                         new[]
                         {
-                            new SettingsHubComboOption(L("settings.performance.device_gpu"), "Gpu"),
-                            new SettingsHubComboOption(L("settings.performance.device_cpu"), "Cpu"),
+                            new SettingsHubComboOption(L("settings.hub.performance.device_gpu"), "Gpu"),
+                            new SettingsHubComboOption(L("settings.hub.performance.device_cpu"), "Cpu"),
                         },
                         OnnxPerformance.PreferCpu ? "Cpu" : "Gpu",
                         value => ApplyPerformanceSettings(value, OnnxPerformance.UnloadModelAfterInference),
                         320)),
                 CreateSettingsHubLayer(
                     "\uE7F8",
-                    L("settings.performance.unload_after_inference"),
-                    L("settings.performance.unload_after_inference_hint"),
+                    L("settings.hub.performance.unload_after_inference"),
+                    L("settings.hub.performance.unload_after_inference_hint"),
                     CreateSettingsHubToggleSwitch(OnnxPerformance.UnloadModelAfterInference, value =>
                         ApplyPerformanceSettings(OnnxPerformance.DevicePreference, value))));
         }
@@ -387,14 +387,14 @@ public sealed partial class MainWindow
             return CreateSettingsHubPage(
                 CreateSettingsHubLayer(
                     "\uE706",
-                    L("menu.settings.appearance"),
+                    L("settings.hub.appearance.title"),
                     sectionDescription,
                     CreateSettingsHubComboBox(
                         new[]
                         {
-                            new SettingsHubComboOption(L("menu.settings.theme.system"), "System"),
-                            new SettingsHubComboOption(L("menu.settings.theme.light"), "Light"),
-                            new SettingsHubComboOption(L("menu.settings.theme.dark"), "Dark"),
+                            new SettingsHubComboOption(L("settings.hub.appearance.theme.system"), "System"),
+                            new SettingsHubComboOption(L("settings.hub.appearance.theme.light"), "Light"),
+                            new SettingsHubComboOption(L("settings.hub.appearance.theme.dark"), "Dark"),
                         },
                         _settings.Settings.ThemeMode,
                         value =>
@@ -404,15 +404,15 @@ public sealed partial class MainWindow
                         },
                         220)),
                 CreateSettingsHubLayer(
-                    "\uE7F5",
-                    L("menu.settings.transparency.standard"),
-                    sectionDescription,
+                    "\uE727",
+                    L("settings.hub.appearance.transparency"),
+                    L("settings.hub.appearance.transparency.description"),
                     CreateSettingsHubComboBox(
                         new[]
                         {
-                            new SettingsHubComboOption(L("menu.settings.transparency.standard"), "Standard"),
-                            new SettingsHubComboOption(L("menu.settings.transparency.lesser"), "Lesser"),
-                            new SettingsHubComboOption(L("menu.settings.transparency.opaque"), "Opaque"),
+                            new SettingsHubComboOption(L("settings.hub.appearance.transparency.standard"), "Standard"),
+                            new SettingsHubComboOption(L("settings.hub.appearance.transparency.lesser"), "Lesser"),
+                            new SettingsHubComboOption(L("settings.hub.appearance.transparency.opaque"), "Opaque"),
                         },
                         _settings.Settings.AppearanceTransparency,
                         ApplyTransparencyModeSetting,
@@ -424,7 +424,7 @@ public sealed partial class MainWindow
             return CreateSettingsHubPage(
                 CreateSettingsHubLayer(
                     "\uF2B7",
-                    L("menu.settings.language"),
+                    L("settings.hub.language.title"),
                     L("settings.hub.language.description"),
                     CreateSettingsHubComboBox(
                         LocalizationService.SupportedLanguages
@@ -444,8 +444,8 @@ public sealed partial class MainWindow
             return CreateSettingsHubPage(
                 CreateSettingsHubLayer(
                     "\uEC7A",
-                    L("settings.dev.log_enabled"),
-                    L("settings.dev.log_hint"),
+                    L("settings.hub.developer.log_enabled"),
+                    L("settings.hub.developer.log_hint"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.DevLogEnabled, ApplyDeveloperLogSetting)));
         }
 
@@ -464,7 +464,7 @@ public sealed partial class MainWindow
             if (dialog == null)
                 return;
 
-            dialog.Title = L("menu.settings");
+            dialog.Title = L("settings.hub.title");
             dialog.CloseButtonText = L("common.close");
             dialog.RequestedTheme = root.RequestedTheme;
 
@@ -472,12 +472,12 @@ public sealed partial class MainWindow
             navigationView.Language = UiLanguageTag;
             navigationView.FontFamily = UiTextFontFamily;
 
-            SetSettingsHubNavItemLabel(usageItem, L("settings.usage.title"));
-            SetSettingsHubNavItemLabel(networkItem, L("settings.network.title"));
-            SetSettingsHubNavItemLabel(performanceItem, L("settings.performance.title"));
-            SetSettingsHubNavItemLabel(appearanceItem, L("menu.settings.appearance"));
-            SetSettingsHubNavItemLabel(languageItem, L("menu.settings.language"));
-            SetSettingsHubNavItemLabel(developerItem, L("settings.dev.title"));
+            SetSettingsHubNavItemLabel(usageItem, L("settings.hub.usage.title"));
+            SetSettingsHubNavItemLabel(networkItem, L("settings.hub.network.title"));
+            SetSettingsHubNavItemLabel(performanceItem, L("settings.hub.performance.title"));
+            SetSettingsHubNavItemLabel(appearanceItem, L("settings.hub.appearance.title"));
+            SetSettingsHubNavItemLabel(languageItem, L("settings.hub.language.title"));
+            SetSettingsHubNavItemLabel(developerItem, L("settings.hub.developer.title"));
 
             contentHost.Content = BuildSectionContent(selectedSection, RefreshDialog);
             ApplyUiFontToVisualTree(navigationView);
@@ -494,7 +494,7 @@ public sealed partial class MainWindow
 
         dialog = new ContentDialog
         {
-            Title = L("menu.settings"),
+            Title = L("settings.hub.title"),
             Content = navigationView,
             CloseButtonText = L("common.close"),
             DefaultButton = ContentDialogButton.Close,
