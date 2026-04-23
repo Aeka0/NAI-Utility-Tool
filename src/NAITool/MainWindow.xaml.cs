@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -215,10 +216,22 @@ public sealed partial class MainWindow : Window
     private readonly Dictionary<string, List<string>> _historyByDate = new();
     private readonly List<string> _historyAvailableDates = new();
     private readonly HashSet<string> _historyAvailableDateSet = new();
+    private readonly ObservableCollection<HistoryListItem> _historyListItems = [];
+    private readonly Dictionary<string, BitmapImage> _historyThumbnailCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly LinkedList<string> _historyThumbnailCacheLru = new();
+    private readonly object _historyThumbnailCacheLock = new();
+    private readonly object _historyThumbnailRequestLock = new();
+    private readonly List<HistoryThumbnailQueueEntry> _historyThumbnailQueue = [];
+    private readonly Dictionary<string, List<WeakReference<Image>>> _historyThumbnailWaiters = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _historyThumbnailQueuedPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _historyThumbnailInFlightPaths = new(StringComparer.OrdinalIgnoreCase);
+    private ScrollViewer? _historyListScrollViewer;
     private string? _selectedHistoryDate;
-    private int _historyLoadedCount;
-    private const int HistoryPageSize = 40;
-    private bool _historyLoadingMore;
+    private const int HistoryThumbnailCacheLimit = 96;
+    private const int HistoryThumbnailMaxConcurrentLoads = 2;
+    private int _historyItemsVersion;
+    private int _historyThumbnailActiveLoads;
+    private int _historyThumbnailRequestSequence;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _historyDateRefreshTimer;
     private string _historyTodayDateMarker = DateTime.Now.ToString("yyyy-MM-dd");
     private bool _superDropOverlayVisible;
@@ -227,6 +240,21 @@ public sealed partial class MainWindow : Window
     private bool _superDropWindowWasTopmost;
     private int _superDropDragVersion;
     private int _superDropBackdropVersion;
+
+    private sealed class HistoryLoadSnapshot
+    {
+        public Dictionary<string, List<string>> ByDate { get; init; } = new();
+        public List<string> AvailableDates { get; init; } = [];
+        public HashSet<string> AvailableDateSet { get; init; } = [];
+    }
+
+    private sealed class HistoryThumbnailQueueEntry
+    {
+        public required string FilePath { get; init; }
+        public required int ItemsVersion { get; init; }
+        public required int Sequence { get; init; }
+        public int Priority { get; set; }
+    }
 
     // ═══ 预览拖拽 ═══
     private bool _imgDragging;
@@ -312,6 +340,7 @@ public sealed partial class MainWindow : Window
         _loc.LanguageChanged += OnAppLanguageChanged;
 
         this.InitializeComponent();
+        HistoryListView.ItemsSource = _historyListItems;
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);

@@ -160,6 +160,15 @@ public sealed partial class MainWindow
         if (FocusManager.GetFocusedElement(this.Content.XamlRoot) is TextBox or RichEditBox or PasswordBox)
             return;
 
+        if (e.Key == Windows.System.VirtualKey.Delete &&
+            _currentMode == AppMode.ImageGeneration &&
+            _currentGenImageBytes != null)
+        {
+            OnDeleteGenResult(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Windows.System.VirtualKey.F5 &&
             (_currentMode == AppMode.I2I || _currentMode == AppMode.Upscale || _currentMode == AppMode.Effects))
         {

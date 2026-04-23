@@ -56,6 +56,51 @@
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
                 <Setter Property="Margin" Value="0,0,0,12"/>
             </Style>
+            <DataTemplate x:Key="HistorySeparatorTemplate" x:DataType="local:HistoryListItem">
+                <Grid Margin="8,10,8,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0"
+                            Height="1"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Background="Gray"
+                            Opacity="0.4"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{x:Bind DateLabel}"
+                               FontSize="12"
+                               Foreground="Gray"/>
+                    <Border Grid.Column="2"
+                            Height="1"
+                            Margin="8,0,0,0"
+                            VerticalAlignment="Center"
+                            Background="Gray"
+                            Opacity="0.4"/>
+                </Grid>
+            </DataTemplate>
+            <DataTemplate x:Key="HistoryThumbnailTemplate" x:DataType="local:HistoryListItem">
+                <Border Background="Transparent"
+                        CornerRadius="4"
+                        Padding="2"
+                        Margin="8,0,8,0"
+                        Tag="{x:Bind FilePath}"
+                        PointerPressed="OnHistoryItemClick"
+                        Loaded="OnHistoryThumbnailHostLoaded"
+                        DataContextChanged="OnHistoryThumbnailHostDataContextChanged">
+                    <Image Height="140"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           Loaded="OnHistoryThumbnailImageLoaded"
+                           Unloaded="OnHistoryThumbnailImageUnloaded"
+                           DataContextChanged="OnHistoryThumbnailImageDataContextChanged"/>
+                </Border>
+            </DataTemplate>
+            <local:HistoryItemTemplateSelector x:Key="HistoryTemplateSelector"
+                                               SeparatorTemplate="{StaticResource HistorySeparatorTemplate}"
+                                               ThumbnailTemplate="{StaticResource HistoryThumbnailTemplate}"/>
         </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="48"/>
@@ -1109,10 +1154,37 @@
                                         HorizontalAlignment="Stretch"
                                         DateChanged="OnHistoryDateChanged"
                                         CalendarViewDayItemChanging="OnHistoryCalendarDayItemChanging"/>
-                    <ScrollViewer x:Name="HistoryScroller" Grid.Row="2" VerticalScrollBarVisibility="Auto"
-                                  ViewChanged="OnHistoryScrollViewChanged">
-                        <StackPanel x:Name="HistoryPanel" Padding="8,0,8,8" Spacing="6"/>
-                    </ScrollViewer>
+                    <TextBlock x:Name="HistoryEmptyState" Grid.Row="2"
+                               Text=""
+                               Visibility="Collapsed"
+                               Foreground="Gray"
+                               HorizontalAlignment="Center"
+                               Margin="0,20,0,0"/>
+                    <ListView x:Name="HistoryListView" Grid.Row="2"
+                              Visibility="Collapsed"
+                              SelectionMode="None"
+                              IsItemClickEnabled="False"
+                              Loaded="OnHistoryListViewLoaded"
+                              Unloaded="OnHistoryListViewUnloaded"
+                              ItemTemplateSelector="{StaticResource HistoryTemplateSelector}"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              Padding="0,0,0,8">
+                        <ListView.ItemContainerTransitions>
+                            <TransitionCollection>
+                                <AddDeleteThemeTransition/>
+                                <ReorderThemeTransition/>
+                            </TransitionCollection>
+                        </ListView.ItemContainerTransitions>
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Margin" Value="0"/>
+                                <Setter Property="MinHeight" Value="0"/>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                    </ListView>
                 </Grid>
             </Border>
 

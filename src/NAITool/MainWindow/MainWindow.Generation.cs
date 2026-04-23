@@ -633,7 +633,7 @@ public sealed partial class MainWindow
                     }
                 }
                 _historyFiles.Remove(deletedPath);
-                _historyLoadedCount = Math.Min(_historyLoadedCount, _historyFiles.Count);
+                RemoveHistoryThumbnailCacheEntry(deletedPath);
                 RefreshHistoryPanel();
 
                 string? nextPath = null;
@@ -869,6 +869,19 @@ public sealed partial class MainWindow
                     await ApplyDroppedImageMetadata(_currentGenImageBytes, L("image.preview_label"), skipSeed: true);
             };
             flyout.Items.Add(useParamsNoSeedItem);
+
+            flyout.Items.Add(new MenuFlyoutSeparator());
+
+            var deleteItem = new MenuFlyoutItem
+            {
+                Text = L("common.delete"),
+                Icon = new SymbolIcon(Symbol.Delete),
+                IsEnabled = hasImage,
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 196, 43, 28)),
+            };
+            deleteItem.Click += OnDeleteGenResult;
+            flyout.Items.Add(deleteItem);
+
             foreach (var item in flyout.Items)
                 ApplyMenuTypography(item);
         };
