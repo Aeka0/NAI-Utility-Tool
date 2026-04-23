@@ -520,7 +520,7 @@
     "about.thanks.smilingwolf":  "WD14 tagger 反推模型及范式作者",
     "about.thanks.xinntao":  "超分模型作者",
     "about.thanks.novelai":  "官方 / PNG 隐写数据代码引用",
-    "about.version":  "版本 Pre-Release 17",
+    "about.version":  "版本 Pre-Release 18",
     "help.highlights.actions.body":  "用户可以在主 Prompt 和角色 Prompt 中通过右键菜单里的“动作交互”快速插入交互前缀。\n\n发起方会在当前选区前加入 source#，被动方加入 target#，对等交互加入 mutual#；如果没有框选内容，则会直接插入到当前光标位置。这是 NAI4 之后版本的标准格式，适合在角色互动、视线关系、动作指向等场景里快速标注不同角色的交互方式。",
     "help.highlights.actions.title":  "动作交互",
     "help.highlights.automation.body":  "支持常规单次生成，也支持自动化连续出图。\n\n你可以先固定基础提示词与参数，再让工具自动循环发送请求，并配合已有的随机风格提示词功能持续产出变体，适合批量试风格、试构图和刷灵感。",
