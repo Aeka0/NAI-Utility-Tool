@@ -305,10 +305,13 @@ public sealed partial class MainWindow
         var file = await savePicker.PickSaveFileAsync();
         if (file != null)
         {
-            await File.WriteAllBytesAsync(file.Path, resultBytes);
+            var bytesToSave = await PrepareImageBytesForSaveAsync(resultBytes, stripMetadata: false);
+            await File.WriteAllBytesAsync(file.Path, bytesToSave);
             _upscaleImagePath = file.Path;
             MarkUpscaleWorkspaceClean();
-            TxtStatus.Text = Lf("file.saved_path", file.Path);
+            TxtStatus.Text = ShouldStripSavedImageMetadata(false)
+                ? Lf("file.saved_path_stripped", file.Path)
+                : Lf("file.saved_path", file.Path);
         }
     }
 

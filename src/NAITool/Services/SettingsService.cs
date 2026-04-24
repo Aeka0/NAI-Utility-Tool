@@ -139,6 +139,8 @@ public class AppSettings
     public string ProxyPort { get; set; } = "10808";
     public bool UseWebp { get; set; }
     public string ImageDeleteBehavior { get; set; } = "RecycleBin";
+    public bool PrivacyMode { get; set; }
+    public bool StripSavedImageMetadata { get; set; }
     public string ThemeMode { get; set; } = "System";
     public string AppearanceTransparency { get; set; } = "Standard";
     public string LanguageCode { get; set; } = "";

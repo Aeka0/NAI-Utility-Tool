@@ -40,6 +40,7 @@ public sealed partial class MainWindow
     {
         Usage,
         Network,
+        LocalStorage,
         Performance,
         Appearance,
         Language,
@@ -59,8 +60,7 @@ public sealed partial class MainWindow
         bool superDropEnabled,
         bool showGenerationResultBar,
         bool wildcardsEnabled,
-        bool wildcardsRequireExplicitSyntax,
-        string imageDeleteBehavior)
+        bool wildcardsRequireExplicitSyntax)
     {
         _settings.Settings.WeightHighlight = weightHighlight;
         _settings.Settings.AutoComplete = autoComplete;
@@ -69,7 +69,6 @@ public sealed partial class MainWindow
         _settings.Settings.ShowGenerationResultBar = showGenerationResultBar;
         _settings.Settings.WildcardsEnabled = wildcardsEnabled;
         _settings.Settings.WildcardsRequireExplicitSyntax = wildcardsRequireExplicitSyntax;
-        _settings.Settings.ImageDeleteBehavior = imageDeleteBehavior;
 
         UpdateFloatingResultBarsVisibility();
         if (!_settings.Settings.AutoComplete)
@@ -90,6 +89,18 @@ public sealed partial class MainWindow
         ApplyDragDropModeSetting();
         UpdatePromptHighlights();
         TxtStatus.Text = L("settings.usage.saved");
+    }
+
+    private void ApplyLocalStorageSettings(
+        string imageDeleteBehavior,
+        bool privacyMode,
+        bool stripSavedImageMetadata)
+    {
+        _settings.Settings.ImageDeleteBehavior = imageDeleteBehavior;
+        _settings.Settings.PrivacyMode = privacyMode;
+        _settings.Settings.StripSavedImageMetadata = stripSavedImageMetadata;
+        _settings.Save();
+        TxtStatus.Text = L("settings.local_storage.saved");
     }
 
     private void ApplyPerformanceSettings(string devicePreference, bool unloadModelAfterInference)

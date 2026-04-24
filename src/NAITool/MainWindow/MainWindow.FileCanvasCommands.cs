@@ -70,6 +70,17 @@ public sealed partial class MainWindow
         return data?.ToArray() ?? imageBytes;
     }
 
+    private bool ShouldStripSavedImageMetadata(bool stripMetadata) =>
+        stripMetadata || _settings.Settings.StripSavedImageMetadata;
+
+    private async Task<byte[]> PrepareImageBytesForSaveAsync(byte[] imageBytes, bool stripMetadata)
+    {
+        if (!ShouldStripSavedImageMetadata(stripMetadata))
+            return imageBytes;
+
+        return await Task.Run(() => ImageMetadataService.StripPngMetadata(EnsurePngEncoded(imageBytes)));
+    }
+
     // ═══════════════════════════════════════════════════════════
     //  菜单事件
     // ═══════════════════════════════════════════════════════════
@@ -142,7 +153,9 @@ public sealed partial class MainWindow
             }
             else
             {
-                TxtStatus.Text = L("generate.status.auto_saved_output");
+                TxtStatus.Text = _settings.Settings.PrivacyMode
+                    ? L("generate.status.privacy_manual_save_required")
+                    : L("generate.status.auto_saved_output");
             }
         }
     }
@@ -204,6 +217,7 @@ public sealed partial class MainWindow
         if (bytesToSave == null || bytesToSave.Length == 0)
         { TxtStatus.Text = L("file.error.no_image_content_to_save"); return; }
 
+        bytesToSave = await PrepareImageBytesForSaveAsync(bytesToSave, stripMetadata: false);
         if (redirectedToPng)
             bytesToSave = await Task.Run(() => EnsurePngEncoded(bytesToSave));
 
@@ -213,7 +227,9 @@ public sealed partial class MainWindow
             if (redirectedToPng)
                 MaskCanvas.SetLoadedFilePath(savePath);
             MarkI2IWorkspaceClean();
-            TxtStatus.Text = Lf("file.saved_path", savePath);
+            TxtStatus.Text = ShouldStripSavedImageMetadata(false)
+                ? Lf("file.saved_path_stripped", savePath)
+                : Lf("file.saved_path", savePath);
         }
         catch (Exception ex) { TxtStatus.Text = Lf("common.save_failed", ex.Message); }
     }
@@ -294,9 +310,7 @@ public sealed partial class MainWindow
         if (file == null)
             return;
 
-        var bytesToSave = stripMetadata
-            ? await Task.Run(() => ImageMetadataService.StripPngMetadata(imageBytes))
-            : imageBytes;
+        var bytesToSave = await PrepareImageBytesForSaveAsync(imageBytes, stripMetadata);
 
         if (bytesToSave == null || bytesToSave.Length == 0)
         {
@@ -309,7 +323,7 @@ public sealed partial class MainWindow
         try
         {
             await Windows.Storage.FileIO.WriteBytesAsync(file, bytesToSave);
-            TxtStatus.Text = stripMetadata
+            TxtStatus.Text = ShouldStripSavedImageMetadata(stripMetadata)
                 ? Lf("file.saved_path_stripped", file.Path)
                 : Lf("file.saved_path", file.Path);
         }
@@ -370,6 +384,7 @@ public sealed partial class MainWindow
             if (bytesToSave == null || bytesToSave.Length == 0)
             { TxtStatus.Text = L("file.error.no_image_to_save"); return; }
 
+            bytesToSave = await PrepareImageBytesForSaveAsync(bytesToSave, stripMetadata);
             bytesToSave = await Task.Run(() => EnsurePngEncoded(bytesToSave));
 
             try
@@ -388,7 +403,7 @@ public sealed partial class MainWindow
                     MarkEffectsWorkspaceClean();
                     RefreshEffectsPanel();
                 }
-                TxtStatus.Text = stripMetadata
+                TxtStatus.Text = ShouldStripSavedImageMetadata(stripMetadata)
                     ? Lf("file.saved_path_stripped", file.Path)
                     : Lf("file.saved_path", file.Path);
             }
@@ -1102,6 +1117,7 @@ public sealed partial class MainWindow
                 ds.Clear(Windows.UI.Color.FromArgb(0, 0, 0, 0));
                 DrawImage(ds);
             });
+            bytes = await PrepareImageBytesForSaveAsync(bytes, stripMetadata: false);
             await Windows.Storage.FileIO.WriteBytesAsync(file, bytes);
         }
         else if (exportType == 1) // Mask Only
@@ -1113,6 +1129,7 @@ public sealed partial class MainWindow
                 ds.Clear(bg);
                 DrawMask(ds, fg);
             });
+            bytes = await PrepareImageBytesForSaveAsync(bytes, stripMetadata: false);
             await Windows.Storage.FileIO.WriteBytesAsync(file, bytes);
         }
         else if (exportType == 2) // Merged
@@ -1135,6 +1152,7 @@ public sealed partial class MainWindow
                 DrawImage(ds);
                 DrawMask(ds, fg);
             });
+            bytes = await PrepareImageBytesForSaveAsync(bytes, stripMetadata: false);
             await Windows.Storage.FileIO.WriteBytesAsync(file, bytes);
         }
         else if (exportType == 3) // Separated
@@ -1145,6 +1163,7 @@ public sealed partial class MainWindow
                 ds.Clear(Windows.UI.Color.FromArgb(0, 0, 0, 0));
                 DrawImage(ds);
             });
+            imgBytes = await PrepareImageBytesForSaveAsync(imgBytes, stripMetadata: false);
             await Windows.Storage.FileIO.WriteBytesAsync(file, imgBytes);
 
             // Save mask
@@ -1155,6 +1174,7 @@ public sealed partial class MainWindow
                 ds.Clear(bg);
                 DrawMask(ds, fg);
             });
+            maskBytes = await PrepareImageBytesForSaveAsync(maskBytes, stripMetadata: false);
             
             string dir = Path.GetDirectoryName(file.Path) ?? "";
             string name = Path.GetFileNameWithoutExtension(file.Path);

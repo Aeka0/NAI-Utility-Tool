@@ -167,7 +167,8 @@ public sealed partial class MainWindow
                 break;
             }
 
-            pendingHistoryId = AddPendingHistoryItem(w, h);
+            if (!_settings.Settings.PrivacyMode)
+                pendingHistoryId = AddPendingHistoryItem(w, h);
             DebugLog($"[Generate] Start | {w}x{h} | Model={p.Model} | Seed={actualSeed}");
             IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
                 ? new Progress<byte[]>(bytes =>
@@ -234,7 +235,9 @@ public sealed partial class MainWindow
             _ = RefreshAnlasInfoAsync(forceRefresh: true);
             UpdateDynamicMenuStates();
             DebugLog($"[Generate] Completed | Seed={actualSeed} | Saved={finalSavedPath}");
-            TxtStatus.Text = string.IsNullOrWhiteSpace(postSummary)
+            TxtStatus.Text = _settings.Settings.PrivacyMode
+                ? L("generate.status.completed_unsaved_privacy")
+                : string.IsNullOrWhiteSpace(postSummary)
                 ? Lf("generate.status.completed_saved", finalSavedPath)
                 : Lf("generate.status.completed_post_saved", postSummary, finalSavedPath);
             return true;
@@ -307,13 +310,17 @@ public sealed partial class MainWindow
         GenImageScroller.ChangeView(0, 0, zoom);
     }
 
-    private static async Task<string?> SaveToOutputAsync(byte[] imageBytes, string prefix = "gen")
+    private async Task<string?> SaveToOutputAsync(byte[] imageBytes, string prefix = "gen")
     {
+        if (_settings.Settings.PrivacyMode)
+            return null;
+
         var dateDir = Path.Combine(OutputBaseDir, DateTime.Now.ToString("yyyy-MM-dd"));
         Directory.CreateDirectory(dateDir);
         var fileName = $"{prefix}_{DateTime.Now:HHmmss_fff}.png";
         var filePath = Path.Combine(dateDir, fileName);
-        await File.WriteAllBytesAsync(filePath, imageBytes);
+        var bytesToSave = await PrepareImageBytesForSaveAsync(imageBytes, stripMetadata: false);
+        await File.WriteAllBytesAsync(filePath, bytesToSave);
         return filePath;
     }
 
@@ -512,7 +519,8 @@ public sealed partial class MainWindow
                 })
                 : null;
 
-            pendingHistoryId = AddPendingHistoryItem(width, height);
+            if (!_settings.Settings.PrivacyMode)
+                pendingHistoryId = AddPendingHistoryItem(width, height);
             DebugLog($"[Enhance] Start | {width}x{height} | Model={enhanceParams.Model} | Seed={actualSeed} | Strength=0.5");
             var (imageBytes, error) = await _naiService.ImageToImageAsync(
                 imageBase64,
@@ -560,7 +568,9 @@ public sealed partial class MainWindow
             _ = RefreshAnlasInfoAsync(forceRefresh: true);
             UpdateDynamicMenuStates();
             DebugLog($"[Enhance] Completed | Seed={actualSeed} | Saved={savedPath}");
-            TxtStatus.Text = Lf("generate.status.completed_saved", savedPath);
+            TxtStatus.Text = _settings.Settings.PrivacyMode
+                ? L("generate.status.completed_unsaved_privacy")
+                : Lf("generate.status.completed_saved", savedPath);
             return true;
         }
         catch (OperationCanceledException)

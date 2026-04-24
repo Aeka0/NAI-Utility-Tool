@@ -44,6 +44,7 @@ public sealed partial class MainWindow
 
         var usageItem = CreateSettingsHubNavItem(SettingsHubSection.Usage, L("settings.hub.usage.title"), "\uE713");
         var networkItem = CreateSettingsHubNavItem(SettingsHubSection.Network, L("settings.hub.network.title"), "\uE774");
+        var localStorageItem = CreateSettingsHubNavItem(SettingsHubSection.LocalStorage, L("settings.hub.local_storage.title"), "\uE8B7");
         var performanceItem = CreateSettingsHubNavItem(SettingsHubSection.Performance, L("settings.hub.performance.title"), "\uE9D9");
         var appearanceItem = CreateSettingsHubNavItem(SettingsHubSection.Appearance, L("settings.hub.appearance.title"), "\uE790");
         var languageItem = CreateSettingsHubNavItem(SettingsHubSection.Language, L("settings.hub.language.title"), "\uF2B7");
@@ -51,6 +52,7 @@ public sealed partial class MainWindow
 
         navigationView.MenuItems.Add(usageItem);
         navigationView.MenuItems.Add(networkItem);
+        navigationView.MenuItems.Add(localStorageItem);
         navigationView.MenuItems.Add(performanceItem);
         navigationView.MenuItems.Add(appearanceItem);
         navigationView.MenuItems.Add(languageItem);
@@ -60,6 +62,7 @@ public sealed partial class MainWindow
         {
             [SettingsHubSection.Usage] = usageItem,
             [SettingsHubSection.Network] = networkItem,
+            [SettingsHubSection.LocalStorage] = localStorageItem,
             [SettingsHubSection.Performance] = performanceItem,
             [SettingsHubSection.Appearance] = appearanceItem,
             [SettingsHubSection.Language] = languageItem,
@@ -84,8 +87,7 @@ public sealed partial class MainWindow
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
                             _settings.Settings.WildcardsEnabled,
-                            _settings.Settings.WildcardsRequireExplicitSyntax,
-                            _settings.Settings.ImageDeleteBehavior);
+                            _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
                 CreateSettingsHubLayer(
                     "\uE8A9",
@@ -100,8 +102,7 @@ public sealed partial class MainWindow
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
                             _settings.Settings.WildcardsEnabled,
-                            _settings.Settings.WildcardsRequireExplicitSyntax,
-                            _settings.Settings.ImageDeleteBehavior);
+                            _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
                 CreateSettingsHubLayer(
                     "\uE823",
@@ -116,8 +117,7 @@ public sealed partial class MainWindow
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
                             _settings.Settings.WildcardsEnabled,
-                            _settings.Settings.WildcardsRequireExplicitSyntax,
-                            _settings.Settings.ImageDeleteBehavior);
+                            _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
                 CreateSettingsHubLayer(
                     "\uE7C3",
@@ -132,8 +132,7 @@ public sealed partial class MainWindow
                             value,
                             _settings.Settings.ShowGenerationResultBar,
                             _settings.Settings.WildcardsEnabled,
-                            _settings.Settings.WildcardsRequireExplicitSyntax,
-                            _settings.Settings.ImageDeleteBehavior);
+                            _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
                 CreateSettingsHubLayer(
                     "\uE90E",
@@ -148,8 +147,7 @@ public sealed partial class MainWindow
                             _settings.Settings.SuperDropEnabled,
                             value,
                             _settings.Settings.WildcardsEnabled,
-                            _settings.Settings.WildcardsRequireExplicitSyntax,
-                            _settings.Settings.ImageDeleteBehavior);
+                            _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
                 CreateSettingsHubLayer(
                     "\uE74C",
@@ -164,8 +162,7 @@ public sealed partial class MainWindow
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
                             value,
-                            _settings.Settings.WildcardsRequireExplicitSyntax,
-                            _settings.Settings.ImageDeleteBehavior);
+                            _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
                 CreateSettingsHubLayer(
                     "\uE943",
@@ -180,33 +177,8 @@ public sealed partial class MainWindow
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
                             _settings.Settings.WildcardsEnabled,
-                            value,
-                            _settings.Settings.ImageDeleteBehavior);
-                    })),
-                CreateSettingsHubLayer(
-                    "\uE74D",
-                    L("settings.hub.usage.delete_behavior"),
-                    L("settings.hub.usage.delete_behavior_hint"),
-                    CreateSettingsHubComboBox(
-                        new[]
-                        {
-                            new SettingsHubComboOption(L("settings.hub.usage.delete_behavior.recycle_bin"), "RecycleBin"),
-                            new SettingsHubComboOption(L("settings.hub.usage.delete_behavior.permanent"), "PermanentDelete"),
-                        },
-                        _settings.Settings.ImageDeleteBehavior,
-                        value =>
-                        {
-                            ApplyUsageSettings(
-                                _settings.Settings.WeightHighlight,
-                                _settings.Settings.AutoComplete,
-                                _settings.Settings.RememberPromptAndParameters,
-                                _settings.Settings.SuperDropEnabled,
-                                _settings.Settings.ShowGenerationResultBar,
-                                _settings.Settings.WildcardsEnabled,
-                                _settings.Settings.WildcardsRequireExplicitSyntax,
-                                value);
-                        },
-                        260)));
+                            value);
+                    })));
         }
 
         UIElement BuildNetworkSection()
@@ -395,6 +367,52 @@ public sealed partial class MainWindow
                     proxyRow));
         }
 
+        UIElement BuildLocalStorageSection()
+        {
+            return CreateSettingsHubPage(
+                CreateSettingsHubLayer(
+                    "\uE74D",
+                    L("settings.hub.local_storage.delete_behavior"),
+                    L("settings.hub.local_storage.delete_behavior_hint"),
+                    CreateSettingsHubComboBox(
+                        new[]
+                        {
+                            new SettingsHubComboOption(L("settings.hub.local_storage.delete_behavior.recycle_bin"), "RecycleBin"),
+                            new SettingsHubComboOption(L("settings.hub.local_storage.delete_behavior.permanent"), "PermanentDelete"),
+                        },
+                        _settings.Settings.ImageDeleteBehavior,
+                        value =>
+                        {
+                            ApplyLocalStorageSettings(
+                                value,
+                                _settings.Settings.PrivacyMode,
+                                _settings.Settings.StripSavedImageMetadata);
+                        },
+                        260)),
+                CreateSettingsHubLayer(
+                    "\uE708",
+                    L("settings.hub.local_storage.privacy_mode"),
+                    L("settings.hub.local_storage.privacy_mode.description"),
+                    CreateSettingsHubToggleSwitch(_settings.Settings.PrivacyMode, value =>
+                    {
+                        ApplyLocalStorageSettings(
+                            _settings.Settings.ImageDeleteBehavior,
+                            value,
+                            _settings.Settings.StripSavedImageMetadata);
+                    })),
+                CreateSettingsHubLayer(
+                    "\uED62",
+                    L("settings.hub.local_storage.strip_metadata"),
+                    L("settings.hub.local_storage.strip_metadata.description"),
+                    CreateSettingsHubToggleSwitch(_settings.Settings.StripSavedImageMetadata, value =>
+                    {
+                        ApplyLocalStorageSettings(
+                            _settings.Settings.ImageDeleteBehavior,
+                            _settings.Settings.PrivacyMode,
+                            value);
+                    })));
+        }
+
         UIElement BuildPerformanceSection()
         {
             string sectionDescription = L("settings.hub.performance.description");
@@ -498,6 +516,7 @@ public sealed partial class MainWindow
         UIElement BuildSectionContent(SettingsHubSection section, Action refresh) => section switch
         {
             SettingsHubSection.Network => BuildNetworkSection(),
+            SettingsHubSection.LocalStorage => BuildLocalStorageSection(),
             SettingsHubSection.Performance => BuildPerformanceSection(),
             SettingsHubSection.Appearance => BuildAppearanceSection(refresh),
             SettingsHubSection.Language => BuildLanguageSection(refresh),
@@ -520,6 +539,7 @@ public sealed partial class MainWindow
 
             SetSettingsHubNavItemLabel(usageItem, L("settings.hub.usage.title"));
             SetSettingsHubNavItemLabel(networkItem, L("settings.hub.network.title"));
+            SetSettingsHubNavItemLabel(localStorageItem, L("settings.hub.local_storage.title"));
             SetSettingsHubNavItemLabel(performanceItem, L("settings.hub.performance.title"));
             SetSettingsHubNavItemLabel(appearanceItem, L("settings.hub.appearance.title"));
             SetSettingsHubNavItemLabel(languageItem, L("settings.hub.language.title"));

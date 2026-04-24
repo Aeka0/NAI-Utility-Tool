@@ -339,6 +339,7 @@ public sealed partial class MainWindow
             var bytesToSave = await GetInspectSaveBytesAsync(stripMetadata: false, forcePng: redirectedToPng);
             if (bytesToSave == null)
             { TxtStatus.Text = L("file.error.no_image_to_save"); return; }
+            bytesToSave = await PrepareImageBytesForSaveAsync(bytesToSave, stripMetadata: false);
 
             try
             {
@@ -347,7 +348,9 @@ public sealed partial class MainWindow
                 _inspectImagePath = savePath;
                 _inspectRawModified = false;
                 UpdateInspectSaveState();
-                TxtStatus.Text = Lf("file.saved_path", savePath);
+                TxtStatus.Text = ShouldStripSavedImageMetadata(false)
+                    ? Lf("file.saved_path_stripped", savePath)
+                    : Lf("file.saved_path", savePath);
             }
             catch (Exception ex) { TxtStatus.Text = Lf("common.save_failed", ex.Message); }
         }
@@ -371,6 +374,7 @@ public sealed partial class MainWindow
             var savePath = ResolveOverwriteSavePath(_effectsImagePath, out bool redirectedToPng);
             if (redirectedToPng)
                 bytesToSave = await Task.Run(() => EnsurePngEncoded(bytesToSave));
+            bytesToSave = await PrepareImageBytesForSaveAsync(bytesToSave, stripMetadata: false);
 
             try
             {
@@ -379,7 +383,9 @@ public sealed partial class MainWindow
                 MarkEffectsWorkspaceClean();
                 RefreshEffectsPanel();
                 UpdateFileMenuState();
-                TxtStatus.Text = Lf("file.saved_path", savePath);
+                TxtStatus.Text = ShouldStripSavedImageMetadata(false)
+                    ? Lf("file.saved_path_stripped", savePath)
+                    : Lf("file.saved_path", savePath);
             }
             catch (Exception ex)
             {
