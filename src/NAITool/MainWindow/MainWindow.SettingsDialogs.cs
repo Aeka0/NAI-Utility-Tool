@@ -140,6 +140,24 @@ public sealed partial class MainWindow
         };
     }
 
+    private void ApplyGenerationWaitingAnimationSetting(bool enabled)
+    {
+        _settings.Settings.EnableGenerationWaitingAnimation = enabled;
+        _settings.Save();
+
+        if (_generateRequestRunning)
+        {
+            if (enabled)
+                StartGenerationPreviewPulse();
+            else
+                StopGenerationPreviewPulse();
+        }
+
+        TxtStatus.Text = enabled
+            ? L("status.generation_waiting_animation_on")
+            : L("status.generation_waiting_animation_off");
+    }
+
     private void ApplyLanguageCodeSetting(string languageCode)
     {
         _settings.Settings.LanguageCode = LocalizationService.NormalizeLanguageCode(languageCode);

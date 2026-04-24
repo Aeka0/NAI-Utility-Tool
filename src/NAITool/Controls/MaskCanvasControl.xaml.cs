@@ -92,6 +92,9 @@ public sealed partial class MaskCanvasControl : UserControl
     private const int AssetProtectionMaxMatchedSide = 2048;
     private const long AssetProtectionMaxPixels = 1024L * 1024L;
     private const int CheckerCellSize = 16;
+    private const float BackgroundPulseBrightnessDelta = 20f;
+    private const double BackgroundPulsePeriodSeconds = 2.4;
+    private const double BackgroundPulseFadeSeconds = 0.28;
     private static readonly Color CheckerLightColor = Color.FromArgb(255, 204, 204, 204);
     private static readonly Color CheckerDarkColor = Color.FromArgb(255, 170, 170, 170);
     private static readonly Matrix5x4 MaskOverlayMatrix = new()
@@ -104,6 +107,11 @@ public sealed partial class MaskCanvasControl : UserControl
     };
 
     private static readonly Color CanvasAreaTint = Color.FromArgb(220, 28, 28, 32);
+    private double _backgroundPulseAmount;
+    private bool _backgroundPulseDesired;
+    private double _backgroundPulseFade;
+    private double _backgroundPulseLastFrameSeconds;
+    private readonly System.Diagnostics.Stopwatch _backgroundPulseClock = new();
 
     public static readonly (int W, int H, string Label)[] CanvasPresets =
     [
@@ -165,6 +173,16 @@ public sealed partial class MaskCanvasControl : UserControl
     }
     public bool IsMaskOverlayVisible { get; set; } = true;
     public bool UseAssetProtectionCanvasSizing { get; set; } = true;
+
+    public void SetBackgroundPulseActive(bool active)
+    {
+        _backgroundPulseDesired = active;
+        if (active && !_backgroundPulseClock.IsRunning)
+            _backgroundPulseClock.Start();
+        _backgroundPulseLastFrameSeconds = _backgroundPulseClock.Elapsed.TotalSeconds;
+        if (_canvas != null)
+            _canvas.Paused = false;
+    }
 
     /// <summary>导入图片的原始文件路径（用于"保存"覆盖写回）。</summary>
     public string? LoadedFilePath => _loadedFilePath;
@@ -364,6 +382,47 @@ public sealed partial class MaskCanvasControl : UserControl
         return (fitW, fitH);
     }
 
+    private static Color ApplyBackgroundPulse(Color color, double amount)
+    {
+        if (Math.Abs(amount) < 0.001)
+            return color;
+
+        float delta = (float)(amount * BackgroundPulseBrightnessDelta);
+        return Color.FromArgb(
+            color.A,
+            (byte)Math.Clamp(color.R + delta, 0f, 255f),
+            (byte)Math.Clamp(color.G + delta, 0f, 255f),
+            (byte)Math.Clamp(color.B + delta, 0f, 255f));
+    }
+
+    private void UpdateBackgroundPulse()
+    {
+        if (!_backgroundPulseDesired && _backgroundPulseFade <= 0)
+        {
+            _backgroundPulseAmount = 0;
+            return;
+        }
+
+        if (!_backgroundPulseClock.IsRunning)
+            _backgroundPulseClock.Start();
+
+        double now = _backgroundPulseClock.Elapsed.TotalSeconds;
+        double deltaSeconds = now - _backgroundPulseLastFrameSeconds;
+        _backgroundPulseLastFrameSeconds = now;
+        if (deltaSeconds <= 0 || deltaSeconds > 0.25)
+            deltaSeconds = 1d / 60d;
+
+        double fadeTarget = _backgroundPulseDesired ? 1d : 0d;
+        double fadeStep = deltaSeconds / BackgroundPulseFadeSeconds;
+        if (_backgroundPulseFade < fadeTarget)
+            _backgroundPulseFade = Math.Min(fadeTarget, _backgroundPulseFade + fadeStep);
+        else if (_backgroundPulseFade > fadeTarget)
+            _backgroundPulseFade = Math.Max(fadeTarget, _backgroundPulseFade - fadeStep);
+
+        double wave = Math.Sin(now * Math.Tau / BackgroundPulsePeriodSeconds);
+        _backgroundPulseAmount = _backgroundPulseFade * wave;
+    }
+
     public MaskCanvasControl()
     {
         this.InitializeComponent();
@@ -371,6 +430,7 @@ public sealed partial class MaskCanvasControl : UserControl
         _device = CanvasDevice.GetSharedDevice();
 
         _canvas = new CanvasAnimatedControl();
+        _canvas.IsFixedTimeStep = false;
         _canvas.CustomDevice = _device;
         _canvas.CreateResources += OnCreateResources;
         _canvas.Draw += OnCanvasDraw;
@@ -1088,7 +1148,8 @@ public sealed partial class MaskCanvasControl : UserControl
                 viewScale = _viewTransform.Scale;
             }
 
-            ds.Clear(CanvasAreaTint);
+            UpdateBackgroundPulse();
+            ds.Clear(ApplyBackgroundPulse(CanvasAreaTint, _backgroundPulseAmount));
             ds.Transform = viewMatrix;
 
             var interp = viewScale > 1.5f

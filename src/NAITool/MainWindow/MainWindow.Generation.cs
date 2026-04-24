@@ -89,7 +89,7 @@ public sealed partial class MainWindow
         var (w, h) = autoContext?.CurrentSizeOverride ?? GetSelectedSize();
         bool keepGenerateButtonInteractive = _autoGenRunning || _continuousGenRunning;
         if (!keepGenerateButtonInteractive) BtnGenerate.IsEnabled = false;
-        _generateRequestRunning = true;
+        SetGenerationRequestRunning(true);
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
         var p = _settings.Settings.GenParameters;
@@ -257,7 +257,7 @@ public sealed partial class MainWindow
         }
         finally
         {
-            _generateRequestRunning = false;
+            SetGenerationRequestRunning(false);
             UpdateBtnGenerateForApiKey();
             p.Seed = restoreSeed;
         }
@@ -423,7 +423,7 @@ public sealed partial class MainWindow
         { TxtStatus.Text = L("generate.error.empty_result"); return false; }
 
         BtnGenerate.IsEnabled = false;
-        _generateRequestRunning = true;
+        SetGenerationRequestRunning(true);
         UpdateBtnGenerateForApiKey();
         UpdateGenEnhanceButtonWarning();
         TxtStatus.Text = L("generate.status.generating");
@@ -581,7 +581,7 @@ public sealed partial class MainWindow
         }
         finally
         {
-            _generateRequestRunning = false;
+            SetGenerationRequestRunning(false);
             UpdateBtnGenerateForApiKey();
             UpdateGenEnhanceButtonWarning();
         }

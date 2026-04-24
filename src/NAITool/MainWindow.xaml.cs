@@ -155,6 +155,8 @@ public sealed partial class MainWindow : Window
     private int _autoGenRemaining;
     private bool _continuousGenRunning;
     private bool _generateRequestRunning;
+    private bool _generationPreviewPulseDesired;
+    private Microsoft.UI.Composition.CompositionScopedBatch? _generationPreviewPulseFadeOutBatch;
     private CancellationTokenSource? _continuousGenCts;
     private int _continuousGenRemaining;
     private bool _continuousStopRequested;
@@ -346,6 +348,7 @@ public sealed partial class MainWindow : Window
         _loc.LanguageChanged += OnAppLanguageChanged;
 
         this.InitializeComponent();
+        SetupGenerationPreviewPulse();
         HistoryListView.ItemsSource = _historyListItems;
 
         ExtendsContentIntoTitleBar = true;
@@ -363,6 +366,7 @@ public sealed partial class MainWindow : Window
         {
             CloseAdvancedParamsWindow();
             _historyDateRefreshTimer?.Stop();
+            ResetGenerationPreviewPulseVisuals();
             if (IsPromptMode(_currentMode))
             {
                 SaveCurrentPromptToBuffer();
@@ -456,6 +460,109 @@ public sealed partial class MainWindow : Window
     private string L(string key) => _loc.GetString(key);
 
     private string Lf(string key, params object?[] args) => _loc.Format(key, args);
+
+    private const double GenerationPreviewPulsePeriodSeconds = 2.4;
+    private const double GenerationPreviewPulseFadeSeconds = 0.28;
+    private const double GenerationPreviewPulseMaxLightOpacity = 0.14;
+    private const double GenerationPreviewPulseMaxDarkOpacity = 0.08;
+    private const int GenerationPreviewPulseKeyFrameCount = 48;
+
+    private void SetupGenerationPreviewPulse()
+    {
+        GenerationPreviewPulseHost.Visibility = Visibility.Collapsed;
+        GenerationPreviewPulseHost.Opacity = 0;
+        GenerationPreviewPulseDarkOverlay.Opacity = 0;
+        GenerationPreviewPulseLightOverlay.Opacity = 0;
+        MaskCanvas.SetBackgroundPulseActive(false);
+    }
+
+    private void SetGenerationRequestRunning(bool running)
+    {
+        _generateRequestRunning = running;
+        if (running && _settings.Settings.EnableGenerationWaitingAnimation)
+            StartGenerationPreviewPulse();
+        else
+            StopGenerationPreviewPulse();
+    }
+
+    private void StartGenerationPreviewPulse()
+    {
+        _generationPreviewPulseDesired = true;
+        _generationPreviewPulseFadeOutBatch?.Dispose();
+        _generationPreviewPulseFadeOutBatch = null;
+
+        GenerationPreviewPulseHost.Visibility = Visibility.Visible;
+
+        var hostVisual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(GenerationPreviewPulseHost);
+        var compositor = hostVisual.Compositor;
+        StartGenerationPreviewPulseAnimation(GenerationPreviewPulseLightOverlay, GenerationPreviewPulseMaxLightOpacity, positiveWave: true);
+        StartGenerationPreviewPulseAnimation(GenerationPreviewPulseDarkOverlay, GenerationPreviewPulseMaxDarkOpacity, positiveWave: false);
+
+        var fadeIn = compositor.CreateScalarKeyFrameAnimation();
+        fadeIn.Duration = TimeSpan.FromSeconds(GenerationPreviewPulseFadeSeconds);
+        fadeIn.InsertKeyFrame(1f, 1f);
+        hostVisual.StartAnimation("Opacity", fadeIn);
+        MaskCanvas.SetBackgroundPulseActive(true);
+    }
+
+    private void StopGenerationPreviewPulse()
+    {
+        _generationPreviewPulseDesired = false;
+        MaskCanvas.SetBackgroundPulseActive(false);
+
+        var hostVisual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(GenerationPreviewPulseHost);
+        var compositor = hostVisual.Compositor;
+        var fadeOut = compositor.CreateScalarKeyFrameAnimation();
+        fadeOut.Duration = TimeSpan.FromSeconds(GenerationPreviewPulseFadeSeconds);
+        fadeOut.InsertKeyFrame(1f, 0f);
+
+        _generationPreviewPulseFadeOutBatch?.Dispose();
+        _generationPreviewPulseFadeOutBatch = compositor.CreateScopedBatch(Microsoft.UI.Composition.CompositionBatchTypes.Animation);
+        _generationPreviewPulseFadeOutBatch.Completed += (_, _) =>
+        {
+            if (!_generationPreviewPulseDesired)
+                ResetGenerationPreviewPulseVisuals();
+        };
+        hostVisual.StartAnimation("Opacity", fadeOut);
+        _generationPreviewPulseFadeOutBatch.End();
+    }
+
+    private void StartGenerationPreviewPulseAnimation(UIElement target, double maxOpacity, bool positiveWave)
+    {
+        var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(target);
+        var animation = visual.Compositor.CreateScalarKeyFrameAnimation();
+        animation.Duration = TimeSpan.FromSeconds(GenerationPreviewPulsePeriodSeconds);
+        animation.IterationBehavior = Microsoft.UI.Composition.AnimationIterationBehavior.Forever;
+
+        for (int i = 0; i <= GenerationPreviewPulseKeyFrameCount; i++)
+        {
+            double progress = (double)i / GenerationPreviewPulseKeyFrameCount;
+            double wave = Math.Sin(progress * Math.Tau);
+            double amplitude = positiveWave ? Math.Max(0, wave) : Math.Max(0, -wave);
+            animation.InsertKeyFrame((float)progress, (float)(amplitude * maxOpacity));
+        }
+
+        visual.StartAnimation("Opacity", animation);
+    }
+
+    private void ResetGenerationPreviewPulseVisuals()
+    {
+        _generationPreviewPulseFadeOutBatch?.Dispose();
+        _generationPreviewPulseFadeOutBatch = null;
+
+        var hostVisual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(GenerationPreviewPulseHost);
+        var lightVisual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(GenerationPreviewPulseLightOverlay);
+        var darkVisual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(GenerationPreviewPulseDarkOverlay);
+        hostVisual.StopAnimation("Opacity");
+        lightVisual.StopAnimation("Opacity");
+        darkVisual.StopAnimation("Opacity");
+
+        GenerationPreviewPulseHost.Opacity = 0;
+        GenerationPreviewPulseLightOverlay.Opacity = 0;
+        GenerationPreviewPulseDarkOverlay.Opacity = 0;
+        GenerationPreviewPulseHost.Visibility = Visibility.Collapsed;
+        MaskCanvas.SetBackgroundPulseActive(false);
+    }
 }
 
 public class AutoCompleteItem

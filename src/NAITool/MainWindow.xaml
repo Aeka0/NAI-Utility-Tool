@@ -994,9 +994,20 @@
                     PointerExited="OnLeftSidebarHandlePointerExited"/>
 
             <!-- ═══ 中间画布区域 ═══ -->
-            <Grid Grid.Column="2">
+            <Grid x:Name="GenerationPreviewHost" Grid.Column="2">
                 <Grid x:Name="GenPreviewArea" Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                       AllowDrop="True" DragOver="OnGenPreviewDragOver" Drop="OnGenPreviewDrop">
+                    <Grid x:Name="GenerationPreviewPulseHost"
+                          IsHitTestVisible="False"
+                          Opacity="0"
+                          Visibility="Collapsed">
+                        <Border x:Name="GenerationPreviewPulseDarkOverlay"
+                                Background="#FF000000"
+                                Opacity="0"/>
+                        <Border x:Name="GenerationPreviewPulseLightOverlay"
+                                Background="#FFFFFFFF"
+                                Opacity="0"/>
+                    </Grid>
                     <TextBlock x:Name="GenPlaceholder"
                                Text=""
                                HorizontalAlignment="Center" VerticalAlignment="Center"

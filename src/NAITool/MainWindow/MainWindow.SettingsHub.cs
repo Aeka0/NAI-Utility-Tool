@@ -455,7 +455,14 @@ public sealed partial class MainWindow
                         },
                         _settings.Settings.AppearanceTransparency,
                         ApplyTransparencyModeSetting,
-                        220)));
+                        220)),
+                CreateSettingsHubLayer(
+                    "\uEC4A",
+                    L("settings.hub.appearance.generation_waiting_animation"),
+                    L("settings.hub.appearance.generation_waiting_animation.description"),
+                    CreateSettingsHubToggleSwitch(
+                        _settings.Settings.EnableGenerationWaitingAnimation,
+                        ApplyGenerationWaitingAnimationSetting)));
         }
 
         UIElement BuildLanguageSection(Action refresh)

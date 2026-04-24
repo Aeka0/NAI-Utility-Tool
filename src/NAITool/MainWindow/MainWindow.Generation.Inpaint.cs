@@ -147,7 +147,7 @@ public sealed partial class MainWindow
         bool keepGenerateButtonInteractive = _continuousGenRunning;
         if (!keepGenerateButtonInteractive)
             BtnGenerate.IsEnabled = false;
-        _generateRequestRunning = true;
+        SetGenerationRequestRunning(true);
         SetI2IRequestImageMoveLocked(true);
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
@@ -251,7 +251,7 @@ public sealed partial class MainWindow
         }
         finally
         {
-            _generateRequestRunning = false;
+            SetGenerationRequestRunning(false);
             SetI2IRequestImageMoveLocked(false);
             UpdateBtnGenerateForApiKey();
             ip.Seed = restoreSeed;
@@ -342,7 +342,7 @@ public sealed partial class MainWindow
         bool keepGenerateButtonInteractive = _continuousGenRunning;
         if (!keepGenerateButtonInteractive)
             BtnGenerate.IsEnabled = false;
-        _generateRequestRunning = true;
+        SetGenerationRequestRunning(true);
         SetI2IRequestImageMoveLocked(true);
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
@@ -444,7 +444,7 @@ public sealed partial class MainWindow
         }
         finally
         {
-            _generateRequestRunning = false;
+            SetGenerationRequestRunning(false);
             SetI2IRequestImageMoveLocked(false);
             UpdateBtnGenerateForApiKey();
             dp.Seed = restoreSeed;
@@ -547,7 +547,7 @@ public sealed partial class MainWindow
         { TxtStatus.Text = L("i2i.error.no_image_to_send"); return false; }
 
         BtnGenerate.IsEnabled = false;
-        _generateRequestRunning = true;
+        SetGenerationRequestRunning(true);
         SetI2IRequestImageMoveLocked(true);
         UpdateBtnGenerateForApiKey();
         SetResultBarEnabled(false);
@@ -641,7 +641,7 @@ public sealed partial class MainWindow
         catch (Exception ex) { TxtStatus.Text = Lf("generate.status.regenerate_failed", ex.Message); }
         finally
         {
-            _generateRequestRunning = false;
+            SetGenerationRequestRunning(false);
             SetI2IRequestImageMoveLocked(false);
             UpdateBtnGenerateForApiKey();
             ip.Seed = restoreSeed;
