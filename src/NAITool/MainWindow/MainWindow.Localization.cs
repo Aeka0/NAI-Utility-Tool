@@ -271,6 +271,23 @@ public sealed partial class MainWindow
         };
     }
 
+    private ToggleSwitch CreateLocalizedToggleSwitch(bool isOn, double minWidth = 84)
+    {
+        var toggle = new ToggleSwitch
+        {
+            IsOn = isOn,
+            MinWidth = minWidth,
+        };
+        ApplyLocalizedToggleContent(toggle);
+        return toggle;
+    }
+
+    private void ApplyLocalizedToggleContent(ToggleSwitch toggle)
+    {
+        toggle.OnContent = L("common.on");
+        toggle.OffContent = L("common.off");
+    }
+
     private void UpdatePromptTabText()
     {
         if (TabPositive == null || TabNegative == null)

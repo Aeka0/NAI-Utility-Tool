@@ -366,12 +366,9 @@ public sealed partial class MainWindow
         };
         panel.Children.Add(titleText);
 
-        var customPosToggle = new Microsoft.UI.Xaml.Controls.ToggleSwitch
-        {
-            Header = L("character.custom_position"),
-            IsOn = entry.UseCustomPosition,
-            FontSize = 12,
-        };
+        var customPosToggle = CreateLocalizedToggleSwitch(entry.UseCustomPosition);
+        customPosToggle.Header = L("character.custom_position");
+        customPosToggle.FontSize = 12;
         panel.Children.Add(customPosToggle);
 
         var padBorder = new Border

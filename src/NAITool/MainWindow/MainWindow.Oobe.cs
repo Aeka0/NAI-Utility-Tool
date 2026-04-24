@@ -571,13 +571,9 @@ public sealed partial class MainWindow
                 };
                 tokenBox.LostFocus += (_, _) => _ = ScheduleApiTokenTestAsync(tokenStatus, 0);
 
-                var assetProtectionToggle = new ToggleSwitch
-                {
-                    Header = L("oobe.asset_protection.title"),
-                    IsOn = assetProtectionModeValue,
-                    MinWidth = 120,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                };
+                var assetProtectionToggle = CreateLocalizedToggleSwitch(assetProtectionModeValue, 120);
+                assetProtectionToggle.Header = L("oobe.asset_protection.title");
+                assetProtectionToggle.HorizontalAlignment = HorizontalAlignment.Left;
                 assetProtectionToggle.Toggled += (_, _) => assetProtectionModeValue = assetProtectionToggle.IsOn;
 
                 var helpButton = new HyperlinkButton

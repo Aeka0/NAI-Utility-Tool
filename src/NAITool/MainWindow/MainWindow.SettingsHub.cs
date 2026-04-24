@@ -204,12 +204,8 @@ public sealed partial class MainWindow
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            var proxyToggle = new ToggleSwitch
-            {
-                IsOn = _settings.Settings.UseProxy,
-                MinWidth = 84,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
+            var proxyToggle = CreateLocalizedToggleSwitch(_settings.Settings.UseProxy);
+            proxyToggle.VerticalAlignment = VerticalAlignment.Center;
             var proxyPortBox = new TextBox
             {
                 PlaceholderText = L("settings.hub.network.proxy_port_placeholder"),
@@ -218,12 +214,8 @@ public sealed partial class MainWindow
                 VerticalAlignment = VerticalAlignment.Center,
                 IsEnabled = _settings.Settings.UseProxy,
             };
-            var streamToggle = new ToggleSwitch
-            {
-                IsOn = _settings.Settings.StreamGeneration,
-                MinWidth = 84,
-                HorizontalAlignment = HorizontalAlignment.Right,
-            };
+            var streamToggle = CreateLocalizedToggleSwitch(_settings.Settings.StreamGeneration);
+            streamToggle.HorizontalAlignment = HorizontalAlignment.Right;
 
             string lastTestedToken = tokenBox.Password.Trim();
             bool tokenEditedSinceLastTest = false;
@@ -731,11 +723,7 @@ public sealed partial class MainWindow
 
     private ToggleSwitch CreateSettingsHubToggleSwitch(bool initialValue, Action<bool> onChanged)
     {
-        var toggle = new ToggleSwitch
-        {
-            IsOn = initialValue,
-            MinWidth = 84,
-        };
+        var toggle = CreateLocalizedToggleSwitch(initialValue);
         toggle.Toggled += (_, _) => onChanged(toggle.IsOn);
         return toggle;
     }

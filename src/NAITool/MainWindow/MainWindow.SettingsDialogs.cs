@@ -593,11 +593,8 @@ public sealed partial class MainWindow
             Child = accountPanel,
         };
 
-        var masterSwitch = new ToggleSwitch
-        {
-            Header = L("settings.quota.asset_protection_mode"),
-            IsOn = _settings.Settings.AccountAssetProtectionMode,
-        };
+        var masterSwitch = CreateLocalizedToggleSwitch(_settings.Settings.AccountAssetProtectionMode);
+        masterSwitch.Header = L("settings.quota.asset_protection_mode");
         var masterHint = new TextBlock
         {
             Text = L("settings.quota.asset_protection_mode_hint"),

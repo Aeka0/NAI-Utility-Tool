@@ -677,14 +677,12 @@ public sealed partial class MainWindow
         return Math.Clamp((int)Math.Round(value), minimum, maximum);
     }
 
-    private static ToggleSwitch CreateAutomationToggleSwitch(bool isOn) => new()
+    private ToggleSwitch CreateAutomationToggleSwitch(bool isOn)
     {
-        IsOn = isOn,
-        OnContent = "",
-        OffContent = "",
-        MinWidth = 56,
-        HorizontalAlignment = HorizontalAlignment.Right,
-    };
+        var toggle = CreateLocalizedToggleSwitch(isOn, 56);
+        toggle.HorizontalAlignment = HorizontalAlignment.Right;
+        return toggle;
+    }
 
     private static StackPanel CreateAutomationLabeledField(string label, FrameworkElement control, double minHeaderHeight = 0)
     {
