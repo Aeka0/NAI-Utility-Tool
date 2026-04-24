@@ -15,17 +15,18 @@ public partial class App : Application
         this.UnhandledException += OnUnhandledException;
     }
 
-    private static void InitializeLocalization()
+    private static void InitializeLocalization(bool persistDetectedLanguage)
     {
         try
         {
             var settings = new SettingsService();
             settings.Load();
 
-            bool persistDetectedLanguage = string.IsNullOrWhiteSpace(settings.Settings.LanguageCode);
+            bool shouldSaveDetectedLanguage = persistDetectedLanguage &&
+                string.IsNullOrWhiteSpace(settings.Settings.LanguageCode);
             settings.Settings.LanguageCode = LocalizationService.Instance.Initialize(settings.Settings.LanguageCode);
 
-            if (persistDetectedLanguage)
+            if (shouldSaveDetectedLanguage)
                 settings.Save();
         }
         catch (Exception ex)
@@ -36,7 +37,8 @@ public partial class App : Application
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-        InitializeLocalization();
+        bool isFirstRun = !SettingsService.SettingsFileExists;
+        InitializeLocalization(persistDetectedLanguage: !isFirstRun);
 
         _splashWindow = new SplashWindow();
         _splashWindow.Activate();
@@ -45,7 +47,7 @@ public partial class App : Application
         var minDisplayTask = Task.Delay(2500);
         await Task.WhenAll(preloadTask, minDisplayTask);
 
-        _window = new MainWindow();
+        _window = new MainWindow(isFirstRun);
         _window.Activate();
 
         _splashWindow.Close();

@@ -57,6 +57,8 @@ public sealed partial class MainWindow : Window
     private readonly NovelAIService _naiService;
     private readonly ReverseImageTaggerService _reverseTaggerService = new();
     private readonly WildcardService _wildcardService = new();
+    private readonly bool _showOobeOnStartup;
+    private bool _oobeDialogOpen;
 
     private const string MenuCommandNormalizePrompts = "normalize_prompts";
     private const string MenuCommandRandomStylePrompt = "random_style_prompt";
@@ -326,17 +328,19 @@ public sealed partial class MainWindow : Window
     //  构造
     // ═══════════════════════════════════════════════════════════
 
-    public MainWindow()
+    public MainWindow(bool showOobeOnStartup = false)
     {
+        _showOobeOnStartup = showOobeOnStartup;
         System.Diagnostics.Debug.WriteLine($"[Startup] App root: {AppRootDir}");
         System.Diagnostics.Debug.WriteLine($"[Startup] BaseDirectory: {AppContext.BaseDirectory}");
 
+        bool hadSettingsFileBeforeLoad = SettingsService.SettingsFileExists;
         _settings.Load();
         try
         {
             bool persistDetectedLanguage = string.IsNullOrWhiteSpace(_settings.Settings.LanguageCode);
             _settings.Settings.LanguageCode = _loc.Initialize(_settings.Settings.LanguageCode);
-            if (persistDetectedLanguage)
+            if (persistDetectedLanguage && hadSettingsFileBeforeLoad)
                 _settings.Save();
         }
         catch (Exception ex)
@@ -455,6 +459,7 @@ public sealed partial class MainWindow : Window
         SetupHistoryDateRefreshTimer();
         RefreshHistoryDatePickerRange();
         LoadHistoryAsync();
+        QueueStartupOobe();
     }
 
     private string L(string key) => _loc.GetString(key);

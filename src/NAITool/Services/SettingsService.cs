@@ -27,6 +27,8 @@ public class SettingsService
     public AppSettings Settings { get; private set; } = new();
     public ApiConfig CachedApiConfig { get; private set; } = new();
 
+    public static bool SettingsFileExists => File.Exists(SettingsFilePath);
+
     /// <summary>从磁盘加载设置（通用 + API 凭证 + 缓存账户信息）</summary>
     public void Load()
     {

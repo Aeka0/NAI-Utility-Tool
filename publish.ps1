@@ -47,9 +47,11 @@ Invoke-Dotnet publish "$LauncherDir\NAIToolLauncher.csproj" -c $Configuration -r
 Write-Host "复制数据文件..." -ForegroundColor Green
 
 $AssetsDir = Join-Path $PublishDir "assets"
+New-Item -ItemType Directory -Force (Join-Path $AssetsDir "img") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $AssetsDir "tagsheet") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $AssetsDir "wildcards") | Out-Null
 
+Copy-Item -Force "$RootDir\assets\img\*.png"          (Join-Path $AssetsDir "img")
 Copy-Item -Force "$RootDir\assets\tagsheet\*.csv"     (Join-Path $AssetsDir "tagsheet")
 Copy-Item -Recurse -Force "$RootDir\assets\wildcards\*" (Join-Path $AssetsDir "wildcards")
 

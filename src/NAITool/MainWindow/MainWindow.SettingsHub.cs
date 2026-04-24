@@ -44,7 +44,7 @@ public sealed partial class MainWindow
 
         var usageItem = CreateSettingsHubNavItem(SettingsHubSection.Usage, L("settings.hub.usage.title"), "\uE713");
         var networkItem = CreateSettingsHubNavItem(SettingsHubSection.Network, L("settings.hub.network.title"), "\uE774");
-        var localStorageItem = CreateSettingsHubNavItem(SettingsHubSection.LocalStorage, L("settings.hub.local_storage.title"), "\uE8B7");
+        var localStorageItem = CreateSettingsHubNavItem(SettingsHubSection.LocalStorage, L("settings.hub.local_storage.title"), "\uEDA2");
         var performanceItem = CreateSettingsHubNavItem(SettingsHubSection.Performance, L("settings.hub.performance.title"), "\uE9D9");
         var appearanceItem = CreateSettingsHubNavItem(SettingsHubSection.Appearance, L("settings.hub.appearance.title"), "\uE790");
         var languageItem = CreateSettingsHubNavItem(SettingsHubSection.Language, L("settings.hub.language.title"), "\uF2B7");
@@ -99,21 +99,6 @@ public sealed partial class MainWindow
                             _settings.Settings.WeightHighlight,
                             value,
                             _settings.Settings.RememberPromptAndParameters,
-                            _settings.Settings.SuperDropEnabled,
-                            _settings.Settings.ShowGenerationResultBar,
-                            _settings.Settings.WildcardsEnabled,
-                            _settings.Settings.WildcardsRequireExplicitSyntax);
-                    })),
-                CreateSettingsHubLayer(
-                    "\uE823",
-                    L("settings.hub.usage.remember_prompt"),
-                    L("settings.hub.usage.remember_prompt.description"),
-                    CreateSettingsHubToggleSwitch(_settings.Settings.RememberPromptAndParameters, value =>
-                    {
-                        ApplyUsageSettings(
-                            _settings.Settings.WeightHighlight,
-                            _settings.Settings.AutoComplete,
-                            value,
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
                             _settings.Settings.WildcardsEnabled,
@@ -370,6 +355,21 @@ public sealed partial class MainWindow
         UIElement BuildLocalStorageSection()
         {
             return CreateSettingsHubPage(
+                CreateSettingsHubLayer(
+                    "\uE823",
+                    L("settings.hub.local_storage.remember_prompt"),
+                    L("settings.hub.local_storage.remember_prompt.description"),
+                    CreateSettingsHubToggleSwitch(_settings.Settings.RememberPromptAndParameters, value =>
+                    {
+                        ApplyUsageSettings(
+                            _settings.Settings.WeightHighlight,
+                            _settings.Settings.AutoComplete,
+                            value,
+                            _settings.Settings.SuperDropEnabled,
+                            _settings.Settings.ShowGenerationResultBar,
+                            _settings.Settings.WildcardsEnabled,
+                            _settings.Settings.WildcardsRequireExplicitSyntax);
+                    })),
                 CreateSettingsHubLayer(
                     "\uE74D",
                     L("settings.hub.local_storage.delete_behavior"),

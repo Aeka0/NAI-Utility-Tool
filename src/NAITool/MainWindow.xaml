@@ -279,6 +279,12 @@
                 </MenuBarItem>
 
                 <MenuBarItem x:Name="MenuSettings" Title="">
+                    <MenuFlyoutItem x:Name="MenuQuickTour" Text="" Click="OnQuickTour">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEA5E;"/>
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutSeparator/>
                     <MenuFlyoutItem x:Name="MenuUsageSettings" Text="" Click="OnUsageSettings">
                         <MenuFlyoutItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE713;"/>

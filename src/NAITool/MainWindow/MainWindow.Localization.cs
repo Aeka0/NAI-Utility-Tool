@@ -146,6 +146,7 @@ public sealed partial class MainWindow
         MenuZoomOut.Text = L("menu.view.zoom_out");
 
         MenuSettings.Title = L("menu.settings");
+        MenuQuickTour.Text = L("menu.settings.quick_tour");
         MenuUsageSettings.Text = L("menu.settings.open");
         MenuPerformanceSettings.Text = L("menu.settings.performance");
         MenuQuotaSettings.Text = L("menu.settings.quota");
