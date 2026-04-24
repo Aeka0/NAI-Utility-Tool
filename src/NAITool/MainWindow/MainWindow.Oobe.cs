@@ -21,6 +21,10 @@ public sealed partial class MainWindow
     private const int OobeSlideOutMilliseconds = 90;
     private const int OobeSlideInMilliseconds = 180;
     private const double OobeSlideOffset = 76;
+    private const double OobeDialogContentWidth = 900;
+    private const double OobeDialogContentHeight = 548;
+    private const double OobeDialogChromeWidth = 960;
+    private const double OobeVisualColumnWidth = 306;
 
     private void QueueStartupOobe()
     {
@@ -49,21 +53,12 @@ public sealed partial class MainWindow
             int pageIndex = 0;
             bool rebuilding = false;
             bool transitionInProgress = false;
+            Task pendingNavigation = Task.CompletedTask;
             string selectedLanguageCode = LocalizationService.NormalizeLanguageCode(_settings.Settings.LanguageCode);
 
             var pageSlideTransform = new TranslateTransform();
-            var apiTokenBox = new PasswordBox
-            {
-                Password = _settings.Settings.ApiToken ?? "",
-                PlaceholderText = "Bearer Token",
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-            };
-            var reversePathBox = new TextBox
-            {
-                Text = _settings.Settings.ReverseTagger.ModelPath ?? "",
-                PlaceholderText = L("oobe.reverse.path_placeholder"),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-            };
+            string apiTokenValue = _settings.Settings.ApiToken ?? "";
+            string reversePathValue = _settings.Settings.ReverseTagger.ModelPath ?? "";
 
             var pageHost = new ContentControl
             {
@@ -76,65 +71,240 @@ public sealed partial class MainWindow
             Button backButton = null!;
             Button nextButton = null!;
 
+            string GetDialogDisplayTitle()
+                => isStartup ? L("oobe.dialog.title") : L("oobe.dialog.quick_tour_title");
+
+            bool isDarkTheme() => root.ActualTheme == ElementTheme.Dark;
+
+            Windows.UI.Color AccentColor()
+            {
+                if (Application.Current.Resources.TryGetValue("SystemAccentColor", out var accentObj) &&
+                    accentObj is Windows.UI.Color accent)
+                {
+                    return accent;
+                }
+
+                return Windows.UI.Color.FromArgb(255, 76, 116, 221);
+            }
+
+            SolidColorBrush Solid(byte a, byte r, byte g, byte b)
+                => new(Windows.UI.Color.FromArgb(a, r, g, b));
+
+            SolidColorBrush TextSecondaryBrush() => isDarkTheme()
+                ? Solid(255, 203, 207, 214)
+                : Solid(255, 82, 87, 96);
+
+            SolidColorBrush TextTertiaryBrush() => isDarkTheme()
+                ? Solid(255, 154, 160, 171)
+                : Solid(255, 112, 118, 130);
+
+            SolidColorBrush SubtleBorderBrush() => isDarkTheme()
+                ? Solid(70, 255, 255, 255)
+                : Solid(64, 30, 41, 59);
+
+            SolidColorBrush SubtleSurfaceBrush() => isDarkTheme()
+                ? Solid(34, 255, 255, 255)
+                : Solid(170, 255, 255, 255);
+
+            LinearGradientBrush CreateVisualPanelBrush()
+            {
+                var stops = isDarkTheme()
+                    ? new GradientStopCollection
+                    {
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(255, 31, 38, 56), Offset = 0.0 },
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(255, 54, 44, 72), Offset = 0.55 },
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(255, 28, 53, 62), Offset = 1.0 },
+                    }
+                    : new GradientStopCollection
+                    {
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(255, 245, 249, 255), Offset = 0.0 },
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(255, 239, 242, 252), Offset = 0.48 },
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(255, 235, 249, 246), Offset = 1.0 },
+                    };
+
+                return new LinearGradientBrush(stops, 0.0)
+                {
+                    StartPoint = new Windows.Foundation.Point(0, 0),
+                    EndPoint = new Windows.Foundation.Point(1, 1),
+                };
+            }
+
             TextBlock CreateTitle(string text) => new()
             {
                 Text = text,
-                FontSize = 24,
+                FontSize = 28,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 500,
+                Margin = new Thickness(0, 0, 0, 2),
             };
 
             TextBlock CreateBodyText(string text) => new()
             {
                 Text = text,
                 FontSize = 14,
+                LineHeight = 21,
                 TextWrapping = TextWrapping.Wrap,
-                Foreground = new SolidColorBrush(root.ActualTheme == ElementTheme.Dark
-                    ? Windows.UI.Color.FromArgb(255, 196, 196, 196)
-                    : Windows.UI.Color.FromArgb(255, 92, 92, 92)),
+                Foreground = TextSecondaryBrush(),
             };
 
-            StackPanel CreatePage(params UIElement[] children)
+            UIElement CreatePageLayout(string imageName, params UIElement[] contentChildren)
             {
-                var panel = new StackPanel
+                var pageGrid = new Grid { RowSpacing = 18 };
+                pageGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                pageGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+                pageGrid.Children.Add(CreateStepHeader());
+
+                var twoCol = new Grid { ColumnSpacing = 28 };
+                twoCol.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(OobeVisualColumnWidth) });
+                twoCol.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                var imagePath = Path.Combine(AppRootDir, "assets", "img", imageName);
+                var image = new Image
                 {
-                    Spacing = 14,
-                    Padding = new Thickness(4, 2, 4, 2),
-                    Width = 620,
+                    Stretch = Stretch.Uniform,
+                    MaxHeight = 330,
+                    MaxWidth = 254,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
                 };
+                if (File.Exists(imagePath))
+                    image.Source = new BitmapImage(new Uri(imagePath));
 
-                foreach (var child in children)
-                    panel.Children.Add(child);
+                var visualGrid = new Grid();
+                visualGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                visualGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+                visualGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-                ApplyUiFontToVisualTree(panel);
-                panel.Language = UiLanguageTag;
-                return panel;
+                var brandRow = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+                brandRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                brandRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                brandRow.Children.Add(new TextBlock
+                {
+                    Text = "NAI Utility Tool",
+                    FontSize = 13,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = TextTertiaryBrush(),
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+                var stepBadge = new Border
+                {
+                    Background = SubtleSurfaceBrush(),
+                    BorderBrush = SubtleBorderBrush(),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(10, 4, 10, 4),
+                    Child = new TextBlock
+                    {
+                        Text = Lf("oobe.step", pageIndex + 1, OobePageCount),
+                        FontSize = 12,
+                        Foreground = TextSecondaryBrush(),
+                    },
+                };
+                Grid.SetColumn(stepBadge, 1);
+                brandRow.Children.Add(stepBadge);
+
+                var imageFrame = new Grid { VerticalAlignment = VerticalAlignment.Stretch };
+                imageFrame.Children.Add(image);
+
+                var visualCaption = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Margin = new Thickness(0, 14, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                };
+                visualCaption.Children.Add(new FontIcon
+                {
+                    FontFamily = SymbolFontFamily,
+                    Glyph = "\uE946",
+                    FontSize = 13,
+                    Foreground = TextTertiaryBrush(),
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+                visualCaption.Children.Add(new TextBlock
+                {
+                    Text = GetDialogDisplayTitle(),
+                    FontSize = 12,
+                    Foreground = TextTertiaryBrush(),
+                    TextWrapping = TextWrapping.NoWrap,
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+
+                Grid.SetRow(brandRow, 0);
+                Grid.SetRow(imageFrame, 1);
+                Grid.SetRow(visualCaption, 2);
+                visualGrid.Children.Add(brandRow);
+                visualGrid.Children.Add(imageFrame);
+                visualGrid.Children.Add(visualCaption);
+
+                var imageHost = new Border
+                {
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(18),
+                    Background = CreateVisualPanelBrush(),
+                    BorderBrush = SubtleBorderBrush(),
+                    BorderThickness = new Thickness(1),
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    Child = visualGrid,
+                };
+                Grid.SetColumn(imageHost, 0);
+                twoCol.Children.Add(imageHost);
+
+                var contentPanel = new StackPanel
+                {
+                    Spacing = 16,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Padding = new Thickness(4, 16, 6, 16),
+                };
+                foreach (var child in contentChildren)
+                    contentPanel.Children.Add(child);
+                Grid.SetColumn(contentPanel, 1);
+                twoCol.Children.Add(contentPanel);
+
+                Grid.SetRow(twoCol, 1);
+                pageGrid.Children.Add(twoCol);
+                ApplyUiFontToVisualTree(pageGrid);
+                pageGrid.Language = UiLanguageTag;
+                return pageGrid;
             }
 
             Grid CreateStepHeader()
             {
-                var grid = new Grid { ColumnSpacing = 12, Margin = new Thickness(0, 0, 0, 4) };
+                var grid = new Grid { ColumnSpacing = 16, Margin = new Thickness(0, 0, 0, 2) };
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                var progress = new ProgressBar
+                var steps = new StackPanel
                 {
-                    Minimum = 1,
-                    Maximum = OobePageCount,
-                    Value = pageIndex + 1,
-                    Height = 4,
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 7,
                     VerticalAlignment = VerticalAlignment.Center,
                 };
+                var accent = AccentColor();
+                for (int i = 0; i < OobePageCount; i++)
+                {
+                    steps.Children.Add(new Border
+                    {
+                        Width = i == pageIndex ? 34 : 9,
+                        Height = 9,
+                        CornerRadius = new CornerRadius(5),
+                        Background = i <= pageIndex
+                            ? new SolidColorBrush(Windows.UI.Color.FromArgb(i == pageIndex ? (byte)255 : (byte)132, accent.R, accent.G, accent.B))
+                            : (isDarkTheme() ? Solid(70, 255, 255, 255) : Solid(70, 50, 61, 78)),
+                    });
+                }
+
                 var label = new TextBlock
                 {
                     Text = Lf("oobe.step", pageIndex + 1, OobePageCount),
                     FontSize = 12,
-                    Opacity = 0.72,
+                    Foreground = TextTertiaryBrush(),
                     VerticalAlignment = VerticalAlignment.Center,
                 };
-                Grid.SetColumn(progress, 0);
+                Grid.SetColumn(steps, 0);
                 Grid.SetColumn(label, 1);
-                grid.Children.Add(progress);
+                grid.Children.Add(steps);
                 grid.Children.Add(label);
                 return grid;
             }
@@ -173,8 +343,7 @@ public sealed partial class MainWindow
                     RefreshDialog();
                 };
 
-                return CreatePage(
-                    CreateStepHeader(),
+                return CreatePageLayout("MaidAekaLang.png",
                     CreateTitle(L("oobe.language.title")),
                     CreateBodyText(Lf(
                         "oobe.language.description",
@@ -191,27 +360,21 @@ public sealed partial class MainWindow
                     Opacity = 0.76,
                 };
 
-                var imagePath = Path.Combine(AppRootDir, "assets", "img", "MaidAeka.png");
-                var image = new Image
-                {
-                    Width = 300,
-                    Height = 300,
-                    Stretch = Stretch.Uniform,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 4, 0, 0),
-                };
-                if (File.Exists(imagePath))
-                    image.Source = new BitmapImage(new Uri(imagePath));
-
-                return CreatePage(
-                    CreateStepHeader(),
+                return CreatePageLayout("MaidAeka.png",
                     CreateTitle(L("oobe.welcome.title")),
-                    versionText,
-                    image);
+                    versionText);
             }
 
             UIElement BuildApiPage()
             {
+                var tokenBox = new PasswordBox
+                {
+                    Password = apiTokenValue,
+                    PlaceholderText = "Bearer Token",
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                };
+                tokenBox.PasswordChanged += (_, _) => apiTokenValue = tokenBox.Password;
+
                 var helpButton = new Button
                 {
                     Content = L("oobe.api.find_key"),
@@ -229,17 +392,24 @@ public sealed partial class MainWindow
                 });
                 helpButton.Click += (_, _) => FlyoutBase.ShowAttachedFlyout(helpButton);
 
-                return CreatePage(
-                    CreateStepHeader(),
+                return CreatePageLayout("MaidAekaAPI.png",
                     CreateTitle(L("oobe.api.title")),
                     CreateBodyText(L("oobe.api.description")),
-                    apiTokenBox,
+                    tokenBox,
                     helpButton,
                     CreateBodyText(L("oobe.api.skip_hint")));
             }
 
             UIElement BuildReversePage()
             {
+                var pathBox = new TextBox
+                {
+                    Text = reversePathValue,
+                    PlaceholderText = L("oobe.reverse.path_placeholder"),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                };
+                pathBox.TextChanged += (_, _) => reversePathValue = pathBox.Text;
+
                 var browseButton = new Button { Content = L("common.choose_folder") };
                 browseButton.Click += async (_, _) =>
                 {
@@ -248,19 +418,18 @@ public sealed partial class MainWindow
                     InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
                     var folder = await picker.PickSingleFolderAsync();
                     if (folder != null)
-                        reversePathBox.Text = folder.Path;
+                        pathBox.Text = folder.Path;
                 };
 
                 var pathRow = new Grid { ColumnSpacing = 8 };
                 pathRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 pathRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                Grid.SetColumn(reversePathBox, 0);
+                Grid.SetColumn(pathBox, 0);
                 Grid.SetColumn(browseButton, 1);
-                pathRow.Children.Add(reversePathBox);
+                pathRow.Children.Add(pathBox);
                 pathRow.Children.Add(browseButton);
 
-                return CreatePage(
-                    CreateStepHeader(),
+                return CreatePageLayout("MaidAekaModel.png",
                     CreateTitle(L("oobe.reverse.title")),
                     CreateBodyText(L("oobe.reverse.description")),
                     pathRow,
@@ -269,18 +438,7 @@ public sealed partial class MainWindow
 
             UIElement BuildDonePage()
             {
-                var icon = new FontIcon
-                {
-                    FontFamily = SymbolFontFamily,
-                    Glyph = "\uE930",
-                    FontSize = 44,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Margin = new Thickness(0, 2, 0, 2),
-                };
-
-                return CreatePage(
-                    CreateStepHeader(),
-                    icon,
+                return CreatePageLayout("MaidAekaHappy.png",
                     CreateTitle(L("oobe.done.title")),
                     CreateBodyText(L("oobe.done.description")));
             }
@@ -305,7 +463,7 @@ public sealed partial class MainWindow
                 if (dialog == null)
                     return;
 
-                dialog.Title = isStartup ? L("oobe.dialog.title") : L("oobe.dialog.quick_tour_title");
+                dialog.Title = null;
                 nextButton.Content = pageIndex == OobePageCount - 1 ? L("oobe.finish") : L("oobe.next");
                 backButton.Content = L("oobe.back");
                 backButton.Visibility = pageIndex > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -331,7 +489,7 @@ public sealed partial class MainWindow
                 if (pageIndex != 3)
                     return true;
 
-                string modelPath = reversePathBox.Text.Trim();
+                string modelPath = reversePathValue.Trim();
                 if (string.IsNullOrWhiteSpace(modelPath) || Directory.Exists(modelPath))
                     return true;
 
@@ -342,8 +500,8 @@ public sealed partial class MainWindow
             void SaveOobeSettings()
             {
                 _settings.Settings.LanguageCode = selectedLanguageCode;
-                _settings.Settings.ApiToken = apiTokenBox.Password.Trim();
-                _settings.Settings.ReverseTagger.ModelPath = reversePathBox.Text.Trim();
+                _settings.Settings.ApiToken = apiTokenValue.Trim();
+                _settings.Settings.ReverseTagger.ModelPath = reversePathValue.Trim();
                 _settings.Save();
 
                 UpdateBtnGenerateForApiKey();
@@ -384,6 +542,7 @@ public sealed partial class MainWindow
                 storyboard.Begin();
                 await Task.WhenAny(completed.Task, Task.Delay(milliseconds + 140));
                 storyboard.Completed -= OnCompleted;
+                storyboard.Stop();
 
                 pageSlideTransform.X = toX;
                 pageHost.Opacity = toOpacity;
@@ -429,22 +588,34 @@ public sealed partial class MainWindow
                 }
             }
 
-            var contentRoot = new Grid { RowSpacing = 18 };
-            contentRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var contentRoot = new Grid
+            {
+                Width = OobeDialogContentWidth,
+                Height = OobeDialogContentHeight,
+                RowSpacing = 16,
+                Padding = new Thickness(4, 0, 4, 2),
+            };
+            contentRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             contentRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            var footer = new Grid { ColumnSpacing = 8 };
+            var footer = new Grid
+            {
+                ColumnSpacing = 10,
+                Padding = new Thickness(0, 12, 0, 0),
+            };
             footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             backButton = new Button
             {
-                MinWidth = 96,
+                MinWidth = 108,
+                Height = 36,
             };
             nextButton = new Button
             {
-                MinWidth = 96,
+                MinWidth = 128,
+                Height = 36,
             };
             if (Application.Current.Resources.TryGetValue("AccentButtonStyle", out var styleObj) && styleObj is Style accentStyle)
                 nextButton.Style = accentStyle;
@@ -454,33 +625,42 @@ public sealed partial class MainWindow
             footer.Children.Add(backButton);
             footer.Children.Add(nextButton);
 
+            var footerShell = new Border
+            {
+                BorderBrush = SubtleBorderBrush(),
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Child = footer,
+            };
+
             Grid.SetRow(pageHost, 0);
-            Grid.SetRow(footer, 1);
+            Grid.SetRow(footerShell, 1);
             contentRoot.Children.Add(pageHost);
-            contentRoot.Children.Add(footer);
+            contentRoot.Children.Add(footerShell);
             ApplyUiFontToVisualTree(contentRoot);
             contentRoot.Language = UiLanguageTag;
 
             dialog = new ContentDialog
             {
-                Title = L("oobe.dialog.title"),
+                Title = null,
                 Content = contentRoot,
                 XamlRoot = this.Content.XamlRoot,
                 RequestedTheme = root.RequestedTheme,
             };
-            dialog.Resources["ContentDialogMaxWidth"] = 780.0;
-            dialog.Resources["ContentDialogMaxHeight"] = 720.0;
+            dialog.Resources["ContentDialogMinWidth"] = OobeDialogChromeWidth;
+            dialog.Resources["ContentDialogMaxWidth"] = OobeDialogChromeWidth;
+            dialog.Resources["ContentDialogMaxHeight"] = 680.0;
 
             nextButton.Click += async (_, _) =>
             {
+                if (transitionInProgress || !pendingNavigation.IsCompleted)
+                    return;
+
                 if (pageIndex < OobePageCount - 1)
                 {
-                    await MoveOobePageAsync(1);
+                    pendingNavigation = MoveOobePageAsync(1);
+                    await pendingNavigation;
                     return;
                 }
-
-                if (transitionInProgress)
-                    return;
 
                 if (!ValidateCurrentPage())
                     return;
@@ -501,7 +681,10 @@ public sealed partial class MainWindow
 
             backButton.Click += async (_, _) =>
             {
-                await MoveOobePageAsync(-1);
+                if (transitionInProgress || !pendingNavigation.IsCompleted)
+                    return;
+                pendingNavigation = MoveOobePageAsync(-1);
+                await pendingNavigation;
             };
 
             RefreshDialog();
