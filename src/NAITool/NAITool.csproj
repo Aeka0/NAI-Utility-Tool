@@ -34,6 +34,7 @@
   <ItemGroup>
     <EmbeddedResource Include="..\..\assets\i18n\*.json" LogicalName="NAITool.i18n.%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\assets\splash\*.png" LogicalName="NAITool.splash.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\assets\img\MaidAeka*.png" LogicalName="NAITool.oobe.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

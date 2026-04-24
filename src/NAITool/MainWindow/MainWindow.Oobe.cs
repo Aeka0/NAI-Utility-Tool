@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -11,6 +12,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using NAITool.Services;
 using Windows.Storage.Pickers;
+using Windows.Storage.Streams;
 using WinRT.Interop;
 
 namespace NAITool;
@@ -41,6 +43,28 @@ public sealed partial class MainWindow
     private async void OnQuickTour(object sender, RoutedEventArgs e)
         => await ShowOobeDialogAsync(isStartup: false);
 
+    private static async Task LoadEmbeddedOobeImageAsync(Image target, string imageName)
+    {
+        string resourceName = $"NAITool.oobe.{imageName}";
+        await using Stream? stream = typeof(MainWindow)
+            .Assembly
+            .GetManifestResourceStream(resourceName);
+        if (stream == null)
+            return;
+
+        using var memory = new InMemoryRandomAccessStream();
+        await using (var output = memory.AsStreamForWrite())
+        {
+            await stream.CopyToAsync(output);
+            await output.FlushAsync();
+        }
+        memory.Seek(0);
+
+        var bitmap = new BitmapImage();
+        await bitmap.SetSourceAsync(memory);
+        target.Source = bitmap;
+    }
+
     private async Task ShowOobeDialogAsync(bool isStartup)
     {
         if (_oobeDialogOpen || this.Content?.XamlRoot == null)
@@ -55,10 +79,14 @@ public sealed partial class MainWindow
             bool transitionInProgress = false;
             Task pendingNavigation = Task.CompletedTask;
             string selectedLanguageCode = LocalizationService.NormalizeLanguageCode(_settings.Settings.LanguageCode);
+            string detectedLanguageDisplayName = _loc.GetLanguageDisplayName(selectedLanguageCode);
 
             var pageSlideTransform = new TranslateTransform();
             string apiTokenValue = _settings.Settings.ApiToken ?? "";
             string reversePathValue = _settings.Settings.ReverseTagger.ModelPath ?? "";
+            bool assetProtectionModeValue = _settings.Settings.AccountAssetProtectionMode;
+            CancellationTokenSource? apiTokenTestCts = null;
+            int apiTokenTestSerial = 0;
 
             var pageHost = new ContentControl
             {
@@ -106,6 +134,14 @@ public sealed partial class MainWindow
                 ? Solid(34, 255, 255, 255)
                 : Solid(170, 255, 255, 255);
 
+            SolidColorBrush SuccessBrush() => isDarkTheme()
+                ? Solid(255, 116, 211, 151)
+                : Solid(255, 16, 124, 64);
+
+            SolidColorBrush ErrorBrush() => isDarkTheme()
+                ? Solid(255, 255, 135, 135)
+                : Solid(255, 184, 40, 40);
+
             LinearGradientBrush CreateVisualPanelBrush()
             {
                 var stops = isDarkTheme()
@@ -129,15 +165,39 @@ public sealed partial class MainWindow
                 };
             }
 
-            TextBlock CreateTitle(string text) => new()
+            UIElement CreateTitle(string text, string glyph)
             {
-                Text = text,
-                FontSize = 28,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 500,
-                Margin = new Thickness(0, 0, 0, 2),
-            };
+                var panel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                };
+
+                var icon = new TextBlock
+                {
+                    Text = glyph,
+                    FontFamily = SymbolFontFamily,
+                    FontSize = 18,
+                    Foreground = new SolidColorBrush(AccentColor()),
+                    Margin = new Thickness(-1, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+
+                var title = new TextBlock
+                {
+                    Text = text,
+                    FontSize = 28,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = 470,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+
+                panel.Children.Add(icon);
+                panel.Children.Add(title);
+                return panel;
+            }
 
             TextBlock CreateBodyText(string text) => new()
             {
@@ -147,6 +207,58 @@ public sealed partial class MainWindow
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = TextSecondaryBrush(),
             };
+
+            UIElement CreateRaisedLayer(params UIElement[] children)
+            {
+                var panel = new StackPanel
+                {
+                    Spacing = 10,
+                };
+                foreach (var child in children)
+                    panel.Children.Add(child);
+
+                return new Border
+                {
+                    Background = SubtleSurfaceBrush(),
+                    BorderBrush = SubtleBorderBrush(),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(14, 12, 14, 12),
+                    Child = panel,
+                };
+            }
+
+            UIElement CreateExternalLinkRow(string label, string url)
+            {
+                var row = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 2,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                };
+                row.Children.Add(new TextBlock
+                {
+                    Text = label,
+                    FontSize = 14,
+                    Foreground = TextSecondaryBrush(),
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+                row.Children.Add(new HyperlinkButton
+                {
+                    NavigateUri = new Uri(url),
+                    Padding = new Thickness(0),
+                    MinWidth = 0,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Content = new TextBlock
+                    {
+                        Text = url,
+                        FontSize = 14,
+                        TextDecorations = Windows.UI.Text.TextDecorations.Underline,
+                        Foreground = new SolidColorBrush(AccentColor()),
+                    },
+                });
+                return row;
+            }
 
             UIElement CreatePageLayout(string imageName, params UIElement[] contentChildren)
             {
@@ -159,7 +271,6 @@ public sealed partial class MainWindow
                 twoCol.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(OobeVisualColumnWidth) });
                 twoCol.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-                var imagePath = Path.Combine(AppRootDir, "assets", "img", imageName);
                 var image = new Image
                 {
                     Stretch = Stretch.Uniform,
@@ -168,8 +279,7 @@ public sealed partial class MainWindow
                     VerticalAlignment = VerticalAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Center,
                 };
-                if (File.Exists(imagePath))
-                    image.Source = new BitmapImage(new Uri(imagePath));
+                _ = LoadEmbeddedOobeImageAsync(image, imageName);
 
                 var visualGrid = new Grid();
                 visualGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -255,7 +365,7 @@ public sealed partial class MainWindow
                 {
                     Spacing = 16,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Padding = new Thickness(4, 16, 6, 16),
+                    Padding = new Thickness(0, 16, 6, 16),
                 };
                 foreach (var child in contentChildren)
                     contentPanel.Children.Add(child);
@@ -344,10 +454,10 @@ public sealed partial class MainWindow
                 };
 
                 return CreatePageLayout("MaidAekaLang.png",
-                    CreateTitle(L("oobe.language.title")),
+                    CreateTitle(L("oobe.language.title"), "\uF2B7"),
                     CreateBodyText(Lf(
                         "oobe.language.description",
-                        _loc.GetLanguageDisplayName(selectedLanguageCode))),
+                        detectedLanguageDisplayName)),
                     languageBox);
             }
 
@@ -361,24 +471,108 @@ public sealed partial class MainWindow
                 };
 
                 return CreatePageLayout("MaidAeka.png",
-                    CreateTitle(L("oobe.welcome.title")),
-                    versionText);
+                    CreateTitle(L("oobe.welcome.title"), "\uE734"),
+                    versionText,
+                    CreateExternalLinkRow(
+                        L("oobe.welcome.github_label"),
+                        "https://github.com/Aeka0/NAI-Utility-Tool"));
             }
 
             UIElement BuildApiPage()
             {
+                async Task ScheduleApiTokenTestAsync(TextBlock statusBlock, int delayMilliseconds)
+                {
+                    int serial = ++apiTokenTestSerial;
+                    apiTokenTestCts?.Cancel();
+                    apiTokenTestCts?.Dispose();
+                    apiTokenTestCts = new CancellationTokenSource();
+                    var ct = apiTokenTestCts.Token;
+
+                    string tokenToTest = apiTokenValue.Trim();
+                    if (string.IsNullOrWhiteSpace(tokenToTest))
+                    {
+                        statusBlock.Text = L("oobe.api.test.empty");
+                        statusBlock.Foreground = TextTertiaryBrush();
+                        return;
+                    }
+
+                    statusBlock.Text = L("oobe.api.test.testing");
+                    statusBlock.Foreground = TextTertiaryBrush();
+
+                    try
+                    {
+                        if (delayMilliseconds > 0)
+                            await Task.Delay(delayMilliseconds, ct);
+
+                        NovelAiAccountInfo? accountInfo = null;
+                        _anlasRefreshRunning = true;
+                        _anlasInitialFetchDone = false;
+                        try
+                        {
+                            accountInfo = await _naiService.GetAccountInfoAsync(tokenToTest, ct);
+                        }
+                        finally
+                        {
+                            _anlasRefreshRunning = false;
+                        }
+
+                        if (ct.IsCancellationRequested || serial != apiTokenTestSerial)
+                            return;
+
+                        if (accountInfo != null)
+                            ApplyAccountInfo(accountInfo, save: false);
+
+                        statusBlock.Text = accountInfo != null
+                            ? L("oobe.api.test.valid")
+                            : L("oobe.api.test.invalid");
+                        statusBlock.Foreground = accountInfo != null ? SuccessBrush() : ErrorBrush();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+                }
+
                 var tokenBox = new PasswordBox
                 {
                     Password = apiTokenValue,
                     PlaceholderText = "Bearer Token",
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                 };
-                tokenBox.PasswordChanged += (_, _) => apiTokenValue = tokenBox.Password;
-
-                var helpButton = new Button
+                var tokenStatus = new TextBlock
                 {
-                    Content = L("oobe.api.find_key"),
+                    Text = string.IsNullOrWhiteSpace(apiTokenValue) ? L("oobe.api.test.empty") : "",
+                    FontSize = 12,
+                    MinHeight = 18,
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = TextTertiaryBrush(),
+                };
+                tokenBox.PasswordChanged += (_, _) =>
+                {
+                    apiTokenValue = tokenBox.Password;
+                    _ = ScheduleApiTokenTestAsync(tokenStatus, 1000);
+                };
+                tokenBox.LostFocus += (_, _) => _ = ScheduleApiTokenTestAsync(tokenStatus, 0);
+
+                var assetProtectionToggle = new ToggleSwitch
+                {
+                    Header = L("oobe.asset_protection.title"),
+                    IsOn = assetProtectionModeValue,
+                    MinWidth = 120,
                     HorizontalAlignment = HorizontalAlignment.Left,
+                };
+                assetProtectionToggle.Toggled += (_, _) => assetProtectionModeValue = assetProtectionToggle.IsOn;
+
+                var helpButton = new HyperlinkButton
+                {
+                    Padding = new Thickness(0),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Content = new TextBlock
+                    {
+                        Text = L("oobe.api.find_key"),
+                        FontSize = 14,
+                        TextDecorations = Windows.UI.Text.TextDecorations.Underline,
+                        Foreground = new SolidColorBrush(AccentColor()),
+                    },
                 };
                 FlyoutBase.SetAttachedFlyout(helpButton, new Flyout
                 {
@@ -393,9 +587,13 @@ public sealed partial class MainWindow
                 helpButton.Click += (_, _) => FlyoutBase.ShowAttachedFlyout(helpButton);
 
                 return CreatePageLayout("MaidAekaAPI.png",
-                    CreateTitle(L("oobe.api.title")),
-                    CreateBodyText(L("oobe.api.description")),
-                    tokenBox,
+                    CreateTitle(L("oobe.api.title"), "\uE8D7"),
+                    CreateRaisedLayer(
+                        tokenBox,
+                        tokenStatus),
+                    CreateRaisedLayer(
+                        assetProtectionToggle,
+                        CreateBodyText(L("oobe.asset_protection.description"))),
                     helpButton,
                     CreateBodyText(L("oobe.api.skip_hint")));
             }
@@ -430,16 +628,19 @@ public sealed partial class MainWindow
                 pathRow.Children.Add(browseButton);
 
                 return CreatePageLayout("MaidAekaModel.png",
-                    CreateTitle(L("oobe.reverse.title")),
+                    CreateTitle(L("oobe.reverse.title"), "\uE8EC"),
                     CreateBodyText(L("oobe.reverse.description")),
                     pathRow,
-                    CreateBodyText(L("oobe.reverse.skip_hint")));
+                    CreateBodyText(L("oobe.reverse.skip_hint")),
+                    CreateExternalLinkRow(
+                        L("oobe.reverse.model_link_label"),
+                        "https://huggingface.co/deepghs/pixai-tagger-v0.9-onnx"));
             }
 
             UIElement BuildDonePage()
             {
                 return CreatePageLayout("MaidAekaHappy.png",
-                    CreateTitle(L("oobe.done.title")),
+                    CreateTitle(L("oobe.done.title"), "\uE8E1"),
                     CreateBodyText(L("oobe.done.description")));
             }
 
@@ -497,17 +698,43 @@ public sealed partial class MainWindow
                 return false;
             }
 
-            void SaveOobeSettings()
+            async Task SaveOobeSettingsAsync()
             {
                 _settings.Settings.LanguageCode = selectedLanguageCode;
                 _settings.Settings.ApiToken = apiTokenValue.Trim();
                 _settings.Settings.ReverseTagger.ModelPath = reversePathValue.Trim();
+                bool oldSizeLimitEnabled = IsAssetProtectionSizeLimitEnabled();
+                bool oldStepLimitEnabled = IsAssetProtectionStepLimitEnabled();
+                bool oldPaidLimitEnabled = IsAssetProtectionPaidFeatureLimitEnabled();
+                _settings.Settings.AccountAssetProtectionMode = assetProtectionModeValue;
                 _settings.Save();
 
                 UpdateBtnGenerateForApiKey();
                 UpdateGenerateButtonWarning();
                 UpdateDynamicMenuStates();
                 ApplyLanguageSelectionChecks();
+                bool hasProtectionBehaviorChange =
+                    oldSizeLimitEnabled != IsAssetProtectionSizeLimitEnabled() ||
+                    oldStepLimitEnabled != IsAssetProtectionStepLimitEnabled() ||
+                    oldPaidLimitEnabled != IsAssetProtectionPaidFeatureLimitEnabled();
+
+                MaskCanvas.UseAssetProtectionCanvasSizing = IsAssetProtectionSizeLimitEnabled();
+                if (hasProtectionBehaviorChange)
+                {
+                    RefreshSizeComboBox();
+                    RefreshPromptModeUiForAccountModeChange();
+                }
+
+                if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+                {
+                    ClearAccountApiState(save: true);
+                }
+                else
+                {
+                    TxtStatus.Text = L("settings.network.testing");
+                    await ValidateSavedApiTokenAsync();
+                }
+
                 TxtStatus.Text = L("oobe.status.completed");
             }
 
@@ -669,7 +896,7 @@ public sealed partial class MainWindow
                 UpdateNavigationButtonState();
                 try
                 {
-                    SaveOobeSettings();
+                    await SaveOobeSettingsAsync();
                     dialog.Hide();
                 }
                 finally
@@ -689,6 +916,8 @@ public sealed partial class MainWindow
 
             RefreshDialog();
             await dialog.ShowAsync();
+            apiTokenTestCts?.Cancel();
+            apiTokenTestCts?.Dispose();
         }
         finally
         {
@@ -698,13 +927,6 @@ public sealed partial class MainWindow
 
     private static string GetAppVersionText()
     {
-        string? informationalVersion = typeof(MainWindow)
-            .Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion;
-        if (!string.IsNullOrWhiteSpace(informationalVersion))
-            return informationalVersion.Split('+')[0];
-
-        return typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        return "Release Candidate 1";
     }
 }

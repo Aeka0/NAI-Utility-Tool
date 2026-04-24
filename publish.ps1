@@ -51,7 +51,9 @@ New-Item -ItemType Directory -Force (Join-Path $AssetsDir "img") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $AssetsDir "tagsheet") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $AssetsDir "wildcards") | Out-Null
 
-Copy-Item -Force "$RootDir\assets\img\*.png"          (Join-Path $AssetsDir "img")
+Get-ChildItem -Path "$RootDir\assets\img" -Filter "*.png" |
+    Where-Object { $_.Name -notlike "MaidAeka*.png" } |
+    Copy-Item -Destination (Join-Path $AssetsDir "img") -Force
 Copy-Item -Force "$RootDir\assets\tagsheet\*.csv"     (Join-Path $AssetsDir "tagsheet")
 Copy-Item -Recurse -Force "$RootDir\assets\wildcards\*" (Join-Path $AssetsDir "wildcards")
 

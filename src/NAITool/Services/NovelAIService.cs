@@ -172,9 +172,19 @@ public class NovelAIService : IDisposable
         if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
             return null;
 
+        return await GetAccountInfoAsync(_settings.Settings.ApiToken, ct);
+    }
+
+    public async Task<NovelAiAccountInfo?> GetAccountInfoAsync(string token, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return null;
+
         try
         {
             var client = GetOrCreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
             var response = await client.GetAsync(UserDataUrl, ct);
             if (!response.IsSuccessStatusCode)
