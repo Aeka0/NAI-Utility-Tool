@@ -41,9 +41,11 @@ public sealed partial class MainWindow
         "AccentButtonBackground",
         "AccentButtonBackgroundPointerOver",
         "AccentButtonBackgroundPressed",
+        "AccentButtonBackgroundDisabled",
         "AccentButtonForeground",
         "AccentButtonForegroundPointerOver",
         "AccentButtonForegroundPressed",
+        "AccentButtonForegroundDisabled",
     ];
 
     private static void RefreshButtonStyle(Button button)

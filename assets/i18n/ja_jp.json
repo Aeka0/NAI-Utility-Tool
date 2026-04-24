@@ -749,6 +749,7 @@
     "dialog.weight_converter.title":  "重み変換",
     "generate.continuous.hint":  "現在のパラメータで連続リクエストを送信します。シードは毎回自動でランダムになります。",
     "generate.continuous.stopping":  "連続生成を停止しています...",
+    "generate.loop.waiting_current_request":  "停止しています...",
     "generate.continuous.title":  "連続生成",
     "generate.continuous.unavailable":  "現在の状態では連続生成を開始できません。",
     "normalize.half_width":  "半角記号を使用",

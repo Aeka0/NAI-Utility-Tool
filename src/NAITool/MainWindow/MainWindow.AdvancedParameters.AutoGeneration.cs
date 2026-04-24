@@ -211,10 +211,24 @@ public sealed partial class MainWindow
     private void StopAutoGeneration()
     {
         _autoGenCts?.Cancel();
+        if (_generateRequestRunning)
+            TxtStatus.Text = L("generate.loop.waiting_current_request");
+        UpdateAutoGenUI();
     }
 
     private void UpdateAutoGenUI()
     {
+        bool waitingForCurrentRequest =
+            _generateRequestRunning &&
+            ((_autoGenRunning && _autoGenCts?.IsCancellationRequested == true) ||
+             (_continuousGenRunning && _continuousStopRequested));
+
+        if (waitingForCurrentRequest)
+        {
+            ApplyGenerateWaitingButtonContent(L("generate.loop.waiting_current_request"));
+            return;
+        }
+
         if (_autoGenRunning)
         {
             string text = _autoGenRemaining > 0
@@ -250,12 +264,34 @@ public sealed partial class MainWindow
         });
         content.Children.Add(new TextBlock { Text = text });
         BtnGenerate.Content = content;
+        BtnGenerate.IsEnabled = true;
         BtnGenerate.Resources["AccentButtonBackground"] = new SolidColorBrush(
             Windows.UI.Color.FromArgb(255, 196, 43, 28));
         BtnGenerate.Resources["AccentButtonBackgroundPointerOver"] = new SolidColorBrush(
             Windows.UI.Color.FromArgb(255, 220, 60, 45));
         BtnGenerate.Resources["AccentButtonBackgroundPressed"] = new SolidColorBrush(
             Windows.UI.Color.FromArgb(255, 170, 35, 22));
+        RefreshButtonStyle(BtnGenerate);
+    }
+
+    private void ApplyGenerateWaitingButtonContent(string text)
+    {
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        content.Children.Add(new SymbolIcon(Symbol.Clock));
+        content.Children.Add(new TextBlock { Text = text });
+        BtnGenerate.Content = content;
+
+        var background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 118, 118, 118));
+        var foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 245, 245, 245));
+        BtnGenerate.Resources["AccentButtonBackground"] = background;
+        BtnGenerate.Resources["AccentButtonBackgroundPointerOver"] = background;
+        BtnGenerate.Resources["AccentButtonBackgroundPressed"] = background;
+        BtnGenerate.Resources["AccentButtonBackgroundDisabled"] = background;
+        BtnGenerate.Resources["AccentButtonForeground"] = foreground;
+        BtnGenerate.Resources["AccentButtonForegroundPointerOver"] = foreground;
+        BtnGenerate.Resources["AccentButtonForegroundPressed"] = foreground;
+        BtnGenerate.Resources["AccentButtonForegroundDisabled"] = foreground;
+        BtnGenerate.IsEnabled = false;
         RefreshButtonStyle(BtnGenerate);
     }
 }

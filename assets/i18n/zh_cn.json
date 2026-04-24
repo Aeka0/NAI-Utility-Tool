@@ -749,6 +749,7 @@
     "dialog.weight_converter.title":  "权重转换",
     "generate.continuous.hint":  "使用当前参数连续发送请求，种子每次自动随机。",
     "generate.continuous.stopping":  "正在停止连续生成...",
+    "generate.loop.waiting_current_request":  "等待当前请求结束",
     "generate.continuous.title":  "连续生成",
     "generate.continuous.unavailable":  "当前状态下不可启动连续生成。",
     "normalize.half_width":  "使用半角标点",

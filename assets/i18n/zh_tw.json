@@ -749,6 +749,7 @@
     "dialog.weight_converter.title":  "權重轉換",
     "generate.continuous.hint":  "使用目前參數連續送出請求，種子每次都會自動隨機。",
     "generate.continuous.stopping":  "正在停止連續生成...",
+    "generate.loop.waiting_current_request":  "等待目前請求結束",
     "generate.continuous.title":  "連續生成",
     "generate.continuous.unavailable":  "目前狀態下無法啟動連續生成。",
     "normalize.half_width":  "使用半形標點",

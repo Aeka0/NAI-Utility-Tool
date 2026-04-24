@@ -749,6 +749,7 @@
   "dialog.weight_converter.title": "Weight Converter",
   "generate.continuous.hint": "Send multiple requests with the current parameters. The seed will randomize automatically each time.",
   "generate.continuous.stopping": "Stopping continuous generation...",
+  "generate.loop.waiting_current_request": "Stopping...",
   "generate.continuous.title": "Continuous Generation",
   "generate.continuous.unavailable": "Continuous generation cannot be started in the current state.",
   "normalize.half_width": "Use half-width punctuation",

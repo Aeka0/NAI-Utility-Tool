@@ -133,7 +133,9 @@ public sealed partial class MainWindow
         if (_continuousStopRequested)
             return;
         _continuousStopRequested = true;
-        TxtStatus.Text = L("generate.continuous.stopping");
+        TxtStatus.Text = _generateRequestRunning
+            ? L("generate.loop.waiting_current_request")
+            : L("generate.continuous.stopping");
         _continuousGenCts?.Cancel();
         UpdateAutoGenUI();
     }
