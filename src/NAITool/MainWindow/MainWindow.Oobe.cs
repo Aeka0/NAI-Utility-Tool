@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -27,6 +28,7 @@ public sealed partial class MainWindow
     private const double OobeDialogContentHeight = 548;
     private const double OobeDialogChromeWidth = 960;
     private const double OobeVisualColumnWidth = 306;
+    private static readonly Dictionary<string, BitmapImage> OobeImageCache = new();
 
     private void QueueStartupOobe()
     {
@@ -45,23 +47,39 @@ public sealed partial class MainWindow
 
     private static async Task LoadEmbeddedOobeImageAsync(Image target, string imageName)
     {
+        if (OobeImageCache.TryGetValue(imageName, out var cachedImage))
+        {
+            target.Source = cachedImage;
+            return;
+        }
+
         string resourceName = $"NAITool.oobe.{imageName}";
-        await using Stream? stream = typeof(MainWindow)
+        await using var stream = typeof(MainWindow)
             .Assembly
             .GetManifestResourceStream(resourceName);
         if (stream == null)
             return;
 
-        using var memory = new InMemoryRandomAccessStream();
-        await using (var output = memory.AsStreamForWrite())
+        byte[] bytes;
+        using (var buffer = new MemoryStream())
         {
-            await stream.CopyToAsync(output);
-            await output.FlushAsync();
+            await stream.CopyToAsync(buffer);
+            bytes = buffer.ToArray();
+        }
+
+        using var memory = new InMemoryRandomAccessStream();
+        using (var writer = new DataWriter(memory.GetOutputStreamAt(0)))
+        {
+            writer.WriteBytes(bytes);
+            await writer.StoreAsync();
+            await writer.FlushAsync();
+            writer.DetachStream();
         }
         memory.Seek(0);
 
         var bitmap = new BitmapImage();
         await bitmap.SetSourceAsync(memory);
+        OobeImageCache[imageName] = bitmap;
         target.Source = bitmap;
     }
 

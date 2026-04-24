@@ -15,7 +15,7 @@ namespace NAIToolLauncher
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
                 
                 // 目标可执行文件路径
-                string targetExe = Path.Combine(baseDir, "bin", "NAITool.exe");
+                string targetExe = Path.Combine(baseDir, "bin", "NAIUtilityTool.exe");
                 
                 if (File.Exists(targetExe))
                 {

@@ -12,6 +12,7 @@ $BuildDir     = Join-Path $RootDir "build\$Configuration"
 $MainBuildDir = Join-Path $BuildDir "bin"
 $PublishDir   = Join-Path $RootDir "publish\NAITool"
 $BinDir       = Join-Path $PublishDir "bin"
+$AppFileBase  = "NAIUtilityTool"
 
 function Invoke-Dotnet {
     & dotnet @args
@@ -20,40 +21,82 @@ function Invoke-Dotnet {
     }
 }
 
-# 清理旧的发布目录
-if (Test-Path $MainBuildDir) {
-    Remove-Item -Recurse -Force $MainBuildDir
+function Remove-DirectoryIfExists {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path $Path)) {
+        return
+    }
+
+    Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.Attributes = 'Normal' }
+    Remove-Item -LiteralPath $Path -Recurse -Force
 }
-foreach ($file in @("NAITool.exe", "NAITool.dll", "NAITool.deps.json", "NAITool.runtimeconfig.json", "NAITool.pdb")) {
+
+function Remove-PublishBloat {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path $Path)) {
+        return
+    }
+
+    $patterns = @(
+        "*.pdb",
+        "*.mdb",
+        "*.dbg",
+        "*.lib",
+        "DirectML.Debug.dll",
+        "createdump.exe",
+        "mscordaccore.dll",
+        "mscordaccore_*.dll",
+        "mscordbi.dll"
+    )
+
+    foreach ($pattern in $patterns) {
+        Get-ChildItem -LiteralPath $Path -Recurse -File -Filter $pattern -ErrorAction SilentlyContinue |
+            Remove-Item -Force
+    }
+}
+
+# 清理旧的发布目录
+Remove-DirectoryIfExists -Path $MainBuildDir
+foreach ($file in @("NAITool.exe", "NAITool.dll", "NAITool.deps.json", "NAITool.runtimeconfig.json", "NAITool.pdb", "$AppFileBase.exe", "$AppFileBase.dll", "$AppFileBase.deps.json", "$AppFileBase.runtimeconfig.json", "$AppFileBase.pdb")) {
     $path = Join-Path $BuildDir $file
     if (Test-Path $path) {
         Remove-Item -Force $path
     }
 }
 
-if (Test-Path $PublishDir) {
-    Remove-Item -Recurse -Force $PublishDir
-}
+Remove-DirectoryIfExists -Path $PublishDir
 New-Item -ItemType Directory -Force $PublishDir | Out-Null
 New-Item -ItemType Directory -Force $BinDir | Out-Null
 
 Write-Host "正在发布主程序..." -ForegroundColor Green
-Invoke-Dotnet publish "$SrcDir\NAITool.csproj" -c $Configuration -r $Runtime --self-contained true -p:PublishSingleFile=false -o "$BinDir"
+Invoke-Dotnet publish "$SrcDir\NAITool.csproj" -c $Configuration -r $Runtime --self-contained true -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false -o "$BinDir"
 
 Write-Host "正在发布启动器..." -ForegroundColor Green
-Invoke-Dotnet publish "$LauncherDir\NAIToolLauncher.csproj" -c $Configuration -r $Runtime --self-contained false -p:PublishSingleFile=true -o "$PublishDir"
+Invoke-Dotnet publish "$LauncherDir\NAIToolLauncher.csproj" -c $Configuration -r $Runtime --self-contained false -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o "$PublishDir"
 
 # ── 从源仓库直接复制数据文件到发布根目录 ──
 Write-Host "复制数据文件..." -ForegroundColor Green
 
 $AssetsDir = Join-Path $PublishDir "assets"
-New-Item -ItemType Directory -Force (Join-Path $AssetsDir "img") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $AssetsDir "tagsheet") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $AssetsDir "wildcards") | Out-Null
 
-Get-ChildItem -Path "$RootDir\assets\img" -Filter "*.png" |
-    Where-Object { $_.Name -notlike "MaidAeka*.png" } |
-    Copy-Item -Destination (Join-Path $AssetsDir "img") -Force
+$PublishImageFiles = Get-ChildItem -Path "$RootDir\assets\img" -Filter "*.png" |
+    Where-Object { $_.Name -notlike "MaidAeka*.png" }
+if ($PublishImageFiles) {
+    $PublishImgDir = Join-Path $AssetsDir "img"
+    New-Item -ItemType Directory -Force $PublishImgDir | Out-Null
+    $PublishImageFiles | Copy-Item -Destination $PublishImgDir -Force
+}
 Copy-Item -Force "$RootDir\assets\tagsheet\*.csv"     (Join-Path $AssetsDir "tagsheet")
 Copy-Item -Recurse -Force "$RootDir\assets\wildcards\*" (Join-Path $AssetsDir "wildcards")
 
@@ -82,8 +125,6 @@ New-Item -ItemType Directory -Force (Join-Path $PublishDir "output") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $PublishDir "logs")   | Out-Null
 
 # ── 清理不需要的文件 ──
-foreach ($pdb in @((Join-Path $BinDir "NAITool.pdb"), (Join-Path $PublishDir "NAITool.pdb"))) {
-    if (Test-Path $pdb) { Remove-Item -Force $pdb }
-}
+Remove-PublishBloat -Path $PublishDir
 
 Write-Host "发布完成！文件位于: $PublishDir" -ForegroundColor Green
