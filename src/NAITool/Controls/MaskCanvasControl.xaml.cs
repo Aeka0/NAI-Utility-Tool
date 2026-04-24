@@ -139,6 +139,19 @@ public sealed partial class MaskCanvasControl : UserControl
     public bool IsActivelyDrawing => _isDrawing || _isRectDrawing || _isPanning || _isImageDragging;
     public bool IsInPreviewMode => _previewBitmap != null;
     public bool IsImageFileDropEnabled { get; set; } = true;
+    private bool _isImageMoveLocked;
+    public bool IsImageMoveLocked
+    {
+        get => _isImageMoveLocked;
+        set
+        {
+            if (_isImageMoveLocked == value) return;
+            _isImageMoveLocked = value;
+            if (value)
+                _isImageDragging = false;
+        }
+    }
+    public bool CanMoveImage => !_isImageMoveLocked && !IsInPreviewMode;
     private bool _isMaskEditingEnabled = true;
     public bool IsMaskEditingEnabled
     {
@@ -628,6 +641,8 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void BeginMoveImage()
     {
+        if (!CanMoveImage) return;
+
         var snapshot = _document.GetMaskSnapshot();
         if (snapshot != null && snapshot.Length > 0)
             _undoManager.PushState(snapshot, _document.ImageOffset, _canvasWidth, _canvasHeight);
@@ -635,6 +650,8 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void MoveImage(Vector2 canvasDelta)
     {
+        if (!CanMoveImage) return;
+
         lock (_stateLock)
         {
             _document.ImageOffset += canvasDelta;
@@ -644,7 +661,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void AlignImage(string alignment)
     {
-        if (_document.OriginalImage == null) return;
+        if (_document.OriginalImage == null || !CanMoveImage) return;
 
         BeginMoveImage();
 
@@ -1191,7 +1208,7 @@ public sealed partial class MaskCanvasControl : UserControl
         // Alt+左键 或 右键 → 拖拽底图位置（预览模式下禁止）
         if ((point.Properties.IsLeftButtonPressed && altDown) || point.Properties.IsRightButtonPressed)
         {
-            if (_previewBitmap != null) return;
+            if (!CanMoveImage) return;
             var snapshot = _document.GetMaskSnapshot();
             if (snapshot != null && snapshot.Length > 0)
                 _undoManager.PushState(snapshot, _document.ImageOffset, _canvasWidth, _canvasHeight);

@@ -224,6 +224,9 @@ public sealed partial class MainWindow
 
         if (key == Windows.System.VirtualKey.NumberPad0)
         {
+            if (!MaskCanvas.CanMoveImage)
+                return true;
+
             MaskCanvas.AlignImage("CC");
             TxtStatus.Text = L("image.aligned_center");
             return true;
@@ -237,6 +240,9 @@ public sealed partial class MainWindow
         if (!up && !down && !left && !right) return false;
         if (up && down) down = false;
         if (left && right) right = false;
+
+        if (!MaskCanvas.CanMoveImage)
+            return true;
 
         char row = up ? 'T' : down ? 'B' : 'C';
         char col = left ? 'L' : right ? 'R' : 'C';

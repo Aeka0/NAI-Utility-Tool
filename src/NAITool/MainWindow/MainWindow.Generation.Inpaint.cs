@@ -36,6 +36,12 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
+    private void SetI2IRequestImageMoveLocked(bool locked)
+    {
+        if (MaskCanvas != null)
+            MaskCanvas.IsImageMoveLocked = locked;
+    }
+
     private async void SendImageToI2I(byte[] imageBytes, string? sourcePath = null)
     {
         try
@@ -142,6 +148,7 @@ public sealed partial class MainWindow
         if (!keepGenerateButtonInteractive)
             BtnGenerate.IsEnabled = false;
         _generateRequestRunning = true;
+        SetI2IRequestImageMoveLocked(true);
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
         var ip = _settings.Settings.InpaintParameters;
@@ -245,6 +252,7 @@ public sealed partial class MainWindow
         finally
         {
             _generateRequestRunning = false;
+            SetI2IRequestImageMoveLocked(false);
             UpdateBtnGenerateForApiKey();
             ip.Seed = restoreSeed;
         }
@@ -335,6 +343,7 @@ public sealed partial class MainWindow
         if (!keepGenerateButtonInteractive)
             BtnGenerate.IsEnabled = false;
         _generateRequestRunning = true;
+        SetI2IRequestImageMoveLocked(true);
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
         var dp = _settings.Settings.I2IDenoiseParameters;
@@ -436,6 +445,7 @@ public sealed partial class MainWindow
         finally
         {
             _generateRequestRunning = false;
+            SetI2IRequestImageMoveLocked(false);
             UpdateBtnGenerateForApiKey();
             dp.Seed = restoreSeed;
         }
@@ -538,6 +548,7 @@ public sealed partial class MainWindow
 
         BtnGenerate.IsEnabled = false;
         _generateRequestRunning = true;
+        SetI2IRequestImageMoveLocked(true);
         UpdateBtnGenerateForApiKey();
         SetResultBarEnabled(false);
         TxtStatus.Text = L("generate.status.regenerating");
@@ -631,6 +642,7 @@ public sealed partial class MainWindow
         finally
         {
             _generateRequestRunning = false;
+            SetI2IRequestImageMoveLocked(false);
             UpdateBtnGenerateForApiKey();
             ip.Seed = restoreSeed;
             SetResultBarEnabled(true);

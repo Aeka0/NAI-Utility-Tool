@@ -64,6 +64,9 @@ public sealed partial class MainWindow
         var pt = e.GetCurrentPoint(ThumbnailContainer);
         if (pt.Properties.IsLeftButtonPressed)
         {
+            if (!MaskCanvas.CanMoveImage)
+                return;
+
             _thumbDragging = true;
             ThumbnailContainer.CapturePointer(e.Pointer);
             _thumbDragStart = new Vector2((float)pt.Position.X, (float)pt.Position.Y);
