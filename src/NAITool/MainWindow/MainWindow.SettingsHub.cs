@@ -268,30 +268,69 @@ public sealed partial class MainWindow
                 HorizontalAlignment = HorizontalAlignment.Right,
             };
 
+            string lastTestedToken = tokenBox.Password.Trim();
+            bool tokenEditedSinceLastTest = false;
+            bool networkActionRunning = false;
+
             async Task RunNetworkActionAsync(bool testConnection)
             {
+                if (networkActionRunning)
+                    return;
+
+                networkActionRunning = true;
                 testButton.IsEnabled = false;
                 try
                 {
+                    string trimmedToken = tokenBox.Password.Trim();
                     await SaveNetworkSettingsAsync(
-                        tokenBox.Password.Trim(),
+                        trimmedToken,
                         _settings.Settings.StreamGeneration,
                         _settings.Settings.UseProxy,
                         _settings.Settings.ProxyPort,
                         testConnection);
+                    if (testConnection)
+                    {
+                        lastTestedToken = trimmedToken;
+                        tokenEditedSinceLastTest = false;
+                    }
                 }
                 finally
                 {
+                    networkActionRunning = false;
                     testButton.IsEnabled = true;
                 }
             }
 
+            async Task TestTokenAfterEditingAsync()
+            {
+                string trimmedToken = tokenBox.Password.Trim();
+                if (string.IsNullOrWhiteSpace(trimmedToken) ||
+                    !tokenEditedSinceLastTest ||
+                    string.Equals(trimmedToken, lastTestedToken, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                await RunNetworkActionAsync(true);
+            }
+
             testButton.Click += async (_, _) => await RunNetworkActionAsync(true);
-            tokenBox.PasswordChanged += (_, _) => ApplyNetworkSettingsRealtime(
-                tokenBox.Password,
-                proxyToggle.IsOn,
-                proxyPortBox.Text,
-                streamToggle.IsOn);
+            tokenBox.PasswordChanged += (_, _) =>
+            {
+                string trimmedToken = tokenBox.Password.Trim();
+                tokenEditedSinceLastTest = !string.Equals(trimmedToken, lastTestedToken, StringComparison.Ordinal);
+                ApplyNetworkSettingsRealtime(
+                    tokenBox.Password,
+                    proxyToggle.IsOn,
+                    proxyPortBox.Text,
+                    streamToggle.IsOn);
+            };
+            tokenBox.LostFocus += async (_, _) => await TestTokenAfterEditingAsync();
+            tokenBox.KeyDown += async (_, args) =>
+            {
+                if (args.Key == Windows.System.VirtualKey.Enter)
+                    await TestTokenAfterEditingAsync();
+            };
             streamToggle.Toggled += (_, _) => ApplyNetworkSettingsRealtime(
                 tokenBox.Password,
                 proxyToggle.IsOn,
