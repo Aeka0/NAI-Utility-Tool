@@ -86,6 +86,7 @@ public sealed partial class MainWindow
                             _settings.Settings.RememberPromptAndParameters,
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
+                            _settings.Settings.ScrollHistoryToTopAfterGeneration,
                             _settings.Settings.WildcardsEnabled,
                             _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
@@ -101,6 +102,7 @@ public sealed partial class MainWindow
                             _settings.Settings.RememberPromptAndParameters,
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
+                            _settings.Settings.ScrollHistoryToTopAfterGeneration,
                             _settings.Settings.WildcardsEnabled,
                             _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
@@ -116,6 +118,7 @@ public sealed partial class MainWindow
                             _settings.Settings.RememberPromptAndParameters,
                             value,
                             _settings.Settings.ShowGenerationResultBar,
+                            _settings.Settings.ScrollHistoryToTopAfterGeneration,
                             _settings.Settings.WildcardsEnabled,
                             _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
@@ -130,6 +133,23 @@ public sealed partial class MainWindow
                             _settings.Settings.AutoComplete,
                             _settings.Settings.RememberPromptAndParameters,
                             _settings.Settings.SuperDropEnabled,
+                            value,
+                            _settings.Settings.ScrollHistoryToTopAfterGeneration,
+                            _settings.Settings.WildcardsEnabled,
+                            _settings.Settings.WildcardsRequireExplicitSyntax);
+                    })),
+                CreateSettingsHubLayer(
+                    "\uE74A",
+                    L("settings.hub.usage.scroll_history_top_after_generation"),
+                    L("settings.hub.usage.scroll_history_top_after_generation.description"),
+                    CreateSettingsHubToggleSwitch(_settings.Settings.ScrollHistoryToTopAfterGeneration, value =>
+                    {
+                        ApplyUsageSettings(
+                            _settings.Settings.WeightHighlight,
+                            _settings.Settings.AutoComplete,
+                            _settings.Settings.RememberPromptAndParameters,
+                            _settings.Settings.SuperDropEnabled,
+                            _settings.Settings.ShowGenerationResultBar,
                             value,
                             _settings.Settings.WildcardsEnabled,
                             _settings.Settings.WildcardsRequireExplicitSyntax);
@@ -146,6 +166,7 @@ public sealed partial class MainWindow
                             _settings.Settings.RememberPromptAndParameters,
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
+                            _settings.Settings.ScrollHistoryToTopAfterGeneration,
                             value,
                             _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
@@ -161,6 +182,7 @@ public sealed partial class MainWindow
                             _settings.Settings.RememberPromptAndParameters,
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
+                            _settings.Settings.ScrollHistoryToTopAfterGeneration,
                             _settings.Settings.WildcardsEnabled,
                             value);
                     })));
@@ -359,6 +381,7 @@ public sealed partial class MainWindow
                             value,
                             _settings.Settings.SuperDropEnabled,
                             _settings.Settings.ShowGenerationResultBar,
+                            _settings.Settings.ScrollHistoryToTopAfterGeneration,
                             _settings.Settings.WildcardsEnabled,
                             _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),

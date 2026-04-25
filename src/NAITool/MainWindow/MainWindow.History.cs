@@ -161,6 +161,13 @@ public sealed partial class MainWindow
         }
         _historyByDate[dateStr].Insert(0, filePath);
 
+        bool resetScroll = _settings.Settings.ScrollHistoryToTopAfterGeneration;
+        if (resetScroll && !string.Equals(_selectedHistoryDate, dateStr, StringComparison.Ordinal))
+        {
+            _selectedHistoryDate = dateStr;
+            HistoryDatePicker.Date = DateTimeOffset.ParseExact(dateStr, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+
         if (_selectedHistoryDate == null)
         {
             _selectedHistoryDate = dateStr;
@@ -172,7 +179,7 @@ public sealed partial class MainWindow
         if (_selectedHistoryDate != null &&
             string.Compare(dateStr, _selectedHistoryDate, StringComparison.Ordinal) <= 0)
         {
-            RefreshHistoryPanel();
+            RefreshHistoryPanel(resetScroll);
         }
     }
 
@@ -383,15 +390,26 @@ public sealed partial class MainWindow
             RefreshRealizedHistoryThumbnails);
 
         if (resetScroll && items.Count > 0)
-        {
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                if (itemsVersion != _historyItemsVersion || HistoryListView.Items.Count == 0)
-                    return;
+            QueueHistoryScrollToTop(itemsVersion);
+    }
 
-                HistoryListView.ScrollIntoView(HistoryListView.Items[0], ScrollIntoViewAlignment.Leading);
-            });
+    private void QueueHistoryScrollToTop(int itemsVersion)
+    {
+        void ScrollToTop()
+        {
+            if (itemsVersion != _historyItemsVersion || HistoryListView.Items.Count == 0)
+                return;
+
+            _historyListScrollViewer ??= FindHistoryDescendant<ScrollViewer>(HistoryListView);
+            _historyListScrollViewer?.ChangeView(null, 0, null, disableAnimation: true);
+            HistoryListView.ScrollIntoView(HistoryListView.Items[0], ScrollIntoViewAlignment.Leading);
         }
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            ScrollToTop();
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, ScrollToTop);
+        });
     }
 
     private void ApplyHistoryListDiff(IReadOnlyList<HistoryListItem> targetItems)
@@ -440,8 +458,16 @@ public sealed partial class MainWindow
                 ComputeHistoryThumbnailWidth(width, height),
                 ComputeHistoryThumbnailHeight(width, height)));
 
+        bool resetScroll = _settings.Settings.ScrollHistoryToTopAfterGeneration;
+        if (resetScroll && !string.Equals(_selectedHistoryDate, dateStr, StringComparison.Ordinal))
+        {
+            _selectedHistoryDate = dateStr;
+            HistoryDatePicker.Date = DateTimeOffset.ParseExact(dateStr, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+
+        BuildHistoryFileList();
         if (IsHistoryDateVisibleForSelection(dateStr, _selectedHistoryDate))
-            RefreshHistoryPanel();
+            RefreshHistoryPanel(resetScroll);
 
         return pendingId;
     }
