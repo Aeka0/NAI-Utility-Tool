@@ -231,7 +231,8 @@ public sealed partial class MainWindow
 
             bool thumbExists = VibeCacheService.ThumbnailExists(cacheDir, first);
             bool originalRecorded = !string.IsNullOrWhiteSpace(originalPath);
-            bool originalOnDisk = originalRecorded && File.Exists(originalPath!);
+            string? resolvedOriginalPath = VibeCacheService.ResolveOriginalPath(cacheDir, originalPath);
+            bool originalOnDisk = !string.IsNullOrWhiteSpace(resolvedOriginalPath) && File.Exists(resolvedOriginalPath);
 
             var topGrid = new Grid { ColumnSpacing = 12 };
             topGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -323,48 +324,64 @@ public sealed partial class MainWindow
                 Margin = new Thickness(0, 6, 0, 0),
             };
 
-            var relocateBtn = new Button
+            var copyToWorkspaceBtn = new Button
             {
-                Content = L("dialog.vibe_manager.detail.relocate_original"),
+                Content = L("dialog.vibe_manager.detail.copy_original_to_workspace"),
                 FontSize = 12,
+                IsEnabled = originalRecorded && originalOnDisk,
             };
-            relocateBtn.Click += async (_, _) =>
+            copyToWorkspaceBtn.Click += async (_, _) =>
             {
-                var picker = new FileOpenPicker();
-                picker.FileTypeFilter.Add(".png");
-                picker.FileTypeFilter.Add(".jpg");
-                picker.FileTypeFilter.Add(".jpeg");
-                picker.FileTypeFilter.Add(".webp");
-                picker.FileTypeFilter.Add(".bmp");
-                WinRT.Interop.InitializeWithWindow.Initialize(picker,
-                    WinRT.Interop.WindowNative.GetWindowHandle(this));
+                if (string.IsNullOrWhiteSpace(originalPath) ||
+                    string.IsNullOrWhiteSpace(resolvedOriginalPath) ||
+                    !File.Exists(resolvedOriginalPath))
+                    return;
 
-                var file = await picker.PickSingleFileAsync();
-                if (file == null) return;
+                Windows.Storage.StorageFile originalFile;
+                try
+                {
+                    originalFile = await Windows.Storage.StorageFile.GetFileFromPathAsync(resolvedOriginalPath);
+                }
+                catch (Exception ex)
+                {
+                    statusBlock.Text = Lf("dialog.vibe_manager.status.original_move_failed", ex.Message);
+                    return;
+                }
 
-                byte[]? pngBytes = await ReadImageFileAsPngAsync(file);
+                byte[]? pngBytes = await ReadImageFileAsPngAsync(originalFile);
                 if (pngBytes == null)
                 {
-                    statusBlock.Text = Lf("dialog.vibe_encode.read_failed", file.Name);
+                    statusBlock.Text = Lf("dialog.vibe_encode.read_failed", Path.GetFileName(originalPath));
                     return;
                 }
 
-                string newHash = VibeCacheService.ComputeImageHash(pngBytes);
-                if (!string.Equals(newHash, selectedImageHash, StringComparison.Ordinal))
+                string currentHash = VibeCacheService.ComputeImageHash(pngBytes);
+                if (!string.Equals(currentHash, selectedImageHash, StringComparison.Ordinal))
                 {
                     statusBlock.Text = Lf("dialog.vibe_manager.status.relocate_hash_mismatch",
-                        selectedImageHash ?? "", newHash);
+                        selectedImageHash ?? "", currentHash);
                     return;
                 }
 
-                if (VibeCacheService.UpdateOriginalPath(cacheDir, selectedImageHash!, file.Path))
+                try
                 {
-                    statusBlock.Text = Lf("dialog.vibe_manager.status.relocated", file.Path);
+                    Directory.CreateDirectory(VibeCacheService.GetOriginDir(cacheDir));
+                    string targetPath = VibeCacheService.GetOriginPath(cacheDir, selectedImageHash!, resolvedOriginalPath);
+                    if (!string.Equals(Path.GetFullPath(resolvedOriginalPath), Path.GetFullPath(targetPath), StringComparison.OrdinalIgnoreCase))
+                        File.Move(resolvedOriginalPath, targetPath, overwrite: true);
+
+                    string storedPath = VibeCacheService.GetCacheRelativePath(cacheDir, targetPath);
+                    VibeCacheService.UpdateOriginalPath(cacheDir, selectedImageHash!, storedPath);
+                    statusBlock.Text = Lf("dialog.vibe_manager.status.original_moved_to_workspace", storedPath);
                     RefreshDetailPanel();
                     RefreshGroupList();
                 }
+                catch (Exception ex)
+                {
+                    statusBlock.Text = Lf("dialog.vibe_manager.status.original_move_failed", ex.Message);
+                }
             };
-            headerActionRow.Children.Add(relocateBtn);
+            headerActionRow.Children.Add(copyToWorkspaceBtn);
 
             var reencodeGroupBtn = new Button
             {
@@ -614,7 +631,8 @@ public sealed partial class MainWindow
             .FirstOrDefault(p => !string.IsNullOrWhiteSpace(p));
         bool thumbExists = VibeCacheService.ThumbnailExists(cacheDir, first);
         bool originalRecorded = !string.IsNullOrWhiteSpace(originalPath);
-        bool originalOnDisk = originalRecorded && File.Exists(originalPath!);
+        string? resolvedOriginalPath = VibeCacheService.ResolveOriginalPath(cacheDir, originalPath);
+        bool originalOnDisk = !string.IsNullOrWhiteSpace(resolvedOriginalPath) && File.Exists(resolvedOriginalPath);
         bool anyVibeMissing = entries.Any(e => !VibeCacheService.VibeFileExists(cacheDir, e));
         bool anyMissing = !thumbExists || (originalRecorded && !originalOnDisk) || anyVibeMissing;
 
@@ -860,11 +878,12 @@ public sealed partial class MainWindow
             .Select(x => x.OriginalImagePath)
             .FirstOrDefault(p => !string.IsNullOrWhiteSpace(p));
 
-        if (!string.IsNullOrWhiteSpace(originalPath) && File.Exists(originalPath))
+        string? resolvedOriginalPath = VibeCacheService.ResolveOriginalPath(cacheDir, originalPath);
+        if (!string.IsNullOrWhiteSpace(resolvedOriginalPath) && File.Exists(resolvedOriginalPath))
         {
             try
             {
-                byte[] raw = await File.ReadAllBytesAsync(originalPath!);
+                byte[] raw = await File.ReadAllBytesAsync(resolvedOriginalPath);
                 using var skBitmap = SkiaSharp.SKBitmap.Decode(raw);
                 if (skBitmap != null)
                 {
@@ -878,7 +897,7 @@ public sealed partial class MainWindow
                         {
                             presetBytes = png;
                             presetPath = originalPath;
-                            presetFileName = Path.GetFileName(originalPath!);
+                            presetFileName = Path.GetFileName(resolvedOriginalPath);
                         }
                     }
                 }
@@ -933,7 +952,7 @@ public sealed partial class MainWindow
 
         try
         {
-            string src = Path.Combine(cacheDir, entry.VibeFileName);
+            string src = VibeCacheService.GetVibeFilePath(cacheDir, entry);
             byte[] bytes = await File.ReadAllBytesAsync(src);
             await File.WriteAllBytesAsync(file.Path, bytes);
             statusBlock.Text = Lf("dialog.vibe_manager.status.exported", file.Path);

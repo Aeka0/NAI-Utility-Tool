@@ -16,6 +16,9 @@ public static class VibeCacheService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private const string LookupFileName = "vibe_cache_lookup.json";
+    private const string EncodedDirName = "encoded";
+    private const string ThumbnailDirName = "thumb";
+    private const string OriginDirName = "origin";
 
     public sealed class VibeCacheLookupEntry
     {
@@ -38,6 +41,52 @@ public static class VibeCacheService
 
     public static string GetCacheDir(string appRootDir) =>
         Path.Combine(appRootDir, "user", "vibe");
+
+    public static string GetEncodedDir(string cacheDir) =>
+        Path.Combine(cacheDir, EncodedDirName);
+
+    public static string GetThumbnailDir(string cacheDir) =>
+        Path.Combine(cacheDir, ThumbnailDirName);
+
+    public static string GetOriginDir(string cacheDir) =>
+        Path.Combine(cacheDir, OriginDirName);
+
+    public static string GetOriginPath(string cacheDir, string imageHash, string originalPath)
+    {
+        string extension = Path.GetExtension(originalPath);
+        if (string.IsNullOrWhiteSpace(extension))
+            extension = ".png";
+        return Path.Combine(GetOriginDir(cacheDir), $"{imageHash}{extension}");
+    }
+
+    public static string GetCacheRelativePath(string cacheDir, string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return path;
+
+        try
+        {
+            string fullCacheDir = Path.GetFullPath(cacheDir);
+            string fullPath = Path.GetFullPath(path);
+            string relativePath = Path.GetRelativePath(fullCacheDir, fullPath);
+            return relativePath.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relativePath)
+                ? fullPath
+                : relativePath;
+        }
+        catch
+        {
+            return path;
+        }
+    }
+
+    public static string? ResolveOriginalPath(string cacheDir, string? originalPath)
+    {
+        if (string.IsNullOrWhiteSpace(originalPath))
+            return null;
+        return Path.IsPathRooted(originalPath)
+            ? originalPath
+            : Path.GetFullPath(Path.Combine(cacheDir, originalPath));
+    }
 
     public static string ComputeImageHash(byte[] imageBytes)
     {
@@ -106,6 +155,20 @@ public static class VibeCacheService
     private static string GetLookupPath(string cacheDir) =>
         Path.Combine(cacheDir, LookupFileName);
 
+    public static string GetVibeFilePath(string cacheDir, VibeCacheLookupEntry entry)
+    {
+        string fileName = entry.VibeFileName;
+        if (Path.IsPathRooted(fileName))
+            return fileName;
+
+        string currentPath = Path.Combine(GetEncodedDir(cacheDir), fileName);
+        if (File.Exists(currentPath))
+            return currentPath;
+
+        string legacyPath = Path.Combine(cacheDir, fileName);
+        return File.Exists(legacyPath) ? legacyPath : currentPath;
+    }
+
     private static VibeCacheLookupData LoadLookup(string cacheDir)
     {
         try
@@ -161,7 +224,7 @@ public static class VibeCacheService
         if (entry == null || string.IsNullOrWhiteSpace(entry.VibeFileName))
             return null;
 
-        string vibePath = Path.Combine(cacheDir, entry.VibeFileName);
+        string vibePath = GetVibeFilePath(cacheDir, entry);
         if (!File.Exists(vibePath))
         {
             try
@@ -210,7 +273,7 @@ public static class VibeCacheService
 
         foreach (var entry in candidates)
         {
-            string vibePath = Path.Combine(cacheDir, entry.VibeFileName);
+            string vibePath = GetVibeFilePath(cacheDir, entry);
             if (!File.Exists(vibePath))
                 continue;
 
@@ -258,6 +321,8 @@ public static class VibeCacheService
         string? originalImagePath = null)
     {
         Directory.CreateDirectory(cacheDir);
+        Directory.CreateDirectory(GetEncodedDir(cacheDir));
+        Directory.CreateDirectory(GetThumbnailDir(cacheDir));
 
         byte[] canonicalThumbnailBytes = CreateCanonicalThumbnail(thumbnailBytes);
         string imageHash = ComputeImageHash(imageBytes);
@@ -265,7 +330,7 @@ public static class VibeCacheService
         string ieKey = NormalizeInfoExtractedKey(infoExtracted);
         string modelKey = NormalizeModelKey(model);
         string vibeFileName = $"{imageHash}_th{thumbnailHash}_m{modelKey}_ie{ieKey}.naiv4vibe";
-        string vibePath = Path.Combine(cacheDir, vibeFileName);
+        string vibePath = Path.Combine(GetEncodedDir(cacheDir), vibeFileName);
 
         string vibeBase64 = Convert.ToBase64String(vibeData);
         var vibeJson = new
@@ -289,7 +354,7 @@ public static class VibeCacheService
         json = json.Replace("\"_0\"", "\"0\"");
         File.WriteAllText(vibePath, json);
 
-        string thumbPath = Path.Combine(cacheDir, $"{imageHash}_{thumbnailHash}_thumb.png");
+        string thumbPath = Path.Combine(GetThumbnailDir(cacheDir), $"{imageHash}_{thumbnailHash}_thumb.png");
         if (!File.Exists(thumbPath))
         {
             try { File.WriteAllBytes(thumbPath, canonicalThumbnailBytes); }
@@ -369,8 +434,13 @@ public static class VibeCacheService
     /// </summary>
     public static string? GetThumbnailPath(string cacheDir, string imageHash, string thumbnailHash)
     {
-        string thumbPath = Path.Combine(cacheDir, $"{imageHash}_{thumbnailHash}_thumb.png");
-        return File.Exists(thumbPath) ? thumbPath : null;
+        string fileName = $"{imageHash}_{thumbnailHash}_thumb.png";
+        string thumbPath = Path.Combine(GetThumbnailDir(cacheDir), fileName);
+        if (File.Exists(thumbPath))
+            return thumbPath;
+
+        string legacyPath = Path.Combine(cacheDir, fileName);
+        return File.Exists(legacyPath) ? legacyPath : null;
     }
 
     /// <summary>
@@ -423,7 +493,7 @@ public static class VibeCacheService
     {
         if (entry == null || string.IsNullOrWhiteSpace(entry.VibeFileName))
             return false;
-        return File.Exists(Path.Combine(cacheDir, entry.VibeFileName));
+        return File.Exists(GetVibeFilePath(cacheDir, entry));
     }
 
     /// <summary>
@@ -435,8 +505,7 @@ public static class VibeCacheService
             string.IsNullOrWhiteSpace(entry.ImageHash) ||
             string.IsNullOrWhiteSpace(entry.ThumbnailHash))
             return false;
-        string path = Path.Combine(cacheDir, $"{entry.ImageHash}_{entry.ThumbnailHash}_thumb.png");
-        return File.Exists(path);
+        return GetThumbnailPath(cacheDir, entry.ImageHash, entry.ThumbnailHash) != null;
     }
 
     /// <summary>
@@ -449,6 +518,21 @@ public static class VibeCacheService
         try
         {
             return File.Exists(entry.OriginalImagePath);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static bool OriginalExists(string cacheDir, VibeCacheLookupEntry entry)
+    {
+        if (entry == null || string.IsNullOrWhiteSpace(entry.OriginalImagePath))
+            return false;
+        try
+        {
+            string? path = ResolveOriginalPath(cacheDir, entry.OriginalImagePath);
+            return !string.IsNullOrWhiteSpace(path) && File.Exists(path);
         }
         catch
         {
@@ -478,7 +562,7 @@ public static class VibeCacheService
 
         if (deletePhysicalFile && !string.IsNullOrWhiteSpace(entry.VibeFileName))
         {
-            string vibePath = Path.Combine(cacheDir, entry.VibeFileName);
+            string vibePath = GetVibeFilePath(cacheDir, entry);
             try { if (File.Exists(vibePath)) File.Delete(vibePath); }
             catch { }
         }
@@ -514,7 +598,7 @@ public static class VibeCacheService
             {
                 if (!string.IsNullOrWhiteSpace(entry.VibeFileName))
                 {
-                    string vibePath = Path.Combine(cacheDir, entry.VibeFileName);
+                    string vibePath = GetVibeFilePath(cacheDir, entry);
                     try { if (File.Exists(vibePath)) File.Delete(vibePath); }
                     catch { }
                 }
@@ -525,8 +609,8 @@ public static class VibeCacheService
 
             foreach (string thumbHash in thumbHashes)
             {
-                string thumbPath = Path.Combine(cacheDir, $"{imageHash}_{thumbHash}_thumb.png");
-                try { if (File.Exists(thumbPath)) File.Delete(thumbPath); }
+                string? thumbPath = GetThumbnailPath(cacheDir, imageHash, thumbHash);
+                try { if (thumbPath != null && File.Exists(thumbPath)) File.Delete(thumbPath); }
                 catch { }
             }
         }
@@ -574,7 +658,7 @@ public static class VibeCacheService
         int before = lookup.Entries.Count;
         lookup.Entries.RemoveAll(e =>
             string.IsNullOrWhiteSpace(e.VibeFileName) ||
-            !File.Exists(Path.Combine(cacheDir, e.VibeFileName)));
+            !File.Exists(GetVibeFilePath(cacheDir, e)));
 
         int removed = before - lookup.Entries.Count;
         if (removed > 0)
