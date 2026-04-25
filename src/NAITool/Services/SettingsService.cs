@@ -144,6 +144,7 @@ public class AppSettings
     public string ImageDeleteBehavior { get; set; } = "RecycleBin";
     public bool PrivacyMode { get; set; }
     public bool StripSavedImageMetadata { get; set; }
+    public bool AutoCopyVibeOriginalsToWorkspace { get; set; }
     public string ThemeMode { get; set; } = "System";
     public string AppearanceTransparency { get; set; } = "Standard";
     public string LanguageCode { get; set; } = "";

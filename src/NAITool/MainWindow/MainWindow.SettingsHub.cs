@@ -401,7 +401,8 @@ public sealed partial class MainWindow
                             ApplyLocalStorageSettings(
                                 value,
                                 _settings.Settings.PrivacyMode,
-                                _settings.Settings.StripSavedImageMetadata);
+                                _settings.Settings.StripSavedImageMetadata,
+                                _settings.Settings.AutoCopyVibeOriginalsToWorkspace);
                         },
                         260)),
                 CreateSettingsHubLayer(
@@ -413,7 +414,8 @@ public sealed partial class MainWindow
                         ApplyLocalStorageSettings(
                             _settings.Settings.ImageDeleteBehavior,
                             value,
-                            _settings.Settings.StripSavedImageMetadata);
+                            _settings.Settings.StripSavedImageMetadata,
+                            _settings.Settings.AutoCopyVibeOriginalsToWorkspace);
                     })),
                 CreateSettingsHubLayer(
                     "\uED62",
@@ -424,6 +426,19 @@ public sealed partial class MainWindow
                         ApplyLocalStorageSettings(
                             _settings.Settings.ImageDeleteBehavior,
                             _settings.Settings.PrivacyMode,
+                            value,
+                            _settings.Settings.AutoCopyVibeOriginalsToWorkspace);
+                    })),
+                CreateSettingsHubLayer(
+                    "\uE8B7",
+                    L("settings.hub.local_storage.auto_copy_vibe_originals"),
+                    L("settings.hub.local_storage.auto_copy_vibe_originals.description"),
+                    CreateSettingsHubToggleSwitch(_settings.Settings.AutoCopyVibeOriginalsToWorkspace, value =>
+                    {
+                        ApplyLocalStorageSettings(
+                            _settings.Settings.ImageDeleteBehavior,
+                            _settings.Settings.PrivacyMode,
+                            _settings.Settings.StripSavedImageMetadata,
                             value);
                     })));
         }

@@ -208,6 +208,15 @@ public sealed partial class MainWindow
                     cacheDir, imageHash, ie, model);
                 if (cached != null)
                 {
+                    if (_settings.Settings.AutoCopyVibeOriginalsToWorkspace &&
+                        !string.IsNullOrWhiteSpace(selectedImagePath))
+                    {
+                        if (VibeCacheService.TryMoveOriginalToWorkspace(
+                            cacheDir, imageHash, selectedImagePath, out var storedOriginalPath, out var moveError))
+                            DebugLog($"[VibeEncode] Original moved to workspace: {storedOriginalPath}");
+                        else
+                            DebugLog($"[VibeEncode] Failed to move original to workspace: {moveError}");
+                    }
                     statusBlock.Text = Lf("dialog.vibe_encode.cache_hit", ie, cacheDir);
                     didEncode = true;
                     return;
@@ -226,6 +235,15 @@ public sealed partial class MainWindow
                     string savePath = VibeCacheService.SaveVibe(
                         cacheDir, selectedImageBytes, selectedImageBytes, vibeData, ie, model,
                         originalImagePath: selectedImagePath);
+                    if (_settings.Settings.AutoCopyVibeOriginalsToWorkspace &&
+                        !string.IsNullOrWhiteSpace(selectedImagePath))
+                    {
+                        if (VibeCacheService.TryMoveOriginalToWorkspace(
+                            cacheDir, imageHash, selectedImagePath, out var storedOriginalPath, out var moveError))
+                            DebugLog($"[VibeEncode] Original moved to workspace: {storedOriginalPath}");
+                        else
+                            DebugLog($"[VibeEncode] Failed to move original to workspace: {moveError}");
+                    }
                     DebugLog($"[VibeEncode] 完成 | 保存={savePath}");
                     statusBlock.Text = Lf("dialog.vibe_encode.success", savePath);
                     didEncode = true;

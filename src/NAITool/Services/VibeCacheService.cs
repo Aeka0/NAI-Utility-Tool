@@ -646,6 +646,65 @@ public static class VibeCacheService
         return changed;
     }
 
+    public static bool TryMoveOriginalToWorkspace(
+        string cacheDir,
+        string imageHash,
+        string? originalPath,
+        out string? storedPath,
+        out string? error)
+    {
+        storedPath = null;
+        error = null;
+
+        try
+        {
+            string? resolvedPath = ResolveOriginalPath(cacheDir, originalPath);
+            if (string.IsNullOrWhiteSpace(resolvedPath) || !File.Exists(resolvedPath))
+            {
+                error = "Original file is missing.";
+                return false;
+            }
+
+            byte[] raw = File.ReadAllBytes(resolvedPath);
+            using var skBitmap = SKBitmap.Decode(raw);
+            if (skBitmap == null)
+            {
+                error = "Original file is not a readable image.";
+                return false;
+            }
+
+            using var image = SKImage.FromBitmap(skBitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            byte[]? pngBytes = data?.ToArray();
+            if (pngBytes == null || pngBytes.Length == 0)
+            {
+                error = "Original file could not be normalized.";
+                return false;
+            }
+
+            string currentHash = ComputeImageHash(pngBytes);
+            if (!string.Equals(currentHash, imageHash, StringComparison.Ordinal))
+            {
+                error = $"Image hash mismatch. Expected: {imageHash}, actual: {currentHash}.";
+                return false;
+            }
+
+            Directory.CreateDirectory(GetOriginDir(cacheDir));
+            string targetPath = GetOriginPath(cacheDir, imageHash, resolvedPath);
+            if (!string.Equals(Path.GetFullPath(resolvedPath), Path.GetFullPath(targetPath), StringComparison.OrdinalIgnoreCase))
+                File.Move(resolvedPath, targetPath, overwrite: true);
+
+            storedPath = GetCacheRelativePath(cacheDir, targetPath);
+            UpdateOriginalPath(cacheDir, imageHash, storedPath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
     /// <summary>
     /// 清理编码文件已丢失的索引条目；返回被清理的数量。
     /// </summary>

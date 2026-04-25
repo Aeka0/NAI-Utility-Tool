@@ -96,11 +96,13 @@ public sealed partial class MainWindow
     private void ApplyLocalStorageSettings(
         string imageDeleteBehavior,
         bool privacyMode,
-        bool stripSavedImageMetadata)
+        bool stripSavedImageMetadata,
+        bool autoCopyVibeOriginalsToWorkspace)
     {
         _settings.Settings.ImageDeleteBehavior = imageDeleteBehavior;
         _settings.Settings.PrivacyMode = privacyMode;
         _settings.Settings.StripSavedImageMetadata = stripSavedImageMetadata;
+        _settings.Settings.AutoCopyVibeOriginalsToWorkspace = autoCopyVibeOriginalsToWorkspace;
         _settings.Save();
         TxtStatus.Text = L("settings.local_storage.saved");
     }

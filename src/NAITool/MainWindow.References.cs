@@ -310,6 +310,15 @@ public sealed partial class MainWindow
                 VibeCacheService.SaveVibe(
                     cacheDir, originalBytes, originalBytes, vibeData, entry.InformationExtracted, model,
                     originalImagePath: entry.OriginalImagePath);
+                if (_settings.Settings.AutoCopyVibeOriginalsToWorkspace &&
+                    !string.IsNullOrWhiteSpace(entry.OriginalImagePath))
+                {
+                    if (VibeCacheService.TryMoveOriginalToWorkspace(
+                        cacheDir, entry.OriginalImageHash, entry.OriginalImagePath, out var storedOriginalPath, out var moveError))
+                        entry.OriginalImagePath = storedOriginalPath;
+                    else
+                        DebugLog($"[Generate] Failed to move vibe original to workspace: {moveError}");
+                }
             }
 
             DebugLog($"[Generate] Vibe 自动编码并缓存: {entry.FileName}");
