@@ -536,6 +536,24 @@ public sealed partial class MainWindow
         dialog.Resources["ContentDialogMaxWidth"] = 900.0;
         dialogRef = dialog;
 
+        bool didFreezeInitialSize = false;
+        root.Loaded += (_, _) =>
+        {
+            root.DispatcherQueue.TryEnqueue(() =>
+            {
+                if (didFreezeInitialSize || root.ActualWidth <= 0 || root.ActualHeight <= 0)
+                    return;
+
+                didFreezeInitialSize = true;
+                root.Width = root.ActualWidth;
+                root.Height = root.ActualHeight;
+                root.MinWidth = root.ActualWidth;
+                root.MinHeight = root.ActualHeight;
+                root.MaxWidth = root.ActualWidth;
+                root.MaxHeight = root.ActualHeight;
+            });
+        };
+
         RefreshGroupList();
         RefreshDetailPanel();
 
