@@ -941,6 +941,6 @@ public sealed partial class MainWindow
 
     private static string GetAppVersionText()
     {
-        return "Release Candidate 1";
+        return "1.0.0";
     }
 }

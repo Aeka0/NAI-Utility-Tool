@@ -10,9 +10,10 @@ $SrcDir       = Join-Path $RootDir "src\NAITool"
 $LauncherDir  = Join-Path $RootDir "src\NAIToolLauncher"
 $BuildDir     = Join-Path $RootDir "build\$Configuration"
 $MainBuildDir = Join-Path $BuildDir "bin"
-$PublishDir   = Join-Path $RootDir "publish\NAITool"
+$AppFileBase  = "NAI Utility Tool"
+$PublishDir   = Join-Path $RootDir "publish\$AppFileBase"
 $BinDir       = Join-Path $PublishDir "bin"
-$AppFileBase  = "NAIUtilityTool"
+$LegacyPublishDir = Join-Path $RootDir "publish\NAITool"
 
 function Invoke-Dotnet {
     & dotnet @args
@@ -66,7 +67,7 @@ function Remove-PublishBloat {
 
 # 清理旧的发布目录
 Remove-DirectoryIfExists -Path $MainBuildDir
-foreach ($file in @("NAITool.exe", "NAITool.dll", "NAITool.deps.json", "NAITool.runtimeconfig.json", "NAITool.pdb", "$AppFileBase.exe", "$AppFileBase.dll", "$AppFileBase.deps.json", "$AppFileBase.runtimeconfig.json", "$AppFileBase.pdb")) {
+foreach ($file in @("NAITool.exe", "NAITool.dll", "NAITool.deps.json", "NAITool.runtimeconfig.json", "NAITool.pdb", "NAIUtilityTool.exe", "NAIUtilityTool.dll", "NAIUtilityTool.deps.json", "NAIUtilityTool.runtimeconfig.json", "NAIUtilityTool.pdb", "$AppFileBase.exe", "$AppFileBase.dll", "$AppFileBase.deps.json", "$AppFileBase.runtimeconfig.json", "$AppFileBase.pdb")) {
     $path = Join-Path $BuildDir $file
     if (Test-Path $path) {
         Remove-Item -Force $path
@@ -74,6 +75,9 @@ foreach ($file in @("NAITool.exe", "NAITool.dll", "NAITool.deps.json", "NAITool.
 }
 
 Remove-DirectoryIfExists -Path $PublishDir
+if ($LegacyPublishDir -ne $PublishDir) {
+    Remove-DirectoryIfExists -Path $LegacyPublishDir
+}
 New-Item -ItemType Directory -Force $PublishDir | Out-Null
 New-Item -ItemType Directory -Force $BinDir | Out-Null
 
