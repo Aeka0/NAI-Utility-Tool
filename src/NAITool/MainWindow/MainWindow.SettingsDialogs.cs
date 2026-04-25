@@ -715,6 +715,29 @@ public sealed partial class MainWindow
         }
     }
 
+    private async void NotifyApiTokenDecryptFailed()
+    {
+        TxtStatus.Text = L("settings.network.token_decrypt_failed");
+        ClearAccountApiState(save: false);
+
+        var dialog = new ContentDialog
+        {
+            Title = L("settings.network.token_decrypt_failed_title"),
+            Content = new TextBlock
+            {
+                Text = L("settings.network.token_decrypt_failed"),
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 420,
+            },
+            PrimaryButtonText = L("common.ok"),
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.Content.XamlRoot,
+            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
+        };
+
+        await dialog.ShowAsync();
+    }
+
     private async void OnNetworkSettings(object sender, RoutedEventArgs e)
         => await ShowSettingsHubDialogAsync(SettingsHubSection.Network);
 

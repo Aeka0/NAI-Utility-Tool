@@ -434,7 +434,10 @@ public sealed partial class MainWindow : Window
         SetupSidebarAdvancedSync();
         SetupGenerateButtonContextFlyout();
         UpdateBtnGenerateForApiKey();
-        _ = RefreshAnlasInfoAsync();
+        if (_settings.ApiTokenDecryptFailed)
+            DispatcherQueue.TryEnqueue(() => NotifyApiTokenDecryptFailed());
+        else
+            _ = RefreshAnlasInfoAsync();
 
         _ = LoadTagServiceAsync();
 

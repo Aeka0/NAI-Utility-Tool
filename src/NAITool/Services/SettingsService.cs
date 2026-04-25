@@ -1,7 +1,10 @@
 ﻿using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Win32;
 using NAITool.Models;
 
 namespace NAITool.Services;
@@ -26,8 +29,43 @@ public class SettingsService
 
     public AppSettings Settings { get; private set; } = new();
     public ApiConfig CachedApiConfig { get; private set; } = new();
+    public bool ApiTokenDecryptFailed { get; private set; }
 
     public static bool SettingsFileExists => File.Exists(SettingsFilePath);
+
+    private static byte[] GetMachineEntropy()
+    {
+        using var regKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Cryptography");
+        var guid = regKey?.GetValue("MachineGuid") as string ?? Environment.MachineName;
+        return SHA256.HashData(Encoding.UTF8.GetBytes(guid));
+    }
+
+    private static string EncryptToken(string plainToken)
+    {
+        var data = Encoding.UTF8.GetBytes(plainToken);
+        var entropy = GetMachineEntropy();
+        var encrypted = ProtectedData.Protect(data, entropy, DataProtectionScope.CurrentUser);
+        return Convert.ToBase64String(encrypted);
+    }
+
+    private static string? DecryptToken(string encryptedToken)
+    {
+        try
+        {
+            var data = Convert.FromBase64String(encryptedToken);
+            var entropy = GetMachineEntropy();
+            var decrypted = ProtectedData.Unprotect(data, entropy, DataProtectionScope.CurrentUser);
+            return Encoding.UTF8.GetString(decrypted);
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>从磁盘加载设置（通用 + API 凭证 + 缓存账户信息）</summary>
     public void Load()
@@ -55,14 +93,33 @@ public class SettingsService
                 var apiCfg = JsonSerializer.Deserialize<ApiConfig>(json, JsonOptions);
                 if (apiCfg != null)
                 {
-                    Settings.ApiToken = apiCfg.ApiToken;
                     CachedApiConfig = apiCfg;
+
+                    if (!string.IsNullOrWhiteSpace(apiCfg.EncryptedApiToken))
+                    {
+                        var decrypted = DecryptToken(apiCfg.EncryptedApiToken);
+                        if (decrypted != null)
+                        {
+                            Settings.ApiToken = decrypted;
+                        }
+                        else
+                        {
+                            ApiTokenDecryptFailed = true;
+                            Settings.ApiToken = null;
+                            System.Diagnostics.Debug.WriteLine("[ApiConfig] API Token 解密失败：密钥可能来自其他机器或用户");
+                        }
+                    }
+                    else if (!string.IsNullOrWhiteSpace(apiCfg.ApiToken))
+                    {
+                        Settings.ApiToken = apiCfg.ApiToken;
+                        System.Diagnostics.Debug.WriteLine("[ApiConfig] 检测到明文 API Token，将在下次保存时自动加密");
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[ApiConfig] Load failed: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[ApiConfig] 加载失败: {ex.Message}");
         }
     }
 
@@ -80,7 +137,16 @@ public class SettingsService
             Settings.ApiToken = token;
             File.WriteAllText(SettingsFilePath, settingsJson);
 
-            CachedApiConfig.ApiToken = token;
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                CachedApiConfig.EncryptedApiToken = EncryptToken(token);
+                CachedApiConfig.ApiToken = null;
+            }
+            else
+            {
+                CachedApiConfig.EncryptedApiToken = null;
+                CachedApiConfig.ApiToken = null;
+            }
             var apiJson = JsonSerializer.Serialize(CachedApiConfig, JsonOptions);
             File.WriteAllText(ApiConfigFilePath, apiJson);
 
@@ -110,6 +176,7 @@ public class ApiConfig
 {
     // Changing the numbers here won't do anything that affects the your account, nice try though.
     public string? ApiToken { get; set; }
+    public string? EncryptedApiToken { get; set; }
     public int? CachedAnlas { get; set; }
     public string? SubscriptionTier { get; set; }
     public int? SubscriptionTierLevel { get; set; }
