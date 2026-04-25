@@ -7,6 +7,9 @@ NAI Utility Tool is a Windows desktop client for NovelAI image workflows. It is 
 
 The repository contains the main WinUI application, a lightweight launcher, bundled UI/resources, wildcard and tag data, local upscaler models, and a PowerShell publishing script that produces the same layout used by development builds.
 
+<img width="1384" height="892" alt="Interface" src="https://github.com/user-attachments/assets/f24696cb-dce5-4e37-8e44-8976be5c9c06" />
+
+
 ## Features
 
 - NovelAI text-to-image generation with current NAI Diffusion models.
