@@ -1000,7 +1000,7 @@
     "oobe.api.test.valid":  "API Key 有效。請妥善保管，避免洩露。",
     "oobe.api.test.invalid":  "API Key 無效或網路不可用。",
     "oobe.asset_protection.title":  "啟用資產保護模式",
-    "oobe.asset_protection.description":  "用於防止意外的點數消耗。如果需要使用進階功能（精確參考）或生成高尺寸圖像，請關閉此選項。稍後也可以在額度管理中隨時開關。",
+    "oobe.asset_protection.description":  "用於防止意外的點數消耗。啟用後會限制進階功能（精確參考）和高尺寸圖像生成。稍後也可以在額度管理中隨時開關。",
     "oobe.api.skip_hint":  "可以略過輸入 API Key，但這樣就無法使用生圖和重繪服務了。",
     "oobe.reverse.title":  "設定反推模型路徑",
     "oobe.reverse.description":  "請選擇包含反推模型檔案的資料夾。",

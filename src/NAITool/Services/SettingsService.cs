@@ -134,7 +134,7 @@ public class AppSettings
     public int RandomStyleMinCount { get; set; } = 80;
     public bool RandomStyleUseWeight { get; set; }
     public bool AutoGenRandomStylePrefix { get; set; }
-    public bool AccountAssetProtectionMode { get; set; } = true;
+    public bool AccountAssetProtectionMode { get; set; } = false;
     public bool AccountAssetProtectionBlockOversizedDimensions { get; set; } = true;
     public bool AccountAssetProtectionBlockOversizedSteps { get; set; } = true;
     public bool AccountAssetProtectionDisablePaidFeatures { get; set; } = true;

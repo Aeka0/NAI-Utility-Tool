@@ -1000,7 +1000,7 @@
   "oobe.api.test.valid": "API Key is valid. Store it carefully and avoid leaking it.",
   "oobe.api.test.invalid": "API Key is invalid or the network is unavailable.",
   "oobe.asset_protection.title": "Enable Asset Protection Mode",
-  "oobe.asset_protection.description": "Helps prevent accidental Anlas spending. Turn it off if you need advanced features such as precise reference, or if you want to generate high-resolution images. You can change this later in Quota Management.",
+  "oobe.asset_protection.description": "Helps prevent accidental Anlas spending. When enabled, it restricts advanced features such as precise reference and high-resolution image generation. You can change this later in Quota Management.",
   "oobe.api.skip_hint": "You can leave this empty, but image generation and inpainting services will not be available.",
   "oobe.reverse.title": "Reverse Tagger Model Path",
   "oobe.reverse.description": "Choose the folder that contains the reverse tagger model.",

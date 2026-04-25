@@ -1000,7 +1000,7 @@
     "oobe.api.test.valid":  "API Key は有効です。大切に保管し、漏えいしないよう注意してください。",
     "oobe.api.test.invalid":  "API Key が無効、またはネットワークを利用できません。",
     "oobe.asset_protection.title":  "資産保護モードを有効にする",
-    "oobe.asset_protection.description":  "意図しない Anlas 消費を防ぐための設定です。精密参照などの高度な機能や高解像度画像生成が必要な場合はオフにしてください。あとからクォータ管理でいつでも変更できます。",
+    "oobe.asset_protection.description":  "意図しない Anlas 消費を防ぐための設定です。有効にすると、精密参照などの高度な機能や高解像度画像生成が制限されます。あとからクォータ管理でいつでも変更できます。",
     "oobe.api.skip_hint":  "API Key は空のままでも進めますが、画像生成とインペイントサービスは利用できません。",
     "oobe.reverse.title":  "逆引きモデルのパス",
     "oobe.reverse.description":  "逆引きモデルを含むフォルダーを選択してください。",
