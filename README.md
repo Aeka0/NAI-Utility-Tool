@@ -1,3 +1,6 @@
+<img width="1344" height="768" alt="Title" src="https://github.com/user-attachments/assets/ada996fb-730e-400a-826a-c614b0bd6087" />
+
+
 # NAI Utility Tool
 
 NAI Utility Tool is a Windows desktop client for NovelAI image workflows. It is built with WinUI 3, Windows App SDK, and .NET 9, and focuses on day-to-day image generation, image-to-image editing, prompt management, local post-processing, upscaling, and metadata inspection.
