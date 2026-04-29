@@ -367,8 +367,8 @@ public sealed partial class MainWindow
             int close = text.IndexOf("::", contentStart, StringComparison.Ordinal);
             if (close < 0)
             {
-                index = contentStart;
-                continue;
+                spans.Add(new PromptWeightHighlightSpan(index, text.Length - index, weight));
+                break;
             }
 
             int end = close + 2;
