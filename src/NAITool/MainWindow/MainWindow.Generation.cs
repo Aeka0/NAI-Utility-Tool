@@ -125,7 +125,11 @@ public sealed partial class MainWindow
                 string negativeRaw = _genNegativePrompt;
                 if (_autoGenRunning && _activeAutomationSettings?.Randomization.RandomizeStyleTags == true)
                 {
-                    string? stylePrefix = BuildRandomStylePrefixForRequest();
+                    var styleOptions = new RandomStyleOptions(
+                        _activeAutomationSettings.Randomization.StyleTagCount,
+                        _activeAutomationSettings.Randomization.StyleMinCount,
+                        _activeAutomationSettings.Randomization.StyleUseWeight);
+                    string? stylePrefix = BuildRandomStylePrefixForRequest(styleOptions);
                     if (string.IsNullOrWhiteSpace(stylePrefix))
                         return false;
                     positiveRaw = MergeStyleAndMain(_genStylePrompt, MergeStyleAndMain(stylePrefix, automationPrompt));

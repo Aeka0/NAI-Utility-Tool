@@ -133,6 +133,9 @@ public sealed class AutomationRandomizationOptions
     public List<string> SizePresets { get; set; } = DefaultSizePresets();
     public bool RandomizeVibeFiles { get; set; }
     public bool RandomizeStyleTags { get; set; }
+    public int StyleTagCount { get; set; } = 3;
+    public int StyleMinCount { get; set; } = 80;
+    public bool StyleUseWeight { get; set; }
     public bool RandomizePrompt { get; set; }
 
     public AutomationRandomizationOptions Clone() => new()
@@ -141,6 +144,9 @@ public sealed class AutomationRandomizationOptions
         SizePresets = (SizePresets ?? []).ToList(),
         RandomizeVibeFiles = RandomizeVibeFiles,
         RandomizeStyleTags = RandomizeStyleTags,
+        StyleTagCount = StyleTagCount,
+        StyleMinCount = StyleMinCount,
+        StyleUseWeight = StyleUseWeight,
         RandomizePrompt = RandomizePrompt,
     };
 
@@ -152,6 +158,8 @@ public sealed class AutomationRandomizationOptions
             .Select(x => x.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        StyleTagCount = Math.Clamp(StyleTagCount, 1, 10);
+        StyleMinCount = Math.Max(0, StyleMinCount);
     }
 
     public static List<string> DefaultSizePresets() =>

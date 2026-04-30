@@ -215,6 +215,13 @@ public sealed partial class MainWindow
         return result;
     }
 
+    private string? BuildRandomStylePrefixForRequest(RandomStyleOptions options)
+    {
+        if (!TryBuildRandomStylePrompt(options, out string result, out _))
+            return null;
+        return result;
+    }
+
     private bool TryBuildRandomStylePrompt(RandomStyleOptions options, out string result, out int tagCount)
     {
         result = "";

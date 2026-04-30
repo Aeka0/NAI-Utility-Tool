@@ -75,11 +75,14 @@ public sealed partial class MainWindow
         while (start > 0)
         {
             if (text[start - 1] == ',') break;
+            if (IsAutoCompleteLineBreak(text[start - 1])) break;
             if (start >= 2 && text[start - 1] == ':' && text[start - 2] == ':') break;
             start--;
         }
         return start;
     }
+
+    private static bool IsAutoCompleteLineBreak(char ch) => ch is '\r' or '\n';
 
     private static string ExtractCurrentToken(PromptTextBox textBox)
     {
@@ -102,8 +105,13 @@ public sealed partial class MainWindow
         while (start < text.Length && text[start] == ' ') start++;
 
         int end = caret;
-        while (end < text.Length && text[end] != ',' && !(end + 1 < text.Length && text[end] == ':' && text[end + 1] == ':'))
+        while (end < text.Length
+            && text[end] != ','
+            && !IsAutoCompleteLineBreak(text[end])
+            && !(end + 1 < text.Length && text[end] == ':' && text[end + 1] == ':'))
+        {
             end++;
+        }
 
         return (start, end);
     }

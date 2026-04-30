@@ -144,6 +144,70 @@ public sealed partial class MainWindow
             },
         };
 
+        var sliderStyleTagCount = new Slider
+        {
+            Minimum = 1,
+            Maximum = 10,
+            Value = workingSettings.Randomization.StyleTagCount,
+            StepFrequency = 1,
+            Header = L("random_style.tag_count"),
+            Width = 220,
+        };
+        var nbStyleMinCount = new NumberBox
+        {
+            Header = L("random_style.min_booru_count"),
+            Minimum = 0,
+            Value = workingSettings.Randomization.StyleMinCount,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        var chkStyleUseWeight = new CheckBox
+        {
+            Content = L("random_style.random_weight"),
+            IsChecked = workingSettings.Randomization.StyleUseWeight,
+            MinHeight = 32,
+        };
+        var styleFlyoutPanel = new StackPanel
+        {
+            Spacing = 10,
+            MinWidth = 240,
+            Padding = new Thickness(4),
+            Children =
+            {
+                sliderStyleTagCount,
+                nbStyleMinCount,
+                chkStyleUseWeight,
+            }
+        };
+        var btnStyleOptions = new Button { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
+        var randomStyleControl = new Grid
+        {
+            ColumnSpacing = 6,
+            HorizontalAlignment = HorizontalAlignment.Right,
+        };
+        randomStyleControl.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        randomStyleControl.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(btnStyleOptions, 0);
+        Grid.SetColumn(chkRandomStyle, 1);
+        randomStyleControl.Children.Add(btnStyleOptions);
+        randomStyleControl.Children.Add(chkRandomStyle);
+
+        void UpdateStyleButtonText()
+        {
+            int tagCount = Math.Clamp((int)Math.Round(sliderStyleTagCount.Value), 1, 10);
+            int minCount = ReadAutomationInteger(nbStyleMinCount, 0, int.MaxValue);
+            btnStyleOptions.Content = Lf("automation.style_options_button", tagCount, minCount);
+        }
+
+        sliderStyleTagCount.ValueChanged += (_, _) => UpdateStyleButtonText();
+        nbStyleMinCount.ValueChanged += (_, _) => UpdateStyleButtonText();
+        UpdateStyleButtonText();
+
+        btnStyleOptions.Flyout = new Flyout
+        {
+            Content = styleFlyoutPanel,
+        };
+
         var chkEnableUpscale = CreateAutomationToggleSwitch(workingSettings.Effects.UpscaleEnabled);
         var chkEnableFx = CreateAutomationToggleSwitch(workingSettings.Effects.FxEnabled);
         var cboUpscaleModel = new ComboBox { Header = L("automation.upscale_model"), HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -177,6 +241,9 @@ public sealed partial class MainWindow
             chkRandomSize.IsOn = settings.Randomization.RandomizeSize;
             chkRandomVibe.IsOn = settings.Randomization.RandomizeVibeFiles;
             chkRandomStyle.IsOn = settings.Randomization.RandomizeStyleTags;
+            sliderStyleTagCount.Value = settings.Randomization.StyleTagCount;
+            nbStyleMinCount.Value = settings.Randomization.StyleMinCount;
+            chkStyleUseWeight.IsChecked = settings.Randomization.StyleUseWeight;
             chkRandomPrompt.IsOn = settings.Randomization.RandomizePrompt;
             foreach (var pair in sizePresetChecks)
                 pair.Value.IsChecked = settings.Randomization.SizePresets.Contains(pair.Key, StringComparer.OrdinalIgnoreCase);
@@ -189,6 +256,8 @@ public sealed partial class MainWindow
 
             RefreshPresetSummary();
             UpdateRandomSizePanelState();
+            UpdateRandomStylePanelState();
+            UpdateStyleButtonText();
             UpdateEffectsPanelState();
         }
 
@@ -225,6 +294,9 @@ public sealed partial class MainWindow
                     SizePresets = sizePresets,
                     RandomizeVibeFiles = chkRandomVibe.IsOn,
                     RandomizeStyleTags = chkRandomStyle.IsOn,
+                    StyleTagCount = Math.Clamp((int)Math.Round(sliderStyleTagCount.Value), 1, 10),
+                    StyleMinCount = ReadAutomationInteger(nbStyleMinCount, 0, int.MaxValue),
+                    StyleUseWeight = chkStyleUseWeight.IsChecked == true,
                     RandomizePrompt = chkRandomPrompt.IsOn,
                 },
                 Effects = new AutomationEffectsOptions
@@ -264,6 +336,11 @@ public sealed partial class MainWindow
         void UpdateRandomSizePanelState()
         {
             btnSelectSizes.IsEnabled = chkRandomSize.IsOn;
+        }
+
+        void UpdateRandomStylePanelState()
+        {
+            btnStyleOptions.IsEnabled = chkRandomStyle.IsOn;
         }
 
         void UpdateEffectsPanelState()
@@ -369,6 +446,7 @@ public sealed partial class MainWindow
         };
 
         chkRandomSize.Toggled += (_, _) => UpdateRandomSizePanelState();
+        chkRandomStyle.Toggled += (_, _) => UpdateRandomStylePanelState();
         chkEnableUpscale.Toggled += (_, _) => UpdateEffectsPanelState();
         chkEnableFx.Toggled += (_, _) => UpdateEffectsPanelState();
 
@@ -496,7 +574,7 @@ public sealed partial class MainWindow
                 CreateAutomationSettingRow(
                     L("automation.random_style"),
                     L("automation.random_style_description"),
-                    chkRandomStyle),
+                    randomStyleControl),
                 CreateAutomationSettingRow(
                     L("automation.random_prompt"),
                     L("automation.random_prompt_description"),
@@ -890,7 +968,9 @@ public sealed partial class MainWindow
 
         string sizeLabel = rand.RandomizeSize ? Lf("automation.summary.size_count", rand.SizePresets.Count) : L("common.off");
         string vibeLabel = rand.RandomizeVibeFiles ? L("common.on") : L("common.off");
-        string styleLabel = rand.RandomizeStyleTags ? L("common.on") : L("common.off");
+        string styleLabel = rand.RandomizeStyleTags
+            ? Lf("automation.summary.style_options", rand.StyleTagCount, rand.StyleMinCount)
+            : L("common.off");
         string promptLabel = rand.RandomizePrompt ? L("common.on") : L("common.off");
 
         string upscaleLabel = post.UpscaleEnabled && !string.IsNullOrWhiteSpace(post.UpscaleModel)
