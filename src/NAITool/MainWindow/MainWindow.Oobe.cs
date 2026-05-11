@@ -635,13 +635,31 @@ public sealed partial class MainWindow
                         pathBox.Text = folder.Path;
                 };
 
+                var downloadButton = new Button { Content = L("settings.reverse.download_button") };
+                downloadButton.Click += async (_, _) =>
+                {
+                    downloadButton.IsEnabled = false;
+                    try
+                    {
+                        string dlPath = await ModelDownloadService.DownloadModelAsync();
+                        pathBox.Text = dlPath;
+                    }
+                    catch
+                    {
+                        downloadButton.IsEnabled = true;
+                    }
+                };
+
                 var pathRow = new Grid { ColumnSpacing = 8 };
                 pathRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 pathRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                pathRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 Grid.SetColumn(pathBox, 0);
                 Grid.SetColumn(browseButton, 1);
+                Grid.SetColumn(downloadButton, 2);
                 pathRow.Children.Add(pathBox);
                 pathRow.Children.Add(browseButton);
+                pathRow.Children.Add(downloadButton);
 
                 return CreatePageLayout("MaidAekaModel.png",
                     CreateTitle(L("oobe.reverse.title"), "\uE8EC"),

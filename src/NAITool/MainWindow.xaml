@@ -1037,6 +1037,16 @@
                                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <Image x:Name="GenPreviewImage" Stretch="Uniform"/>
                     </ScrollViewer>
+                    <Button x:Name="BtnShowGenResultBar"
+                            Click="OnShowGenResultBar"
+                            VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                            Margin="0,0,12,12"
+                            Width="36" Height="36" Padding="0"
+                            Visibility="Collapsed"
+                            ToolTipService.ToolTip="Show actions">
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                  Glyph="&#xE712;" FontSize="16"/>
+                    </Button>
                 </Grid>
 
                 <controls:MaskCanvasControl x:Name="MaskCanvas" Visibility="Collapsed"/>
@@ -1107,6 +1117,12 @@
                                     <TextBlock x:Name="TxtCloseGenResult" Text=""/>
                                 </StackPanel>
                             </Button>
+                            <ToggleButton x:Name="BtnPinGenResult" Click="OnPinGenResult"
+                                          Height="32" Width="32" Padding="0"
+                                          ToolTipService.ToolTip="Pin">
+                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                          Glyph="&#xE718;" FontSize="14"/>
+                            </ToggleButton>
                         </StackPanel>
                     </Border>
                 </Grid>

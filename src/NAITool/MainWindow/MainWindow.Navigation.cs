@@ -164,17 +164,45 @@ public sealed partial class MainWindow
     private void UpdateFloatingResultBarsVisibility()
     {
         bool showGenResultBar =
-            _genResultBarRequested &&
+            (_genResultBarRequested ||
+             (_genResultBarPinned && _currentGenImageBytes != null)) &&
             _currentMode == AppMode.ImageGeneration &&
             !_autoGenRunning &&
             _settings.Settings.ShowGenerationResultBar &&
             _currentGenImageBytes != null;
         GenResultBar.Visibility = showGenResultBar ? Visibility.Visible : Visibility.Collapsed;
 
+        BtnShowGenResultBar.Visibility =
+            (!showGenResultBar &&
+             _currentMode == AppMode.ImageGeneration &&
+             _currentGenImageBytes != null)
+            ? Visibility.Visible : Visibility.Collapsed;
+
         bool showI2IResultBar =
             _currentMode == AppMode.I2I &&
             MaskCanvas.IsInPreviewMode;
         ResultActionBar.Visibility = showI2IResultBar ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnShowGenResultBar(object sender, RoutedEventArgs e)
+    {
+        _genResultBarPinned = true;
+        BtnPinGenResult.IsChecked = true;
+        var icon = BtnPinGenResult.Content as FontIcon;
+        if (icon != null)
+            icon.Glyph = "";
+        UpdateFloatingResultBarsVisibility();
+    }
+
+    private void OnPinGenResult(object sender, RoutedEventArgs e)
+    {
+        _genResultBarPinned = BtnPinGenResult.IsChecked == true;
+        if (!_genResultBarPinned)
+            _genResultBarRequested = true;
+        var icon = BtnPinGenResult.Content as FontIcon;
+        if (icon != null)
+            icon.Glyph = _genResultBarPinned ? "" : "";
+        UpdateFloatingResultBarsVisibility();
     }
 
     private void OnLeftSidebarResizeStart(object sender, PointerRoutedEventArgs e)

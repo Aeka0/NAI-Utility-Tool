@@ -177,6 +177,12 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (_currentMode == AppMode.ImageGeneration && TryNavigateHistory(e.Key))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint)
         {
             var ctrlState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
@@ -250,6 +256,49 @@ public sealed partial class MainWindow
         var tag = $"{row}{col}";
         MaskCanvas.AlignImage(tag);
         TxtStatus.Text = L("image.aligned");
+        return true;
+    }
+
+    private bool TryNavigateHistory(Windows.System.VirtualKey key)
+    {
+        if (key != Windows.System.VirtualKey.Up && key != Windows.System.VirtualKey.Down)
+            return false;
+
+        if (_historyListItems.Count == 0 || _currentGenImagePath == null)
+            return false;
+
+        int currentIdx = -1;
+        for (int i = 0; i < _historyListItems.Count; i++)
+        {
+            var item = _historyListItems[i];
+            if (!item.IsSeparator && !item.IsPending &&
+                string.Equals(item.FilePath, _currentGenImagePath, StringComparison.OrdinalIgnoreCase))
+            {
+                currentIdx = i;
+                break;
+            }
+        }
+
+        if (currentIdx < 0)
+            return false;
+
+        bool up = key == Windows.System.VirtualKey.Up;
+        int targetIdx = currentIdx;
+        do
+        {
+            targetIdx += up ? -1 : 1;
+            if (targetIdx < 0 || targetIdx >= _historyListItems.Count)
+                return true;
+        }
+        while (_historyListItems[targetIdx].IsSeparator || _historyListItems[targetIdx].IsPending);
+
+        var targetPath = _historyListItems[targetIdx].FilePath;
+        if (targetPath != null)
+        {
+            _ = ShowHistoryImageAsync(targetPath);
+            HistoryListView.ScrollIntoView(_historyListItems[targetIdx], ScrollIntoViewAlignment.Leading);
+        }
+
         return true;
     }
 

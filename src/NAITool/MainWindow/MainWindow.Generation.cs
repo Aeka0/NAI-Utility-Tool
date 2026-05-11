@@ -679,7 +679,8 @@ public sealed partial class MainWindow
 
     private async void OnDeleteGenResult(object sender, RoutedEventArgs e)
     {
-        SetGenResultBarRequested(false);
+        if (!_genResultBarPinned)
+            SetGenResultBarRequested(false);
 
         string? deletedPath = _currentGenImagePath;
         if (!string.IsNullOrEmpty(deletedPath) && File.Exists(deletedPath))
@@ -758,6 +759,8 @@ public sealed partial class MainWindow
 
     private void OnCloseGenResultBar(object sender, RoutedEventArgs e)
     {
+        _genResultBarPinned = false;
+        BtnPinGenResult.IsChecked = false;
         SetGenResultBarRequested(false);
     }
 

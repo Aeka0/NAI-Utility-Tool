@@ -342,13 +342,73 @@ public sealed partial class MainWindow
                 pathBox.Text = folder.Path;
         };
 
+        var downloadButton = new Button
+        {
+            Content = L("settings.reverse.download_button"),
+        };
+        var downloadProgressBar = new ProgressBar
+        {
+            Width = 100,
+            Height = 4,
+            IsIndeterminate = false,
+            Visibility = Visibility.Collapsed,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        downloadButton.Click += async (_, _) =>
+        {
+            downloadButton.IsEnabled = false;
+            downloadProgressBar.Visibility = Visibility.Visible;
+            downloadProgressBar.IsIndeterminate = true;
+            TxtStatus.Text = L("settings.reverse.downloading");
+
+            try
+            {
+                string dlPath = await ModelDownloadService.DownloadModelAsync(
+                    onProgress: p =>
+                    {
+                        DispatcherQueue.TryEnqueue(() =>
+                        {
+                            TxtStatus.Text = p.IsCompleted
+                                ? L("settings.reverse.download_complete")
+                                : p.StatusMessage;
+                            if (p.IsCompleted)
+                            {
+                                downloadProgressBar.IsIndeterminate = false;
+                                downloadProgressBar.Value = 100;
+                            }
+                        });
+                    });
+
+                pathBox.Text = dlPath;
+            }
+            catch (Exception ex)
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    TxtStatus.Text = Lf("settings.reverse.download_failed", ex.Message);
+                    downloadButton.IsEnabled = true;
+                });
+            }
+            finally
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    downloadProgressBar.Visibility = Visibility.Collapsed;
+                });
+            }
+        };
+
         var pathPanel = new Grid { ColumnSpacing = 8 };
         pathPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         pathPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        pathPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(pathBox, 0);
         Grid.SetColumn(browseButton, 1);
+        Grid.SetColumn(downloadButton, 2);
         pathPanel.Children.Add(pathBox);
         pathPanel.Children.Add(browseButton);
+        pathPanel.Children.Add(downloadButton);
 
         StackPanel BuildSliderRow(Slider slider, TextBlock valueText)
         {
@@ -370,6 +430,7 @@ public sealed partial class MainWindow
         };
         panel.Children.Add(new TextBlock { Text = L("settings.reverse.model_path") });
         panel.Children.Add(pathPanel);
+        panel.Children.Add(downloadProgressBar);
         panel.Children.Add(new TextBlock
         {
             Text = L("settings.reverse.model_path_hint"),

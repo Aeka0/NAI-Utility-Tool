@@ -180,6 +180,7 @@ public sealed partial class MainWindow : Window
     private byte[]? _currentGenImageBytes;
     private string? _currentGenImagePath;
     private bool _genResultBarRequested;
+    private bool _genResultBarPinned;
 
     // ═══ 检视模式 ═══
     private ImageMetadata? _inspectMetadata;
