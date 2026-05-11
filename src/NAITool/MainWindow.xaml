@@ -938,15 +938,26 @@
                             <ComboBox x:Name="CboUpscaleModel" HorizontalAlignment="Stretch"
                                       SelectionChanged="OnUpscaleModelChanged"/>
 
-                        <TextBlock x:Name="TxtUpscaleScaleLabel" Text=""
+                            <TextBlock x:Name="TxtUpscaleScaleLabel" Text=""
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Margin="0,8,0,0"/>
-                            <ComboBox x:Name="CboUpscaleScale" HorizontalAlignment="Stretch"
-                                      SelectionChanged="OnUpscaleScaleChanged">
-                                <ComboBoxItem Content="2x" Tag="2" IsSelected="True"/>
-                                <ComboBoxItem Content="3x" Tag="3"/>
-                                <ComboBoxItem Content="4x" Tag="4"/>
-                            </ComboBox>
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="SliderUpscaleScale" Grid.Column="0"
+                                        Minimum="1" Maximum="4" Value="2"
+                                        StepFrequency="0.1" SmallChange="0.1" LargeChange="0.5"
+                                        VerticalAlignment="Center"
+                                        ValueChanged="OnUpscaleScaleChanged"/>
+                                <TextBlock x:Name="TxtUpscaleScaleValue" Grid.Column="1"
+                                           Text="2.0x"
+                                           MinWidth="40"
+                                           TextAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </Grid>
 
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     CornerRadius="4" Padding="10,8">

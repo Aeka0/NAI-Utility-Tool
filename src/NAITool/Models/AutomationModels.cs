@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using NAITool.Services;
 
 namespace NAITool.Models;
 
@@ -175,7 +176,7 @@ public sealed class AutomationEffectsOptions
     public bool Enabled { get; set; }
     public bool UpscaleEnabled { get; set; }
     public string UpscaleModel { get; set; } = "";
-    public int UpscaleScale { get; set; } = 2;
+    public double UpscaleScale { get; set; } = UpscaleService.DefaultTargetScale;
     public bool FxEnabled { get; set; }
     public string FxPresetName { get; set; } = "";
 
@@ -193,11 +194,7 @@ public sealed class AutomationEffectsOptions
     {
         UpscaleModel ??= "";
         FxPresetName ??= "";
-        UpscaleScale = UpscaleScale switch
-        {
-            2 or 3 or 4 => UpscaleScale,
-            _ => 2,
-        };
+        UpscaleScale = UpscaleService.NormalizeTargetScale(UpscaleScale);
         if (Enabled && !FxEnabled && !string.IsNullOrWhiteSpace(FxPresetName))
             FxEnabled = true;
         Enabled = UpscaleEnabled || FxEnabled;
