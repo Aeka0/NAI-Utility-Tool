@@ -12,6 +12,11 @@ namespace NAITool.Services;
 
 public sealed class UpscaleService : IDisposable
 {
+    public const double MinTargetScale = 1.0;
+    public const double MaxTargetScale = 4.0;
+    public const double DefaultTargetScale = 2.0;
+    public const double TargetScaleStep = 0.1;
+
     private readonly object _sync = new();
     private InferenceSession? _session;
     private string? _loadedModelPath;
@@ -23,10 +28,24 @@ public sealed class UpscaleService : IDisposable
 
     private const int DefaultTileSize = 512;
     private const int TileOverlap = 32;
+    private const double ScaleEpsilon = 0.0001;
 
     private static string L(string key) => LocalizationService.Instance.GetString(key);
 
     public record UpscaleModelInfo(string DisplayName, string FilePath, int Scale);
+    private readonly record struct InferenceOutput(float[] Data, int Width, int Height);
+
+    private sealed class DelegateProgress : IProgress<double>
+    {
+        private readonly Action<double> _report;
+
+        public DelegateProgress(Action<double> report)
+        {
+            _report = report;
+        }
+
+        public void Report(double value) => _report(value);
+    }
 
     public static List<UpscaleModelInfo> ScanModels(string modelsDirectory)
     {
@@ -50,6 +69,16 @@ public sealed class UpscaleService : IDisposable
         if (lower.Contains("x2") || lower.Contains("2x")) return 2;
         if (lower.Contains("x3") || lower.Contains("3x")) return 3;
         return 4;
+    }
+
+    public static double NormalizeTargetScale(double targetScale)
+    {
+        if (double.IsNaN(targetScale) || double.IsInfinity(targetScale))
+            targetScale = DefaultTargetScale;
+
+        var clamped = Math.Clamp(targetScale, MinTargetScale, MaxTargetScale);
+        var stepped = Math.Round(clamped / TargetScaleStep, 0, MidpointRounding.AwayFromZero) * TargetScaleStep;
+        return Math.Round(Math.Clamp(stepped, MinTargetScale, MaxTargetScale), 1, MidpointRounding.AwayFromZero);
     }
 
     public void LoadModel(string modelPath, bool preferCpu = false)
@@ -104,6 +133,17 @@ public sealed class UpscaleService : IDisposable
         IProgress<double>? progress = null,
         CancellationToken ct = default)
     {
+        int modelScale;
+        lock (_sync) modelScale = Math.Max(1, _modelScale);
+        return UpscaleAsync(imageBytes, modelScale, progress, ct);
+    }
+
+    public Task<byte[]> UpscaleAsync(
+        byte[] imageBytes,
+        double targetScale,
+        IProgress<double>? progress = null,
+        CancellationToken ct = default)
+    {
         return Task.Run(() =>
         {
             ct.ThrowIfCancellationRequested();
@@ -118,32 +158,97 @@ public sealed class UpscaleService : IDisposable
 
             var srcW = sourceBitmap.Width;
             var srcH = sourceBitmap.Height;
-            int scale;
-            lock (_sync) scale = _modelScale;
+            targetScale = NormalizeTargetScale(targetScale);
 
-            var outW = srcW * scale;
-            var outH = srcH * scale;
+            int modelScale;
+            lock (_sync) modelScale = Math.Max(1, _modelScale);
+            int passCount = GetRequiredPassCount(modelScale, targetScale);
 
-            if (srcW <= DefaultTileSize && srcH <= DefaultTileSize)
+            SKBitmap? currentBitmap = null;
+            try
             {
-                progress?.Report(0.1);
-                var result = RunSingleTile(sourceBitmap, ct);
-                progress?.Report(1.0);
-                return EncodePng(result);
-            }
+                for (int pass = 0; pass < passCount; pass++)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var inputBitmap = currentBitmap ?? sourceBitmap;
+                    var passProgress = CreatePassProgress(progress, pass, passCount);
+                    var passBitmap = RunNativeUpscale(inputBitmap, passProgress, ct);
+                    currentBitmap?.Dispose();
+                    currentBitmap = passBitmap;
+                }
 
-            return RunTiled(sourceBitmap, scale, progress, ct);
+                currentBitmap ??= sourceBitmap.Copy();
+
+                int targetW = Math.Max(1, (int)Math.Round(srcW * targetScale, MidpointRounding.AwayFromZero));
+                int targetH = Math.Max(1, (int)Math.Round(srcH * targetScale, MidpointRounding.AwayFromZero));
+                if (currentBitmap.Width != targetW || currentBitmap.Height != targetH)
+                {
+                    using var resized = ResizeBitmap(currentBitmap, targetW, targetH);
+                    progress?.Report(1.0);
+                    return EncodePng(resized);
+                }
+
+                progress?.Report(1.0);
+                return EncodePng(currentBitmap);
+            }
+            finally
+            {
+                currentBitmap?.Dispose();
+            }
         }, ct);
+    }
+
+    private static int GetRequiredPassCount(int modelScale, double targetScale)
+    {
+        if (modelScale <= 1)
+            return 1;
+
+        int passCount = 1;
+        double cumulativeScale = modelScale;
+        while (cumulativeScale + ScaleEpsilon < targetScale && passCount < 3)
+        {
+            passCount++;
+            cumulativeScale *= modelScale;
+        }
+
+        return passCount;
+    }
+
+    private static IProgress<double>? CreatePassProgress(IProgress<double>? progress, int passIndex, int passCount)
+    {
+        if (progress == null)
+            return null;
+
+        return new DelegateProgress(p =>
+        {
+            var clamped = Math.Clamp(p, 0.0, 1.0);
+            progress.Report((passIndex + clamped) / passCount);
+        });
+    }
+
+    private SKBitmap RunNativeUpscale(SKBitmap sourceBitmap, IProgress<double>? progress, CancellationToken ct)
+    {
+        if (sourceBitmap.Width <= DefaultTileSize && sourceBitmap.Height <= DefaultTileSize)
+        {
+            progress?.Report(0.1);
+            var result = RunSingleTile(sourceBitmap, ct);
+            progress?.Report(1.0);
+            return result;
+        }
+
+        int scale;
+        lock (_sync) scale = Math.Max(1, _modelScale);
+        return RunTiled(sourceBitmap, scale, progress, ct);
     }
 
     private SKBitmap RunSingleTile(SKBitmap bitmap, CancellationToken ct)
     {
         var tensor = BitmapToTensor(bitmap);
-        var output = RunInference(tensor, bitmap.Width, bitmap.Height, ct);
+        var output = RunInference(tensor, ct);
         return TensorToBitmap(output);
     }
 
-    private byte[] RunTiled(SKBitmap source, int scale,
+    private SKBitmap RunTiled(SKBitmap source, int scale,
         IProgress<double>? progress, CancellationToken ct)
     {
         int srcW = source.Width, srcH = source.Height;
@@ -183,7 +288,7 @@ public sealed class UpscaleService : IDisposable
                 }
 
                 var tensor = BitmapToTensor(tileBitmap);
-                var tileOut = RunInference(tensor, sw, sh, ct);
+                var tileOut = RunInference(tensor, ct);
                 using var outTileBitmap = TensorToBitmap(tileOut);
 
                 int ox = sx * scale;
@@ -195,7 +300,8 @@ public sealed class UpscaleService : IDisposable
             }
         }
 
-        return EncodePng(output);
+        canvas.Flush();
+        return output.Copy();
     }
 
     private DenseTensor<float> BitmapToTensor(SKBitmap bitmap)
@@ -217,7 +323,7 @@ public sealed class UpscaleService : IDisposable
         return tensor;
     }
 
-    private float[] RunInference(DenseTensor<float> input, int tileW, int tileH, CancellationToken ct)
+    private InferenceOutput RunInference(DenseTensor<float> input, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -236,34 +342,39 @@ public sealed class UpscaleService : IDisposable
         };
 
         using var results = session.Run(inputs);
-        var outputTensor = results.First(r => r.Name == outputName);
-        return outputTensor.AsEnumerable<float>().ToArray();
-    }
-
-    private SKBitmap TensorToBitmap(float[] data)
-    {
-        int scale;
-        lock (_sync) scale = _modelScale;
-
-        int totalPixels = data.Length / 3;
-        int outW = (int)Math.Sqrt(totalPixels * 1.0);
-        int outH = totalPixels / outW;
-
-        if (outW * outH != totalPixels)
+        var outputTensor = results.First(r => r.Name == outputName).AsTensor<float>();
+        var dimensions = outputTensor.Dimensions;
+        int outH = 0;
+        int outW = 0;
+        if (dimensions.Length >= 4)
         {
-            for (int w = (int)Math.Sqrt(totalPixels); w >= 1; w--)
-            {
-                if (totalPixels % w == 0)
-                {
-                    outW = w;
-                    outH = totalPixels / w;
-                    break;
-                }
-            }
+            outH = dimensions[^2];
+            outW = dimensions[^1];
         }
 
-        var bitmap = new SKBitmap(outW, outH, SKColorType.Rgba8888, SKAlphaType.Premul);
+        var data = outputTensor.AsEnumerable<float>().ToArray();
+        if (outW <= 0 || outH <= 0)
+        {
+            int totalPixels = data.Length / 3;
+            outW = (int)Math.Sqrt(totalPixels);
+            while (outW > 1 && totalPixels % outW != 0)
+                outW--;
+            outH = Math.Max(1, totalPixels / Math.Max(1, outW));
+        }
+
+        return new InferenceOutput(data, outW, outH);
+    }
+
+    private SKBitmap TensorToBitmap(InferenceOutput output)
+    {
+        var data = output.Data;
+        int outW = output.Width;
+        int outH = output.Height;
         int planeSize = outW * outH;
+        if (outW <= 0 || outH <= 0 || data.Length < planeSize * 3)
+            throw new InvalidOperationException(L("upscale.error.decode_failed"));
+
+        var bitmap = new SKBitmap(outW, outH, SKColorType.Rgba8888, SKAlphaType.Premul);
 
         for (int y = 0; y < outH; y++)
         {
@@ -278,6 +389,16 @@ public sealed class UpscaleService : IDisposable
         }
 
         return bitmap;
+    }
+
+    private static SKBitmap ResizeBitmap(SKBitmap source, int width, int height)
+    {
+        var resized = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var canvas = new SKCanvas(resized);
+        canvas.Clear(SKColors.Transparent);
+        canvas.DrawBitmap(source, new SKRect(0, 0, width, height));
+        canvas.Flush();
+        return resized;
     }
 
     private static byte[] EncodePng(SKBitmap bitmap)

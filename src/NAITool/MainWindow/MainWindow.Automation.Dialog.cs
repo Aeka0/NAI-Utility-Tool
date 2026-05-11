@@ -216,15 +216,54 @@ public sealed partial class MainWindow
             cboUpscaleModel.Items.Add(CreateTextComboBoxItem(model.DisplayName));
         ApplyMenuTypography(cboUpscaleModel);
 
-        var cboUpscaleScale = new ComboBox { Header = L("automation.upscale_scale"), HorizontalAlignment = HorizontalAlignment.Stretch };
-        cboUpscaleScale.Items.Add(new ComboBoxItem { Content = "2x", Tag = 2 });
-        cboUpscaleScale.Items.Add(new ComboBoxItem { Content = "3x", Tag = 3 });
-        cboUpscaleScale.Items.Add(new ComboBoxItem { Content = "4x", Tag = 4 });
-        ApplyMenuTypography(cboUpscaleScale);
+        var sliderUpscaleScale = new Slider
+        {
+            Minimum = UpscaleService.MinTargetScale,
+            Maximum = UpscaleService.MaxTargetScale,
+            Value = UpscaleService.DefaultTargetScale,
+            StepFrequency = UpscaleService.TargetScaleStep,
+            SmallChange = UpscaleService.TargetScaleStep,
+            LargeChange = 0.5,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var txtUpscaleScaleValue = new TextBlock
+        {
+            Text = $"{FormatUpscaleScale(sliderUpscaleScale.Value)}x",
+            MinWidth = 40,
+            TextAlignment = TextAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Opacity = 0.7,
+        };
+        var upscaleScaleGrid = new Grid
+        {
+            ColumnSpacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        upscaleScaleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        upscaleScaleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(sliderUpscaleScale, 0);
+        Grid.SetColumn(txtUpscaleScaleValue, 1);
+        upscaleScaleGrid.Children.Add(sliderUpscaleScale);
+        upscaleScaleGrid.Children.Add(txtUpscaleScaleValue);
+        var upscaleScaleField = CreateAutomationLabeledField(L("automation.upscale_scale"), upscaleScaleGrid);
+
+        void UpdateUpscaleScaleValueText()
+        {
+            double scale = UpscaleService.NormalizeTargetScale(sliderUpscaleScale.Value);
+            if (Math.Abs(sliderUpscaleScale.Value - scale) > 0.001)
+                sliderUpscaleScale.Value = scale;
+            txtUpscaleScaleValue.Text = $"{FormatUpscaleScale(scale)}x";
+        }
 
         var cboEffectsPreset = new ComboBox { Header = L("automation.post_preset"), HorizontalAlignment = HorizontalAlignment.Stretch };
         PopulateAutomationEffectsPresetCombo(cboEffectsPreset);
         ApplyMenuTypography(cboEffectsPreset);
+
+        sliderUpscaleScale.ValueChanged += (_, _) =>
+        {
+            UpdateUpscaleScaleValueText();
+            RefreshPresetSummary();
+        };
 
         void ApplySettingsToControls(AutomationSettings settings)
         {
@@ -251,7 +290,8 @@ public sealed partial class MainWindow
             chkEnableUpscale.IsOn = settings.Effects.UpscaleEnabled;
             chkEnableFx.IsOn = settings.Effects.FxEnabled;
             SelectComboText(cboUpscaleModel, settings.Effects.UpscaleModel);
-            SelectComboTag(cboUpscaleScale, settings.Effects.UpscaleScale);
+            sliderUpscaleScale.Value = UpscaleService.NormalizeTargetScale(settings.Effects.UpscaleScale);
+            UpdateUpscaleScaleValueText();
             SelectComboText(cboEffectsPreset, settings.Effects.FxPresetName);
 
             RefreshPresetSummary();
@@ -305,7 +345,7 @@ public sealed partial class MainWindow
                                      chkEnableUpscale.IsOn &&
                                      !string.IsNullOrWhiteSpace(GetSelectedComboText(cboUpscaleModel)),
                     UpscaleModel = GetSelectedComboText(cboUpscaleModel) ?? "",
-                    UpscaleScale = GetSelectedComboTagInt(cboUpscaleScale, workingSettings.Effects.UpscaleScale),
+                    UpscaleScale = UpscaleService.NormalizeTargetScale(sliderUpscaleScale.Value),
                     FxEnabled = chkEnableFx.IsOn,
                     FxPresetName = GetSelectedComboText(cboEffectsPreset) ?? "",
                 },
@@ -351,7 +391,8 @@ public sealed partial class MainWindow
                 chkEnableUpscale.IsOn = false;
             bool upscaleOn = chkEnableUpscale.IsOn;
             cboUpscaleModel.IsEnabled = upscaleOn && hasUpscaleModels;
-            cboUpscaleScale.IsEnabled = upscaleOn;
+            sliderUpscaleScale.IsEnabled = upscaleOn;
+            txtUpscaleScaleValue.Opacity = upscaleOn ? 0.7 : 0.35;
 
             cboEffectsPreset.IsEnabled = chkEnableFx.IsOn;
         }
@@ -597,7 +638,7 @@ public sealed partial class MainWindow
                 CreateAutomationSection(
                     L("automation.section.upscale_settings.title"),
                     L("automation.section.upscale_settings.description"),
-                    CreateAutomationTwoColumnRow(cboUpscaleModel, cboUpscaleScale)),
+                    CreateAutomationTwoColumnRow(cboUpscaleModel, upscaleScaleField)),
                 new Border
                 {
                     Height = 1,
@@ -908,32 +949,6 @@ public sealed partial class MainWindow
         }
     }
 
-    private static void SelectComboTag(ComboBox combo, int tagValue)
-    {
-        for (int i = 0; i < combo.Items.Count; i++)
-        {
-            if (combo.Items[i] is ComboBoxItem item &&
-                item.Tag is int value &&
-                value == tagValue)
-            {
-                combo.SelectedIndex = i;
-                return;
-            }
-        }
-    }
-
-    private static int GetSelectedComboTagInt(ComboBox combo, int fallback)
-    {
-        if (combo.SelectedItem is ComboBoxItem item)
-        {
-            if (item.Tag is int intValue)
-                return intValue;
-            if (item.Tag is string strValue && int.TryParse(strValue, out int parsed))
-                return parsed;
-        }
-        return fallback;
-    }
-
     private static string FormatAutomationSizePreset(int width, int height) => $"{width}x{height}";
 
     private static bool TryParseAutomationSizePreset(string? value, out int width, out int height)
@@ -974,7 +989,7 @@ public sealed partial class MainWindow
         string promptLabel = rand.RandomizePrompt ? L("common.on") : L("common.off");
 
         string upscaleLabel = post.UpscaleEnabled && !string.IsNullOrWhiteSpace(post.UpscaleModel)
-            ? $"{post.UpscaleModel} {post.UpscaleScale}x"
+            ? $"{post.UpscaleModel} {FormatUpscaleScale(post.UpscaleScale)}x"
             : L("common.off");
         string fxLabel = post.FxEnabled && !string.IsNullOrWhiteSpace(post.FxPresetName)
             ? post.FxPresetName

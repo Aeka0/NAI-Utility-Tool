@@ -16,6 +16,7 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -73,22 +74,39 @@ public sealed partial class MainWindow
         UpdateUpscaleResolutionDisplay();
     }
 
-    private void OnUpscaleScaleChanged(object sender, SelectionChangedEventArgs e)
+    private void OnUpscaleScaleChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
         if (TxtUpscaleInputRes == null) return;
         UpdateUpscaleResolutionDisplay();
     }
 
-    private int GetSelectedUpscaleScale()
+    private double GetSelectedUpscaleScale()
     {
-        if (CboUpscaleScale.SelectedItem is ComboBoxItem item && item.Tag is string tag
-            && int.TryParse(tag, out int scale))
-            return scale;
-        return 4;
+        if (SliderUpscaleScale == null)
+            return UpscaleService.DefaultTargetScale;
+
+        return UpscaleService.NormalizeTargetScale(SliderUpscaleScale.Value);
+    }
+
+    private static string FormatUpscaleScale(double scale)
+    {
+        return UpscaleService.NormalizeTargetScale(scale).ToString("0.0", CultureInfo.InvariantCulture);
+    }
+
+    private void UpdateUpscaleScaleValueDisplay()
+    {
+        if (SliderUpscaleScale == null || TxtUpscaleScaleValue == null)
+            return;
+
+        double scale = GetSelectedUpscaleScale();
+        if (Math.Abs(SliderUpscaleScale.Value - scale) > 0.001)
+            SliderUpscaleScale.Value = scale;
+        TxtUpscaleScaleValue.Text = $"{FormatUpscaleScale(scale)}x";
     }
 
     private void UpdateUpscaleResolutionDisplay()
     {
+        UpdateUpscaleScaleValueDisplay();
         if (_upscaleSourceWidth <= 0 || _upscaleSourceHeight <= 0)
         {
             TxtUpscaleInputRes.Text = "—";
@@ -97,9 +115,9 @@ public sealed partial class MainWindow
         }
 
         TxtUpscaleInputRes.Text = $"{_upscaleSourceWidth} × {_upscaleSourceHeight}";
-        int scale = GetSelectedUpscaleScale();
-        int outW = _upscaleSourceWidth * scale;
-        int outH = _upscaleSourceHeight * scale;
+        double scale = GetSelectedUpscaleScale();
+        int outW = Math.Max(1, (int)Math.Round(_upscaleSourceWidth * scale, MidpointRounding.AwayFromZero));
+        int outH = Math.Max(1, (int)Math.Round(_upscaleSourceHeight * scale, MidpointRounding.AwayFromZero));
         TxtUpscaleOutputRes.Text = $"{outW} × {outH}";
     }
 
@@ -205,8 +223,10 @@ public sealed partial class MainWindow
         if (modelIdx < 0 || modelIdx >= _upscaleModelInfos.Count) return;
 
         var modelInfo = _upscaleModelInfos[modelIdx];
+        double targetScale = GetSelectedUpscaleScale();
         _upscaleRunning = true;
         BtnStartUpscale.IsEnabled = false;
+        SliderUpscaleScale.IsEnabled = false;
         SetUpscaleButtonText(L("button.upscaling"));
         UpscaleProgressBar.Visibility = Visibility.Visible;
         TxtStatus.Text = L("status.upscale_loading_model");
@@ -218,10 +238,10 @@ public sealed partial class MainWindow
             var inputBytes = _upscaleInputImageBytes;
             bool preferCpu = PreferCpuForOnnxInference;
 
-            DebugLog($"[Upscale] Start | Model={modelInfo.DisplayName} | Device={(preferCpu ? "CPU" : "Prefer GPU")} | Input={_upscaleSourceWidth}x{_upscaleSourceHeight}");
+            DebugLog($"[Upscale] Start | Model={modelInfo.DisplayName} | TargetScale={FormatUpscaleScale(targetScale)}x | Device={(preferCpu ? "CPU" : "Prefer GPU")} | Input={_upscaleSourceWidth}x{_upscaleSourceHeight}");
 
             await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath, preferCpu));
-            DebugLog($"[Upscale] Model loaded | Provider={_upscaleService.ExecutionProvider} | Scale={_upscaleService.ModelScale}x");
+            DebugLog($"[Upscale] Model loaded | Provider={_upscaleService.ExecutionProvider} | NativeScale={_upscaleService.ModelScale}x");
             TxtStatus.Text = L("status.upscale_running");
 
             var progress = new Progress<double>(p =>
@@ -233,7 +253,7 @@ public sealed partial class MainWindow
                 });
             });
 
-            var resultBytes = await _upscaleService.UpscaleAsync(inputBytes, progress);
+            var resultBytes = await _upscaleService.UpscaleAsync(inputBytes, targetScale, progress);
 
             using var resultBitmap = SKBitmap.Decode(resultBytes);
             if (resultBitmap != null)
@@ -271,6 +291,7 @@ public sealed partial class MainWindow
                 _upscaleService?.UnloadModel();
             _upscaleRunning = false;
             BtnStartUpscale.IsEnabled = true;
+            SliderUpscaleScale.IsEnabled = true;
             SetUpscaleButtonText(L("button.start_upscale"));
             UpscaleProgressBar.Visibility = Visibility.Collapsed;
             UpscaleProgressBar.IsIndeterminate = true;

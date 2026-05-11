@@ -213,7 +213,7 @@ public sealed partial class MainWindow
             try
             {
                 currentBytes = await RunAutomationUpscaleAsync(currentBytes, options, ct);
-                notes.Add(Lf("automation.note.upscale", options.UpscaleModel, options.UpscaleScale));
+                notes.Add(Lf("automation.note.upscale", options.UpscaleModel, FormatUpscaleScale(options.UpscaleScale)));
             }
             catch (InvalidOperationException)
             {
@@ -260,25 +260,7 @@ public sealed partial class MainWindow
         try
         {
             await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath, preferCpu), ct);
-
-            int modelScale = Math.Max(2, modelInfo.Scale);
-            int targetScale = options.UpscaleScale;
-            int passCount = 1;
-            int cumulativeScale = modelScale;
-            while (cumulativeScale < targetScale && passCount < 3)
-            {
-                passCount++;
-                cumulativeScale *= modelScale;
-            }
-
-            byte[] currentBytes = sourceBytes;
-            for (int i = 0; i < passCount; i++)
-            {
-                ct.ThrowIfCancellationRequested();
-                currentBytes = await _upscaleService.UpscaleAsync(currentBytes, null, ct);
-            }
-
-            return currentBytes;
+            return await _upscaleService.UpscaleAsync(sourceBytes, options.UpscaleScale, null, ct);
         }
         finally
         {
