@@ -910,7 +910,7 @@ public sealed partial class MainWindow
         var inferSub = CreateLocalizedSubItem(
             MenuCommandPromptInference,
             "menu.inpaint.prompt_inference",
-            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8A5" });
+            new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8EC" });
         var inferGlobalItem = CreateLocalizedMenuItem(
             "infer_global",
             "menu.inpaint.infer_global",

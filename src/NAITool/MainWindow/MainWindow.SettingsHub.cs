@@ -91,7 +91,7 @@ public sealed partial class MainWindow
                             _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
                 CreateSettingsHubLayer(
-                    "\uE8A9",
+                    "\uE8FD",
                     L("settings.hub.usage.auto_complete"),
                     L("settings.hub.usage.auto_complete.description"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.AutoComplete, value =>
@@ -107,7 +107,23 @@ public sealed partial class MainWindow
                             _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
                 CreateSettingsHubLayer(
-                    "\uE7C3",
+                    "\uE74C",
+                    L("settings.hub.usage.wildcards_enabled"),
+                    L("settings.hub.usage.wildcards_enabled.description"),
+                    CreateSettingsHubToggleSwitch(_settings.Settings.WildcardsEnabled, value =>
+                    {
+                        ApplyUsageSettings(
+                            _settings.Settings.WeightHighlight,
+                            _settings.Settings.AutoComplete,
+                            _settings.Settings.RememberPromptAndParameters,
+                            _settings.Settings.SuperDropEnabled,
+                            _settings.Settings.ShowGenerationResultBar,
+                            _settings.Settings.ScrollHistoryToTopAfterGeneration,
+                            value,
+                            _settings.Settings.WildcardsRequireExplicitSyntax);
+                    })),
+                CreateSettingsHubLayer(
+                    "\uE81E",
                     L("settings.hub.usage.superdrop"),
                     L("settings.hub.usage.superdrop.description"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.SuperDropEnabled, value =>
@@ -172,23 +188,7 @@ public sealed partial class MainWindow
                             value);
                     })),
                 CreateSettingsHubLayer(
-                    "\uE74C",
-                    L("settings.hub.usage.wildcards_enabled"),
-                    L("settings.hub.usage.wildcards_enabled.description"),
-                    CreateSettingsHubToggleSwitch(_settings.Settings.WildcardsEnabled, value =>
-                    {
-                        ApplyUsageSettings(
-                            _settings.Settings.WeightHighlight,
-                            _settings.Settings.AutoComplete,
-                            _settings.Settings.RememberPromptAndParameters,
-                            _settings.Settings.SuperDropEnabled,
-                            _settings.Settings.ShowGenerationResultBar,
-                            _settings.Settings.ScrollHistoryToTopAfterGeneration,
-                            value,
-                            _settings.Settings.WildcardsRequireExplicitSyntax);
-                    })),
-                CreateSettingsHubLayer(
-                    "\uE943",
+                    "\uE75D",
                     L("settings.hub.usage.wildcards_explicit"),
                     L("settings.hub.usage.wildcards_explicit.description"),
                     CreateSettingsHubToggleSwitch(_settings.Settings.WildcardsRequireExplicitSyntax, value =>
@@ -522,7 +522,7 @@ public sealed partial class MainWindow
                         ApplyTransparencyModeSetting,
                         220)),
                 CreateSettingsHubLayer(
-                    "\uEC4A",
+                    "\uE916",
                     L("settings.hub.appearance.generation_waiting_animation"),
                     L("settings.hub.appearance.generation_waiting_animation.description"),
                     CreateSettingsHubToggleSwitch(

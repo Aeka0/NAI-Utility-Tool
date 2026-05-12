@@ -729,7 +729,7 @@ public sealed partial class MainWindow
         var useSeedItem = new MenuFlyoutItem
         {
             Text = L("action.use_seed"), Tag = filePath,
-            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B5" },
+            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uF0B9" },
         };
         useSeedItem.Click += OnHistoryUseSeed;
         menu.Items.Add(useSeedItem);
