@@ -451,9 +451,13 @@ public sealed partial class MainWindow
 
         int streamPreviewVer = 0;
         CanvasBitmap? streamPreviewBmp = null;
+        bool acceptStreamPreview = true;
         IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
             ? new Progress<byte[]>(async bytes =>
             {
+                if (!acceptStreamPreview)
+                    return;
+
                 int myVer = ++streamPreviewVer;
                 try
                 {
@@ -464,7 +468,7 @@ public sealed partial class MainWindow
                     w.DetachStream();
                     ms.Seek(0);
                     var bmp = await CanvasBitmap.LoadAsync(device, ms, 96f);
-                    if (myVer != streamPreviewVer) { bmp.Dispose(); return; }
+                    if (!acceptStreamPreview || myVer != streamPreviewVer) { bmp.Dispose(); return; }
                     streamPreviewBmp = bmp;
                     SetTransientI2IPreview(bmp);
                 }
@@ -477,6 +481,7 @@ public sealed partial class MainWindow
             MaskCanvas.CanvasW, MaskCanvas.CanvasH,
             prompt, negPrompt, chars, vibes, preciseReferences, progress, ct);
 
+        acceptStreamPreview = false;
         ++streamPreviewVer;
 
         if (error != null)
@@ -664,9 +669,13 @@ public sealed partial class MainWindow
 
         int streamPreviewVer = 0;
         CanvasBitmap? streamPreviewBmp = null;
+        bool acceptStreamPreview = true;
         IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
             ? new Progress<byte[]>(async bytes =>
             {
+                if (!acceptStreamPreview)
+                    return;
+
                 int myVer = ++streamPreviewVer;
                 try
                 {
@@ -677,7 +686,7 @@ public sealed partial class MainWindow
                     w.DetachStream();
                     ms.Seek(0);
                     var bmp = await CanvasBitmap.LoadAsync(device, ms, 96f);
-                    if (myVer != streamPreviewVer) { bmp.Dispose(); return; }
+                    if (!acceptStreamPreview || myVer != streamPreviewVer) { bmp.Dispose(); return; }
                     streamPreviewBmp = bmp;
                     SetTransientI2IPreview(bmp);
                 }
@@ -690,6 +699,7 @@ public sealed partial class MainWindow
             MaskCanvas.CanvasW, MaskCanvas.CanvasH,
             prompt, negPrompt, chars, vibes, preciseReferences, progress, ct);
 
+        acceptStreamPreview = false;
         ++streamPreviewVer;
 
         if (error != null)
@@ -735,7 +745,10 @@ public sealed partial class MainWindow
 
     private async void OnApplyResult(object sender, RoutedEventArgs e)
     {
+        if (_pendingResultBitmap == null && _i2iResultIndex >= 0)
+            await RestoreSelectedI2IResultCandidateAsync();
         if (_pendingResultBitmap == null) return;
+
         try
         {
             await ApplyInpaintResultAsync();
