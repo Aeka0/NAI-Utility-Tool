@@ -497,7 +497,7 @@ public static class ImageMetadataService
     {
         try
         {
-            using var bitmap = SKBitmap.Decode(pngData);
+            using var bitmap = DecodeRgbaUnpremulBitmap(pngData);
             if (bitmap == null) return pngData;
 
             bool changed = false;
@@ -921,7 +921,7 @@ public static class ImageMetadataService
         try
         {
             byte[] cleaned = SetAllAlphaToOpaque(pngData);
-            using var bitmap = SKBitmap.Decode(cleaned);
+            using var bitmap = DecodeRgbaUnpremulBitmap(cleaned);
             if (bitmap == null)
                 return pngData;
 
@@ -961,7 +961,7 @@ public static class ImageMetadataService
     {
         try
         {
-            using var bitmap = SKBitmap.Decode(pngData);
+            using var bitmap = DecodeRgbaUnpremulBitmap(pngData);
             if (bitmap == null)
                 return pngData;
 
@@ -983,6 +983,23 @@ public static class ImageMetadataService
         {
             return pngData;
         }
+    }
+
+    private static SKBitmap? DecodeRgbaUnpremulBitmap(byte[] pngData)
+    {
+        using var stream = new SKMemoryStream(pngData);
+        using var codec = SKCodec.Create(stream);
+        if (codec == null || codec.Info.Width <= 0 || codec.Info.Height <= 0)
+            return null;
+
+        var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
+        var bitmap = new SKBitmap(info);
+        var result = codec.GetPixels(info, bitmap.GetPixels());
+        if (result is SKCodecResult.Success or SKCodecResult.IncompleteInput)
+            return bitmap;
+
+        bitmap.Dispose();
+        return null;
     }
 
     private static string SerializeTextChunks(IReadOnlyDictionary<string, string> textChunks)
