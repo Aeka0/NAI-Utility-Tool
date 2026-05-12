@@ -540,8 +540,20 @@
                             </Grid>
 
                             <!-- 自动补全弹出框 -->
+                            <Border x:Name="AutoCompleteAnchor"
+                                    Width="0" Height="0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    IsHitTestVisible="False">
+                                <Border.RenderTransform>
+                                    <TranslateTransform x:Name="AutoCompleteAnchorTranslate"/>
+                                </Border.RenderTransform>
+                            </Border>
+
                             <Popup x:Name="AutoCompletePopup"
-                                   IsLightDismissEnabled="False">
+                                   IsLightDismissEnabled="False"
+                                   PlacementTarget="{Binding ElementName=AutoCompleteAnchor}"
+                                   DesiredPlacement="BottomEdgeAlignedLeft">
                                 <Border CornerRadius="6"
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                         BorderThickness="1"

@@ -242,16 +242,15 @@ public sealed partial class MainWindow
         {
             int caret = textBox.SelectionStart;
             if (caret <= 0) caret = 0;
-            var rect = textBox.GetRectFromCharacterIndex(caret > 0 ? caret - 1 : 0, true);
-
             var popupParent = AutoCompletePopup.Parent as UIElement ?? this.Content as UIElement;
-            var transform = textBox.TransformToVisual(popupParent);
-            double lineBottom = rect.Y + rect.Height;
-            var point = transform.TransformPoint(new Point(
-                textBox.Padding.Left,
-                lineBottom + 2));
-            AutoCompletePopup.HorizontalOffset = point.X;
-            AutoCompletePopup.VerticalOffset = point.Y;
+            var rect = textBox.GetCharacterBoxInVisual(caret > 0 ? caret - 1 : 0, popupParent);
+            var textBoxOrigin = textBox.TransformToVisual(popupParent)
+                .TransformPoint(new Point(textBox.Padding.Left, 0));
+
+            AutoCompleteAnchorTranslate.X = textBoxOrigin.X;
+            AutoCompleteAnchorTranslate.Y = rect.Y + rect.Height + 2;
+            AutoCompletePopup.HorizontalOffset = 0;
+            AutoCompletePopup.VerticalOffset = 0;
         }
         catch { }
     }

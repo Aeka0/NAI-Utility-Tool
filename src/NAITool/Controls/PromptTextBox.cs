@@ -213,6 +213,30 @@ public sealed class PromptTextBox : UserControl
     public Rect GetRectFromCharacterIndex(int charIndex, bool trailingEdge) =>
         _editor.GetRectFromCharacterIndex(charIndex, trailingEdge);
 
+    public Rect GetCharacterBoxInVisual(int charIndex, UIElement? visual)
+    {
+        string text = _editor.Text;
+        if (string.IsNullOrEmpty(text))
+            return new Rect(0, 0, 0, 0);
+
+        EnsureEditorScrollViewer();
+        _scrollOffsetCompensation = GetScrollOffsetCompensation(text);
+
+        charIndex = Math.Clamp(charIndex, 0, text.Length - 1);
+        if (!TryGetCharacterBox(charIndex, out double left, out double top, out double right, out double bottom))
+            return new Rect(0, 0, 0, 0);
+
+        GeneralTransform transform = TransformToVisual(visual);
+        Point topLeft = transform.TransformPoint(new Point(left, top));
+        Point bottomRight = transform.TransformPoint(new Point(right, bottom));
+
+        return new Rect(
+            Math.Min(topLeft.X, bottomRight.X),
+            Math.Min(topLeft.Y, bottomRight.Y),
+            Math.Abs(bottomRight.X - topLeft.X),
+            Math.Abs(bottomRight.Y - topLeft.Y));
+    }
+
     public new bool Focus(FocusState value) => _editor.Focus(value);
 
     public void ApplyHighlights(IReadOnlyList<PromptTextHighlight> highlights)
