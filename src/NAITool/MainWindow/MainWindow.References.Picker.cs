@@ -22,12 +22,8 @@ public sealed partial class MainWindow
     private async void OnAddVibeTransfer(object sender, RoutedEventArgs e)
     {
         int maxVibeTransfers = GetMaxAllowedVibeTransfers();
-        if (!CanEditVibeTransferFeature() || ActiveVibeTransferCount() >= maxVibeTransfers)
-        {
-            if (IsAssetProtectionPaidFeatureLimitEnabled() && ActiveVibeTransferCount() >= maxVibeTransfers)
-                TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
+        if (TryReportVibeTransferUnavailable(maxVibeTransfers))
             return;
-        }
 
         var newEntry = await CreateVibeTransferEntryAsync();
         if (newEntry == null)
@@ -35,8 +31,9 @@ public sealed partial class MainWindow
 
         if (ActiveVibeTransferCount() >= maxVibeTransfers)
         {
-            if (IsAssetProtectionPaidFeatureLimitEnabled())
-                TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
+            TxtStatus.Text = IsAssetProtectionPaidFeatureLimitEnabled()
+                ? Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit)
+                : Lf("references.error.vibe_count_limit", maxVibeTransfers);
             return;
         }
 
@@ -48,7 +45,7 @@ public sealed partial class MainWindow
 
     private async void OnAddPreciseReference(object sender, RoutedEventArgs e)
     {
-        if (!CanEditPreciseReferenceFeature() || ActivePreciseReferenceCount() >= MaxPreciseReferences)
+        if (TryReportPreciseReferenceUnavailable())
             return;
 
         var newEntry = await CreatePreciseReferenceEntryAsync();
@@ -229,15 +226,65 @@ public sealed partial class MainWindow
             OriginalImagePath: originalPath);
     }
 
+    private bool TryReportVibeTransferUnavailable(int maxVibeTransfers)
+    {
+        if (!SupportsVibeTransferFeature())
+        {
+            TxtStatus.Text = L("references.error.vibe_unsupported_model");
+            return true;
+        }
+
+        if (ActivePreciseReferenceCount() > 0)
+        {
+            TxtStatus.Text = L("references.validation.mixed_reference_types");
+            return true;
+        }
+
+        if (ActiveVibeTransferCount() >= maxVibeTransfers)
+        {
+            TxtStatus.Text = IsAssetProtectionPaidFeatureLimitEnabled()
+                ? Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit)
+                : Lf("references.error.vibe_count_limit", maxVibeTransfers);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryReportPreciseReferenceUnavailable()
+    {
+        if (IsPreciseReferenceBlockedByAssetProtection())
+        {
+            TxtStatus.Text = L("superdrop.error.asset_protection_precise_reference");
+            return true;
+        }
+
+        if (!SupportsPreciseReferenceFeature())
+        {
+            TxtStatus.Text = L("references.error.precise_requires_v45_model");
+            return true;
+        }
+
+        if (ActiveVibeTransferCount() > 0)
+        {
+            TxtStatus.Text = L("references.validation.mixed_reference_types");
+            return true;
+        }
+
+        if (ActivePreciseReferenceCount() >= MaxPreciseReferences)
+        {
+            TxtStatus.Text = Lf("references.error.precise_count_limit", MaxPreciseReferences);
+            return true;
+        }
+
+        return false;
+    }
+
     private async Task AddDroppedVibeTransferAsync(StorageFile file)
     {
         int maxVibeTransfers = GetMaxAllowedVibeTransfers();
-        if (!CanEditVibeTransferFeature() || ActiveVibeTransferCount() >= maxVibeTransfers)
-        {
-            if (IsAssetProtectionPaidFeatureLimitEnabled() && ActiveVibeTransferCount() >= maxVibeTransfers)
-                TxtStatus.Text = Lf("references.error.asset_protection_vibe_count_limit", AssetProtectionFreeVibeLimit);
+        if (TryReportVibeTransferUnavailable(maxVibeTransfers))
             return;
-        }
 
         var newEntry = CreateVibeTransferEntry(await CreateVibeTransferPickResultAsync(file));
         if (newEntry == null)
@@ -258,13 +305,7 @@ public sealed partial class MainWindow
 
     private async Task AddDroppedPreciseReferenceAsync(StorageFile file)
     {
-        if (IsPreciseReferenceBlockedByAssetProtection())
-        {
-            TxtStatus.Text = L("superdrop.error.asset_protection_precise_reference");
-            return;
-        }
-
-        if (!CanEditPreciseReferenceFeature() || ActivePreciseReferenceCount() >= MaxPreciseReferences)
+        if (TryReportPreciseReferenceUnavailable())
             return;
 
         var newEntry = CreatePreciseReferenceEntry(await CreateReferenceImagePickResultAsync(file));
