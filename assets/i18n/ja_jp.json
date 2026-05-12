@@ -466,6 +466,8 @@
     "settings.reverse.model_path_not_found":  "逆推定モデルのパスが存在しません。別のフォルダーを選択してください。",
     "settings.reverse.download_button":  "モデルをダウンロード",
     "settings.reverse.downloading":  "モデルをダウンロード中です。しばらくお待ちください...",
+    "settings.reverse.download_preparing":  "逆推定モデルのダウンロードを準備中...",
+    "settings.reverse.download_progress":  "逆推定モデルをダウンロード中: {0:0.0}%（ファイル {1}/{2}）",
     "settings.reverse.download_complete":  "モデルのダウンロードが完了しました。",
     "settings.reverse.download_failed":  "ダウンロードに失敗しました: {0}",
     "settings.reverse.model_path_placeholder":  ".onnx と selected_tags.csv を含むフォルダーを選択",

@@ -466,6 +466,8 @@
   "settings.reverse.model_path_not_found": "The reverse tagger model path does not exist. Choose another folder.",
   "settings.reverse.download_button": "Download Model",
   "settings.reverse.downloading": "Downloading model, please wait...",
+  "settings.reverse.download_preparing": "Preparing reverse tagger model download...",
+  "settings.reverse.download_progress": "Downloading reverse tagger model: {0:0.0}% (file {1}/{2})",
   "settings.reverse.download_complete": "Model downloaded successfully.",
   "settings.reverse.download_failed": "Download failed: {0}",
   "settings.reverse.model_path_placeholder": "Choose a folder containing .onnx and selected_tags.csv",

@@ -261,6 +261,17 @@ public sealed partial class MainWindow
     private async void OnReverseTaggerSettings(object sender, RoutedEventArgs e)
         => await ShowReverseTaggerSettingsDialogAsync();
 
+    private string FormatReverseDownloadStatus(ModelDownloadProgress progress)
+    {
+        if (progress.IsCompleted)
+            return L("settings.reverse.download_complete");
+
+        int fileIndex = Math.Max(progress.FileIndex, 1);
+        int totalFiles = Math.Max(progress.TotalFiles, 1);
+        double percent = Math.Clamp(progress.ProgressPercent, 0, 100);
+        return Lf("settings.reverse.download_progress", percent, fileIndex, totalFiles);
+    }
+
     private async Task ShowReverseTaggerSettingsDialogAsync()
     {
         var settings = _settings.Settings.ReverseTagger;
@@ -363,7 +374,7 @@ public sealed partial class MainWindow
             downloadButton.IsEnabled = false;
             downloadProgressBar.Visibility = Visibility.Visible;
             downloadProgressBar.IsIndeterminate = true;
-            TxtStatus.Text = L("settings.reverse.downloading");
+            TxtStatus.Text = L("settings.reverse.download_preparing");
 
             try
             {
@@ -372,14 +383,11 @@ public sealed partial class MainWindow
                     {
                         DispatcherQueue.TryEnqueue(() =>
                         {
-                            TxtStatus.Text = p.IsCompleted
-                                ? L("settings.reverse.download_complete")
-                                : p.StatusMessage;
-                            if (p.IsCompleted)
-                            {
-                                downloadProgressBar.IsIndeterminate = false;
-                                downloadProgressBar.Value = 100;
-                            }
+                            TxtStatus.Text = FormatReverseDownloadStatus(p);
+                            downloadProgressBar.IsIndeterminate = false;
+                            downloadProgressBar.Value = p.IsCompleted
+                                ? 100
+                                : Math.Clamp(p.ProgressPercent, 0, 100);
                         });
                     });
 

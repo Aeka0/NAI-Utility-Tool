@@ -466,6 +466,8 @@
     "settings.reverse.model_path_not_found":  "反推模型路径不存在，请重新选择。",
     "settings.reverse.download_button":  "下载模型",
     "settings.reverse.downloading":  "正在下载模型，请耐心等待...",
+    "settings.reverse.download_preparing":  "正在准备下载反推模型...",
+    "settings.reverse.download_progress":  "正在下载反推模型：{0:0.0}%（文件 {1}/{2}）",
     "settings.reverse.download_complete":  "模型下载完成。",
     "settings.reverse.download_failed":  "下载失败: {0}",
     "settings.reverse.model_path_placeholder":  "选择包含 .onnx 与 selected_tags.csv 的模型目录",

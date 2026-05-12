@@ -639,13 +639,22 @@ public sealed partial class MainWindow
                 downloadButton.Click += async (_, _) =>
                 {
                     downloadButton.IsEnabled = false;
+                    TxtStatus.Text = L("settings.reverse.download_preparing");
                     try
                     {
-                        string dlPath = await ModelDownloadService.DownloadModelAsync();
+                        string dlPath = await ModelDownloadService.DownloadModelAsync(
+                            onProgress: p =>
+                            {
+                                DispatcherQueue.TryEnqueue(() =>
+                                {
+                                    TxtStatus.Text = FormatReverseDownloadStatus(p);
+                                });
+                            });
                         pathBox.Text = dlPath;
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        TxtStatus.Text = Lf("settings.reverse.download_failed", ex.Message);
                         downloadButton.IsEnabled = true;
                     }
                 };
