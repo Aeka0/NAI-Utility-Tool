@@ -390,7 +390,7 @@ public sealed partial class MainWindow
             bool inpaintMode = _i2iEditMode == I2IEditMode.Inpaint;
             bool hasMaskContent = inpaintMode && MaskCanvas.HasMaskContent() && !MaskCanvas.IsInPreviewMode;
             bool hasI2IImage = MaskCanvas.Document.OriginalImage != null ||
-                (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null);
+                (MaskCanvas.IsInPreviewMode && (_pendingResultBitmap != null || _i2iResultCandidates.Count > 0));
             bool canReload = !string.IsNullOrWhiteSpace(MaskCanvas.LoadedFilePath) &&
                 File.Exists(MaskCanvas.LoadedFilePath) &&
                 !MaskCanvas.IsInPreviewMode;
@@ -399,8 +399,12 @@ public sealed partial class MainWindow
             {
                 if (baseItem is MenuFlyoutItem item)
                 {
-                    if (HasMenuCommand(item, MenuCommandUndo) || HasMenuCommand(item, MenuCommandRedo))
-                        item.IsEnabled = inpaintMode && !MaskCanvas.IsInPreviewMode;
+                    if (HasMenuCommand(item, MenuCommandUndo))
+                        item.IsEnabled = !MaskCanvas.IsInPreviewMode &&
+                            ((inpaintMode && MaskCanvas.UndoMgr.CanUndo) || _i2iApplyUndoStack.Count > 0);
+                    else if (HasMenuCommand(item, MenuCommandRedo))
+                        item.IsEnabled = !MaskCanvas.IsInPreviewMode &&
+                            ((inpaintMode && MaskCanvas.UndoMgr.CanRedo) || _i2iApplyRedoStack.Count > 0);
                     else if (HasMenuCommand(item, MenuCommandExpandMask) || HasMenuCommand(item, MenuCommandContractMask))
                         item.IsEnabled = hasMaskContent;
                     else if (HasMenuCommand(item, MenuCommandSendToPost) || HasMenuCommand(item, MenuCommandSendToUpscale))
@@ -459,7 +463,7 @@ public sealed partial class MainWindow
     {
         bool hasGenImage = _currentGenImageBytes != null;
         bool hasI2IImage = MaskCanvas.Document.OriginalImage != null ||
-            (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null);
+            (MaskCanvas.IsInPreviewMode && (_pendingResultBitmap != null || _i2iResultCandidates.Count > 0));
         bool hasUpscaleImage = _upscaleInputImageBytes != null;
         bool hasPostImage = _effectsImageBytes != null;
         bool hasReaderImage = _inspectImageBytes != null;

@@ -19,6 +19,7 @@ using NAITool.Rendering;
 using NAITool.Services;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
+using Windows.Storage.Streams;
 using Windows.UI;
 using Colors = Microsoft.UI.Colors;
 using WinRT;
@@ -138,6 +139,14 @@ public sealed partial class MaskCanvasControl : UserControl
     public UndoManager UndoMgr => _undoManager;
     public int CanvasW => _canvasWidth;
     public int CanvasH => _canvasHeight;
+
+    public sealed record WorkspaceSnapshot(
+        byte[]? OriginalImageBytes,
+        Vector2 ImageOffset,
+        int CanvasWidth,
+        int CanvasHeight,
+        byte[]? MaskPixels,
+        string? LoadedFilePath);
     public bool PreviewMaskOnly
     {
         get => _previewMaskOnly;
@@ -479,6 +488,7 @@ public sealed partial class MaskCanvasControl : UserControl
         _maskOverlayEffect = null;
         _thumbnailMaskOverlayEffect?.Dispose();
         _thumbnailMaskOverlayEffect = null;
+        _previewBitmap?.Dispose();
         _previewBitmap = null;
         foreach (var retiredHandle in _retiredToolCursorHandles)
         {
@@ -835,6 +845,97 @@ public sealed partial class MaskCanvasControl : UserControl
         ContentChanged?.Invoke();
     }
 
+    public async Task<WorkspaceSnapshot> CaptureWorkspaceSnapshotAsync()
+    {
+        byte[]? originalBytes = null;
+        CanvasBitmap? originalImage;
+        Vector2 imageOffset;
+        int canvasWidth;
+        int canvasHeight;
+
+        lock (_stateLock)
+        {
+            originalImage = _document.OriginalImage;
+            imageOffset = _document.ImageOffset;
+            canvasWidth = _canvasWidth;
+            canvasHeight = _canvasHeight;
+        }
+
+        if (_device != null && originalImage != null)
+        {
+            int imageWidth = (int)originalImage.SizeInPixels.Width;
+            int imageHeight = (int)originalImage.SizeInPixels.Height;
+            using var target = new CanvasRenderTarget(_device, imageWidth, imageHeight, 96f);
+            using (var ds = target.CreateDrawingSession())
+            {
+                ds.Clear(Color.FromArgb(0, 0, 0, 0));
+                ds.DrawImage(originalImage);
+            }
+
+            using var stream = new InMemoryRandomAccessStream();
+            await target.SaveAsync(stream, CanvasBitmapFileFormat.Png);
+            stream.Seek(0);
+            originalBytes = new byte[stream.Size];
+            using var reader = new DataReader(stream);
+            await reader.LoadAsync((uint)stream.Size);
+            reader.ReadBytes(originalBytes);
+        }
+
+        var maskPixels = _document.GetMaskSnapshot();
+        return new WorkspaceSnapshot(
+            originalBytes,
+            imageOffset,
+            canvasWidth,
+            canvasHeight,
+            maskPixels == null ? null : (byte[])maskPixels.Clone(),
+            _loadedFilePath);
+    }
+
+    public async Task RestoreWorkspaceSnapshotAsync(WorkspaceSnapshot snapshot)
+    {
+        if (_device == null) return;
+
+        _resourcesReady = false;
+        var oldPreview = _previewBitmap;
+        _previewBitmap = null;
+
+        CanvasBitmap? restoredImage = null;
+        if (snapshot.OriginalImageBytes != null)
+        {
+            using var stream = new InMemoryRandomAccessStream();
+            using (var writer = new DataWriter(stream))
+            {
+                writer.WriteBytes(snapshot.OriginalImageBytes);
+                await writer.StoreAsync();
+                writer.DetachStream();
+            }
+            stream.Seek(0);
+            restoredImage = await CanvasBitmap.LoadAsync(_device, stream, 96f);
+        }
+
+        lock (_renderLock)
+        {
+            _canvasWidth = snapshot.CanvasWidth;
+            _canvasHeight = snapshot.CanvasHeight;
+            _document.Initialize(_device, snapshot.CanvasWidth, snapshot.CanvasHeight);
+            _document.SetOriginalImage(restoredImage);
+            if (snapshot.MaskPixels != null)
+                _document.RestoreMaskSnapshot(snapshot.MaskPixels);
+        }
+
+        lock (_stateLock)
+        {
+            _document.ImageOffset = snapshot.ImageOffset;
+        }
+
+        _loadedFilePath = snapshot.LoadedFilePath;
+        oldPreview?.Dispose();
+        _undoManager.Clear();
+        RegenerateCheckerboard();
+        _resourcesReady = true;
+        ContentChanged?.Invoke();
+    }
+
     public void RefreshToolCursor()
     {
         ApplySystemCursorVisibility();
@@ -985,18 +1086,22 @@ public sealed partial class MaskCanvasControl : UserControl
         return true;
     }
 
-    public void SetPreview(CanvasBitmap bitmap)
+    public CanvasBitmap? SetPreview(CanvasBitmap bitmap)
     {
+        var previous = _previewBitmap;
         _previewBitmap = bitmap;
         ApplySystemCursorVisibility();
         ContentChanged?.Invoke();
+        return previous;
     }
 
-    public void ClearPreview()
+    public CanvasBitmap? ClearPreview()
     {
+        var previous = _previewBitmap;
         _previewBitmap = null;
         ApplySystemCursorVisibility();
         ContentChanged?.Invoke();
+        return previous;
     }
 
     public bool HasMaskContent()

@@ -42,6 +42,165 @@ public sealed partial class MainWindow
             MaskCanvas.IsImageMoveLocked = locked;
     }
 
+    private static Dictionary<string, string>? CloneTextChunks(Dictionary<string, string>? textChunks) =>
+        textChunks == null ? null : new Dictionary<string, string>(textChunks, StringComparer.Ordinal);
+
+    private void ResetI2IResultSession()
+    {
+        ClearI2IResultCandidates();
+        _i2iResultSessionId++;
+        _i2iResultSequence = 0;
+    }
+
+    private void ClearI2IResultCandidates()
+    {
+        foreach (var candidate in _i2iResultCandidates)
+        {
+            try
+            {
+                if (File.Exists(candidate.FilePath))
+                    File.Delete(candidate.FilePath);
+            }
+            catch
+            {
+            }
+        }
+
+        _i2iResultCandidates.Clear();
+        _i2iResultIndex = -1;
+        UpdateI2IResultNavigator();
+    }
+
+    private void SetTransientI2IPreview(CanvasBitmap bitmap)
+    {
+        var oldPending = _pendingResultBitmap;
+        var oldPreview = MaskCanvas.SetPreview(bitmap);
+        if (oldPreview != null && !ReferenceEquals(oldPreview, bitmap))
+        {
+            oldPreview.Dispose();
+            if (ReferenceEquals(oldPreview, oldPending))
+                _pendingResultBitmap = null;
+        }
+    }
+
+    private void SetPendingI2IResult(CanvasBitmap bitmap, byte[] imageBytes, Dictionary<string, string>? textChunks)
+    {
+        var oldPending = _pendingResultBitmap;
+        _pendingResultBitmap = bitmap;
+        _pendingResultBytes = imageBytes;
+        _pendingResultTextChunks = CloneTextChunks(textChunks);
+
+        var oldPreview = MaskCanvas.SetPreview(bitmap);
+        bool disposedOldPending = false;
+        if (oldPreview != null && !ReferenceEquals(oldPreview, bitmap))
+        {
+            oldPreview.Dispose();
+            disposedOldPending = ReferenceEquals(oldPreview, oldPending);
+        }
+
+        if (oldPending != null && !ReferenceEquals(oldPending, bitmap) && !disposedOldPending)
+            oldPending.Dispose();
+
+        _i2iPreviewDirty = true;
+        UpdateI2IResultNavigator();
+    }
+
+    private async Task RegisterI2IResultCandidateAsync(
+        byte[] imageBytes,
+        Dictionary<string, string>? textChunks,
+        CanvasBitmap bitmap,
+        bool resetCandidates)
+    {
+        if (resetCandidates)
+            ResetI2IResultSession();
+
+        Directory.CreateDirectory(I2ITempDir);
+        string cachePath = Path.Combine(I2ITempDir, $"i2i_{_i2iResultSessionId}_{++_i2iResultSequence}.png");
+        await File.WriteAllBytesAsync(cachePath, imageBytes);
+
+        _i2iResultCandidates.Add(new I2IResultCandidate
+        {
+            FilePath = cachePath,
+            TextChunks = CloneTextChunks(textChunks),
+        });
+        _i2iResultIndex = _i2iResultCandidates.Count - 1;
+        SetPendingI2IResult(bitmap, imageBytes, textChunks);
+    }
+
+    private async Task<bool> SelectI2IResultCandidateAsync(int index)
+    {
+        if (index < 0 || index >= _i2iResultCandidates.Count)
+            return false;
+
+        var candidate = _i2iResultCandidates[index];
+        if (!File.Exists(candidate.FilePath))
+            return false;
+
+        var device = MaskCanvas.GetDevice();
+        if (device == null)
+            return false;
+
+        byte[] imageBytes = await File.ReadAllBytesAsync(candidate.FilePath);
+        CanvasBitmap bitmap;
+        using (var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream())
+        {
+            using var writer = new Windows.Storage.Streams.DataWriter(stream);
+            writer.WriteBytes(imageBytes);
+            await writer.StoreAsync();
+            writer.DetachStream();
+            stream.Seek(0);
+            bitmap = await CanvasBitmap.LoadAsync(device, stream, 96f);
+        }
+
+        _i2iResultIndex = index;
+        SetPendingI2IResult(bitmap, imageBytes, candidate.TextChunks);
+        return true;
+    }
+
+    private async Task RestoreSelectedI2IResultCandidateAsync()
+    {
+        if (_i2iResultIndex >= 0 && _i2iResultIndex < _i2iResultCandidates.Count)
+            await SelectI2IResultCandidateAsync(_i2iResultIndex);
+    }
+
+    private void UpdateI2IResultNavigator()
+    {
+        if (TxtI2IResultIndex == null || BtnPreviousI2IResult == null || BtnNextI2IResult == null)
+            return;
+
+        int count = _i2iResultCandidates.Count;
+        int current = _i2iResultIndex >= 0 ? _i2iResultIndex + 1 : 1;
+        TxtI2IResultIndex.Text = current.ToString(CultureInfo.InvariantCulture);
+        BtnPreviousI2IResult.IsEnabled = count > 1 && _i2iResultIndex > 0 && !_generateRequestRunning;
+        BtnNextI2IResult.IsEnabled = count > 1 && _i2iResultIndex < count - 1 && !_generateRequestRunning;
+    }
+
+    private async Task<I2IApplyWorkspaceState> CaptureI2IApplyWorkspaceStateAsync() => new()
+    {
+        Canvas = await MaskCanvas.CaptureWorkspaceSnapshotAsync(),
+        LastGeneratedImageBytes = _lastGeneratedImageBytes,
+        TextChunks = CloneTextChunks(_i2iImageTextChunks),
+    };
+
+    private async Task RestoreI2IApplyWorkspaceStateAsync(I2IApplyWorkspaceState state)
+    {
+        var oldPreview = MaskCanvas.ClearPreview();
+        if (oldPreview != null && !ReferenceEquals(oldPreview, _pendingResultBitmap))
+            oldPreview.Dispose();
+        _pendingResultBitmap = null;
+        _pendingResultBytes = null;
+        _pendingResultTextChunks = null;
+        _i2iPreviewDirty = false;
+        ClearI2IResultCandidates();
+
+        await MaskCanvas.RestoreWorkspaceSnapshotAsync(state.Canvas);
+        _lastGeneratedImageBytes = state.LastGeneratedImageBytes;
+        _i2iImageTextChunks = CloneTextChunks(state.TextChunks);
+        BtnGenerate.IsEnabled = true;
+        UpdateFloatingResultBarsVisibility();
+        UpdateDynamicMenuStates();
+    }
+
     private async void SendImageToI2I(byte[] imageBytes, string? sourcePath = null)
     {
         try
@@ -49,7 +208,16 @@ public sealed partial class MainWindow
             SaveCurrentPromptToBuffer();
             _lastGeneratedImageBytes = null;
             _i2iImageTextChunks = await Task.Run(() => ImageMetadataService.ReadRoundTripTextChunks(imageBytes));
+            var oldPreview = MaskCanvas.ClearPreview();
+            if (oldPreview != null && !ReferenceEquals(oldPreview, _pendingResultBitmap))
+                oldPreview.Dispose();
+            _pendingResultBitmap?.Dispose();
+            _pendingResultBitmap = null;
+            _pendingResultBytes = null;
             _pendingResultTextChunks = null;
+            ClearI2IResultCandidates();
+            _i2iApplyUndoStack.Clear();
+            _i2iApplyRedoStack.Clear();
 
             var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(imageBytes));
 
@@ -217,12 +385,12 @@ public sealed partial class MainWindow
                 RememberLastGenerationRequest(signature);
                 DebugLog($"[Inpaint] Start | Model={ip.Model} | Seed={actualSeed}");
 
-                var resultBitmap = await SendInpaintRequestAsync(imageBase64, maskBase64, prompt, negPrompt, wildcardContext, ct);
+                var resultBitmap = await SendInpaintRequestAsync(
+                    imageBase64, maskBase64, prompt, negPrompt, wildcardContext, ct, resetResultCandidates: true);
                 _lastUsedSeed = actualSeed;
 
                 if (resultBitmap == null) return false;
 
-                MaskCanvas.SetPreview(resultBitmap);
                 _i2iPreviewDirty = true;
                 ShowI2IResultBar(resetPosition: true);
                 if (!keepGenerateButtonInteractive)
@@ -255,12 +423,14 @@ public sealed partial class MainWindow
             SetI2IRequestImageMoveLocked(false);
             UpdateBtnGenerateForApiKey();
             ip.Seed = restoreSeed;
+            UpdateI2IResultNavigator();
         }
     }
 
     private async Task<CanvasBitmap?> SendInpaintRequestAsync(
         string imageBase64, string maskBase64,
-        string prompt, string negPrompt, WildcardExpandContext wildcardContext, CancellationToken ct)
+        string prompt, string negPrompt, WildcardExpandContext wildcardContext, CancellationToken ct,
+        bool resetResultCandidates = false)
     {
         var device = MaskCanvas.GetDevice()!;
         if (!TryValidateReferenceRequest(out string referenceError))
@@ -295,10 +465,8 @@ public sealed partial class MainWindow
                     ms.Seek(0);
                     var bmp = await CanvasBitmap.LoadAsync(device, ms, 96f);
                     if (myVer != streamPreviewVer) { bmp.Dispose(); return; }
-                    var old = streamPreviewBmp;
                     streamPreviewBmp = bmp;
-                    MaskCanvas.SetPreview(bmp);
-                    old?.Dispose();
+                    SetTransientI2IPreview(bmp);
                 }
                 catch { }
             })
@@ -311,20 +479,40 @@ public sealed partial class MainWindow
 
         ++streamPreviewVer;
 
-        if (error != null) { DebugLog($"[Inpaint] API error: {error}"); TxtStatus.Text = error; BtnGenerate.IsEnabled = true; streamPreviewBmp?.Dispose(); return null; }
-        if (imageBytes == null) { DebugLog("[Inpaint] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); BtnGenerate.IsEnabled = true; streamPreviewBmp?.Dispose(); return null; }
+        if (error != null)
+        {
+            DebugLog($"[Inpaint] API error: {error}");
+            TxtStatus.Text = error;
+            BtnGenerate.IsEnabled = true;
+            var oldPreview = MaskCanvas.ClearPreview();
+            if (oldPreview != null && !ReferenceEquals(oldPreview, streamPreviewBmp))
+                oldPreview.Dispose();
+            streamPreviewBmp?.Dispose();
+            await RestoreSelectedI2IResultCandidateAsync();
+            return null;
+        }
+        if (imageBytes == null)
+        {
+            DebugLog("[Inpaint] API returned no image");
+            TxtStatus.Text = L("generate.error.empty_result");
+            BtnGenerate.IsEnabled = true;
+            var oldPreview = MaskCanvas.ClearPreview();
+            if (oldPreview != null && !ReferenceEquals(oldPreview, streamPreviewBmp))
+                oldPreview.Dispose();
+            streamPreviewBmp?.Dispose();
+            await RestoreSelectedI2IResultCandidateAsync();
+            return null;
+        }
 
-        _pendingResultBytes = imageBytes;
-        _pendingResultTextChunks = await Task.Run(() => ImageMetadataService.ReadRoundTripTextChunks(imageBytes));
-        _pendingResultBitmap?.Dispose();
+        var textChunks = await Task.Run(() => ImageMetadataService.ReadRoundTripTextChunks(imageBytes));
 
         using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
         using var writer = new Windows.Storage.Streams.DataWriter(stream);
         writer.WriteBytes(imageBytes);
         await writer.StoreAsync();
         stream.Seek(0);
-        _pendingResultBitmap = await CanvasBitmap.LoadAsync(device, stream, 96f);
-        streamPreviewBmp?.Dispose();
+        var resultBitmap = await CanvasBitmap.LoadAsync(device, stream, 96f);
+        await RegisterI2IResultCandidateAsync(imageBytes, textChunks, resultBitmap, resetResultCandidates);
         return _pendingResultBitmap;
     }
 
@@ -410,12 +598,12 @@ public sealed partial class MainWindow
                 RememberLastGenerationRequest(signature);
                 DebugLog($"[Denoise] Start | Model={dp.Model} | Seed={actualSeed} | Strength={dp.DenoiseStrength:0.##} | Noise={dp.DenoiseNoise:0.##}");
 
-                var resultBitmap = await SendDenoiseRequestAsync(imageBase64, prompt, negPrompt, wildcardContext, ct);
+                var resultBitmap = await SendDenoiseRequestAsync(
+                    imageBase64, prompt, negPrompt, wildcardContext, ct, resetResultCandidates: true);
                 _lastUsedSeed = actualSeed;
 
                 if (resultBitmap == null) return false;
 
-                MaskCanvas.SetPreview(resultBitmap);
                 _i2iPreviewDirty = true;
                 ShowI2IResultBar(resetPosition: true);
                 if (!keepGenerateButtonInteractive)
@@ -448,12 +636,14 @@ public sealed partial class MainWindow
             SetI2IRequestImageMoveLocked(false);
             UpdateBtnGenerateForApiKey();
             dp.Seed = restoreSeed;
+            UpdateI2IResultNavigator();
         }
     }
 
     private async Task<CanvasBitmap?> SendDenoiseRequestAsync(
         string imageBase64,
-        string prompt, string negPrompt, WildcardExpandContext wildcardContext, CancellationToken ct)
+        string prompt, string negPrompt, WildcardExpandContext wildcardContext, CancellationToken ct,
+        bool resetResultCandidates = false)
     {
         var device = MaskCanvas.GetDevice()!;
         if (!TryValidateReferenceRequest(out string referenceError))
@@ -488,10 +678,8 @@ public sealed partial class MainWindow
                     ms.Seek(0);
                     var bmp = await CanvasBitmap.LoadAsync(device, ms, 96f);
                     if (myVer != streamPreviewVer) { bmp.Dispose(); return; }
-                    var old = streamPreviewBmp;
                     streamPreviewBmp = bmp;
-                    MaskCanvas.SetPreview(bmp);
-                    old?.Dispose();
+                    SetTransientI2IPreview(bmp);
                 }
                 catch { }
             })
@@ -504,20 +692,40 @@ public sealed partial class MainWindow
 
         ++streamPreviewVer;
 
-        if (error != null) { DebugLog($"[Denoise] API error: {error}"); TxtStatus.Text = error; BtnGenerate.IsEnabled = true; streamPreviewBmp?.Dispose(); return null; }
-        if (imageBytes == null) { DebugLog("[Denoise] API returned no image"); TxtStatus.Text = L("generate.error.empty_result"); BtnGenerate.IsEnabled = true; streamPreviewBmp?.Dispose(); return null; }
+        if (error != null)
+        {
+            DebugLog($"[Denoise] API error: {error}");
+            TxtStatus.Text = error;
+            BtnGenerate.IsEnabled = true;
+            var oldPreview = MaskCanvas.ClearPreview();
+            if (oldPreview != null && !ReferenceEquals(oldPreview, streamPreviewBmp))
+                oldPreview.Dispose();
+            streamPreviewBmp?.Dispose();
+            await RestoreSelectedI2IResultCandidateAsync();
+            return null;
+        }
+        if (imageBytes == null)
+        {
+            DebugLog("[Denoise] API returned no image");
+            TxtStatus.Text = L("generate.error.empty_result");
+            BtnGenerate.IsEnabled = true;
+            var oldPreview = MaskCanvas.ClearPreview();
+            if (oldPreview != null && !ReferenceEquals(oldPreview, streamPreviewBmp))
+                oldPreview.Dispose();
+            streamPreviewBmp?.Dispose();
+            await RestoreSelectedI2IResultCandidateAsync();
+            return null;
+        }
 
-        _pendingResultBytes = imageBytes;
-        _pendingResultTextChunks = await Task.Run(() => ImageMetadataService.ReadRoundTripTextChunks(imageBytes));
-        _pendingResultBitmap?.Dispose();
+        var textChunks = await Task.Run(() => ImageMetadataService.ReadRoundTripTextChunks(imageBytes));
 
         using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
         using var writer = new Windows.Storage.Streams.DataWriter(stream);
         writer.WriteBytes(imageBytes);
         await writer.StoreAsync();
         stream.Seek(0);
-        _pendingResultBitmap = await CanvasBitmap.LoadAsync(device, stream, 96f);
-        streamPreviewBmp?.Dispose();
+        var resultBitmap = await CanvasBitmap.LoadAsync(device, stream, 96f);
+        await RegisterI2IResultCandidateAsync(imageBytes, textChunks, resultBitmap, resetResultCandidates);
         return _pendingResultBitmap;
     }
 
@@ -627,7 +835,6 @@ public sealed partial class MainWindow
 
                 if (resultBitmap != null)
                 {
-                    MaskCanvas.SetPreview(resultBitmap);
                     _i2iPreviewDirty = true;
                     _ = RefreshAnlasInfoAsync(forceRefresh: true);
                     TxtStatus.Text = L("generate.status.regenerated");
@@ -646,6 +853,7 @@ public sealed partial class MainWindow
             UpdateBtnGenerateForApiKey();
             ip.Seed = restoreSeed;
             SetResultBarEnabled(true);
+            UpdateI2IResultNavigator();
         }
         return false;
     }
@@ -663,6 +871,22 @@ public sealed partial class MainWindow
         await RedoInpaintGenerateAsync();
     }
 
+    private async void OnPreviousI2IResult(object sender, RoutedEventArgs e)
+    {
+        if (_generateRequestRunning || _i2iResultIndex <= 0)
+            return;
+
+        await SelectI2IResultCandidateAsync(_i2iResultIndex - 1);
+    }
+
+    private async void OnNextI2IResult(object sender, RoutedEventArgs e)
+    {
+        if (_generateRequestRunning || _i2iResultIndex >= _i2iResultCandidates.Count - 1)
+            return;
+
+        await SelectI2IResultCandidateAsync(_i2iResultIndex + 1);
+    }
+
     private void OnDiscardResult(object sender, RoutedEventArgs e)
     {
         ExitPreviewMode();
@@ -672,12 +896,20 @@ public sealed partial class MainWindow
 
     private void ExitPreviewMode()
     {
-        MaskCanvas.ClearPreview();
+        var oldPreview = MaskCanvas.ClearPreview();
+        bool disposedPending = false;
+        if (oldPreview != null)
+        {
+            oldPreview.Dispose();
+            disposedPending = ReferenceEquals(oldPreview, _pendingResultBitmap);
+        }
         _i2iPreviewDirty = false;
-        _pendingResultBitmap?.Dispose();
+        if (_pendingResultBitmap != null && !disposedPending)
+            _pendingResultBitmap.Dispose();
         _pendingResultBitmap = null;
         _pendingResultBytes = null;
         _pendingResultTextChunks = null;
+        ClearI2IResultCandidates();
         BtnGenerate.IsEnabled = true;
         UpdateFloatingResultBarsVisibility();
     }
@@ -716,6 +948,9 @@ public sealed partial class MainWindow
             ? new Dictionary<string, string>(_pendingResultTextChunks, StringComparer.Ordinal)
             : null;
         if (device == null || pendingBitmap == null) return;
+
+        _i2iApplyUndoStack.Push(await CaptureI2IApplyWorkspaceStateAsync());
+        _i2iApplyRedoStack.Clear();
 
         var doc = MaskCanvas.Document;
         var offset = doc.PixelAlignedImageOffset;
@@ -797,9 +1032,12 @@ public sealed partial class MainWindow
             }
         }
 
-        MaskCanvas.ClearPreview();
+        var oldPreview = MaskCanvas.ClearPreview();
+        if (oldPreview != null && !ReferenceEquals(oldPreview, pendingBitmap))
+            oldPreview.Dispose();
         _pendingResultBytes = null;
         _pendingResultTextChunks = null;
+        ClearI2IResultCandidates();
         doc.ClearMask();
         MaskCanvas.UndoMgr.Clear();
         BtnGenerate.IsEnabled = true;

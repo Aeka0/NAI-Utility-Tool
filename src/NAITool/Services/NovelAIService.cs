@@ -838,7 +838,7 @@ public class NovelAIService : IDisposable
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var url = _settings.Settings.StreamGeneration ? GenerateStreamUrl : GenerateUrl;
-            var response = _settings.Settings.StreamGeneration
+            using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
                     new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
                     HttpCompletionOption.ResponseHeadersRead,
@@ -1032,7 +1032,7 @@ public class NovelAIService : IDisposable
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var url = _settings.Settings.StreamGeneration ? GenerateStreamUrl : GenerateUrl;
-            var response = _settings.Settings.StreamGeneration
+            using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
                     new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
                     HttpCompletionOption.ResponseHeadersRead,
@@ -1223,7 +1223,7 @@ public class NovelAIService : IDisposable
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var url = _settings.Settings.StreamGeneration ? GenerateStreamUrl : GenerateUrl;
-            var response = _settings.Settings.StreamGeneration
+            using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
                     new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
                     HttpCompletionOption.ResponseHeadersRead,

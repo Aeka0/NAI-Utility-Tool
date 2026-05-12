@@ -726,6 +726,13 @@ public sealed partial class MainWindow
         };
         useParamsNoSeedItem.Click += OnHistoryUseParamsNoSeed;
         menu.Items.Add(useParamsNoSeedItem);
+        var useSeedItem = new MenuFlyoutItem
+        {
+            Text = L("action.use_seed"), Tag = filePath,
+            Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B5" },
+        };
+        useSeedItem.Click += OnHistoryUseSeed;
+        menu.Items.Add(useSeedItem);
         menu.Items.Add(new MenuFlyoutSeparator());
         var deleteItem = new MenuFlyoutItem
         {
@@ -1458,6 +1465,19 @@ public sealed partial class MainWindow
         }
     }
 
+    private async void OnHistoryUseSeed(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.Tag is string filePath)
+        {
+            try
+            {
+                var bytes = await File.ReadAllBytesAsync(filePath);
+                await ApplyImageSeedToGenerationAsync(bytes, Path.GetFileName(filePath));
+            }
+            catch (Exception ex) { TxtStatus.Text = Lf("common.read_failed", ex.Message); }
+        }
+    }
+
     private async void OnHistoryDelete(object sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem item && item.Tag is string filePath)
@@ -1465,7 +1485,9 @@ public sealed partial class MainWindow
             try
             {
                 int idx = _historyFiles.IndexOf(filePath);
-                DeleteImageFileWithConfiguredBehavior(filePath);
+                if (!TryDeleteImageFileWithConfiguredBehavior(filePath))
+                    return;
+
                 var delDateStr = GetDateFromFilePath(filePath);
                 if (delDateStr != null && _historyByDate.ContainsKey(delDateStr))
                 {

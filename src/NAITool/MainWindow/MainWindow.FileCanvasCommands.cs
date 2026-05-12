@@ -342,7 +342,7 @@ public sealed partial class MainWindow
             AppMode.Inspect => _inspectImageBytes != null,
             AppMode.Effects => _effectsImageBytes != null,
             AppMode.I2I => MaskCanvas.Document.OriginalImage != null ||
-                           (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null),
+                           (MaskCanvas.IsInPreviewMode && (_pendingResultBitmap != null || _i2iResultCandidates.Count > 0)),
             AppMode.Upscale => _upscaleInputImageBytes != null,
             _ => _currentGenImageBytes != null,
         };
@@ -636,10 +636,22 @@ public sealed partial class MainWindow
 
     private async void OnUndo(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint && !MaskCanvas.IsInPreviewMode)
+        if (_currentMode == AppMode.I2I && !MaskCanvas.IsInPreviewMode)
         {
-            MaskCanvas.PerformUndo();
-            return;
+            if (_i2iEditMode == I2IEditMode.Inpaint && MaskCanvas.UndoMgr.CanUndo)
+            {
+                MaskCanvas.PerformUndo();
+                return;
+            }
+
+            if (_i2iApplyUndoStack.Count > 0)
+            {
+                _i2iApplyRedoStack.Push(await CaptureI2IApplyWorkspaceStateAsync());
+                var state = _i2iApplyUndoStack.Pop();
+                await RestoreI2IApplyWorkspaceStateAsync(state);
+                TxtStatus.Text = L("post.status.undo");
+                return;
+            }
         }
 
         if (_currentMode == AppMode.Effects && _effectsUndoStack.Count > 0)
@@ -653,10 +665,22 @@ public sealed partial class MainWindow
 
     private async void OnRedo(object sender, RoutedEventArgs e)
     {
-        if (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint && !MaskCanvas.IsInPreviewMode)
+        if (_currentMode == AppMode.I2I && !MaskCanvas.IsInPreviewMode)
         {
-            MaskCanvas.PerformRedo();
-            return;
+            if (_i2iEditMode == I2IEditMode.Inpaint && MaskCanvas.UndoMgr.CanRedo)
+            {
+                MaskCanvas.PerformRedo();
+                return;
+            }
+
+            if (_i2iApplyRedoStack.Count > 0)
+            {
+                _i2iApplyUndoStack.Push(await CaptureI2IApplyWorkspaceStateAsync());
+                var state = _i2iApplyRedoStack.Pop();
+                await RestoreI2IApplyWorkspaceStateAsync(state);
+                TxtStatus.Text = L("post.status.redo");
+                return;
+            }
         }
 
         if (_currentMode == AppMode.Effects && _effectsRedoStack.Count > 0)

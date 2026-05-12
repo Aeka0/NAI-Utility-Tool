@@ -155,6 +155,23 @@ public sealed partial class MainWindow
                             _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
                 CreateSettingsHubLayer(
+                    "\uE72E",
+                    L("settings.hub.usage.new_image_delete_protection"),
+                    L("settings.hub.usage.new_image_delete_protection.description"),
+                    CreateSettingsHubToggleSwitch(_settings.Settings.NewImageDeleteProtection, value =>
+                    {
+                        ApplyUsageSettings(
+                            _settings.Settings.WeightHighlight,
+                            _settings.Settings.AutoComplete,
+                            _settings.Settings.RememberPromptAndParameters,
+                            _settings.Settings.SuperDropEnabled,
+                            _settings.Settings.ShowGenerationResultBar,
+                            _settings.Settings.ScrollHistoryToTopAfterGeneration,
+                            _settings.Settings.WildcardsEnabled,
+                            _settings.Settings.WildcardsRequireExplicitSyntax,
+                            value);
+                    })),
+                CreateSettingsHubLayer(
                     "\uE74C",
                     L("settings.hub.usage.wildcards_enabled"),
                     L("settings.hub.usage.wildcards_enabled.description"),

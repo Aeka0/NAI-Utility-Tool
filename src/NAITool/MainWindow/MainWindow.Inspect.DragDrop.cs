@@ -43,7 +43,13 @@ public sealed partial class MainWindow
             var bytes = await File.ReadAllBytesAsync(filePath);
             _lastGeneratedImageBytes = null;
             _i2iImageTextChunks = await Task.Run(() => ImageMetadataService.ReadRoundTripTextChunks(bytes));
+            _pendingResultBitmap?.Dispose();
+            _pendingResultBitmap = null;
+            _pendingResultBytes = null;
             _pendingResultTextChunks = null;
+            ClearI2IResultCandidates();
+            _i2iApplyUndoStack.Clear();
+            _i2iApplyRedoStack.Clear();
             var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
             if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat))
                 ApplyMetadataToI2I(meta, Path.GetFileName(filePath));

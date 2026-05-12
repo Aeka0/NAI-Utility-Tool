@@ -194,6 +194,7 @@ public class AppSettings
     public bool SuperDropEnabled { get; set; } = true;
     public bool ShowGenerationResultBar { get; set; } = true;
     public bool ScrollHistoryToTopAfterGeneration { get; set; } = true;
+    public bool NewImageDeleteProtection { get; set; } = true;
     public bool EnableGenerationWaitingAnimation { get; set; } = true;
     public bool WildcardsEnabled { get; set; } = true;
     public bool WildcardsRequireExplicitSyntax { get; set; } = true;

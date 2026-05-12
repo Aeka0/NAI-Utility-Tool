@@ -90,7 +90,7 @@ public sealed partial class MainWindow
     private bool HasUnsavedI2IWorkspaceChanges()
     {
         bool hasImage = MaskCanvas.Document.OriginalImage != null
-            || (MaskCanvas.IsInPreviewMode && _pendingResultBitmap != null);
+            || (MaskCanvas.IsInPreviewMode && (_pendingResultBitmap != null || _i2iResultCandidates.Count > 0));
 
         return hasImage && (_i2iPreviewDirty || MaskCanvas.HasWorkspaceChangesSinceClean());
     }

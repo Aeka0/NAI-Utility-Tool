@@ -61,7 +61,8 @@ public sealed partial class MainWindow
         bool showGenerationResultBar,
         bool scrollHistoryToTopAfterGeneration,
         bool wildcardsEnabled,
-        bool wildcardsRequireExplicitSyntax)
+        bool wildcardsRequireExplicitSyntax,
+        bool? newImageDeleteProtection = null)
     {
         _settings.Settings.WeightHighlight = weightHighlight;
         _settings.Settings.AutoComplete = autoComplete;
@@ -71,6 +72,8 @@ public sealed partial class MainWindow
         _settings.Settings.ScrollHistoryToTopAfterGeneration = scrollHistoryToTopAfterGeneration;
         _settings.Settings.WildcardsEnabled = wildcardsEnabled;
         _settings.Settings.WildcardsRequireExplicitSyntax = wildcardsRequireExplicitSyntax;
+        _settings.Settings.NewImageDeleteProtection =
+            newImageDeleteProtection ?? _settings.Settings.NewImageDeleteProtection;
 
         UpdateFloatingResultBarsVisibility();
         if (!_settings.Settings.AutoComplete)

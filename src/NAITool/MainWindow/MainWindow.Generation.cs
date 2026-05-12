@@ -219,6 +219,7 @@ public sealed partial class MainWindow
 
             _currentGenImageBytes = finalBytes;
             _currentGenImagePath = finalSavedPath;
+            ArmNewImageDeleteProtection(finalSavedPath);
 
             await ShowGenPreviewAsync(finalBytes, w, h);
 
@@ -553,6 +554,7 @@ public sealed partial class MainWindow
             string? savedPath = await SaveToOutputAsync(imageBytes, "enhance");
             _currentGenImageBytes = imageBytes;
             _currentGenImagePath = savedPath;
+            ArmNewImageDeleteProtection(savedPath);
 
             await ShowGenPreviewAsync(imageBytes, width, height);
             if (savedPath != null)
@@ -679,6 +681,9 @@ public sealed partial class MainWindow
 
     private async void OnDeleteGenResult(object sender, RoutedEventArgs e)
     {
+        if (TryBlockNewImageDeletion(_currentGenImagePath, isCurrentPreviewAction: true))
+            return;
+
         if (!_genResultBarPinned)
             SetGenResultBarRequested(false);
 
@@ -688,7 +693,9 @@ public sealed partial class MainWindow
             try
             {
                 int idx = _historyFiles.IndexOf(deletedPath);
-                DeleteImageFileWithConfiguredBehavior(deletedPath);
+                if (!TryDeleteImageFileWithConfiguredBehavior(deletedPath))
+                    return;
+
                 var delDateStr = GetDateFromFilePath(deletedPath);
                 if (delDateStr != null && _historyByDate.ContainsKey(delDateStr))
                 {
@@ -936,6 +943,19 @@ public sealed partial class MainWindow
             };
             flyout.Items.Add(useParamsNoSeedItem);
 
+            var useSeedItem = new MenuFlyoutItem
+            {
+                Text = L("action.use_seed"),
+                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE8B5" },
+                IsEnabled = hasImage,
+            };
+            useSeedItem.Click += async (_, _) =>
+            {
+                if (_currentGenImageBytes != null)
+                    await ApplyImageSeedToGenerationAsync(_currentGenImageBytes, L("image.preview_label"));
+            };
+            flyout.Items.Add(useSeedItem);
+
             flyout.Items.Add(new MenuFlyoutSeparator());
 
             var deleteItem = new MenuFlyoutItem
@@ -1047,6 +1067,24 @@ public sealed partial class MainWindow
         TxtStatus.Text = notes.Count > 0
             ? Lf("metadata.applied_with_notes", fileName, string.Join("; ", notes))
             : Lf("metadata.applied", fileName);
+    }
+
+    private async Task ApplyImageSeedToGenerationAsync(byte[] bytes, string fileName)
+    {
+        var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
+        if (meta == null || meta.Seed <= 0 || meta.Seed > int.MaxValue)
+        {
+            TxtStatus.Text = Lf("metadata.no_usable_seed", fileName);
+            return;
+        }
+
+        int seed = (int)meta.Seed;
+        _settings.Settings.GenParameters.Seed = seed;
+        NbSeed.Value = seed;
+        if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();
+        UpdateSeedRandomizeButtonStyle();
+
+        TxtStatus.Text = Lf("metadata.seed_applied", fileName, seed);
     }
 
     // ═══════════════════════════════════════════════════════════

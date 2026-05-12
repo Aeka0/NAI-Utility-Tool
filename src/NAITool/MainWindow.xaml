@@ -1147,6 +1147,22 @@
                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                           VerticalAlignment="Center"/>
                             </Border>
+                            <Button x:Name="BtnPreviousI2IResult"
+                                    Click="OnPreviousI2IResult"
+                                    Style="{StaticResource SubtleButtonStyle}">
+                                <SymbolIcon Symbol="Back"/>
+                            </Button>
+                            <TextBlock x:Name="TxtI2IResultIndex"
+                                       Text="1"
+                                       MinWidth="24"
+                                       TextAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold"/>
+                            <Button x:Name="BtnNextI2IResult"
+                                    Click="OnNextI2IResult"
+                                    Style="{StaticResource SubtleButtonStyle}">
+                                <SymbolIcon Symbol="Forward"/>
+                            </Button>
                             <Button Click="OnApplyResult" Style="{StaticResource AccentButtonStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <SymbolIcon Symbol="Accept"/>

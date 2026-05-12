@@ -175,10 +175,32 @@ public sealed partial class MainWindow : Window
     private byte[]? _pendingResultBytes;
     private Dictionary<string, string>? _pendingResultTextChunks;
     private Dictionary<string, string>? _i2iImageTextChunks;
+    private readonly List<I2IResultCandidate> _i2iResultCandidates = [];
+    private int _i2iResultIndex = -1;
+    private int _i2iResultSessionId;
+    private int _i2iResultSequence;
+    private readonly Stack<I2IApplyWorkspaceState> _i2iApplyUndoStack = new();
+    private readonly Stack<I2IApplyWorkspaceState> _i2iApplyRedoStack = new();
+
+    private sealed class I2IResultCandidate
+    {
+        public required string FilePath { get; init; }
+        public Dictionary<string, string>? TextChunks { get; init; }
+    }
+
+    private sealed class I2IApplyWorkspaceState
+    {
+        public required MaskCanvasControl.WorkspaceSnapshot Canvas { get; init; }
+        public byte[]? LastGeneratedImageBytes { get; init; }
+        public Dictionary<string, string>? TextChunks { get; init; }
+    }
 
     // ═══ 生图结果 ═══
     private byte[]? _currentGenImageBytes;
     private string? _currentGenImagePath;
+    private string? _newImageDeleteProtectionPath;
+    private bool _newImageDeleteProtectionCoversUnsavedResult;
+    private DateTimeOffset _newImageDeleteProtectionUntilUtc;
     private bool _genResultBarRequested;
     private bool _genResultBarPinned;
 
@@ -310,6 +332,7 @@ public sealed partial class MainWindow : Window
 
     private static string AppRootDir => AppPathResolver.AppRootDir;
     private static string OutputBaseDir => Path.Combine(AppRootDir, "output");
+    private static string I2ITempDir => Path.Combine(AppRootDir, "temp", "i2i");
     private static string PromptShortcutsFilePath => Path.Combine(AppRootDir, "user", "userprompts", "userprompts.json");
     private static string FxPresetsDir => Path.Combine(AppRootDir, "user", "fxpresets");
     private static string DefaultFxPresetsDir => Path.Combine(AppRootDir, "assets", "fxpresets");
