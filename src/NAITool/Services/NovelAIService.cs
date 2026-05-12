@@ -483,9 +483,9 @@ public class NovelAIService : IDisposable
         parameters["director_reference_images"] = preciseReferences
             .Select(x => PrepareDirectorReferenceImage(x.ImageBase64)).ToList();
         parameters["director_reference_strength_values"] = preciseReferences
-            .Select(x => x.Strength).ToList();
+            .Select(x => Math.Clamp(x.Strength, 0, 1)).ToList();
         parameters["director_reference_secondary_strength_values"] = preciseReferences
-            .Select(x => Math.Round(1.0 - x.Fidelity, 2)).ToList();
+            .Select(x => Math.Round(1.0 - Math.Clamp(x.Fidelity, 0, 1), 2)).ToList();
         parameters["director_reference_information_extracted"] = preciseReferences
             .Select(_ => 1.0).ToList();
         parameters["director_reference_descriptions"] = preciseReferences

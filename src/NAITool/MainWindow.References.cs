@@ -262,8 +262,8 @@ public sealed partial class MainWindow
                 FileName = string.IsNullOrWhiteSpace(reference.FileName) ? L("references.imported.precise_label") : reference.FileName,
                 ImageBase64 = reference.ImageBase64,
                 ReferenceType = reference.ReferenceType,
-                Strength = Math.Clamp(reference.Strength, -1, 1),
-                Fidelity = Math.Clamp(reference.Fidelity, -1, 1),
+                Strength = Math.Clamp(reference.Strength, 0, 1),
+                Fidelity = Math.Clamp(reference.Fidelity, 0, 1),
             });
         }
     }
@@ -366,8 +366,8 @@ public sealed partial class MainWindow
                 FileName = x.FileName,
                 ImageBase64 = x.ImageBase64,
                 ReferenceType = x.ReferenceType,
-                Strength = Math.Clamp(x.Strength, -1, 1),
-                Fidelity = Math.Clamp(x.Fidelity, -1, 1),
+                Strength = Math.Clamp(x.Strength, 0, 1),
+                Fidelity = Math.Clamp(x.Fidelity, 0, 1),
             })
             .ToList();
 

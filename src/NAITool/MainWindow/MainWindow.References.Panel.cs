@@ -375,9 +375,12 @@ public sealed partial class MainWindow
             typeCombo.IsEnabled = canEdit;
             root.Children.Add(typeCombo);
 
+            entry.Strength = Math.Clamp(entry.Strength, 0, 1);
+            entry.Fidelity = Math.Clamp(entry.Fidelity, 0, 1);
+
             var strengthRow = BuildReferenceSliderRow(
                 L("references.precise.strength"),
-                -1, 1, entry.Strength,
+                0, 1, entry.Strength,
                 value => entry.Strength = Math.Round(value, 2));
             strengthRow.IsHitTestVisible = canEdit;
             strengthRow.Opacity = canEdit ? 1.0 : 0.72;
@@ -385,7 +388,7 @@ public sealed partial class MainWindow
 
             var fidelityRow = BuildReferenceSliderRow(
                 L("references.precise.fidelity"),
-                -1, 1, entry.Fidelity,
+                0, 1, entry.Fidelity,
                 value => entry.Fidelity = Math.Round(value, 2));
             fidelityRow.IsHitTestVisible = canEdit;
             fidelityRow.Opacity = canEdit ? 1.0 : 0.72;
@@ -505,6 +508,8 @@ public sealed partial class MainWindow
         double value,
         Action<double> onValueChanged)
     {
+        value = Math.Clamp(value, min, max);
+
         var row = new StackPanel { Spacing = 4 };
         row.Children.Add(CreateThemedSubLabel(label));
 

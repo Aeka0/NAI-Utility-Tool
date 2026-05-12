@@ -1122,8 +1122,8 @@ public static class ImageMetadataService
                     ImageBase64 = imageBase64,
                     FileName = LocalizationService.Instance.Format("references.imported.precise_numbered", index + 1),
                     ReferenceType = ParsePreciseReferenceType(typeValue),
-                    Strength = index < strengthValues.Count ? strengthValues[index] : 1.0,
-                    Fidelity = Math.Round(1.0 - secondaryStrength, 2),
+                    Strength = Math.Clamp(index < strengthValues.Count ? strengthValues[index] : 1.0, 0, 1),
+                    Fidelity = Math.Clamp(Math.Round(1.0 - secondaryStrength, 2), 0, 1),
                 });
                 index++;
             }
@@ -1150,8 +1150,8 @@ public static class ImageMetadataService
                     ImageBase64 = imageBase64,
                     FileName = TryReadString(item, "fileName", "filename", "name", "label"),
                     ReferenceType = ParsePreciseReferenceType(TryReadString(item, "referenceType", "reference_type", "type")),
-                    Strength = TryReadDouble(item, "strength", 1.0, "reference_strength"),
-                    Fidelity = TryReadDouble(item, "fidelity", 0.0, "reference_fidelity"),
+                    Strength = Math.Clamp(TryReadDouble(item, "strength", 1.0, "reference_strength"), 0, 1),
+                    Fidelity = Math.Clamp(TryReadDouble(item, "fidelity", 0.0, "reference_fidelity"), 0, 1),
                 });
                 index++;
             }
@@ -1194,8 +1194,8 @@ public static class ImageMetadataService
                 ImageBase64 = imageBase64,
                 FileName = fileName,
                 ReferenceType = ParsePreciseReferenceType(typeValue),
-                Strength = currentIndex < legacyStrengthValues.Count ? legacyStrengthValues[currentIndex] : 1.0,
-                Fidelity = currentIndex < fidelityValues.Count ? fidelityValues[currentIndex] : 0.0,
+                Strength = Math.Clamp(currentIndex < legacyStrengthValues.Count ? legacyStrengthValues[currentIndex] : 1.0, 0, 1),
+                Fidelity = Math.Clamp(currentIndex < fidelityValues.Count ? fidelityValues[currentIndex] : 0.0, 0, 1),
             });
             currentIndex++;
         }
