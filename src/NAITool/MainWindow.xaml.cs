@@ -179,6 +179,8 @@ public sealed partial class MainWindow : Window
     private int _i2iResultIndex = -1;
     private int _i2iResultSessionId;
     private int _i2iResultSequence;
+    private int _i2iResultSelectionVersion;
+    private bool _i2iResultApplying;
     private readonly Stack<I2IApplyWorkspaceState> _i2iApplyUndoStack = new();
     private readonly Stack<I2IApplyWorkspaceState> _i2iApplyRedoStack = new();
 

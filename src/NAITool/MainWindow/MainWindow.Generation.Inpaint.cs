@@ -54,6 +54,7 @@ public sealed partial class MainWindow
 
     private void ClearI2IResultCandidates()
     {
+        _i2iResultSelectionVersion++;
         foreach (var candidate in _i2iResultCandidates)
         {
             try
@@ -127,11 +128,14 @@ public sealed partial class MainWindow
         SetPendingI2IResult(bitmap, imageBytes, textChunks);
     }
 
-    private async Task<bool> SelectI2IResultCandidateAsync(int index)
+    private async Task<bool> SelectI2IResultCandidateAsync(int index, bool allowDuringApply = false)
     {
+        if (_i2iResultApplying && !allowDuringApply)
+            return false;
         if (index < 0 || index >= _i2iResultCandidates.Count)
             return false;
 
+        int selectionVersion = ++_i2iResultSelectionVersion;
         var candidate = _i2iResultCandidates[index];
         if (!File.Exists(candidate.FilePath))
             return false;
@@ -152,15 +156,23 @@ public sealed partial class MainWindow
             bitmap = await CanvasBitmap.LoadAsync(device, stream, 96f);
         }
 
+        if ((_i2iResultApplying && !allowDuringApply) ||
+            selectionVersion != _i2iResultSelectionVersion ||
+            !_i2iResultCandidates.Contains(candidate))
+        {
+            bitmap.Dispose();
+            return false;
+        }
+
         _i2iResultIndex = index;
         SetPendingI2IResult(bitmap, imageBytes, candidate.TextChunks);
         return true;
     }
 
-    private async Task RestoreSelectedI2IResultCandidateAsync()
+    private async Task RestoreSelectedI2IResultCandidateAsync(bool allowDuringApply = false)
     {
         if (_i2iResultIndex >= 0 && _i2iResultIndex < _i2iResultCandidates.Count)
-            await SelectI2IResultCandidateAsync(_i2iResultIndex);
+            await SelectI2IResultCandidateAsync(_i2iResultIndex, allowDuringApply);
     }
 
     private void UpdateI2IResultNavigator()
@@ -171,8 +183,8 @@ public sealed partial class MainWindow
         int count = _i2iResultCandidates.Count;
         int current = _i2iResultIndex >= 0 ? _i2iResultIndex + 1 : 1;
         TxtI2IResultIndex.Text = current.ToString(CultureInfo.InvariantCulture);
-        BtnPreviousI2IResult.IsEnabled = count > 1 && _i2iResultIndex > 0 && !_generateRequestRunning;
-        BtnNextI2IResult.IsEnabled = count > 1 && _i2iResultIndex < count - 1 && !_generateRequestRunning;
+        BtnPreviousI2IResult.IsEnabled = count > 1 && _i2iResultIndex > 0 && !_generateRequestRunning && !_i2iResultApplying;
+        BtnNextI2IResult.IsEnabled = count > 1 && _i2iResultIndex < count - 1 && !_generateRequestRunning && !_i2iResultApplying;
     }
 
     private async Task<I2IApplyWorkspaceState> CaptureI2IApplyWorkspaceStateAsync() => new()
@@ -745,9 +757,23 @@ public sealed partial class MainWindow
 
     private async void OnApplyResult(object sender, RoutedEventArgs e)
     {
+        if (_i2iResultApplying)
+            return;
+
+        _i2iResultApplying = true;
+        _i2iResultSelectionVersion++;
+        SetResultBarEnabled(false);
+        UpdateI2IResultNavigator();
+
         if (_pendingResultBitmap == null && _i2iResultIndex >= 0)
-            await RestoreSelectedI2IResultCandidateAsync();
-        if (_pendingResultBitmap == null) return;
+            await RestoreSelectedI2IResultCandidateAsync(allowDuringApply: true);
+        if (_pendingResultBitmap == null)
+        {
+            _i2iResultApplying = false;
+            SetResultBarEnabled(true);
+            UpdateI2IResultNavigator();
+            return;
+        }
 
         try
         {
@@ -755,6 +781,12 @@ public sealed partial class MainWindow
             TxtStatus.Text = L("inpaint.result_applied");
         }
         catch (Exception ex) { TxtStatus.Text = Lf("inpaint.apply_failed", ex.Message); }
+        finally
+        {
+            _i2iResultApplying = false;
+            SetResultBarEnabled(true);
+            UpdateI2IResultNavigator();
+        }
     }
 
     private async Task<bool> RedoInpaintGenerateAsync(bool forceRandomSeed = false)
@@ -886,7 +918,7 @@ public sealed partial class MainWindow
 
     private async void OnPreviousI2IResult(object sender, RoutedEventArgs e)
     {
-        if (_generateRequestRunning || _i2iResultIndex <= 0)
+        if (_generateRequestRunning || _i2iResultApplying || _i2iResultIndex <= 0)
             return;
 
         await SelectI2IResultCandidateAsync(_i2iResultIndex - 1);
@@ -894,7 +926,7 @@ public sealed partial class MainWindow
 
     private async void OnNextI2IResult(object sender, RoutedEventArgs e)
     {
-        if (_generateRequestRunning || _i2iResultIndex >= _i2iResultCandidates.Count - 1)
+        if (_generateRequestRunning || _i2iResultApplying || _i2iResultIndex >= _i2iResultCandidates.Count - 1)
             return;
 
         await SelectI2IResultCandidateAsync(_i2iResultIndex + 1);
