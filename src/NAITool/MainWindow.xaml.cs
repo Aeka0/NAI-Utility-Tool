@@ -318,7 +318,8 @@ public sealed partial class MainWindow : Window
     private static readonly string[] AvailableSamplers =
     [
         "k_euler_ancestral", "k_euler", "k_dpmpp_2m", "k_dpmpp_sde",
-        "k_dpmpp_2s_ancestral", "k_dpm_2", "k_dpm_fast", "ddim", "ddim_v3",
+        "k_dpmpp_2s_ancestral", "k_dpm_2", "k_dpm_fast", "k_dpmpp_2m_sde",
+        "ddim", "ddim_v3",
     ];
     private static readonly string[] AvailableSchedules =
     [

@@ -85,11 +85,24 @@ public sealed partial class MainWindow
 
     private static string[] GetAvailableSamplersForModel(string? model)
     {
-        bool isV3 = IsV3ModelKey(model ?? "");
+        string modelKey = model ?? "";
+        bool isV3 = IsV3ModelKey(modelKey);
+        bool isV4Plus = IsV4PlusModelKey(modelKey);
         return AvailableSamplers
-            .Where(x => isV3
-                ? !string.Equals(x, "ddim", StringComparison.Ordinal)
-                : !string.Equals(x, "ddim_v3", StringComparison.Ordinal))
+            .Where(x =>
+            {
+                if (isV3)
+                    return !string.Equals(x, "ddim", StringComparison.Ordinal) &&
+                           !string.Equals(x, "k_dpmpp_2m_sde", StringComparison.Ordinal);
+
+                if (isV4Plus)
+                    return !string.Equals(x, "ddim", StringComparison.Ordinal) &&
+                           !string.Equals(x, "ddim_v3", StringComparison.Ordinal) &&
+                           !string.Equals(x, "k_dpm_fast", StringComparison.Ordinal);
+
+                return !string.Equals(x, "ddim_v3", StringComparison.Ordinal) &&
+                       !string.Equals(x, "k_dpmpp_2m_sde", StringComparison.Ordinal);
+            })
             .ToArray();
     }
 
