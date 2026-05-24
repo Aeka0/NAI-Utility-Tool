@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -278,6 +279,22 @@ public sealed partial class MainWindow
                 return row;
             }
 
+            TextBlock CreateSkipLink()
+            {
+                var link = new TextBlock
+                {
+                    Text = L("oobe.skip"),
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(AccentColor()),
+                    TextDecorations = Windows.UI.Text.TextDecorations.Underline,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    IsTapEnabled = true,
+                };
+                link.Tapped += async (_, _) => await SkipOobeAsync();
+                return link;
+            }
+
             UIElement CreatePageLayout(string imageName, params UIElement[] contentChildren)
             {
                 var pageGrid = new Grid { RowSpacing = 18 };
@@ -315,22 +332,9 @@ public sealed partial class MainWindow
                     Foreground = TextTertiaryBrush(),
                     VerticalAlignment = VerticalAlignment.Center,
                 });
-                var stepBadge = new Border
-                {
-                    Background = SubtleSurfaceBrush(),
-                    BorderBrush = SubtleBorderBrush(),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(12),
-                    Padding = new Thickness(10, 4, 10, 4),
-                    Child = new TextBlock
-                    {
-                        Text = Lf("oobe.step", pageIndex + 1, OobePageCount),
-                        FontSize = 12,
-                        Foreground = TextSecondaryBrush(),
-                    },
-                };
-                Grid.SetColumn(stepBadge, 1);
-                brandRow.Children.Add(stepBadge);
+                var skipLink = CreateSkipLink();
+                Grid.SetColumn(skipLink, 1);
+                brandRow.Children.Add(skipLink);
 
                 var imageFrame = new Grid { VerticalAlignment = VerticalAlignment.Stretch };
                 imageFrame.Children.Add(image);
@@ -854,6 +858,25 @@ public sealed partial class MainWindow
                     transitionInProgress = false;
                     pageSlideTransform.X = 0;
                     pageHost.Opacity = 1;
+                    UpdateNavigationButtonState();
+                }
+            }
+
+            async Task SkipOobeAsync()
+            {
+                if (transitionInProgress || !pendingNavigation.IsCompleted)
+                    return;
+
+                transitionInProgress = true;
+                UpdateNavigationButtonState();
+                try
+                {
+                    await SaveOobeSettingsAsync();
+                    dialog.Hide();
+                }
+                finally
+                {
+                    transitionInProgress = false;
                     UpdateNavigationButtonState();
                 }
             }

@@ -1010,6 +1010,7 @@
     "oobe.dialog.title":  "歡迎",
     "oobe.dialog.quick_tour_title":  "快速導覽",
     "oobe.step":  "第 {0}/{1} 步",
+    "oobe.skip":  "略過精靈",
     "oobe.back":  "上一步",
     "oobe.next":  "下一步",
     "oobe.finish":  "開始使用",

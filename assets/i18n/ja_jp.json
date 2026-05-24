@@ -1010,6 +1010,7 @@
     "oobe.dialog.title":  "ようこそ",
     "oobe.dialog.quick_tour_title":  "クイックツアー",
     "oobe.step":  "ステップ {0}/{1}",
+    "oobe.skip":  "セットアップをスキップ",
     "oobe.back":  "戻る",
     "oobe.next":  "次へ",
     "oobe.finish":  "使い始める",

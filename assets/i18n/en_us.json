@@ -1010,6 +1010,7 @@
   "oobe.dialog.title": "Welcome",
   "oobe.dialog.quick_tour_title": "Quick Tour",
   "oobe.step": "Step {0}/{1}",
+  "oobe.skip": "Skip setup",
   "oobe.back": "Back",
   "oobe.next": "Next",
   "oobe.finish": "Start Using",
