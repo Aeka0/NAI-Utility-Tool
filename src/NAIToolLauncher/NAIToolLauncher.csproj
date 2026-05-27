@@ -10,10 +10,10 @@
     <AssemblyTitle>WinUI3 NovelAI Frontend</AssemblyTitle>
     <Description>WinUI3 NovelAI Frontend</Description>
     <Product>WinUI3 NovelAI Frontend</Product>
-    <Version>1.0.1</Version>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <FileVersion>1.0.1</FileVersion>
-    <InformationalVersion>1.0.1</InformationalVersion>
+    <Version>1.0.2</Version>
+    <AssemblyVersion>1.0.2.0</AssemblyVersion>
+    <FileVersion>1.0.2</FileVersion>
+    <InformationalVersion>1.0.2</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <UseWindowsForms>true</UseWindowsForms>
 

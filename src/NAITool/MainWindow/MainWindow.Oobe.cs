@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -279,20 +278,23 @@ public sealed partial class MainWindow
                 return row;
             }
 
-            TextBlock CreateSkipLink()
+            Button CreateSkipButton()
             {
-                var link = new TextBlock
+                var button = new Button
                 {
-                    Text = L("oobe.skip"),
-                    FontSize = 12,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(AccentColor()),
-                    TextDecorations = Windows.UI.Text.TextDecorations.Underline,
+                    Content = L("oobe.skip"),
+                    MinWidth = 0,
+                    Height = 32,
+                    Padding = new Thickness(12, 4, 12, 4),
                     VerticalAlignment = VerticalAlignment.Center,
-                    IsTapEnabled = true,
                 };
-                link.Tapped += async (_, _) => await SkipOobeAsync();
-                return link;
+                if (Application.Current.Resources.TryGetValue("SubtleButtonStyle", out var styleObj) &&
+                    styleObj is Style subtleStyle)
+                {
+                    button.Style = subtleStyle;
+                }
+                button.Click += async (_, _) => await SkipOobeAsync();
+                return button;
             }
 
             UIElement CreatePageLayout(string imageName, params UIElement[] contentChildren)
@@ -332,9 +334,22 @@ public sealed partial class MainWindow
                     Foreground = TextTertiaryBrush(),
                     VerticalAlignment = VerticalAlignment.Center,
                 });
-                var skipLink = CreateSkipLink();
-                Grid.SetColumn(skipLink, 1);
-                brandRow.Children.Add(skipLink);
+                var stepBadge = new Border
+                {
+                    Background = SubtleSurfaceBrush(),
+                    BorderBrush = SubtleBorderBrush(),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(10, 4, 10, 4),
+                    Child = new TextBlock
+                    {
+                        Text = Lf("oobe.step", pageIndex + 1, OobePageCount),
+                        FontSize = 12,
+                        Foreground = TextSecondaryBrush(),
+                    },
+                };
+                Grid.SetColumn(stepBadge, 1);
+                brandRow.Children.Add(stepBadge);
 
                 var imageFrame = new Grid { VerticalAlignment = VerticalAlignment.Stretch };
                 imageFrame.Children.Add(image);
@@ -427,17 +442,11 @@ public sealed partial class MainWindow
                     });
                 }
 
-                var label = new TextBlock
-                {
-                    Text = Lf("oobe.step", pageIndex + 1, OobePageCount),
-                    FontSize = 12,
-                    Foreground = TextTertiaryBrush(),
-                    VerticalAlignment = VerticalAlignment.Center,
-                };
+                var skipButton = CreateSkipButton();
                 Grid.SetColumn(steps, 0);
-                Grid.SetColumn(label, 1);
+                Grid.SetColumn(skipButton, 1);
                 grid.Children.Add(steps);
-                grid.Children.Add(label);
+                grid.Children.Add(skipButton);
                 return grid;
             }
 
@@ -993,6 +1002,6 @@ public sealed partial class MainWindow
 
     private static string GetAppVersionText()
     {
-        return "1.0.1";
+        return "1.0.2";
     }
 }
