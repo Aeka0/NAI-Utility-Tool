@@ -249,7 +249,7 @@ public sealed partial class MainWindow
             if (options.UseWeight)
             {
                 double w = Math.Round(0.5 + rng.NextDouble() * 1.5, 1);
-                parts.Add($"{w:F1}::{tagText}::");
+                parts.Add($"{w:F1}::{EnsureRandomStyleWeightDelimiterGap(tagText)}::");
             }
             else
             {
@@ -260,6 +260,17 @@ public sealed partial class MainWindow
         result = isSplit ? string.Join(", ", parts) : string.Concat(parts.Select(p => p + ", "));
         tagCount = tags.Count;
         return true;
+    }
+
+    private static string EnsureRandomStyleWeightDelimiterGap(string tagText)
+    {
+        if (tagText.Length == 0)
+            return tagText;
+
+        char last = tagText[^1];
+        return last >= '0' && last <= '9'
+            ? tagText + " "
+            : tagText;
     }
 
     private bool ApplyRandomStylePrompt(RandomStyleOptions options)
