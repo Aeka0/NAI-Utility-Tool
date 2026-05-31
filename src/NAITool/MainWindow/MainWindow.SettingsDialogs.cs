@@ -185,12 +185,14 @@ public sealed partial class MainWindow
     }
 
     private async Task SaveNetworkSettingsAsync(
+        string apiBaseUrl,
         string apiToken,
         bool streamGeneration,
         bool useProxy,
         string proxyPort,
         bool testConnection)
     {
+        _settings.Settings.ApiBaseUrl = AppSettings.NormalizeApiBaseUrl(apiBaseUrl);
         _settings.Settings.ApiToken = apiToken;
         _settings.Settings.StreamGeneration = streamGeneration;
         _settings.Settings.UseProxy = useProxy;
@@ -199,6 +201,39 @@ public sealed partial class MainWindow
         UpdateBtnGenerateForApiKey();
 
         TxtStatus.Text = L("settings.network.testing");
+        if (_settings.Settings.UsesCustomApiBaseUrl)
+        {
+            if (!AppSettings.IsValidApiBaseUrl(_settings.Settings.ApiBaseUrl))
+            {
+                TxtStatus.Text = L("settings.network.invalid_api_or_network");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(apiToken))
+            {
+                ClearAccountApiState(save: true);
+                TxtStatus.Text = testConnection
+                    ? L("settings.network.invalid_api_or_network")
+                    : L("settings.network.saved");
+                return;
+            }
+
+            _anlasBalance = null;
+            _isOpusSubscriber = false;
+            _hasActiveSubscription = false;
+            _anlasInitialFetchDone = true;
+            _settings.UpdateCachedAccountInfo(null, null, null, null, null);
+            UpdateAnlasBalanceText();
+            UpdateBtnGenerateForApiKey();
+            UpdateGenerateButtonWarning();
+            UpdateDynamicMenuStates();
+
+            TxtStatus.Text = testConnection
+                ? L("settings.network.custom_endpoint_token_unverified")
+                : L("settings.network.saved");
+            return;
+        }
+
         if (testConnection)
         {
             bool valid = !string.IsNullOrWhiteSpace(apiToken) && await ValidateSavedApiTokenAsync();
@@ -821,6 +856,23 @@ public sealed partial class MainWindow
             return true;
         }
 
+        if (!AppSettings.IsValidApiBaseUrl(_settings.Settings.ApiBaseUrl))
+            return false;
+
+        if (_settings.Settings.UsesCustomApiBaseUrl)
+        {
+            _anlasBalance = null;
+            _isOpusSubscriber = false;
+            _hasActiveSubscription = false;
+            _anlasInitialFetchDone = true;
+            _settings.UpdateCachedAccountInfo(null, null, null, null, null);
+            UpdateAnlasBalanceText();
+            UpdateBtnGenerateForApiKey();
+            UpdateGenerateButtonWarning();
+            UpdateDynamicMenuStates();
+            return true;
+        }
+
         _anlasRefreshRunning = true;
         _anlasInitialFetchDone = false;
         UpdateBtnGenerateForApiKey();
@@ -839,6 +891,20 @@ public sealed partial class MainWindow
         {
             ClearAccountApiState(save: true);
             return false;
+        }
+
+        if (!accountInfo.IsAccountInfoAvailable && _settings.Settings.UsesCustomApiBaseUrl)
+        {
+            _anlasBalance = null;
+            _isOpusSubscriber = false;
+            _hasActiveSubscription = false;
+            _anlasInitialFetchDone = true;
+            _settings.UpdateCachedAccountInfo(null, null, null, null, null);
+            UpdateAnlasBalanceText();
+            UpdateBtnGenerateForApiKey();
+            UpdateGenerateButtonWarning();
+            UpdateDynamicMenuStates();
+            return true;
         }
 
         ApplyAccountInfo(accountInfo, save: true);

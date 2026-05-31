@@ -188,6 +188,7 @@ public class AppSettings
 {
     [JsonIgnore]
     public string? ApiToken { get; set; }
+    public string ApiBaseUrl { get; set; } = "";
     public bool WeightHighlight { get; set; } = true;
     public bool AutoComplete { get; set; } = true;
     public bool RememberPromptAndParameters { get; set; } = true;
@@ -228,8 +229,12 @@ public class AppSettings
     public int RememberedCustomHeight { get; set; } = 1216;
     public AutomationSettings Automation { get; set; } = new();
 
+    [JsonIgnore]
+    public bool UsesCustomApiBaseUrl => !string.IsNullOrWhiteSpace(ApiBaseUrl);
+
     public void Normalize()
     {
+        ApiBaseUrl = NormalizeApiBaseUrl(ApiBaseUrl);
         if (!string.IsNullOrWhiteSpace(LanguageCode))
             LanguageCode = LocalizationService.NormalizeLanguageCode(LanguageCode);
         AppearanceTransparency = AppearanceTransparency switch
@@ -256,6 +261,30 @@ public class AppSettings
         Automation ??= new();
         Automation.Normalize();
         AutoGenRandomStylePrefix = Automation.Randomization.RandomizeStyleTags;
+    }
+
+    public static string NormalizeApiBaseUrl(string? value)
+    {
+        string trimmed = (value ?? "").Trim();
+        if (trimmed.Length == 0)
+            return "";
+
+        trimmed = trimmed.TrimEnd('/');
+        if (!trimmed.Contains("://", StringComparison.Ordinal))
+            trimmed = "https://" + trimmed;
+
+        return trimmed;
+    }
+
+    public static bool IsValidApiBaseUrl(string? value)
+    {
+        string normalized = NormalizeApiBaseUrl(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return true;
+
+        return Uri.TryCreate(normalized, UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+               !string.IsNullOrWhiteSpace(uri.Host);
     }
 }
 

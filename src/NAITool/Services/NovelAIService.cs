@@ -34,6 +34,7 @@ public class NovelAiAccountInfo
     public bool HasActiveSubscription { get; init; }
     public int? TierLevel { get; init; }
     public string? ExpiresAt { get; init; }
+    public bool IsAccountInfoAvailable { get; init; } = true;
 }
 
 /// <summary>
@@ -41,12 +42,12 @@ public class NovelAiAccountInfo
 /// </summary>
 public class NovelAIService : IDisposable
 {
-    private const string GenerateUrl = "https://image.novelai.net/ai/generate-image";
-    private const string GenerateStreamUrl = "https://image.novelai.net/ai/generate-image-stream";
-    private const string EncodeVibeUrl = "https://image.novelai.net/ai/encode-vibe";
-    private const string UserInfoUrl = "https://api.novelai.net/user/information";
-    private const string UserDataUrl = "https://api.novelai.net/user/data";
-    private const string TextChatCompletionUrl = "https://text.novelai.net/oa/v1/chat/completions";
+    private const string OfficialGenerateUrl = "https://image.novelai.net/ai/generate-image";
+    private const string OfficialGenerateStreamUrl = "https://image.novelai.net/ai/generate-image-stream";
+    private const string OfficialEncodeVibeUrl = "https://image.novelai.net/ai/encode-vibe";
+    private const string OfficialUserInfoUrl = "https://api.novelai.net/user/information";
+    private const string OfficialUserDataUrl = "https://api.novelai.net/user/data";
+    private const string OfficialTextChatCompletionUrl = "https://text.novelai.net/oa/v1/chat/completions";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -70,6 +71,30 @@ public class NovelAIService : IDisposable
 
     private static string L(string key) => LocalizationService.Instance.GetString(key);
     private static string Lf(string key, params object?[] args) => LocalizationService.Instance.Format(key, args);
+
+    private bool UsesCustomApiBaseUrl => _settings.Settings.UsesCustomApiBaseUrl;
+
+    private static NovelAiAccountInfo UnavailableAccountInfo() => new()
+    {
+        IsAccountInfoAvailable = false,
+    };
+
+    private NovelAiApiEndpoints GetApiEndpoints()
+    {
+        string baseUrl = AppSettings.NormalizeApiBaseUrl(_settings.Settings.ApiBaseUrl);
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return new NovelAiApiEndpoints(
+                OfficialGenerateUrl,
+                OfficialGenerateStreamUrl,
+                OfficialEncodeVibeUrl,
+                OfficialUserInfoUrl,
+                OfficialUserDataUrl,
+                OfficialTextChatCompletionUrl);
+        }
+
+        return new NovelAiApiEndpoints(baseUrl, baseUrl, baseUrl, baseUrl, baseUrl, baseUrl);
+    }
 
     private HttpClient GetOrCreateClient()
     {
@@ -106,12 +131,16 @@ public class NovelAIService : IDisposable
     public async Task<(bool Success, string Message)> TestConnectionAsync(
         string token, CancellationToken ct = default)
     {
+        if (UsesCustomApiBaseUrl)
+            return (false, L("settings.network.custom_endpoint_token_unverified"));
+
         try
         {
             var client = GetOrCreateClient();
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-            var response = await client.GetAsync(UserInfoUrl, ct);
+            var endpoints = GetApiEndpoints();
+            var response = await client.GetAsync(endpoints.UserInfoUrl, ct);
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => (true, L("settings.network.test.success")),
@@ -199,17 +228,23 @@ public class NovelAIService : IDisposable
         if (string.IsNullOrWhiteSpace(token))
             return null;
 
+        if (UsesCustomApiBaseUrl)
+            return UnavailableAccountInfo();
+
         try
         {
             var client = GetOrCreateClient();
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-            var response = await client.GetAsync(UserDataUrl, ct);
+            var endpoints = GetApiEndpoints();
+            var response = await client.GetAsync(endpoints.UserDataUrl, ct);
             if (!response.IsSuccessStatusCode)
             {
                 Debug.WriteLine($"[NAI] /user/data request failed: {(int)response.StatusCode}");
-                return null;
+                return UsesCustomApiBaseUrl && response.StatusCode != HttpStatusCode.Unauthorized
+                    ? UnavailableAccountInfo()
+                    : null;
             }
 
             string json = await response.Content.ReadAsStringAsync(ct);
@@ -221,7 +256,7 @@ public class NovelAIService : IDisposable
             if (!TryGetPropertyIgnoreCase(root, "subscription", out var sub))
             {
                 Debug.WriteLine("[NAI] subscription field was not found in the response");
-                return null;
+                return UsesCustomApiBaseUrl ? UnavailableAccountInfo() : null;
             }
 
             // ── 订阅等级 ──
@@ -306,12 +341,13 @@ public class NovelAIService : IDisposable
                 HasActiveSubscription = hasActiveSubscription,
                 TierLevel = tier,
                 ExpiresAt = expiresAt,
+                IsAccountInfoAvailable = true,
             };
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"[NAI] GetAccountInfoAsync exception: {ex}");
-            return null;
+            return UsesCustomApiBaseUrl ? UnavailableAccountInfo() : null;
         }
     }
 
@@ -837,7 +873,8 @@ public class NovelAIService : IDisposable
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var url = _settings.Settings.StreamGeneration ? GenerateStreamUrl : GenerateUrl;
+            var endpoints = GetApiEndpoints();
+            var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
             using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
                     new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
@@ -1031,7 +1068,8 @@ public class NovelAIService : IDisposable
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var url = _settings.Settings.StreamGeneration ? GenerateStreamUrl : GenerateUrl;
+            var endpoints = GetApiEndpoints();
+            var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
             using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
                     new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
@@ -1222,7 +1260,8 @@ public class NovelAIService : IDisposable
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var url = _settings.Settings.StreamGeneration ? GenerateStreamUrl : GenerateUrl;
+            var endpoints = GetApiEndpoints();
+            var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
             using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
                     new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
@@ -1350,7 +1389,8 @@ public class NovelAIService : IDisposable
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync(EncodeVibeUrl, content, ct);
+            var endpoints = GetApiEndpoints();
+            var response = await client.PostAsync(endpoints.EncodeVibeUrl, content, ct);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -1457,7 +1497,8 @@ public class NovelAIService : IDisposable
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, TextChatCompletionUrl) { Content = content };
+            var endpoints = GetApiEndpoints();
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoints.TextChatCompletionUrl) { Content = content };
             var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
 
             if (!response.IsSuccessStatusCode)
@@ -1546,6 +1587,14 @@ public class NovelAIService : IDisposable
             return (null, Lf("api.error.request_failed", ex.Message));
         }
     }
+
+    private sealed record NovelAiApiEndpoints(
+        string GenerateUrl,
+        string GenerateStreamUrl,
+        string EncodeVibeUrl,
+        string UserInfoUrl,
+        string UserDataUrl,
+        string TextChatCompletionUrl);
 
     public void Dispose()
     {

@@ -207,9 +207,11 @@ public sealed partial class MainWindow
 
         UIElement BuildNetworkSection()
         {
-            void ApplyNetworkSettingsRealtime(string tokenValue, bool useProxy, string proxyPort, bool streamGeneration)
+            void ApplyNetworkSettingsRealtime(string baseUrlValue, string tokenValue, bool useProxy, string proxyPort, bool streamGeneration)
             {
+                string normalizedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlValue);
                 string trimmedToken = tokenValue.Trim();
+                _settings.Settings.ApiBaseUrl = normalizedBaseUrl;
                 _settings.Settings.StreamGeneration = streamGeneration;
                 _settings.Settings.UseProxy = useProxy;
                 _settings.Settings.ProxyPort = proxyPort;
@@ -217,6 +219,7 @@ public sealed partial class MainWindow
                 if (string.IsNullOrWhiteSpace(trimmedToken))
                 {
                     ClearAccountApiState(save: true);
+                    _settings.Settings.ApiBaseUrl = normalizedBaseUrl;
                     _settings.Settings.StreamGeneration = streamGeneration;
                     _settings.Settings.UseProxy = useProxy;
                     _settings.Settings.ProxyPort = proxyPort;
@@ -229,6 +232,14 @@ public sealed partial class MainWindow
                 UpdateBtnGenerateForApiKey();
             }
 
+            var baseUrlBox = new TextBox
+            {
+                PlaceholderText = L("settings.hub.network.base_url_placeholder"),
+                Text = _settings.Settings.ApiBaseUrl,
+                Width = SettingsHubControlColumnWidth,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
             var tokenBox = new PasswordBox
             {
                 PlaceholderText = "Bearer Token",
@@ -256,8 +267,9 @@ public sealed partial class MainWindow
             var streamToggle = CreateLocalizedToggleSwitch(_settings.Settings.StreamGeneration);
             streamToggle.HorizontalAlignment = HorizontalAlignment.Right;
 
+            string lastTestedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text);
             string lastTestedToken = tokenBox.Password.Trim();
-            bool tokenEditedSinceLastTest = false;
+            bool endpointOrTokenEditedSinceLastTest = false;
             bool networkActionRunning = false;
 
             async Task RunNetworkActionAsync(bool testConnection)
@@ -269,8 +281,10 @@ public sealed partial class MainWindow
                 testButton.IsEnabled = false;
                 try
                 {
+                    string normalizedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text);
                     string trimmedToken = tokenBox.Password.Trim();
                     await SaveNetworkSettingsAsync(
+                        normalizedBaseUrl,
                         trimmedToken,
                         _settings.Settings.StreamGeneration,
                         _settings.Settings.UseProxy,
@@ -278,8 +292,9 @@ public sealed partial class MainWindow
                         testConnection);
                     if (testConnection)
                     {
+                        lastTestedBaseUrl = normalizedBaseUrl;
                         lastTestedToken = trimmedToken;
-                        tokenEditedSinceLastTest = false;
+                        endpointOrTokenEditedSinceLastTest = false;
                     }
                 }
                 finally
@@ -291,10 +306,12 @@ public sealed partial class MainWindow
 
             async Task TestTokenAfterEditingAsync()
             {
+                string normalizedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text);
                 string trimmedToken = tokenBox.Password.Trim();
                 if (string.IsNullOrWhiteSpace(trimmedToken) ||
-                    !tokenEditedSinceLastTest ||
-                    string.Equals(trimmedToken, lastTestedToken, StringComparison.Ordinal))
+                    !endpointOrTokenEditedSinceLastTest ||
+                    (string.Equals(normalizedBaseUrl, lastTestedBaseUrl, StringComparison.OrdinalIgnoreCase) &&
+                     string.Equals(trimmedToken, lastTestedToken, StringComparison.Ordinal)))
                 {
                     return;
                 }
@@ -303,11 +320,33 @@ public sealed partial class MainWindow
             }
 
             testButton.Click += async (_, _) => await RunNetworkActionAsync(true);
+            baseUrlBox.TextChanged += (_, _) =>
+            {
+                string normalizedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text);
+                endpointOrTokenEditedSinceLastTest =
+                    !string.Equals(normalizedBaseUrl, lastTestedBaseUrl, StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(tokenBox.Password.Trim(), lastTestedToken, StringComparison.Ordinal);
+                ApplyNetworkSettingsRealtime(
+                    baseUrlBox.Text,
+                    tokenBox.Password,
+                    proxyToggle.IsOn,
+                    proxyPortBox.Text,
+                    streamToggle.IsOn);
+            };
+            baseUrlBox.LostFocus += async (_, _) => await TestTokenAfterEditingAsync();
+            baseUrlBox.KeyDown += async (_, args) =>
+            {
+                if (args.Key == Windows.System.VirtualKey.Enter)
+                    await TestTokenAfterEditingAsync();
+            };
             tokenBox.PasswordChanged += (_, _) =>
             {
                 string trimmedToken = tokenBox.Password.Trim();
-                tokenEditedSinceLastTest = !string.Equals(trimmedToken, lastTestedToken, StringComparison.Ordinal);
+                endpointOrTokenEditedSinceLastTest =
+                    !string.Equals(AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text), lastTestedBaseUrl, StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(trimmedToken, lastTestedToken, StringComparison.Ordinal);
                 ApplyNetworkSettingsRealtime(
+                    baseUrlBox.Text,
                     tokenBox.Password,
                     proxyToggle.IsOn,
                     proxyPortBox.Text,
@@ -320,6 +359,7 @@ public sealed partial class MainWindow
                     await TestTokenAfterEditingAsync();
             };
             streamToggle.Toggled += (_, _) => ApplyNetworkSettingsRealtime(
+                baseUrlBox.Text,
                 tokenBox.Password,
                 proxyToggle.IsOn,
                 proxyPortBox.Text,
@@ -328,12 +368,14 @@ public sealed partial class MainWindow
             {
                 proxyPortBox.IsEnabled = proxyToggle.IsOn;
                 ApplyNetworkSettingsRealtime(
+                    baseUrlBox.Text,
                     tokenBox.Password,
                     proxyToggle.IsOn,
                     proxyPortBox.Text,
                     streamToggle.IsOn);
             };
             proxyPortBox.TextChanged += (_, _) => ApplyNetworkSettingsRealtime(
+                baseUrlBox.Text,
                 tokenBox.Password,
                 proxyToggle.IsOn,
                 proxyPortBox.Text,
@@ -366,6 +408,11 @@ public sealed partial class MainWindow
             proxyRow.Children.Add(proxyToggle);
 
             return CreateSettingsHubPage(
+                CreateSettingsHubLayer(
+                    "\uE71B",
+                    L("settings.hub.network.base_url"),
+                    L("settings.hub.network.base_url_hint"),
+                    baseUrlBox),
                 CreateSettingsHubLayer(
                     "\uE8D7",
                     L("settings.hub.network.api_token"),
