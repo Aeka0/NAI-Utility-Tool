@@ -48,6 +48,9 @@ public class NovelAIService : IDisposable
     private const string OfficialUserInfoUrl = "https://api.novelai.net/user/information";
     private const string OfficialUserDataUrl = "https://api.novelai.net/user/data";
     private const string OfficialTextChatCompletionUrl = "https://text.novelai.net/oa/v1/chat/completions";
+    private static readonly TimeSpan DefaultHttpClientTimeout = TimeSpan.FromSeconds(300);
+    private static readonly TimeSpan AccountInfoRequestTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ImageGenerationRequestTimeout = TimeSpan.FromSeconds(30);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -73,6 +76,13 @@ public class NovelAIService : IDisposable
     private static string Lf(string key, params object?[] args) => LocalizationService.Instance.Format(key, args);
 
     private bool UsesCustomApiBaseUrl => _settings.Settings.UsesCustomApiBaseUrl;
+
+    private static CancellationTokenSource CreateRequestTimeoutTokenSource(TimeSpan timeout, CancellationToken ct)
+    {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(timeout);
+        return cts;
+    }
 
     private static NovelAiAccountInfo UnavailableAccountInfo() => new()
     {
@@ -116,7 +126,7 @@ public class NovelAIService : IDisposable
                     handler.UseProxy = true;
                 }
 
-                _httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(300) };
+                _httpClient = new HttpClient(handler) { Timeout = DefaultHttpClientTimeout };
                 _httpClientProxyKey = proxyKey;
             }
 
@@ -233,12 +243,14 @@ public class NovelAIService : IDisposable
 
         try
         {
+            using var requestTimeoutCts = CreateRequestTimeoutTokenSource(AccountInfoRequestTimeout, ct);
+            var requestCt = requestTimeoutCts.Token;
             var client = GetOrCreateClient();
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
             var endpoints = GetApiEndpoints();
-            var response = await client.GetAsync(endpoints.UserDataUrl, ct);
+            var response = await client.GetAsync(endpoints.UserDataUrl, requestCt);
             if (!response.IsSuccessStatusCode)
             {
                 Debug.WriteLine($"[NAI] /user/data request failed: {(int)response.StatusCode}");
@@ -247,7 +259,7 @@ public class NovelAIService : IDisposable
                     : null;
             }
 
-            string json = await response.Content.ReadAsStringAsync(ct);
+            string json = await response.Content.ReadAsStringAsync(requestCt);
             Debug.WriteLine($"[NAI] /user/data response: {json[..Math.Min(json.Length, 2000)]}");
 
             using var doc = JsonDocument.Parse(json);
@@ -875,24 +887,26 @@ public class NovelAIService : IDisposable
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
             var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
+            var requestCt = requestTimeoutCts.Token;
             using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
                     new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
                     HttpCompletionOption.ResponseHeadersRead,
-                    ct)
-                : await client.PostAsync(url, content, ct);
+                    requestCt)
+                : await client.PostAsync(url, content, requestCt);
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorText = await response.Content.ReadAsStringAsync(ct);
+                var errorText = await response.Content.ReadAsStringAsync(requestCt);
                 stopwatch.Stop();
                 WriteRequestLog("Inpaint generation", payload, stopwatch.ElapsedMilliseconds, response, errorText);
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
             byte[]? imageBytes = _settings.Settings.StreamGeneration
-                ? await ReadGeneratedImageStreamAsync(response.Content, progress, ct)
-                : await ReadGeneratedImageBytesAsync(response.Content, ct);
+                ? await ReadGeneratedImageStreamAsync(response.Content, progress, requestCt)
+                : await ReadGeneratedImageBytesAsync(response.Content, requestCt);
             if (imageBytes == null)
             {
                 stopwatch.Stop();
@@ -1070,24 +1084,26 @@ public class NovelAIService : IDisposable
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
             var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
+            var requestCt = requestTimeoutCts.Token;
             using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
                     new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
                     HttpCompletionOption.ResponseHeadersRead,
-                    ct)
-                : await client.PostAsync(url, content, ct);
+                    requestCt)
+                : await client.PostAsync(url, content, requestCt);
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorText = await response.Content.ReadAsStringAsync(ct);
+                var errorText = await response.Content.ReadAsStringAsync(requestCt);
                 stopwatch.Stop();
                 WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, response, errorText);
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
             byte[]? imageBytes = _settings.Settings.StreamGeneration
-                ? await ReadGeneratedImageStreamAsync(response.Content, progress, ct)
-                : await ReadGeneratedImageBytesAsync(response.Content, ct);
+                ? await ReadGeneratedImageStreamAsync(response.Content, progress, requestCt)
+                : await ReadGeneratedImageBytesAsync(response.Content, requestCt);
             if (imageBytes == null)
             {
                 stopwatch.Stop();
@@ -1262,16 +1278,18 @@ public class NovelAIService : IDisposable
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
             var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
+            var requestCt = requestTimeoutCts.Token;
             using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
                     new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
                     HttpCompletionOption.ResponseHeadersRead,
-                    ct)
-                : await client.PostAsync(url, content, ct);
+                    requestCt)
+                : await client.PostAsync(url, content, requestCt);
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorText = await response.Content.ReadAsStringAsync(ct);
+                var errorText = await response.Content.ReadAsStringAsync(requestCt);
                 stopwatch.Stop();
                 LastGenerationErrorStatusCode = (int)response.StatusCode;
                 WriteRequestLog("Image generation", payload, stopwatch.ElapsedMilliseconds, response, errorText);
@@ -1279,8 +1297,8 @@ public class NovelAIService : IDisposable
             }
 
             byte[]? imageBytes = _settings.Settings.StreamGeneration
-                ? await ReadGeneratedImageStreamAsync(response.Content, progress, ct)
-                : await ReadGeneratedImageBytesAsync(response.Content, ct);
+                ? await ReadGeneratedImageStreamAsync(response.Content, progress, requestCt)
+                : await ReadGeneratedImageBytesAsync(response.Content, requestCt);
 
             if (imageBytes == null)
             {
