@@ -568,7 +568,7 @@ public sealed partial class MainWindow
                 var tokenBox = new PasswordBox
                 {
                     Password = apiTokenValue,
-                    PlaceholderText = "Bearer Token",
+                    PlaceholderText = L("settings.hub.network.api_token_placeholder"),
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                 };
                 var tokenStatus = new TextBlock

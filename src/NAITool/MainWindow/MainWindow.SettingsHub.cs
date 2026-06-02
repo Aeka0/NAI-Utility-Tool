@@ -242,7 +242,7 @@ public sealed partial class MainWindow
             };
             var tokenBox = new PasswordBox
             {
-                PlaceholderText = "Bearer Token",
+                PlaceholderText = L("settings.hub.network.api_token_placeholder"),
                 Password = _settings.Settings.ApiToken ?? "",
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Center,
