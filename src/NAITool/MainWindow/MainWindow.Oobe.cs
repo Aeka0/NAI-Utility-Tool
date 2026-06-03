@@ -1002,6 +1002,6 @@ public sealed partial class MainWindow
 
     private static string GetAppVersionText()
     {
-        return "1.0.2";
+        return "1.0.3";
     }
 }
