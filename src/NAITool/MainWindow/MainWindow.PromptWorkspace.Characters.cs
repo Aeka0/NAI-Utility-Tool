@@ -194,6 +194,7 @@ public sealed partial class MainWindow
         textBox.SizeChanged += (_, _) => UpdateCharacterHighlight(entry);
         textBox.PreviewKeyDown += OnPromptPreviewKeyDown;
         textBox.KeyDown += OnPromptKeyDown;
+        textBox.EditorPointerWheelChanged += OnPromptEditorPointerWheelChanged;
         textBox.LostFocus += (_, _) => CloseAutoComplete();
         var promptFlyout = new MenuFlyout();
         promptFlyout.Opening += (_, _) => ConfigurePromptContextFlyout(promptFlyout, textBox, isStyleBox: false, allowQuickRandomStyle: false);

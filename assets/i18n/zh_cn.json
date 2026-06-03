@@ -541,6 +541,8 @@
     "help.highlights.upscale.title":  "本地超分",
     "help.highlights.weight_converter.body":  "工具菜单中提供独立的权重转换窗口，可在 Stable Diffusion、NovelAI 1~3 经典括号权重，以及 NovelAI 4+ 数字双冒号权重之间互相转换。\n\n窗口采用左右对照结构，方便您先预览输入输出，再决定是否发送回当前工作区，特别适合整理旧 Prompt 或在不同生态之间迁移提示词格式。",
     "help.highlights.weight_converter.title":  "权重转换",
+    "help.highlights.prompt_weight_adjust.body":  "编辑 Prompt 时，可以在光标附近按 Ctrl+小键盘上/下，或 Ctrl+鼠标滚轮上/下，快速提升或降低当前词条的权重。\n\n工具会优先识别已有封闭权重区间，NAI3 使用大括号/中括号层数调整，NAI4+ 使用数字双冒号并按 0.1 调整；当 NAI4+ 权重回到 1 时会自动移除权重包装。",
+    "help.highlights.prompt_weight_adjust.title":  "快捷权重调整",
     "help.highlights.wildcards.body":  "支持把常用可变提示词片段整理为 `user/wildcards/` 下的 txt 条目，并在发送前自动按 seed 展开。\n\n它可以和现有自动补全联动，也支持变量复用与权重写法，适合做服装、发色、构图元素、风格碎片等可复用抽卡模板。",
     "help.highlights.wildcards.title":  "提示词抽卡器",
     "help.links.aistudio.description":  "Google AI Studio 官方入口",

@@ -31,6 +31,7 @@ public sealed class PromptTextBox : UserControl
 
     public event TextChangedEventHandler? TextChanged;
     public event RoutedEventHandler? SelectionChanged;
+    public event PointerEventHandler? EditorPointerWheelChanged;
 
     public PromptTextBox()
     {
@@ -69,7 +70,11 @@ public sealed class PromptTextBox : UserControl
         _editor.SelectionChanged += OnEditorSelectionChanged;
         _editor.KeyUp += (_, _) => QueueHighlightRedraw();
         _editor.AddHandler(UIElement.PointerWheelChangedEvent,
-            new PointerEventHandler((_, _) => QueueHighlightRedraw()),
+            new PointerEventHandler((_, e) =>
+            {
+                QueueHighlightRedraw();
+                EditorPointerWheelChanged?.Invoke(this, e);
+            }),
             handledEventsToo: true);
         SizeChanged += (_, _) => SyncHighlightLayout();
     }

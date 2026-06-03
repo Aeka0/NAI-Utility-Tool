@@ -151,6 +151,40 @@ public sealed class TagCompleteService
         return results;
     }
 
+    public bool ContainsExactTag(string text, int? categoryFilter = null)
+    {
+        if (string.IsNullOrWhiteSpace(text) || _tags.Count == 0)
+            return false;
+
+        string normalized = NormalizeTagLookupText(text);
+        if (normalized.Length == 0)
+            return false;
+
+        foreach (var entry in _tags)
+        {
+            if (categoryFilter.HasValue && entry.Category != categoryFilter.Value)
+                continue;
+
+            if (string.Equals(NormalizeTagLookupText(entry.Tag), normalized, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            foreach (string alias in entry.Aliases)
+            {
+                if (string.Equals(NormalizeTagLookupText(alias), normalized, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string NormalizeTagLookupText(string text) =>
+        string.Join(' ', (text ?? "")
+            .Trim()
+            .Replace('_', ' ')
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        .ToLowerInvariant();
+
     /// <summary>
     /// Get random tags from a specific category that meet minimum count.
     /// </summary>

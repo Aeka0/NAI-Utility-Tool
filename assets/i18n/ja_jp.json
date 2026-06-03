@@ -541,6 +541,8 @@
     "help.highlights.upscale.title":  "ローカルアップスケール",
     "help.highlights.weight_converter.body":  "ツールメニューには専用の重み変換ウィンドウがあり、Stable Diffusion、NovelAI 1~3 の括弧重み、NovelAI 4+ の数値ダブルコロン重みの相互変換ができます。\n\n左右比較レイアウトで入力と出力を確認してから現在のワークスペースへ戻せるため、古い Prompt の整理や別エコシステムへの移行に便利です。",
     "help.highlights.weight_converter.title":  "重み変換",
+    "help.highlights.prompt_weight_adjust.body":  "Prompt の編集中に、カーソル付近で Ctrl+テンキー上/下、または Ctrl+マウスホイール上/下を使うと、現在の語句の重みをすばやく上下できます。\n\n既存の閉じた重み範囲を優先して認識し、NAI3 では波括弧/角括弧の段数、NAI4+ では数値ダブルコロンを 0.1 刻みで調整します。NAI4+ の重みが 1 に戻った場合は、重みラッパーを自動的に外します。",
+    "help.highlights.prompt_weight_adjust.title":  "クイック重み調整",
     "help.highlights.wildcards.body":  "可変プロンプト断片を `user/wildcards/` 配下の txt エントリとして整理し、送信前に seed に応じて自動展開できます。\n\n自動補完と連携し、変数の再利用や重み構文にも対応しているため、服装、髪色、構図要素、スタイル断片などの再利用テンプレートに向いています。",
     "help.highlights.wildcards.title":  "プロンプトワイルドカード",
     "help.links.aistudio.description":  "Google AI Studio 公式入口",

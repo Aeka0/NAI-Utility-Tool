@@ -243,6 +243,10 @@ public sealed partial class MainWindow
                 L("help.highlights.weight_converter.body")
             ),
             (
+                L("help.highlights.prompt_weight_adjust.title"),
+                L("help.highlights.prompt_weight_adjust.body")
+            ),
+            (
                 L("help.highlights.actions.title"),
                 L("help.highlights.actions.body")
             ),

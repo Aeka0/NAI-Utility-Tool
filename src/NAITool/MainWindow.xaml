@@ -520,6 +520,7 @@
                                                             SizeChanged="OnStylePromptSizeChanged"
                                                             PreviewKeyDown="OnPromptPreviewKeyDown"
                                                             KeyDown="OnPromptKeyDown"
+                                                            EditorPointerWheelChanged="OnPromptEditorPointerWheelChanged"
                                                             LostFocus="OnPromptLostFocus"/>
                                 </Grid>
 
@@ -532,6 +533,7 @@
                                                             PlaceholderText=""
                                                             PreviewKeyDown="OnPromptPreviewKeyDown"
                                                             KeyDown="OnPromptKeyDown"
+                                                            EditorPointerWheelChanged="OnPromptEditorPointerWheelChanged"
                                                             TextChanged="OnPromptTextChanged"
                                                             SelectionChanged="OnPromptSelectionChanged"
                                                             SizeChanged="OnPromptSizeChanged"

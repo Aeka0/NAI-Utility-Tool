@@ -541,6 +541,8 @@
   "help.highlights.upscale.title": "Local Upscale",
   "help.highlights.weight_converter.body": "The tools menu includes a dedicated weight converter that can convert between Stable Diffusion weights, NovelAI 1-3 classic bracket weights, and NovelAI 4+ numeric double-colon weights.\n\nThe side-by-side layout makes it easy to preview input and output before sending the result back into the current workspace, especially when cleaning old prompts or moving between ecosystems.",
   "help.highlights.weight_converter.title": "Weight Conversion",
+  "help.highlights.prompt_weight_adjust.body": "While editing a prompt, press Ctrl+Numpad Up/Down or Ctrl+mouse wheel up/down near the caret to quickly raise or lower the current term's weight.\n\nThe tool prioritizes existing closed weight ranges. NAI3 adjusts curly-brace or square-bracket layers, while NAI4+ adjusts numeric double-colon weights by 0.1. When a NAI4+ weight returns to 1, the weight wrapper is removed automatically.",
+  "help.highlights.prompt_weight_adjust.title": "Quick Weight Adjust",
   "help.highlights.wildcards.body": "You can organize reusable variable prompt fragments as txt entries under user/wildcards/ and expand them automatically by seed before sending.\n\nThey work with auto-complete, support variable reuse and weight syntax, and are well suited for clothing, hair color, composition elements, and style fragments.",
   "help.highlights.wildcards.title": "Prompt Wildcards",
   "help.links.aistudio.description": "Official Google AI Studio entry",
