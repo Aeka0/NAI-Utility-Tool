@@ -267,10 +267,21 @@ public sealed partial class MainWindow
         if (tagText.Length == 0)
             return tagText;
 
-        char last = tagText[^1];
-        return last >= '0' && last <= '9'
+        return EndsWithNumericWeightDelimiterRisk(tagText)
             ? tagText + " "
             : tagText;
+    }
+
+    private static bool EndsWithNumericWeightDelimiterRisk(string text)
+    {
+        char last = text[^1];
+        if (last >= '0' && last <= '9')
+            return true;
+
+        return last == '.'
+            && text.Length >= 2
+            && text[^2] >= '0'
+            && text[^2] <= '9';
     }
 
     private bool ApplyRandomStylePrompt(RandomStyleOptions options)
