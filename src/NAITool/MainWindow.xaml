@@ -355,14 +355,6 @@
                         <MenuFlyoutSubItem.Icon>
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF2B7;"/>
                         </MenuFlyoutSubItem.Icon>
-                        <ToggleMenuFlyoutItem x:Name="MenuLanguageEnglish" Text="English"
-                                              Click="OnLanguageChanged" Tag="en_us"/>
-                        <ToggleMenuFlyoutItem x:Name="MenuLanguageZhCn" Text=""
-                                              Click="OnLanguageChanged" Tag="zh_cn"/>
-                        <ToggleMenuFlyoutItem x:Name="MenuLanguageZhTw" Text=""
-                                              Click="OnLanguageChanged" Tag="zh_tw"/>
-                        <ToggleMenuFlyoutItem x:Name="MenuLanguageJaJp" Text=""
-                                              Click="OnLanguageChanged" Tag="ja_jp"/>
                     </MenuFlyoutSubItem>
                     <MenuFlyoutItem x:Name="MenuDevSettings" Text="" Click="OnDevSettings" Visibility="Collapsed">
                         <MenuFlyoutItem.Icon>
@@ -397,24 +389,47 @@
             </MenuBar>
 
             <!-- 模式切换 Tab -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
-                        Margin="16,0,0,0">
-                <ToggleButton x:Name="TabGenerate" Content="" IsChecked="True"
-                              Click="OnModeTabSwitch" CornerRadius="4,0,0,4"
-                              MinWidth="56" Height="34"/>
-                <ToggleButton x:Name="TabI2I" Content=""
-                              Click="OnModeTabSwitch" CornerRadius="0"
-                              MinWidth="56" Height="34"/>
-                <ToggleButton x:Name="TabUpscale" Content=""
-                              Click="OnModeTabSwitch" CornerRadius="0"
-                              MinWidth="56" Height="34"/>
-                <ToggleButton x:Name="TabEffects" Content=""
-                              Click="OnModeTabSwitch" CornerRadius="0"
-                              MinWidth="56" Height="34"/>
-                <ToggleButton x:Name="TabInspect" Content=""
-                              Click="OnModeTabSwitch" CornerRadius="0,4,4,0"
-                              MinWidth="56" Height="34"/>
-            </StackPanel>
+            <Button x:Name="WorkspaceModeButton"
+                    Grid.Column="3"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    MinWidth="72"
+                    MaxWidth="220"
+                    Height="34"
+                    Padding="14,0"
+                    Margin="0,0,154,0"
+                    HorizontalContentAlignment="Center">
+                <Button.Content>
+                    <TextBlock x:Name="WorkspaceModeText"
+                               Text=""
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="Center"/>
+                </Button.Content>
+                <Button.Flyout>
+                    <MenuFlyout x:Name="WorkspaceModeFlyout">
+                        <ToggleMenuFlyoutItem x:Name="WorkspaceModeGenerateItem"
+                                              Text=""
+                                              Tag="ImageGeneration"
+                                              Click="OnWorkspaceModeMenuItemClick"/>
+                        <ToggleMenuFlyoutItem x:Name="WorkspaceModeI2IItem"
+                                              Text=""
+                                              Tag="I2I"
+                                              Click="OnWorkspaceModeMenuItemClick"/>
+                        <ToggleMenuFlyoutItem x:Name="WorkspaceModeUpscaleItem"
+                                              Text=""
+                                              Tag="Upscale"
+                                              Click="OnWorkspaceModeMenuItemClick"/>
+                        <ToggleMenuFlyoutItem x:Name="WorkspaceModeEffectsItem"
+                                              Text=""
+                                              Tag="Effects"
+                                              Click="OnWorkspaceModeMenuItemClick"/>
+                        <ToggleMenuFlyoutItem x:Name="WorkspaceModeInspectItem"
+                                              Text=""
+                                              Tag="Inspect"
+                                              Click="OnWorkspaceModeMenuItemClick"/>
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
         </Grid>
 
         <!-- ════════════ 主内容 ════════════ -->

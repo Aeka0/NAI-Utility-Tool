@@ -392,8 +392,13 @@ public sealed partial class MainWindow : Window
             AppWindow.Resize(new SizeInt32(1400, 900));
             AppWindow.SetIcon("NAIT.ico");
         }
+        UpdateWorkspaceModeButtonTitleBarInset();
         SetupCloseConfirmation();
-        this.Activated += (_, _) => ApplyWindowChrome(this, IsDarkTheme(), null, null);
+        this.Activated += (_, _) =>
+        {
+            ApplyWindowChrome(this, IsDarkTheme(), null, null);
+            UpdateWorkspaceModeButtonTitleBarInset();
+        };
         Closed += (_, _) =>
         {
             CloseAdvancedParamsWindow();

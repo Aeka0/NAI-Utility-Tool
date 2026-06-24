@@ -110,10 +110,27 @@ public sealed partial class MainWindow
     private void ApplyLanguageSelectionChecks()
     {
         string code = _settings.Settings.LanguageCode;
-        MenuLanguageEnglish.IsChecked = code == "en_us";
-        MenuLanguageZhCn.IsChecked = code == "zh_cn";
-        MenuLanguageZhTw.IsChecked = code == "zh_tw";
-        MenuLanguageJaJp.IsChecked = code == "ja_jp";
+        foreach (var baseItem in MenuLanguage.Items)
+        {
+            if (baseItem is ToggleMenuFlyoutItem item && item.Tag is string languageCode)
+                item.IsChecked = code == LocalizationService.NormalizeLanguageCode(languageCode);
+        }
+    }
+
+    private void RefreshLanguageMenuItems()
+    {
+        MenuLanguage.Items.Clear();
+        foreach (var language in LocalizationService.SupportedLanguages)
+        {
+            var item = new ToggleMenuFlyoutItem
+            {
+                Text = _loc.GetLanguageDisplayName(language.Code),
+                Tag = language.Code,
+            };
+            item.Click += OnLanguageChanged;
+            MenuLanguage.Items.Add(item);
+            ApplyMenuTypography(item);
+        }
     }
 
     private void ApplyLocalization()
@@ -160,10 +177,7 @@ public sealed partial class MainWindow
         MenuTransparencyLesser.Text = L("menu.settings.transparency.lesser");
         MenuTransparencyOpaque.Text = L("menu.settings.transparency.opaque");
         MenuLanguage.Text = L("menu.settings.language");
-        MenuLanguageEnglish.Text = _loc.GetLanguageDisplayName("en_us");
-        MenuLanguageZhCn.Text = _loc.GetLanguageDisplayName("zh_cn");
-        MenuLanguageZhTw.Text = _loc.GetLanguageDisplayName("zh_tw");
-        MenuLanguageJaJp.Text = _loc.GetLanguageDisplayName("ja_jp");
+        RefreshLanguageMenuItems();
         MenuDevSettings.Text = L("menu.settings.developer");
         ApplyLanguageSelectionChecks();
 
@@ -173,11 +187,12 @@ public sealed partial class MainWindow
         MenuHelpLinks.Text = L("menu.help.links");
         MenuAbout.Text = L("menu.help.about");
 
-        TabGenerate.Content = L("mode.generate");
-        TabI2I.Content = L("mode.i2i");
-        TabUpscale.Content = L("mode.upscale");
-        TabEffects.Content = L("mode.post");
-        TabInspect.Content = L("mode.inspect");
+        WorkspaceModeGenerateItem.Text = L("mode.generate");
+        WorkspaceModeI2IItem.Text = L("mode.i2i");
+        WorkspaceModeUpscaleItem.Text = L("mode.upscale");
+        WorkspaceModeEffectsItem.Text = L("mode.post");
+        WorkspaceModeInspectItem.Text = L("mode.inspect");
+        UpdateWorkspaceModeButton();
         UpdatePromptTabText();
 
         ToolTipService.SetToolTip(BtnSplitPrompt, L("tooltip.split_prompt"));
@@ -311,6 +326,12 @@ public sealed partial class MainWindow
         {
             "en_us" => 116,
             "ja_jp" => 136,
+            "ko_kr" => 126,
+            "ru_ru" => 142,
+            "de_de" => 150,
+            "fr_fr" => 150,
+            "es_es" => 150,
+            "la_001" => 132,
             _ => 0,
         };
 
@@ -338,6 +359,7 @@ public sealed partial class MainWindow
         SetInspectPrimaryAction(_inspectPrimaryAction, BtnSendToGen.IsEnabled);
         SetUpscaleButtonText(_upscaleRunning ? L("button.upscaling") : L("button.start_upscale"));
         UpdatePromptTabText();
+        UpdateWorkspaceModeButton();
         UpdateAutoGenUI();
         UpdateGenerateButtonWarning();
         UpdateI2IRedoButtonWarning();

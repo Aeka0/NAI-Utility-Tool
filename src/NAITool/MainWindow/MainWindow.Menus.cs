@@ -515,6 +515,12 @@ public sealed partial class MainWindow
         "zh_cn" => "zh-CN",
         "zh_tw" => "zh-TW",
         "ja_jp" => "ja-JP",
+        "ko_kr" => "ko-KR",
+        "ru_ru" => "ru-RU",
+        "de_de" => "de-DE",
+        "fr_fr" => "fr-FR",
+        "es_es" => "es-ES",
+        "la_001" => "la-001",
         _ => "en-US"
     };
 
@@ -523,6 +529,7 @@ public sealed partial class MainWindow
         "zh-CN" => "Microsoft YaHei UI",
         "zh-TW" => "Microsoft JhengHei UI",
         "ja-JP" => "Yu Gothic UI",
+        "ko-KR" => "Malgun Gothic",
         _ => "Segoe UI Variable"
     });
 

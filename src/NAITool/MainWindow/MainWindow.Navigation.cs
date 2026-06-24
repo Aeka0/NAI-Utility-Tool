@@ -40,24 +40,20 @@ public sealed partial class MainWindow
     //  模式切换
     // ═══════════════════════════════════════════════════════════
 
-    private void OnModeTabSwitch(object sender, RoutedEventArgs e)
+    private void OnWorkspaceModeMenuItemClick(object sender, RoutedEventArgs e)
     {
-        AppMode? target = null;
-        if (ReferenceEquals(sender, TabGenerate) && TabGenerate.IsChecked == true)
-            target = AppMode.ImageGeneration;
-        else if (ReferenceEquals(sender, TabI2I) && TabI2I.IsChecked == true)
-            target = AppMode.I2I;
-        else if (ReferenceEquals(sender, TabUpscale) && TabUpscale.IsChecked == true)
-            target = AppMode.Upscale;
-        else if (ReferenceEquals(sender, TabEffects) && TabEffects.IsChecked == true)
-            target = AppMode.Effects;
-        else if (ReferenceEquals(sender, TabInspect) && TabInspect.IsChecked == true)
-            target = AppMode.Inspect;
+        if (sender is not ToggleMenuFlyoutItem item ||
+            item.Tag is not string modeName ||
+            !Enum.TryParse(modeName, out AppMode target))
+            return;
 
-        if (target.HasValue)
-            SwitchMode(target.Value);
-        else if (sender is Microsoft.UI.Xaml.Controls.Primitives.ToggleButton tb)
-                tb.IsChecked = true;
+        if (target == _currentMode)
+        {
+            UpdateWorkspaceModeButton();
+            return;
+        }
+
+        SwitchMode(target);
     }
 
     private void SwitchMode(AppMode mode)
@@ -106,11 +102,7 @@ public sealed partial class MainWindow
         MenuSaveStripped.Visibility = (isReader || isGen) ? Visibility.Visible : Visibility.Collapsed;
         MenuExportCanvasMask.Visibility = _currentMode == AppMode.I2I ? Visibility.Visible : Visibility.Collapsed;
 
-        TabGenerate.IsChecked = isGen;
-        TabI2I.IsChecked = isI2I;
-        TabUpscale.IsChecked = isUpscale;
-        TabEffects.IsChecked = isPost;
-        TabInspect.IsChecked = isReader;
+        UpdateWorkspaceModeButton();
 
         if (IsPromptMode(mode)) PopulateModelList();
         if (isUpscale) PopulateUpscaleModelList();
@@ -129,6 +121,41 @@ public sealed partial class MainWindow
 
     private static bool IsPromptMode(AppMode mode) =>
         mode == AppMode.ImageGeneration || mode == AppMode.I2I;
+
+    private string GetModeLabel(AppMode mode) => mode switch
+    {
+        AppMode.ImageGeneration => L("mode.generate"),
+        AppMode.I2I => L("mode.i2i"),
+        AppMode.Upscale => L("mode.upscale"),
+        AppMode.Effects => L("mode.post"),
+        AppMode.Inspect => L("mode.inspect"),
+        _ => mode.ToString(),
+    };
+
+    private void UpdateWorkspaceModeButton()
+    {
+        if (WorkspaceModeText == null)
+            return;
+
+        string currentLabel = GetModeLabel(_currentMode);
+        WorkspaceModeText.Text = currentLabel;
+        ToolTipService.SetToolTip(WorkspaceModeButton, currentLabel);
+
+        WorkspaceModeGenerateItem.IsChecked = _currentMode == AppMode.ImageGeneration;
+        WorkspaceModeI2IItem.IsChecked = _currentMode == AppMode.I2I;
+        WorkspaceModeUpscaleItem.IsChecked = _currentMode == AppMode.Upscale;
+        WorkspaceModeEffectsItem.IsChecked = _currentMode == AppMode.Effects;
+        WorkspaceModeInspectItem.IsChecked = _currentMode == AppMode.Inspect;
+    }
+
+    private void UpdateWorkspaceModeButtonTitleBarInset()
+    {
+        if (WorkspaceModeButton == null)
+            return;
+
+        double rightInset = AppWindow?.TitleBar?.RightInset ?? 138;
+        WorkspaceModeButton.Margin = new Thickness(0, 0, rightInset + 16, 0);
+    }
 
     private void SetGenResultBarRequested(bool requested, bool resetPosition = false)
     {

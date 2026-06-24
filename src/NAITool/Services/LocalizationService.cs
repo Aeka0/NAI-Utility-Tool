@@ -34,6 +34,12 @@ public sealed class LocalizationService
         new("zh_cn", "zh-CN", "language.zh_cn"),
         new("zh_tw", "zh-TW", "language.zh_tw"),
         new("ja_jp", "ja-JP", "language.ja_jp"),
+        new("ko_kr", "ko-KR", "language.ko_kr"),
+        new("ru_ru", "ru-RU", "language.ru_ru"),
+        new("de_de", "de-DE", "language.de_de"),
+        new("fr_fr", "fr-FR", "language.fr_fr"),
+        new("es_es", "es-ES", "language.es_es"),
+        new("la_001", "la-001", "language.la_001"),
     ];
 
     public string CurrentLanguageCode { get; private set; } = DefaultLanguageCode;
@@ -100,6 +106,12 @@ public sealed class LocalizationService
             "zh" or "zh_cn" or "zh_sg" or "zh_hans" or "zh_chs" or "chs" or "simplified_chinese" => "zh_cn",
             "zh_tw" or "zh_hk" or "zh_mo" or "zh_hant" or "zh_cht" or "cht" or "traditional_chinese" => "zh_tw",
             "ja" or "ja_jp" or "japanese" => "ja_jp",
+            "ko" or "ko_kr" or "korean" => "ko_kr",
+            "ru" or "ru_ru" or "russian" => "ru_ru",
+            "de" or "de_de" or "german" => "de_de",
+            "fr" or "fr_fr" or "french" => "fr_fr",
+            "es" or "es_es" or "spanish" => "es_es",
+            "la" or "la_001" or "latin" => "la_001",
             _ => MapCultureName(normalized),
         };
     }
@@ -178,12 +190,24 @@ public sealed class LocalizationService
             "zh" or "zh_cn" or "zh_sg" or "zh_hans" or "zh_chs" or "chs" or "simplified_chinese" => "zh_cn",
             "zh_tw" or "zh_hk" or "zh_mo" or "zh_hant" or "zh_cht" or "cht" or "traditional_chinese" => "zh_tw",
             "ja" or "ja_jp" or "japanese" => "ja_jp",
+            "ko" or "ko_kr" or "korean" => "ko_kr",
+            "ru" or "ru_ru" or "russian" => "ru_ru",
+            "de" or "de_de" or "german" => "de_de",
+            "fr" or "fr_fr" or "french" => "fr_fr",
+            "es" or "es_es" or "spanish" => "es_es",
+            "la" or "la_001" or "latin" => "la_001",
             _ when value.StartsWith("zh_hant", StringComparison.Ordinal) ||
                    value.StartsWith("zh_tw", StringComparison.Ordinal) ||
                    value.StartsWith("zh_hk", StringComparison.Ordinal) ||
                    value.StartsWith("zh_mo", StringComparison.Ordinal) => "zh_tw",
             _ when value.StartsWith("zh", StringComparison.Ordinal) => "zh_cn",
             _ when value.StartsWith("ja", StringComparison.Ordinal) => "ja_jp",
+            _ when value.StartsWith("ko", StringComparison.Ordinal) => "ko_kr",
+            _ when value.StartsWith("ru", StringComparison.Ordinal) => "ru_ru",
+            _ when value.StartsWith("de", StringComparison.Ordinal) => "de_de",
+            _ when value.StartsWith("fr", StringComparison.Ordinal) => "fr_fr",
+            _ when value.StartsWith("es", StringComparison.Ordinal) => "es_es",
+            _ when value.StartsWith("la", StringComparison.Ordinal) => "la_001",
             _ when value.StartsWith("en", StringComparison.Ordinal) => "en_us",
             _ => null,
         };
@@ -210,6 +234,24 @@ public sealed class LocalizationService
 
         if (normalized.StartsWith("ja", StringComparison.Ordinal))
             return "ja_jp";
+
+        if (normalized.StartsWith("ko", StringComparison.Ordinal))
+            return "ko_kr";
+
+        if (normalized.StartsWith("ru", StringComparison.Ordinal))
+            return "ru_ru";
+
+        if (normalized.StartsWith("de", StringComparison.Ordinal))
+            return "de_de";
+
+        if (normalized.StartsWith("fr", StringComparison.Ordinal))
+            return "fr_fr";
+
+        if (normalized.StartsWith("es", StringComparison.Ordinal))
+            return "es_es";
+
+        if (normalized.StartsWith("la", StringComparison.Ordinal))
+            return "la_001";
 
         if (normalized.StartsWith("en", StringComparison.Ordinal))
             return "en_us";
