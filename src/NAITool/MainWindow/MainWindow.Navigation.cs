@@ -132,12 +132,23 @@ public sealed partial class MainWindow
         _ => mode.ToString(),
     };
 
+    private static string GetModeIconGlyph(AppMode mode) => mode switch
+    {
+        AppMode.ImageGeneration => "\uE91B",
+        AppMode.I2I => "\uEDFB",
+        AppMode.Upscale => "\uECE9",
+        AppMode.Effects => "\uEB3C",
+        AppMode.Inspect => "\uE71E",
+        _ => "\uE91B",
+    };
+
     private void UpdateWorkspaceModeButton()
     {
         if (WorkspaceModeText == null)
             return;
 
         string currentLabel = GetModeLabel(_currentMode);
+        WorkspaceModeIcon.Glyph = GetModeIconGlyph(_currentMode);
         WorkspaceModeText.Text = currentLabel;
         ToolTipService.SetToolTip(WorkspaceModeButton, currentLabel);
 

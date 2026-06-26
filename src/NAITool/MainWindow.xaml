@@ -391,6 +391,7 @@
             <!-- 模式切换 Tab -->
             <Button x:Name="WorkspaceModeButton"
                     Grid.Column="3"
+                    Style="{StaticResource SubtleButtonStyle}"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center"
                     MinWidth="72"
@@ -400,33 +401,73 @@
                     Margin="0,0,154,0"
                     HorizontalContentAlignment="Center">
                 <Button.Content>
-                    <TextBlock x:Name="WorkspaceModeText"
-                               Text=""
-                               TextTrimming="CharacterEllipsis"
-                               TextAlignment="Center"/>
+                    <Grid ColumnSpacing="8"
+                          VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <FontIcon x:Name="WorkspaceModeIcon"
+                                  Grid.Column="0"
+                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                  FontSize="15"
+                                  Glyph="&#xE91B;"/>
+                        <TextBlock x:Name="WorkspaceModeText"
+                                   Grid.Column="1"
+                                   Text=""
+                                   MaxWidth="150"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                        <FontIcon Grid.Column="2"
+                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                  FontSize="12"
+                                  Glyph="&#xE70D;"/>
+                    </Grid>
                 </Button.Content>
                 <Button.Flyout>
                     <MenuFlyout x:Name="WorkspaceModeFlyout">
                         <ToggleMenuFlyoutItem x:Name="WorkspaceModeGenerateItem"
                                               Text=""
                                               Tag="ImageGeneration"
-                                              Click="OnWorkspaceModeMenuItemClick"/>
+                                              Click="OnWorkspaceModeMenuItemClick">
+                            <ToggleMenuFlyoutItem.Icon>
+                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE91B;"/>
+                            </ToggleMenuFlyoutItem.Icon>
+                        </ToggleMenuFlyoutItem>
                         <ToggleMenuFlyoutItem x:Name="WorkspaceModeI2IItem"
                                               Text=""
                                               Tag="I2I"
-                                              Click="OnWorkspaceModeMenuItemClick"/>
+                                              Click="OnWorkspaceModeMenuItemClick">
+                            <ToggleMenuFlyoutItem.Icon>
+                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEDFB;"/>
+                            </ToggleMenuFlyoutItem.Icon>
+                        </ToggleMenuFlyoutItem>
                         <ToggleMenuFlyoutItem x:Name="WorkspaceModeUpscaleItem"
                                               Text=""
                                               Tag="Upscale"
-                                              Click="OnWorkspaceModeMenuItemClick"/>
+                                              Click="OnWorkspaceModeMenuItemClick">
+                            <ToggleMenuFlyoutItem.Icon>
+                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xECE9;"/>
+                            </ToggleMenuFlyoutItem.Icon>
+                        </ToggleMenuFlyoutItem>
                         <ToggleMenuFlyoutItem x:Name="WorkspaceModeEffectsItem"
                                               Text=""
                                               Tag="Effects"
-                                              Click="OnWorkspaceModeMenuItemClick"/>
+                                              Click="OnWorkspaceModeMenuItemClick">
+                            <ToggleMenuFlyoutItem.Icon>
+                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEB3C;"/>
+                            </ToggleMenuFlyoutItem.Icon>
+                        </ToggleMenuFlyoutItem>
                         <ToggleMenuFlyoutItem x:Name="WorkspaceModeInspectItem"
                                               Text=""
                                               Tag="Inspect"
-                                              Click="OnWorkspaceModeMenuItemClick"/>
+                                              Click="OnWorkspaceModeMenuItemClick">
+                            <ToggleMenuFlyoutItem.Icon>
+                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE71E;"/>
+                            </ToggleMenuFlyoutItem.Icon>
+                        </ToggleMenuFlyoutItem>
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>
