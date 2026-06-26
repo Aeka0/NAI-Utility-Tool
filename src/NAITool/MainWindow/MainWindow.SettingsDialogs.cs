@@ -299,9 +299,7 @@ public sealed partial class MainWindow
 
     private static bool IsValidTaggerDirectory(string dir)
     {
-        bool hasOnnx = Directory.GetFiles(dir, "*.onnx", SearchOption.TopDirectoryOnly).Length > 0;
-        bool hasCsv = File.Exists(Path.Combine(dir, "selected_tags.csv"));
-        return hasOnnx && hasCsv;
+        return ReverseTaggerModelCatalog.HasUsableModelDirectory(dir);
     }
 
     private async void OnReverseTaggerSettings(object sender, RoutedEventArgs e)

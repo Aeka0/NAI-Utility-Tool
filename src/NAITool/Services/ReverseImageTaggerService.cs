@@ -1,10 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.ML.OnnxRuntime;
@@ -21,6 +18,7 @@ public sealed class ReverseImageTaggerService : IDisposable
     private string? _loadedModelDirectory;
     private bool _loadedPreferCpu;
     private string _inputName = "";
+    private ReverseTaggerInputSpec _inputSpec = ReverseTaggerInputSpec.Default;
     private string[] _outputNames = [];
     private string _executionProvider = "CPU";
     private IReadOnlyList<ReverseTagDefinition> _tagDefinitions = Array.Empty<ReverseTagDefinition>();
@@ -47,7 +45,8 @@ public sealed class ReverseImageTaggerService : IDisposable
             var modelDirectory = ResolveModelDirectory(settings.ModelPath);
             EnsureModelLoaded(modelDirectory, preferCpu);
 
-            var (tensorData, tensorShape, width, height) = PreprocessImage(imageBytes, cancellationToken);
+            var inputSpec = _inputSpec;
+            var (tensorData, tensorShape, width, height) = PreprocessImage(imageBytes, inputSpec, cancellationToken);
             var scores = RunInference(tensorData, tensorShape, cancellationToken);
             return BuildResult(scores, settings, width, height);
         }, cancellationToken);
@@ -68,6 +67,7 @@ public sealed class ReverseImageTaggerService : IDisposable
             _loadedModelDirectory = null;
             _loadedPreferCpu = false;
             _inputName = "";
+            _inputSpec = ReverseTaggerInputSpec.Default;
             _outputNames = [];
             _executionProvider = "CPU";
             _tagDefinitions = Array.Empty<ReverseTagDefinition>();
@@ -90,7 +90,7 @@ public sealed class ReverseImageTaggerService : IDisposable
             _session?.Dispose();
 
             var modelPath = ResolveModelFile(modelDirectory);
-            _tagDefinitions = LoadTagDefinitions(modelDirectory);
+            _tagDefinitions = ReverseTaggerModelCatalog.LoadTagDefinitions(modelDirectory);
 
             var (session, provider) = CreateSession(modelPath, preferCpu);
             _session = session;
@@ -99,6 +99,7 @@ public sealed class ReverseImageTaggerService : IDisposable
             _executionProvider = provider;
             _inputName = session.InputMetadata.Keys.FirstOrDefault()
                 ?? throw new InvalidOperationException(L("reverse.error.model_missing_input"));
+            _inputSpec = ResolveInputSpec(session.InputMetadata[_inputName].Dimensions);
             _outputNames = SelectOutputNames(session, _tagDefinitions.Count);
         }
     }
@@ -178,14 +179,16 @@ public sealed class ReverseImageTaggerService : IDisposable
         var ratingTags = new List<ReverseTagPrediction>();
         var characterTags = new List<ReverseTagPrediction>();
         var copyrightScores = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        ReverseTagPrediction? bestRatingTag = null;
 
         foreach (var tag in _tagDefinitions)
         {
             float score = scores[tag.Index];
             if (IsRatingTag(tag))
             {
-                if (score >= generalThreshold)
-                    ratingTags.Add(new ReverseTagPrediction(FormatTag(tag.Name, settings), score));
+                var ratingTag = new ReverseTagPrediction(FormatRatingTag(tag.Name, settings), score);
+                if (bestRatingTag == null || score > bestRatingTag.Score)
+                    bestRatingTag = ratingTag;
                 continue;
             }
 
@@ -211,6 +214,9 @@ public sealed class ReverseImageTaggerService : IDisposable
                     copyrightScores[formattedIp] = score;
             }
         }
+
+        if (bestRatingTag != null)
+            ratingTags.Add(bestRatingTag);
 
         generalTags.Sort(static (left, right) => right.Score.CompareTo(left.Score));
         ratingTags.Sort(static (left, right) => right.Score.CompareTo(left.Score));
@@ -344,114 +350,43 @@ public sealed class ReverseImageTaggerService : IDisposable
             .ToArray();
     }
 
-    private static IReadOnlyList<ReverseTagDefinition> LoadTagDefinitions(string modelDirectory)
+    private static ReverseTaggerInputSpec ResolveInputSpec(IReadOnlyList<int> dimensions)
     {
-        var csvPath = Path.Combine(modelDirectory, "selected_tags.csv");
-        if (!File.Exists(csvPath))
-            throw new FileNotFoundException(L("reverse.error.tags_csv_missing"));
+        if (dimensions.Count != 4)
+            throw new InvalidOperationException(L("reverse.error.model_no_valid_output"));
 
-        var tags = new List<ReverseTagDefinition>();
-        bool isFirstLine = true;
-        foreach (var line in File.ReadLines(csvPath, Encoding.UTF8))
+        ReverseTaggerInputLayout layout;
+        int height;
+        int width;
+
+        if (dimensions[1] == 3)
         {
-            if (isFirstLine)
-            {
-                isFirstLine = false;
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
-
-            var fields = ParseCsvLine(line);
-            if (fields.Count < 6)
-                continue;
-
-            int index = ParseRequiredInt(fields[0], L("reverse.csv.tag_index"));
-            string name = fields[2];
-            int category = ParseRequiredInt(fields[3], L("reverse.csv.tag_category"));
-            var ips = ParseIps(fields[5]);
-            tags.Add(new ReverseTagDefinition(index, name, category, ips));
+            layout = ReverseTaggerInputLayout.Nchw;
+            height = dimensions[2];
+            width = dimensions[3];
+        }
+        else if (dimensions[3] == 3)
+        {
+            layout = ReverseTaggerInputLayout.Nhwc;
+            height = dimensions[1];
+            width = dimensions[2];
+        }
+        else
+        {
+            throw new InvalidOperationException(L("reverse.error.model_no_valid_output"));
         }
 
-        if (tags.Count == 0)
-            throw new InvalidOperationException(L("reverse.error.tags_csv_empty"));
+        if (height <= 0)
+            height = DefaultInputSize;
+        if (width <= 0)
+            width = DefaultInputSize;
 
-        int expectedIndex = 0;
-        foreach (var tag in tags.OrderBy(tag => tag.Index))
-        {
-            if (tag.Index != expectedIndex)
-                throw new InvalidOperationException(L("reverse.error.tags_csv_non_contiguous"));
-            expectedIndex++;
-        }
-
-        return tags.OrderBy(tag => tag.Index).ToArray();
-    }
-
-    private static int ParseRequiredInt(string text, string fieldName)
-    {
-        if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
-            return value;
-        throw new InvalidOperationException(Lf("reverse.error.tags_csv_parse_failed", fieldName));
-    }
-
-    private static List<string> ParseCsvLine(string line)
-    {
-        var fields = new List<string>();
-        var builder = new StringBuilder();
-        bool inQuotes = false;
-
-        for (int i = 0; i < line.Length; i++)
-        {
-            char ch = line[i];
-            if (ch == '"')
-            {
-                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
-                {
-                    builder.Append('"');
-                    i++;
-                }
-                else
-                {
-                    inQuotes = !inQuotes;
-                }
-                continue;
-            }
-
-            if (ch == ',' && !inQuotes)
-            {
-                fields.Add(builder.ToString());
-                builder.Clear();
-                continue;
-            }
-
-            builder.Append(ch);
-        }
-
-        fields.Add(builder.ToString());
-        return fields;
-    }
-
-    private static IReadOnlyList<string> ParseIps(string raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw) || raw == "[]")
-            return Array.Empty<string>();
-
-        try
-        {
-            var values = JsonSerializer.Deserialize<List<string>>(raw);
-            if (values != null)
-                return values;
-            return Array.Empty<string>();
-        }
-        catch
-        {
-            return Array.Empty<string>();
-        }
+        return new ReverseTaggerInputSpec(layout, width, height);
     }
 
     private static (float[] TensorData, long[] TensorShape, int Width, int Height) PreprocessImage(
         byte[] imageBytes,
+        ReverseTaggerInputSpec inputSpec,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -460,35 +395,69 @@ public sealed class ReverseImageTaggerService : IDisposable
         if (source == null)
             throw new InvalidOperationException(L("reverse.error.image_read_failed"));
 
-        const int inputSize = 448;
-        using var resized = new SKBitmap(new SKImageInfo(inputSize, inputSize, SKColorType.Rgba8888, SKAlphaType.Unpremul));
-        using (var canvas = new SKCanvas(resized))
-        {
-            canvas.Clear(SKColors.White);
-            using var paint = new SKPaint { IsAntialias = true };
-            using var sourceImage = SKImage.FromBitmap(source);
-            canvas.DrawImage(
-                sourceImage,
-                new SKRect(0, 0, inputSize, inputSize),
-                new SKSamplingOptions(SKCubicResampler.Mitchell),
-                paint);
-        }
+        using var resized = ResizeForInput(source, inputSpec);
 
-        var data = new float[1 * 3 * inputSize * inputSize];
-        for (int y = 0; y < inputSize; y++)
+        var data = new float[3 * inputSpec.Width * inputSpec.Height];
+        for (int y = 0; y < inputSpec.Height; y++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            for (int x = 0; x < inputSize; x++)
+            for (int x = 0; x < inputSpec.Width; x++)
             {
                 var pixel = resized.GetPixel(x, y);
-                int pixelIndex = y * inputSize + x;
-                data[pixelIndex] = NormalizePixel(pixel.Red);
-                data[(inputSize * inputSize) + pixelIndex] = NormalizePixel(pixel.Green);
-                data[(2 * inputSize * inputSize) + pixelIndex] = NormalizePixel(pixel.Blue);
+                int pixelIndex = y * inputSpec.Width + x;
+                if (inputSpec.Layout == ReverseTaggerInputLayout.Nchw)
+                {
+                    int planeSize = inputSpec.Width * inputSpec.Height;
+                    data[pixelIndex] = NormalizePixel(pixel.Red);
+                    data[planeSize + pixelIndex] = NormalizePixel(pixel.Green);
+                    data[(2 * planeSize) + pixelIndex] = NormalizePixel(pixel.Blue);
+                }
+                else
+                {
+                    int channelIndex = pixelIndex * 3;
+                    data[channelIndex] = pixel.Blue;
+                    data[channelIndex + 1] = pixel.Green;
+                    data[channelIndex + 2] = pixel.Red;
+                }
             }
         }
 
-        return (data, [1, 3, inputSize, inputSize], source.Width, source.Height);
+        long[] shape = inputSpec.Layout == ReverseTaggerInputLayout.Nchw
+            ? [1, 3, inputSpec.Height, inputSpec.Width]
+            : [1, inputSpec.Height, inputSpec.Width, 3];
+        return (data, shape, source.Width, source.Height);
+    }
+
+    private static SKBitmap ResizeForInput(SKBitmap source, ReverseTaggerInputSpec inputSpec)
+    {
+        var resized = new SKBitmap(new SKImageInfo(inputSpec.Width, inputSpec.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+        using var canvas = new SKCanvas(resized);
+        canvas.Clear(SKColors.White);
+        using var paint = new SKPaint { IsAntialias = true };
+        using var sourceImage = SKImage.FromBitmap(source);
+
+        var destination = inputSpec.Layout == ReverseTaggerInputLayout.Nhwc
+            ? FitInside(source.Width, source.Height, inputSpec.Width, inputSpec.Height)
+            : new SKRect(0, 0, inputSpec.Width, inputSpec.Height);
+        canvas.DrawImage(
+            sourceImage,
+            destination,
+            new SKSamplingOptions(SKCubicResampler.Mitchell),
+            paint);
+        return resized;
+    }
+
+    private static SKRect FitInside(int sourceWidth, int sourceHeight, int targetWidth, int targetHeight)
+    {
+        if (sourceWidth <= 0 || sourceHeight <= 0)
+            return new SKRect(0, 0, targetWidth, targetHeight);
+
+        float scale = Math.Min(targetWidth / (float)sourceWidth, targetHeight / (float)sourceHeight);
+        float width = sourceWidth * scale;
+        float height = sourceHeight * scale;
+        float left = (targetWidth - width) / 2f;
+        float top = (targetHeight - height) / 2f;
+        return new SKRect(left, top, left + width, top + height);
     }
 
     private static float NormalizePixel(byte channel)
@@ -501,6 +470,14 @@ public sealed class ReverseImageTaggerService : IDisposable
         return raw.Replace('_', ' ');
     }
 
+    private static string FormatRatingTag(string raw, ReverseTaggerSettings settings)
+    {
+        var normalized = raw.StartsWith("rating:", StringComparison.OrdinalIgnoreCase)
+            ? raw
+            : $"rating:{raw}";
+        return FormatTag(normalized, settings);
+    }
+
     private static bool IsRatingTag(ReverseTagDefinition tag)
         => tag.Category == RatingTagCategory ||
            tag.Name.StartsWith("rating:", StringComparison.OrdinalIgnoreCase);
@@ -508,12 +485,21 @@ public sealed class ReverseImageTaggerService : IDisposable
     private const int GeneralTagCategory = 0;
     private const int RatingTagCategory = 9;
     private const int CharacterTagCategory = 4;
+    private const int DefaultInputSize = 448;
 
-    private sealed record ReverseTagDefinition(
-        int Index,
-        string Name,
-        int Category,
-        IReadOnlyList<string> IntellectualProperties);
+    private enum ReverseTaggerInputLayout
+    {
+        Nchw,
+        Nhwc,
+    }
+
+    private readonly record struct ReverseTaggerInputSpec(
+        ReverseTaggerInputLayout Layout,
+        int Width,
+        int Height)
+    {
+        public static ReverseTaggerInputSpec Default => new(ReverseTaggerInputLayout.Nchw, DefaultInputSize, DefaultInputSize);
+    }
 }
 
 public sealed class ReverseTaggerResult

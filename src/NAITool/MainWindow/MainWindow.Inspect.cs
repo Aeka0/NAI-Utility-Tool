@@ -223,36 +223,7 @@ public sealed partial class MainWindow
         if (string.IsNullOrWhiteSpace(modelDir))
             return result;
 
-        string csvPath = Path.Combine(Path.GetFullPath(modelDir), "selected_tags.csv");
-        if (!File.Exists(csvPath))
-            return result;
-
-        bool isFirstLine = true;
-        foreach (var line in File.ReadLines(csvPath, Encoding.UTF8))
-        {
-            if (isFirstLine)
-            {
-                isFirstLine = false;
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
-
-            var fields = ParseSimpleCsvLine(line);
-            if (fields.Count < 4)
-                continue;
-
-            if (!int.TryParse(fields[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out int category) ||
-                category != 1)
-                continue;
-
-            string tagName = fields[2];
-            if (!string.IsNullOrWhiteSpace(tagName))
-                result.Add(NormalizePromptTagForMatch(tagName));
-        }
-
-        return result;
+        return ReverseTaggerModelCatalog.LoadArtistTagSet(Path.GetFullPath(modelDir));
     }
 
     private bool HasAvailableReverseTaggerModel()
@@ -263,9 +234,7 @@ public sealed partial class MainWindow
             if (string.IsNullOrWhiteSpace(modelDir) || !Directory.Exists(modelDir))
                 return false;
 
-            bool hasTagsCsv = File.Exists(Path.Combine(Path.GetFullPath(modelDir), "selected_tags.csv"));
-            bool hasOnnx = Directory.GetFiles(modelDir, "*.onnx", SearchOption.AllDirectories).Length > 0;
-            return hasTagsCsv && hasOnnx;
+            return ReverseTaggerModelCatalog.HasUsableModelDirectory(Path.GetFullPath(modelDir));
         }
         catch
         {
@@ -284,43 +253,6 @@ public sealed partial class MainWindow
         if (!isAvailable)
             TxtStatus.Text = L("reverse.error.no_available_model");
         return isAvailable;
-    }
-
-    private static List<string> ParseSimpleCsvLine(string line)
-    {
-        var fields = new List<string>();
-        var builder = new StringBuilder();
-        bool inQuotes = false;
-
-        for (int i = 0; i < line.Length; i++)
-        {
-            char ch = line[i];
-            if (ch == '"')
-            {
-                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
-                {
-                    builder.Append('"');
-                    i++;
-                }
-                else
-                {
-                    inQuotes = !inQuotes;
-                }
-                continue;
-            }
-
-            if (ch == ',' && !inQuotes)
-            {
-                fields.Add(builder.ToString());
-                builder.Clear();
-                continue;
-            }
-
-            builder.Append(ch);
-        }
-
-        fields.Add(builder.ToString());
-        return fields;
     }
 
     private async Task RunInspectReverseTagAsync()
