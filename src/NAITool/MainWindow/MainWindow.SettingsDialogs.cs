@@ -120,6 +120,17 @@ public sealed partial class MainWindow
         TxtStatus.Text = L("settings.performance.saved");
     }
 
+    private void ApplyPostEffectsPerformanceSettings(string devicePreference)
+    {
+        var settings = PostEffectsPerformance;
+        settings.DevicePreference = devicePreference;
+        settings.Normalize();
+        _effectsGpuFallbackNotified = false;
+        _settings.Save();
+        QueueEffectsPreviewRefresh(immediate: true);
+        TxtStatus.Text = L("settings.performance.saved");
+    }
+
     private void ApplyDeveloperLogSetting(bool enabled)
     {
         _settings.Settings.DevLogEnabled = enabled;

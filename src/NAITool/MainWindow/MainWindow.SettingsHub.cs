@@ -525,6 +525,19 @@ public sealed partial class MainWindow
                         value => ApplyPerformanceSettings(value, OnnxPerformance.UnloadModelAfterInference),
                         320)),
                 CreateSettingsHubLayer(
+                    "\uE950",
+                    L("settings.hub.performance.post_effects_device"),
+                    L("settings.hub.performance.post_effects_hint"),
+                    CreateSettingsHubComboBox(
+                        new[]
+                        {
+                            new SettingsHubComboOption(L("settings.hub.performance.post_effects_device_gpu"), "Gpu"),
+                            new SettingsHubComboOption(L("settings.hub.performance.post_effects_device_cpu"), "Cpu"),
+                        },
+                        PreferCpuForPostEffects ? "Cpu" : "Gpu",
+                        ApplyPostEffectsPerformanceSettings,
+                        320)),
+                CreateSettingsHubLayer(
                     "\uE7F8",
                     L("settings.hub.performance.unload_after_inference"),
                     L("settings.hub.performance.unload_after_inference_hint"),

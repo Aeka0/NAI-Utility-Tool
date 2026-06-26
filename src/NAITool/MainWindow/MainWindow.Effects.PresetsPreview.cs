@@ -383,6 +383,10 @@ public sealed partial class MainWindow
     private async Task RenderQueuedEffectsPreview()
     {
         int version = ++_effectsPreviewVersion;
+        _effectsPreviewCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _effectsPreviewCts = cts;
+        CancellationToken ct = cts.Token;
         bool fitToScreen = _effectsPreviewQueuedFit;
         _effectsPreviewQueuedFit = false;
         var sourceBytes = _effectsImageBytes;
@@ -395,6 +399,9 @@ public sealed partial class MainWindow
             EffectsPreviewImage.Source = null;
             EffectsImagePlaceholder.Visibility = Visibility.Visible;
             UpdateDynamicMenuStates();
+            if (ReferenceEquals(_effectsPreviewCts, cts))
+                _effectsPreviewCts = null;
+            cts.Dispose();
             return;
         }
 
@@ -412,19 +419,53 @@ public sealed partial class MainWindow
                 return;
             }
 
-            using var previewBitmap = await Task.Run(() => RenderEffectsPreview(sourceBitmap, sourceBytes, snapshot));
+            using var previewResult = await _effectsRenderService.RenderPreviewAsync(
+                sourceBitmap,
+                sourceBytes,
+                snapshot,
+                PostEffectsPerformance.DevicePreference,
+                DebugLog,
+                ct);
 
             if (version != _effectsPreviewVersion) return;
+            if (previewResult.UsedCpuFallback)
+                NotifyEffectsGpuFallbackOnce();
 
             _effectsPreviewImageBytes = null;
-            await ShowEffectsPreviewBitmapAsync(previewBitmap, fitToScreen);
+            if (previewResult.ImageSource != null)
+            {
+                ShowEffectsPreviewImageSource(
+                    previewResult.ImageSource,
+                    previewResult.PixelWidth,
+                    previewResult.PixelHeight,
+                    fitToScreen);
+            }
+            else if (previewResult.Bitmap != null)
+            {
+                await ShowEffectsPreviewBitmapAsync(previewResult.Bitmap, fitToScreen);
+            }
+            else
+            {
+                throw new InvalidOperationException("Effects preview renderer returned no image.");
+            }
             UpdateDynamicMenuStates();
+        }
+        catch (OperationCanceledException)
+        {
+            if (ReferenceEquals(_effectsPreviewCts, cts))
+                _effectsPreviewCts = null;
         }
         catch (Exception ex)
         {
             if (version != _effectsPreviewVersion) return;
             DebugLog($"[Effects] Preview failed: {ex}");
             TxtStatus.Text = Lf("post.error.preview_failed", ex.Message);
+        }
+        finally
+        {
+            if (ReferenceEquals(_effectsPreviewCts, cts))
+                _effectsPreviewCts = null;
+            cts.Dispose();
         }
     }
 
@@ -437,7 +478,45 @@ public sealed partial class MainWindow
         var snapshot = _effects
             .Select(CloneEffect)
             .ToList();
-        return await Task.Run(() => RenderEffects(sourceBytes, snapshot));
+        var result = await _effectsRenderService.RenderPngAsync(
+            sourceBytes,
+            snapshot,
+            PostEffectsPerformance.DevicePreference,
+            DebugLog,
+            CancellationToken.None);
+        if (result.UsedCpuFallback)
+            NotifyEffectsGpuFallbackOnce();
+        return result.Bytes;
+    }
+
+    private void NotifyEffectsGpuFallbackOnce()
+    {
+        if (_effectsGpuFallbackNotified || PreferCpuForPostEffects)
+            return;
+
+        _effectsGpuFallbackNotified = true;
+        TxtStatus.Text = L("post.status.gpu_fallback");
+    }
+
+    private void ShowEffectsPreviewImageSource(
+        ImageSource imageSource,
+        int pixelWidth,
+        int pixelHeight,
+        bool fitToScreen)
+    {
+        EffectsPreviewImage.Source = imageSource;
+        EffectsPreviewContent.Width = pixelWidth;
+        EffectsPreviewContent.Height = pixelHeight;
+        EffectsOverlayCanvas.Width = pixelWidth;
+        EffectsOverlayCanvas.Height = pixelHeight;
+        EffectsImagePlaceholder.Visibility = Visibility.Collapsed;
+        RefreshEffectsOverlay();
+
+        if (fitToScreen)
+        {
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+                () => FitEffectsPreviewToScreen());
+        }
     }
 
     private async Task ShowEffectsPreviewBitmapAsync(SKBitmap bitmap, bool fitToScreen)
@@ -494,9 +573,9 @@ public sealed partial class MainWindow
 
     private void FitEffectsPreviewToScreen()
     {
-        if (EffectsPreviewImage.Source is not BitmapSource bmp) return;
-        double imgW = bmp.PixelWidth;
-        double imgH = bmp.PixelHeight;
+        if (EffectsPreviewImage.Source == null) return;
+        double imgW = EffectsPreviewContent.Width;
+        double imgH = EffectsPreviewContent.Height;
         if (imgW <= 0 || imgH <= 0) return;
 
         double viewW = EffectsImageScroller.ViewportWidth;
@@ -510,9 +589,9 @@ public sealed partial class MainWindow
 
     private void CenterEffectsPreview()
     {
-        if (EffectsPreviewImage.Source is not BitmapSource bmp) return;
-        double contentW = bmp.PixelWidth * EffectsImageScroller.ZoomFactor;
-        double contentH = bmp.PixelHeight * EffectsImageScroller.ZoomFactor;
+        if (EffectsPreviewImage.Source == null) return;
+        double contentW = EffectsPreviewContent.Width * EffectsImageScroller.ZoomFactor;
+        double contentH = EffectsPreviewContent.Height * EffectsImageScroller.ZoomFactor;
         double offsetX = Math.Max(0, (contentW - EffectsImageScroller.ViewportWidth) / 2);
         double offsetY = Math.Max(0, (contentH - EffectsImageScroller.ViewportHeight) / 2);
         EffectsImageScroller.ChangeView(offsetX, offsetY, null);
@@ -524,7 +603,15 @@ public sealed partial class MainWindow
 
         EffectsOverlayCanvas.Children.Clear();
         var effect = GetSelectedEffect();
-        if (effect == null || !IsRegionEffect(effect.Type) || EffectsPreviewImage.Source is not BitmapSource bmp)
+        if (effect == null || !IsRegionEffect(effect.Type) || EffectsPreviewImage.Source == null)
+        {
+            EffectsOverlayCanvas.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        int pixelWidth = (int)Math.Round(EffectsPreviewContent.Width);
+        int pixelHeight = (int)Math.Round(EffectsPreviewContent.Height);
+        if (pixelWidth <= 0 || pixelHeight <= 0)
         {
             EffectsOverlayCanvas.Visibility = Visibility.Collapsed;
             return;
@@ -532,7 +619,7 @@ public sealed partial class MainWindow
 
         EffectsOverlayCanvas.Visibility = Visibility.Visible;
         GetEffectRegionValues(effect, out double centerX, out double centerY, out double widthPct, out double heightPct);
-        GetEffectRect(bmp.PixelWidth, bmp.PixelHeight, centerX, centerY, widthPct, heightPct,
+        GetEffectRect(pixelWidth, pixelHeight, centerX, centerY, widthPct, heightPct,
             out int left, out int top, out int right, out int bottom);
 
         var rect = new Microsoft.UI.Xaml.Shapes.Rectangle

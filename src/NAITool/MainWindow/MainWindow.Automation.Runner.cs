@@ -226,7 +226,15 @@ public sealed partial class MainWindow
             var effects = await LoadEffectsFromPresetByNameAsync(options.FxPresetName);
             if (effects.Count > 0)
             {
-                currentBytes = await Task.Run(() => RenderEffects(currentBytes, effects), ct);
+                var renderResult = await _effectsRenderService.RenderPngAsync(
+                    currentBytes,
+                    effects,
+                    PostEffectsPerformance.DevicePreference,
+                    DebugLog,
+                    ct);
+                currentBytes = renderResult.Bytes;
+                if (renderResult.UsedCpuFallback)
+                    NotifyEffectsGpuFallbackOnce();
                 notes.Add(Lf("automation.note.filter", options.FxPresetName));
             }
         }

@@ -23,6 +23,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using NAITool.Controls;
 using NAITool.Models;
+using NAITool.Rendering;
 using NAITool.Services;
 using SkiaSharp;
 using Windows.ApplicationModel.DataTransfer;
@@ -57,6 +58,7 @@ public sealed partial class MainWindow : Window
     private readonly NovelAIService _naiService;
     private readonly ReverseImageTaggerService _reverseTaggerService = new();
     private readonly WildcardService _wildcardService = new();
+    private readonly EffectsRenderService _effectsRenderService = new();
     private readonly bool _showOobeOnStartup;
     private bool _oobeDialogOpen;
 
@@ -224,7 +226,9 @@ public sealed partial class MainWindow : Window
     private readonly Stack<EffectsWorkspaceState> _effectsRedoStack = new();
     private int _effectsPreviewVersion;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _effectsPreviewTimer;
+    private CancellationTokenSource? _effectsPreviewCts;
     private bool _effectsPreviewQueuedFit;
+    private bool _effectsGpuFallbackNotified;
     private Guid? _selectedEffectId;
     private bool _effectsApplyingHistory;
     private bool _effectsRegionDragging;
@@ -343,7 +347,9 @@ public sealed partial class MainWindow : Window
     private static string BundledWildcardsDir => Path.Combine(AppRootDir, "assets", "wildcards");
     private static string ModelsDir => Path.Combine(AppRootDir, "models");
     private OnnxPerformanceSettings OnnxPerformance => _settings.Settings.OnnxPerformance;
+    private PostEffectsPerformanceSettings PostEffectsPerformance => _settings.Settings.PostEffectsPerformance;
     private bool PreferCpuForOnnxInference => OnnxPerformance.PreferCpu;
+    private bool PreferCpuForPostEffects => PostEffectsPerformance.PreferCpu;
     private bool ShouldUnloadOnnxModelsAfterInference => OnnxPerformance.UnloadModelAfterInference;
 
     // ═══ 自动补全 ═══
@@ -404,6 +410,8 @@ public sealed partial class MainWindow : Window
             CloseAdvancedParamsWindow();
             _historyDateRefreshTimer?.Stop();
             ResetGenerationPreviewPulseVisuals();
+            _effectsPreviewCts?.Cancel();
+            _effectsPreviewCts?.Dispose();
             if (IsPromptMode(_currentMode))
             {
                 SaveCurrentPromptToBuffer();

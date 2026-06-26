@@ -220,6 +220,7 @@ public class AppSettings
     public bool DevLogEnabled { get; set; }
     public bool StreamGeneration { get; set; }
     public OnnxPerformanceSettings OnnxPerformance { get; set; } = null!;
+    public PostEffectsPerformanceSettings PostEffectsPerformance { get; set; } = null!;
     public ReverseTaggerSettings ReverseTagger { get; set; } = new();
     public NAIParameters GenParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full" };
     public NAIParameters InpaintParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full-inpainting" };
@@ -252,6 +253,8 @@ public class AppSettings
             UnloadModelAfterInference = ReverseTagger.UnloadModelAfterInference,
         };
         OnnxPerformance.Normalize();
+        PostEffectsPerformance ??= new();
+        PostEffectsPerformance.Normalize();
         ReverseTagger ??= new();
         ReverseTagger.UnloadModelAfterInference = OnnxPerformance.UnloadModelAfterInference;
         GenParameters ??= new() { Model = "nai-diffusion-4-5-full" };
@@ -292,6 +295,22 @@ public class OnnxPerformanceSettings
 {
     public string DevicePreference { get; set; } = "Gpu";
     public bool UnloadModelAfterInference { get; set; } = true;
+
+    [JsonIgnore]
+    public bool PreferCpu =>
+        string.Equals(DevicePreference, "Cpu", StringComparison.OrdinalIgnoreCase);
+
+    public void Normalize()
+    {
+        DevicePreference = string.Equals(DevicePreference, "Cpu", StringComparison.OrdinalIgnoreCase)
+            ? "Cpu"
+            : "Gpu";
+    }
+}
+
+public class PostEffectsPerformanceSettings
+{
+    public string DevicePreference { get; set; } = "Gpu";
 
     [JsonIgnore]
     public bool PreferCpu =>
