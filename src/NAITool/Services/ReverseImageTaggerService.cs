@@ -194,12 +194,12 @@ public sealed class ReverseImageTaggerService : IDisposable
 
             if (tag.Category == GeneralTagCategory)
             {
-                if (score >= generalThreshold)
+                if (score >= generalThreshold && !string.IsNullOrWhiteSpace(tag.Name))
                     generalTags.Add(new ReverseTagPrediction(FormatTag(tag.Name, settings), score));
                 continue;
             }
 
-            if (tag.Category != CharacterTagCategory || score < characterThreshold)
+            if (tag.Category != CharacterTagCategory || score < characterThreshold || string.IsNullOrWhiteSpace(tag.Name))
                 continue;
 
             var formattedCharacter = FormatTag(tag.Name, settings);

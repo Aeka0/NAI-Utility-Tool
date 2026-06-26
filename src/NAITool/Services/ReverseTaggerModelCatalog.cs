@@ -60,12 +60,14 @@ internal static class ReverseTaggerModelCatalog
         if (tags.Count == 0)
             throw new InvalidOperationException(L("reverse.error.tags_csv_empty"));
 
-        int expectedIndex = 0;
-        foreach (var tag in tags.OrderBy(tag => tag.Index))
+        if (!HasContiguousIndexes(tags))
         {
-            if (tag.Index != expectedIndex)
+            if (!layout.UsesExplicitModelIndex)
                 throw new InvalidOperationException(L("reverse.error.tags_csv_non_contiguous"));
-            expectedIndex++;
+
+            tags = tags
+                .Select((tag, index) => tag with { Index = index })
+                .ToList();
         }
 
         return tags.OrderBy(tag => tag.Index).ToArray();
@@ -169,6 +171,19 @@ internal static class ReverseTaggerModelCatalog
 
     private const int ArtistTagCategory = 1;
 
+    private static bool HasContiguousIndexes(IReadOnlyList<ReverseTagDefinition> tags)
+    {
+        int expectedIndex = 0;
+        foreach (var tag in tags.OrderBy(tag => tag.Index))
+        {
+            if (tag.Index != expectedIndex)
+                return false;
+            expectedIndex++;
+        }
+
+        return true;
+    }
+
     private sealed class ReverseTagCsvLayout
     {
         private readonly int? _modelIndexColumn;
@@ -187,6 +202,8 @@ internal static class ReverseTaggerModelCatalog
             _categoryColumn = categoryColumn;
             _intellectualPropertiesColumn = intellectualPropertiesColumn;
         }
+
+        public bool UsesExplicitModelIndex => _modelIndexColumn.HasValue;
 
         public static ReverseTagCsvLayout FromHeader(IReadOnlyList<string> header)
         {
@@ -228,9 +245,6 @@ internal static class ReverseTaggerModelCatalog
             var ips = _intellectualPropertiesColumn.HasValue && fields.Count > _intellectualPropertiesColumn.Value
                 ? ParseIps(fields[_intellectualPropertiesColumn.Value])
                 : Array.Empty<string>();
-
-            if (string.IsNullOrWhiteSpace(name))
-                return false;
 
             tag = new ReverseTagDefinition(index, name, category, ips);
             return true;
