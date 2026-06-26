@@ -345,6 +345,11 @@ public sealed partial class MainWindow
             Content = L("settings.reverse.add_copyright_tags"),
             IsChecked = settings.AddCopyrightTags,
         };
+        var addRatingCheck = new CheckBox
+        {
+            Content = L("settings.reverse.add_rating_tags"),
+            IsChecked = settings.AddRatingTags,
+        };
         var replaceUnderscoreCheck = new CheckBox
         {
             Content = L("settings.reverse.replace_underscores"),
@@ -502,6 +507,7 @@ public sealed partial class MainWindow
         };
         tagOptionRow.Children.Add(addCharacterCheck);
         tagOptionRow.Children.Add(addCopyrightCheck);
+        tagOptionRow.Children.Add(addRatingCheck);
         panel.Children.Add(tagOptionRow);
         panel.Children.Add(replaceUnderscoreCheck);
         panel.Children.Add(new TextBlock { Text = L("settings.reverse.general_threshold") });
@@ -538,6 +544,7 @@ public sealed partial class MainWindow
             settings.ModelPath = modelPath;
             settings.AddCharacterTags = addCharacterCheck.IsChecked == true;
             settings.AddCopyrightTags = addCopyrightCheck.IsChecked == true;
+            settings.AddRatingTags = addRatingCheck.IsChecked == true;
             settings.ReplaceUnderscoresWithSpaces = replaceUnderscoreCheck.IsChecked == true;
             settings.GeneralThreshold = Math.Round(generalSlider.Value, 2);
             settings.CharacterThreshold = Math.Round(characterSlider.Value, 2);

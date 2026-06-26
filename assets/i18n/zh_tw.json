@@ -473,6 +473,7 @@
     "settings.quota.title":  "額度管理",
     "settings.reverse.add_character_tags":  "加入角色 tag",
     "settings.reverse.add_copyright_tags":  "加入作品 tag",
+    "settings.reverse.add_rating_tags":  "加入分級",
     "settings.reverse.character_threshold":  "角色信心閾值",
     "settings.reverse.general_threshold":  "通用信心閾值",
     "settings.reverse.model_path":  "反推模型路徑",

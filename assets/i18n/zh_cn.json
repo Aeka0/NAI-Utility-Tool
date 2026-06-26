@@ -473,6 +473,7 @@
     "settings.quota.title":  "额度管理",
     "settings.reverse.add_character_tags":  "添加角色 tag",
     "settings.reverse.add_copyright_tags":  "添加作品 tag",
+    "settings.reverse.add_rating_tags":  "添加评级",
     "settings.reverse.character_threshold":  "角色置信度阈值",
     "settings.reverse.general_threshold":  "通用置信度阈值",
     "settings.reverse.model_path":  "反推模型路径",

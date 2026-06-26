@@ -473,6 +473,7 @@
   "settings.quota.title": "Quota Management",
   "settings.reverse.add_character_tags": "Add character tags",
   "settings.reverse.add_copyright_tags": "Add copyright tags",
+  "settings.reverse.add_rating_tags": "Add rating tags",
   "settings.reverse.character_threshold": "Character confidence threshold",
   "settings.reverse.general_threshold": "General confidence threshold",
   "settings.reverse.model_path": "Reverse tagger model path",

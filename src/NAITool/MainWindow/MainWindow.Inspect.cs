@@ -139,6 +139,7 @@ public sealed partial class MainWindow
             UpdateStyleHighlights();
 
             int totalTags = result.GeneralTags.Count +
+                            (_settings.Settings.ReverseTagger.AddRatingTags ? result.RatingTags.Count : 0) +
                             (_settings.Settings.ReverseTagger.AddCharacterTags ? result.CharacterTags.Count : 0) +
                             (_settings.Settings.ReverseTagger.AddCopyrightTags ? result.CopyrightTags.Count : 0);
             DebugLog($"[InpaintPromptInfer] Completed | Mode={modeLabel} | PreservedStyleTags={preservedArtistTags.Count} | TagCount={totalTags}");
@@ -358,6 +359,7 @@ public sealed partial class MainWindow
             DisplayInspectMetadata(_inspectMetadata);
 
             int totalTags = result.GeneralTags.Count +
+                            (_settings.Settings.ReverseTagger.AddRatingTags ? result.RatingTags.Count : 0) +
                             (_settings.Settings.ReverseTagger.AddCharacterTags ? result.CharacterTags.Count : 0) +
                             (_settings.Settings.ReverseTagger.AddCopyrightTags ? result.CopyrightTags.Count : 0);
             DebugLog($"[ReverseTagger] Completed | Provider={result.ExecutionProvider} | TagCount={totalTags}");

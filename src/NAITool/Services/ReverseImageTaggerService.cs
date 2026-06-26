@@ -175,20 +175,28 @@ public sealed class ReverseImageTaggerService : IDisposable
         double characterThreshold = Math.Clamp(settings.CharacterThreshold, 0, 1);
 
         var generalTags = new List<ReverseTagPrediction>();
+        var ratingTags = new List<ReverseTagPrediction>();
         var characterTags = new List<ReverseTagPrediction>();
         var copyrightScores = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var tag in _tagDefinitions)
         {
             float score = scores[tag.Index];
-            if (tag.Category == 0)
+            if (IsRatingTag(tag))
+            {
+                if (score >= generalThreshold)
+                    ratingTags.Add(new ReverseTagPrediction(FormatTag(tag.Name, settings), score));
+                continue;
+            }
+
+            if (tag.Category == GeneralTagCategory)
             {
                 if (score >= generalThreshold)
                     generalTags.Add(new ReverseTagPrediction(FormatTag(tag.Name, settings), score));
                 continue;
             }
 
-            if (tag.Category != 4 || score < characterThreshold)
+            if (tag.Category != CharacterTagCategory || score < characterThreshold)
                 continue;
 
             var formattedCharacter = FormatTag(tag.Name, settings);
@@ -205,6 +213,7 @@ public sealed class ReverseImageTaggerService : IDisposable
         }
 
         generalTags.Sort(static (left, right) => right.Score.CompareTo(left.Score));
+        ratingTags.Sort(static (left, right) => right.Score.CompareTo(left.Score));
         characterTags.Sort(static (left, right) => right.Score.CompareTo(left.Score));
 
         var copyrightTags = copyrightScores
@@ -213,6 +222,8 @@ public sealed class ReverseImageTaggerService : IDisposable
             .ToList();
 
         var promptParts = new List<string>();
+        if (settings.AddRatingTags)
+            promptParts.AddRange(ratingTags.Select(tag => tag.Name));
         if (settings.AddCharacterTags)
             promptParts.AddRange(characterTags.Select(tag => tag.Name));
         if (settings.AddCopyrightTags)
@@ -234,6 +245,7 @@ public sealed class ReverseImageTaggerService : IDisposable
         {
             PositivePrompt = string.Join(", ", uniquePromptParts),
             GeneralTags = generalTags,
+            RatingTags = ratingTags,
             CharacterTags = characterTags,
             CopyrightTags = copyrightTags,
             ExecutionProvider = _executionProvider,
@@ -489,6 +501,14 @@ public sealed class ReverseImageTaggerService : IDisposable
         return raw.Replace('_', ' ');
     }
 
+    private static bool IsRatingTag(ReverseTagDefinition tag)
+        => tag.Category == RatingTagCategory ||
+           tag.Name.StartsWith("rating:", StringComparison.OrdinalIgnoreCase);
+
+    private const int GeneralTagCategory = 0;
+    private const int RatingTagCategory = 9;
+    private const int CharacterTagCategory = 4;
+
     private sealed record ReverseTagDefinition(
         int Index,
         string Name,
@@ -500,6 +520,7 @@ public sealed class ReverseTaggerResult
 {
     public string PositivePrompt { get; init; } = "";
     public IReadOnlyList<ReverseTagPrediction> GeneralTags { get; init; } = Array.Empty<ReverseTagPrediction>();
+    public IReadOnlyList<ReverseTagPrediction> RatingTags { get; init; } = Array.Empty<ReverseTagPrediction>();
     public IReadOnlyList<ReverseTagPrediction> CharacterTags { get; init; } = Array.Empty<ReverseTagPrediction>();
     public IReadOnlyList<ReverseTagPrediction> CopyrightTags { get; init; } = Array.Empty<ReverseTagPrediction>();
     public string ExecutionProvider { get; init; } = "CPU";
