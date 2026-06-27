@@ -187,11 +187,16 @@ public sealed partial class MainWindow
         MenuHelpLinks.Text = L("menu.help.links");
         MenuAbout.Text = L("menu.help.about");
 
-        WorkspaceModeGenerateItem.Text = L("mode.generate");
-        WorkspaceModeI2IItem.Text = L("mode.i2i");
-        WorkspaceModeUpscaleItem.Text = L("mode.upscale");
-        WorkspaceModeEffectsItem.Text = L("mode.post");
-        WorkspaceModeInspectItem.Text = L("mode.inspect");
+        WorkspaceModeGenerateTitle.Text = L("mode.generate");
+        WorkspaceModeI2ITitle.Text = L("mode.i2i");
+        WorkspaceModeUpscaleTitle.Text = L("mode.upscale");
+        WorkspaceModeEffectsTitle.Text = L("mode.post");
+        WorkspaceModeInspectTitle.Text = L("mode.inspect");
+        WorkspaceModeGenerateDescription.Text = L("workspace.generate.description");
+        WorkspaceModeI2IDescription.Text = L("workspace.i2i.description");
+        WorkspaceModeUpscaleDescription.Text = L("workspace.upscale.description");
+        WorkspaceModeEffectsDescription.Text = L("workspace.effects.description");
+        WorkspaceModeInspectDescription.Text = L("workspace.inspect.description");
         UpdateWorkspaceModeButton();
         UpdatePromptTabText();
 

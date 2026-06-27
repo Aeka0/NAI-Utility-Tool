@@ -42,7 +42,7 @@ public sealed partial class MainWindow
 
     private void OnWorkspaceModeMenuItemClick(object sender, RoutedEventArgs e)
     {
-        if (sender is not ToggleMenuFlyoutItem item ||
+        if (sender is not Button item ||
             item.Tag is not string modeName ||
             !Enum.TryParse(modeName, out AppMode target))
             return;
@@ -50,10 +50,12 @@ public sealed partial class MainWindow
         if (target == _currentMode)
         {
             UpdateWorkspaceModeButton();
+            WorkspaceModeFlyout.Hide();
             return;
         }
 
         SwitchMode(target);
+        WorkspaceModeFlyout.Hide();
     }
 
     private void SwitchMode(AppMode mode)
@@ -150,13 +152,79 @@ public sealed partial class MainWindow
         string currentLabel = GetModeLabel(_currentMode);
         WorkspaceModeIcon.Glyph = GetModeIconGlyph(_currentMode);
         WorkspaceModeText.Text = currentLabel;
-        ToolTipService.SetToolTip(WorkspaceModeButton, currentLabel);
+        ToolTipService.SetToolTip(WorkspaceModeButton, $"{L("workspace.switcher")}: {currentLabel}");
 
-        WorkspaceModeGenerateItem.IsChecked = _currentMode == AppMode.ImageGeneration;
-        WorkspaceModeI2IItem.IsChecked = _currentMode == AppMode.I2I;
-        WorkspaceModeUpscaleItem.IsChecked = _currentMode == AppMode.Upscale;
-        WorkspaceModeEffectsItem.IsChecked = _currentMode == AppMode.Effects;
-        WorkspaceModeInspectItem.IsChecked = _currentMode == AppMode.Inspect;
+        UpdateWorkspaceModeCardState(
+            WorkspaceModeGenerateCard,
+            WorkspaceModeGenerateCheck,
+            _currentMode == AppMode.ImageGeneration);
+        UpdateWorkspaceModeCardState(
+            WorkspaceModeI2ICard,
+            WorkspaceModeI2ICheck,
+            _currentMode == AppMode.I2I);
+        UpdateWorkspaceModeCardState(
+            WorkspaceModeUpscaleCard,
+            WorkspaceModeUpscaleCheck,
+            _currentMode == AppMode.Upscale);
+        UpdateWorkspaceModeCardState(
+            WorkspaceModeEffectsCard,
+            WorkspaceModeEffectsCheck,
+            _currentMode == AppMode.Effects);
+        UpdateWorkspaceModeCardState(
+            WorkspaceModeInspectCard,
+            WorkspaceModeInspectCheck,
+            _currentMode == AppMode.Inspect);
+    }
+
+    private void UpdateWorkspaceModeCardState(Border card, FontIcon check, bool selected)
+    {
+        bool isDark = RootGrid.ActualTheme == ElementTheme.Dark;
+        card.BorderBrush = selected
+            ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 215))
+            : new SolidColorBrush(isDark
+                ? Windows.UI.Color.FromArgb(70, 255, 255, 255)
+                : Windows.UI.Color.FromArgb(60, 0, 0, 0));
+        card.Background = selected
+            ? new SolidColorBrush(isDark
+                ? Windows.UI.Color.FromArgb(45, 255, 255, 255)
+                : Windows.UI.Color.FromArgb(36, 0, 0, 0))
+            : new SolidColorBrush(isDark
+                ? Windows.UI.Color.FromArgb(12, 255, 255, 255)
+                : Windows.UI.Color.FromArgb(6, 0, 0, 0));
+        check.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnWorkspaceModeCardPointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        AnimateWorkspaceModeCardHover(sender, 1);
+    }
+
+    private void OnWorkspaceModeCardPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        AnimateWorkspaceModeCardHover(sender, 0);
+    }
+
+    private static void AnimateWorkspaceModeCardHover(object sender, double targetOpacity)
+    {
+        if (sender is not Border card || card.Child is not Grid grid)
+            return;
+
+        Border? hoverLayer = grid.Children.OfType<Border>()
+            .FirstOrDefault(child => child.Name.EndsWith("Hover", StringComparison.Ordinal));
+        if (hoverLayer == null)
+            return;
+
+        var storyboard = new Storyboard();
+        var animation = new DoubleAnimation
+        {
+            To = targetOpacity,
+            Duration = TimeSpan.FromMilliseconds(120),
+            EnableDependentAnimation = true,
+        };
+        Storyboard.SetTarget(animation, hoverLayer);
+        Storyboard.SetTargetProperty(animation, nameof(UIElement.Opacity));
+        storyboard.Children.Add(animation);
+        storyboard.Begin();
     }
 
     private void UpdateWorkspaceModeButtonTitleBarInset()
@@ -165,7 +233,7 @@ public sealed partial class MainWindow
             return;
 
         double rightInset = AppWindow?.TitleBar?.RightInset ?? 138;
-        WorkspaceModeButton.Margin = new Thickness(0, 0, rightInset + 16, 0);
+        WorkspaceModeButton.Margin = new Thickness(0, 0, rightInset + 8, 0);
     }
 
     private void SetGenResultBarRequested(bool requested, bool resetPosition = false)

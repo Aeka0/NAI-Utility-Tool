@@ -17,6 +17,7 @@
             <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="WorkspaceModeCardHoverBrush" Color="#18000000"/>
                     <LinearGradientBrush x:Key="HistoryThumbnailGlassOverlayBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#66FFFFFF" Offset="0"/>
                         <GradientStop Color="#26FFFFFF" Offset="0.42"/>
@@ -29,6 +30,7 @@
                     </LinearGradientBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="WorkspaceModeCardHoverBrush" Color="#1AFFFFFF"/>
                     <LinearGradientBrush x:Key="HistoryThumbnailGlassOverlayBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#1AFFFFFF" Offset="0"/>
                         <GradientStop Color="#0AFFFFFF" Offset="0.42"/>
@@ -41,6 +43,7 @@
                     </LinearGradientBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="WorkspaceModeCardHoverBrush" Color="#18000000"/>
                     <LinearGradientBrush x:Key="HistoryThumbnailGlassOverlayBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#66FFFFFF" Offset="0"/>
                         <GradientStop Color="#26FFFFFF" Offset="0.42"/>
@@ -93,6 +96,25 @@
                 <Setter Property="VerticalAlignment" Value="Center"/>
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
                 <Setter Property="Margin" Value="0,0,0,12"/>
+            </Style>
+            <Style x:Key="WorkspaceModeCardButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Background" Value="{ThemeResource ControlFillColorTransparentBrush}"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Width" Value="390"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="MinHeight" Value="78"/>
+            </Style>
+            <Style x:Key="WorkspaceModeCardIconStyle" TargetType="FontIcon">
+                <Setter Property="FontFamily" Value="{StaticResource SymbolThemeFontFamily}"/>
+                <Setter Property="FontSize" Value="17"/>
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <Setter Property="HorizontalAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
             </Style>
             <DataTemplate x:Key="HistorySeparatorTemplate" x:DataType="local:HistoryListItem">
                 <Grid Margin="8,10,8,4">
@@ -427,48 +449,309 @@
                     </Grid>
                 </Button.Content>
                 <Button.Flyout>
-                    <MenuFlyout x:Name="WorkspaceModeFlyout">
-                        <ToggleMenuFlyoutItem x:Name="WorkspaceModeGenerateItem"
-                                              Text=""
-                                              Tag="ImageGeneration"
-                                              Click="OnWorkspaceModeMenuItemClick">
-                            <ToggleMenuFlyoutItem.Icon>
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE91B;"/>
-                            </ToggleMenuFlyoutItem.Icon>
-                        </ToggleMenuFlyoutItem>
-                        <ToggleMenuFlyoutItem x:Name="WorkspaceModeI2IItem"
-                                              Text=""
-                                              Tag="I2I"
-                                              Click="OnWorkspaceModeMenuItemClick">
-                            <ToggleMenuFlyoutItem.Icon>
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEDFB;"/>
-                            </ToggleMenuFlyoutItem.Icon>
-                        </ToggleMenuFlyoutItem>
-                        <ToggleMenuFlyoutItem x:Name="WorkspaceModeUpscaleItem"
-                                              Text=""
-                                              Tag="Upscale"
-                                              Click="OnWorkspaceModeMenuItemClick">
-                            <ToggleMenuFlyoutItem.Icon>
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xECE9;"/>
-                            </ToggleMenuFlyoutItem.Icon>
-                        </ToggleMenuFlyoutItem>
-                        <ToggleMenuFlyoutItem x:Name="WorkspaceModeEffectsItem"
-                                              Text=""
-                                              Tag="Effects"
-                                              Click="OnWorkspaceModeMenuItemClick">
-                            <ToggleMenuFlyoutItem.Icon>
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEB3C;"/>
-                            </ToggleMenuFlyoutItem.Icon>
-                        </ToggleMenuFlyoutItem>
-                        <ToggleMenuFlyoutItem x:Name="WorkspaceModeInspectItem"
-                                              Text=""
-                                              Tag="Inspect"
-                                              Click="OnWorkspaceModeMenuItemClick">
-                            <ToggleMenuFlyoutItem.Icon>
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE71E;"/>
-                            </ToggleMenuFlyoutItem.Icon>
-                        </ToggleMenuFlyoutItem>
-                    </MenuFlyout>
+                    <Flyout x:Name="WorkspaceModeFlyout"
+                            Placement="BottomEdgeAlignedRight"
+                            ShouldConstrainToRootBounds="True">
+                        <Flyout.FlyoutPresenterStyle>
+                            <Style TargetType="FlyoutPresenter">
+                                <Setter Property="Padding" Value="8"/>
+                                <Setter Property="CornerRadius" Value="8"/>
+                                <Setter Property="Width" Value="406"/>
+                            </Style>
+                        </Flyout.FlyoutPresenterStyle>
+                        <StackPanel Width="390" Spacing="4">
+                            <Button x:Name="WorkspaceModeGenerateItem"
+                                    Style="{StaticResource WorkspaceModeCardButtonStyle}"
+                                    Tag="ImageGeneration"
+                                    Click="OnWorkspaceModeMenuItemClick">
+                                <Border x:Name="WorkspaceModeGenerateCard"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="10"
+                                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                        BorderBrush="Transparent"
+                                        PointerEntered="OnWorkspaceModeCardPointerEntered"
+                                        PointerExited="OnWorkspaceModeCardPointerExited">
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28"/>
+                                            <ColumnDefinition Width="*" MinWidth="0"/>
+                                            <ColumnDefinition Width="18"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="WorkspaceModeGenerateHover"
+                                                Grid.ColumnSpan="3"
+                                                Margin="-10"
+                                                Background="{ThemeResource WorkspaceModeCardHoverBrush}"
+                                                CornerRadius="8"
+                                                IsHitTestVisible="False"
+                                                Opacity="0"/>
+                                        <Border Width="28"
+                                                Height="28"
+                                                CornerRadius="8"
+                                                Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                            <FontIcon Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                                      Glyph="&#xE91B;"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="4"
+                                                    VerticalAlignment="Top">
+                                            <TextBlock x:Name="WorkspaceModeGenerateTitle"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="WorkspaceModeGenerateDescription"
+                                                       FontSize="12"
+                                                       LineHeight="17"
+                                                       MaxLines="3"
+                                                       TextWrapping="Wrap"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <FontIcon x:Name="WorkspaceModeGenerateCheck"
+                                                  Grid.Column="2"
+                                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                  FontSize="15"
+                                                  Glyph="&#xE73E;"
+                                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                  Visibility="Collapsed"/>
+                                    </Grid>
+                                </Border>
+                            </Button>
+                            <Button x:Name="WorkspaceModeI2IItem"
+                                    Style="{StaticResource WorkspaceModeCardButtonStyle}"
+                                    Tag="I2I"
+                                    Click="OnWorkspaceModeMenuItemClick">
+                                <Border x:Name="WorkspaceModeI2ICard"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="10"
+                                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                        BorderBrush="Transparent"
+                                        PointerEntered="OnWorkspaceModeCardPointerEntered"
+                                        PointerExited="OnWorkspaceModeCardPointerExited">
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28"/>
+                                            <ColumnDefinition Width="*" MinWidth="0"/>
+                                            <ColumnDefinition Width="18"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="WorkspaceModeI2IHover"
+                                                Grid.ColumnSpan="3"
+                                                Margin="-10"
+                                                Background="{ThemeResource WorkspaceModeCardHoverBrush}"
+                                                CornerRadius="8"
+                                                IsHitTestVisible="False"
+                                                Opacity="0"/>
+                                        <Border Width="28"
+                                                Height="28"
+                                                CornerRadius="8"
+                                                Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                            <FontIcon Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                                      Glyph="&#xEDFB;"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="4"
+                                                    VerticalAlignment="Top">
+                                            <TextBlock x:Name="WorkspaceModeI2ITitle"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="WorkspaceModeI2IDescription"
+                                                       FontSize="12"
+                                                       LineHeight="17"
+                                                       MaxLines="3"
+                                                       TextWrapping="Wrap"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <FontIcon x:Name="WorkspaceModeI2ICheck"
+                                                  Grid.Column="2"
+                                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                  FontSize="15"
+                                                  Glyph="&#xE73E;"
+                                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                  Visibility="Collapsed"/>
+                                    </Grid>
+                                </Border>
+                            </Button>
+                            <Button x:Name="WorkspaceModeUpscaleItem"
+                                    Style="{StaticResource WorkspaceModeCardButtonStyle}"
+                                    Tag="Upscale"
+                                    Click="OnWorkspaceModeMenuItemClick">
+                                <Border x:Name="WorkspaceModeUpscaleCard"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="10"
+                                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                        BorderBrush="Transparent"
+                                        PointerEntered="OnWorkspaceModeCardPointerEntered"
+                                        PointerExited="OnWorkspaceModeCardPointerExited">
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28"/>
+                                            <ColumnDefinition Width="*" MinWidth="0"/>
+                                            <ColumnDefinition Width="18"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="WorkspaceModeUpscaleHover"
+                                                Grid.ColumnSpan="3"
+                                                Margin="-10"
+                                                Background="{ThemeResource WorkspaceModeCardHoverBrush}"
+                                                CornerRadius="8"
+                                                IsHitTestVisible="False"
+                                                Opacity="0"/>
+                                        <Border Width="28"
+                                                Height="28"
+                                                CornerRadius="8"
+                                                Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                            <FontIcon Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                                      Glyph="&#xECE9;"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="4"
+                                                    VerticalAlignment="Top">
+                                            <TextBlock x:Name="WorkspaceModeUpscaleTitle"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="WorkspaceModeUpscaleDescription"
+                                                       FontSize="12"
+                                                       LineHeight="17"
+                                                       MaxLines="3"
+                                                       TextWrapping="Wrap"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <FontIcon x:Name="WorkspaceModeUpscaleCheck"
+                                                  Grid.Column="2"
+                                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                  FontSize="15"
+                                                  Glyph="&#xE73E;"
+                                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                  Visibility="Collapsed"/>
+                                    </Grid>
+                                </Border>
+                            </Button>
+                            <Button x:Name="WorkspaceModeEffectsItem"
+                                    Style="{StaticResource WorkspaceModeCardButtonStyle}"
+                                    Tag="Effects"
+                                    Click="OnWorkspaceModeMenuItemClick">
+                                <Border x:Name="WorkspaceModeEffectsCard"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="10"
+                                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                        BorderBrush="Transparent"
+                                        PointerEntered="OnWorkspaceModeCardPointerEntered"
+                                        PointerExited="OnWorkspaceModeCardPointerExited">
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28"/>
+                                            <ColumnDefinition Width="*" MinWidth="0"/>
+                                            <ColumnDefinition Width="18"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="WorkspaceModeEffectsHover"
+                                                Grid.ColumnSpan="3"
+                                                Margin="-10"
+                                                Background="{ThemeResource WorkspaceModeCardHoverBrush}"
+                                                CornerRadius="8"
+                                                IsHitTestVisible="False"
+                                                Opacity="0"/>
+                                        <Border Width="28"
+                                                Height="28"
+                                                CornerRadius="8"
+                                                Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                            <FontIcon Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                                      Glyph="&#xEB3C;"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="4"
+                                                    VerticalAlignment="Top">
+                                            <TextBlock x:Name="WorkspaceModeEffectsTitle"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="WorkspaceModeEffectsDescription"
+                                                       FontSize="12"
+                                                       LineHeight="17"
+                                                       MaxLines="3"
+                                                       TextWrapping="Wrap"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <FontIcon x:Name="WorkspaceModeEffectsCheck"
+                                                  Grid.Column="2"
+                                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                  FontSize="15"
+                                                  Glyph="&#xE73E;"
+                                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                  Visibility="Collapsed"/>
+                                    </Grid>
+                                </Border>
+                            </Button>
+                            <Button x:Name="WorkspaceModeInspectItem"
+                                    Style="{StaticResource WorkspaceModeCardButtonStyle}"
+                                    Tag="Inspect"
+                                    Click="OnWorkspaceModeMenuItemClick">
+                                <Border x:Name="WorkspaceModeInspectCard"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="10"
+                                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                        BorderBrush="Transparent"
+                                        PointerEntered="OnWorkspaceModeCardPointerEntered"
+                                        PointerExited="OnWorkspaceModeCardPointerExited">
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28"/>
+                                            <ColumnDefinition Width="*" MinWidth="0"/>
+                                            <ColumnDefinition Width="18"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="WorkspaceModeInspectHover"
+                                                Grid.ColumnSpan="3"
+                                                Margin="-10"
+                                                Background="{ThemeResource WorkspaceModeCardHoverBrush}"
+                                                CornerRadius="8"
+                                                IsHitTestVisible="False"
+                                                Opacity="0"/>
+                                        <Border Width="28"
+                                                Height="28"
+                                                CornerRadius="8"
+                                                Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                            <FontIcon Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                                      Glyph="&#xE71E;"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="4"
+                                                    VerticalAlignment="Top">
+                                            <TextBlock x:Name="WorkspaceModeInspectTitle"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="WorkspaceModeInspectDescription"
+                                                       FontSize="12"
+                                                       LineHeight="17"
+                                                       MaxLines="3"
+                                                       TextWrapping="Wrap"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <FontIcon x:Name="WorkspaceModeInspectCheck"
+                                                  Grid.Column="2"
+                                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                  FontSize="15"
+                                                  Glyph="&#xE73E;"
+                                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                  Visibility="Collapsed"/>
+                                    </Grid>
+                                </Border>
+                            </Button>
+                        </StackPanel>
+                    </Flyout>
                 </Button.Flyout>
             </Button>
         </Grid>
