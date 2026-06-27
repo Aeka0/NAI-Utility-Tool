@@ -345,6 +345,7 @@ public sealed partial class MainWindow
         var style = new Style(typeof(FlyoutPresenter));
         style.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty, 10000d));
         style.Setters.Add(new Setter(FrameworkElement.MaxHeightProperty, 10000d));
+        style.Setters.Add(new Setter(Control.CornerRadiusProperty, new CornerRadius(8)));
         style.Setters.Add(new Setter(ScrollViewer.HorizontalScrollModeProperty, ScrollMode.Disabled));
         style.Setters.Add(new Setter(ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled));
         style.Setters.Add(new Setter(ScrollViewer.VerticalScrollModeProperty, ScrollMode.Disabled));
