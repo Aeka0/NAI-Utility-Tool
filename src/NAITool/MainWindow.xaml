@@ -420,8 +420,10 @@
                     MaxWidth="220"
                     Height="34"
                     Padding="14,0"
-                    Margin="0,0,154,0"
-                    HorizontalContentAlignment="Center">
+                    Margin="0,0,138,0"
+                    HorizontalContentAlignment="Center"
+                    PointerEntered="OnWorkspaceModeButtonPointerEntered"
+                    PointerExited="OnWorkspaceModeButtonPointerExited">
                 <Button.Content>
                     <Grid ColumnSpacing="8"
                           VerticalAlignment="Center">
@@ -429,20 +431,27 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
+                        <Border x:Name="WorkspaceModeAccent"
+                                Grid.Column="0"
+                                Width="3"
+                                Height="16"
+                                CornerRadius="2"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}"/>
                         <FontIcon x:Name="WorkspaceModeIcon"
-                                  Grid.Column="0"
+                                  Grid.Column="1"
                                   FontFamily="{StaticResource SymbolThemeFontFamily}"
                                   FontSize="15"
                                   Glyph="&#xE91B;"/>
                         <TextBlock x:Name="WorkspaceModeText"
-                                   Grid.Column="1"
+                                   Grid.Column="2"
                                    Text=""
                                    MaxWidth="150"
                                    TextTrimming="CharacterEllipsis"
                                    TextAlignment="Center"
                                    VerticalAlignment="Center"/>
-                        <FontIcon Grid.Column="2"
+                        <FontIcon Grid.Column="3"
                                   FontFamily="{StaticResource SymbolThemeFontFamily}"
                                   FontSize="12"
                                   Glyph="&#xE70D;"/>
@@ -451,7 +460,9 @@
                 <Button.Flyout>
                     <Flyout x:Name="WorkspaceModeFlyout"
                             Placement="BottomEdgeAlignedRight"
-                            ShouldConstrainToRootBounds="True">
+                            ShouldConstrainToRootBounds="True"
+                            Opened="OnWorkspaceModeFlyoutOpened"
+                            Closed="OnWorkspaceModeFlyoutClosed">
                         <Flyout.FlyoutPresenterStyle>
                             <Style TargetType="FlyoutPresenter">
                                 <Setter Property="Padding" Value="8"/>

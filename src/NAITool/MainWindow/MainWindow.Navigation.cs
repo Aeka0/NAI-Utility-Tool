@@ -36,6 +36,11 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
+    private bool _workspaceModeButtonHovering;
+    private bool _workspaceModeFlyoutOpen;
+    private const double WorkspaceModeAccentIdleHeight = 16;
+    private const double WorkspaceModeAccentActiveHeight = 22;
+
     // ═══════════════════════════════════════════════════════════
     //  模式切换
     // ═══════════════════════════════════════════════════════════
@@ -204,6 +209,55 @@ public sealed partial class MainWindow
         AnimateWorkspaceModeCardHover(sender, 0);
     }
 
+    private void OnWorkspaceModeButtonPointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        _workspaceModeButtonHovering = true;
+        UpdateWorkspaceModeAccentState();
+    }
+
+    private void OnWorkspaceModeButtonPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        _workspaceModeButtonHovering = false;
+        UpdateWorkspaceModeAccentState();
+    }
+
+    private void OnWorkspaceModeFlyoutOpened(object sender, object e)
+    {
+        _workspaceModeFlyoutOpen = true;
+        UpdateWorkspaceModeAccentState();
+    }
+
+    private void OnWorkspaceModeFlyoutClosed(object sender, object e)
+    {
+        _workspaceModeFlyoutOpen = false;
+        UpdateWorkspaceModeAccentState();
+    }
+
+    private void UpdateWorkspaceModeAccentState()
+    {
+        if (WorkspaceModeAccent == null)
+            return;
+
+        double targetHeight = _workspaceModeButtonHovering || _workspaceModeFlyoutOpen
+            ? WorkspaceModeAccentActiveHeight
+            : WorkspaceModeAccentIdleHeight;
+
+        if (Math.Abs(WorkspaceModeAccent.Height - targetHeight) < 0.1)
+            return;
+
+        var storyboard = new Storyboard();
+        var animation = new DoubleAnimation
+        {
+            To = targetHeight,
+            Duration = TimeSpan.FromMilliseconds(140),
+            EnableDependentAnimation = true,
+        };
+        Storyboard.SetTarget(animation, WorkspaceModeAccent);
+        Storyboard.SetTargetProperty(animation, nameof(FrameworkElement.Height));
+        storyboard.Children.Add(animation);
+        storyboard.Begin();
+    }
+
     private static void AnimateWorkspaceModeCardHover(object sender, double targetOpacity)
     {
         if (sender is not Border card || card.Child is not Grid grid)
@@ -233,7 +287,7 @@ public sealed partial class MainWindow
             return;
 
         double rightInset = AppWindow?.TitleBar?.RightInset ?? 138;
-        WorkspaceModeButton.Margin = new Thickness(0, 0, rightInset + 8, 0);
+        WorkspaceModeButton.Margin = new Thickness(0, 0, rightInset, 0);
     }
 
     private void SetGenResultBarRequested(bool requested, bool resetPosition = false)
