@@ -603,7 +603,7 @@ public sealed partial class MainWindow
                 SetI2ICharactersFromMetadata(meta);
             else
                 _i2iCharacters.Clear();
-            ApplyReferenceDataFromMetadata(meta);
+            ApplyReferenceDataFromMetadata(meta, AppMode.I2I);
         }
 
         RefreshCharacterPanel();

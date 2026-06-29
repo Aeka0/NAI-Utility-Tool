@@ -132,6 +132,7 @@ public sealed partial class MainWindow
         SliderDenoiseNoise.Value = Math.Clamp(denoiseParams.DenoiseNoise, 0, 1);
         TxtDenoiseStrength.Text = SliderDenoiseStrength.Value.ToString("0.00", CultureInfo.InvariantCulture);
         TxtDenoiseNoise.Text = SliderDenoiseNoise.Value.ToString("0.00", CultureInfo.InvariantCulture);
+        UpdateReferenceButtonAndPanelState();
     }
 
     private void OnTogglePreviewMask(object sender, RoutedEventArgs e)

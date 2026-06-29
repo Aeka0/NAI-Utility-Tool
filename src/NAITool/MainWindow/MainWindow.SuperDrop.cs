@@ -499,7 +499,7 @@ public sealed partial class MainWindow
     private static bool IsSupportedSuperDropFile(StorageFile file, SuperDropAction action)
     {
         string ext = file.FileType;
-        if ((action == SuperDropAction.GenerateVibe || action == SuperDropAction.I2IVibe) &&
+        if (action == SuperDropAction.GenerateVibe &&
             ext.Equals(".naiv4vibe", StringComparison.OrdinalIgnoreCase))
             return true;
 
@@ -532,10 +532,6 @@ public sealed partial class MainWindow
                     SwitchMode(AppMode.I2I);
                     await MaskCanvas.LoadImageAsync(file);
                     await ApplySuperDropI2IPromptAsync(file);
-                    break;
-                case SuperDropAction.I2IVibe:
-                    SwitchMode(AppMode.I2I);
-                    await AddDroppedVibeTransferAsync(file);
                     break;
                 case SuperDropAction.I2IPrecise:
                     SwitchMode(AppMode.I2I);

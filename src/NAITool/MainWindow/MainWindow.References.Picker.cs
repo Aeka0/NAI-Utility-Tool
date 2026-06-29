@@ -265,7 +265,7 @@ public sealed partial class MainWindow
             return true;
         }
 
-        if (ActiveVibeTransferCount() > 0)
+        if (SupportsVibeTransferFeature() && ActiveVibeTransferCount() > 0)
         {
             TxtStatus.Text = L("references.validation.mixed_reference_types");
             return true;

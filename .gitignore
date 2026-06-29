@@ -58,9 +58,4 @@ Desktop.ini
 .DS_Store
 
 # Local design/source assets not used by builds
-/NAIT.png
-/NAITR.png
-/NAITS.ico
-/RobinBird.png
-/NaiToolSplash.psd
-/Splash.psd
+.local/

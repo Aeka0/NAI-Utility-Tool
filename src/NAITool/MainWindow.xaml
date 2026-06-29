@@ -1890,16 +1890,7 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
-                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource SuperDropCardStyle}" Tag="I2IVibe" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
-                            <Grid>
-                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
-                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
-                                    <FontIcon Glyph="&#xE771;" Style="{StaticResource SuperDropCardIconStyle}"/>
-                                    <TextBlock x:Name="TxtSuperDropI2IVibe" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-                        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource SuperDropCardStyle}" Tag="I2IPrecise" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource SuperDropCardStyle}" Tag="I2IPrecise" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
                             <Grid>
                                 <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
@@ -1908,7 +1899,7 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
-                        <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource SuperDropCardStyle}" Tag="Upscale" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource SuperDropCardStyle}" Tag="Upscale" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
                             <Grid>
                                 <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="16"/>
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">

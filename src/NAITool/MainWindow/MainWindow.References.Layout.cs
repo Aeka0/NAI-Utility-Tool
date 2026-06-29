@@ -45,7 +45,8 @@ public sealed partial class MainWindow
                 : L("references.tooltips.vibe");
         ToolTipService.SetToolTip(BtnAddVibeTransfer, vibeToolTip);
 
-        BtnAddPreciseReference.Visibility = SupportsPreciseReferenceFeature() && ActiveVibeTransferCount() == 0
+        BtnAddPreciseReference.Visibility = SupportsPreciseReferenceFeature() &&
+            (!SupportsVibeTransferFeature() || ActiveVibeTransferCount() == 0)
             ? Visibility.Visible
             : Visibility.Collapsed;
         BtnAddPreciseReference.IsEnabled = CanEditPreciseReferenceFeature() && ActivePreciseReferenceCount() < MaxPreciseReferences;

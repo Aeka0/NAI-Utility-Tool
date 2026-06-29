@@ -80,9 +80,20 @@ public sealed partial class MainWindow
         return IsV4PlusModelKey(GetCurrentModelKey());
     }
 
+    private bool IsCurrentI2IRequestMode() =>
+        _currentMode == AppMode.I2I;
+
     private bool SupportsVibeTransferFeature()
     {
         if (!IsPromptMode(_currentMode)) return false;
+        if (IsCurrentI2IRequestMode()) return false;
+        return true;
+    }
+
+    private bool SupportsVibeTransferFeature(AppMode mode)
+    {
+        if (!IsPromptMode(mode)) return false;
+        if (mode == AppMode.I2I) return false;
         return true;
     }
 
@@ -98,13 +109,19 @@ public sealed partial class MainWindow
         return IsV45ModelKey(GetCurrentModelKey()) && !IsAssetProtectionPaidFeatureLimitEnabled();
     }
 
+    private bool SupportsPreciseReferenceFeature(AppMode mode)
+    {
+        if (!IsPromptMode(mode)) return false;
+        return IsV45ModelKey(GetCurrentModelKey()) && !IsAssetProtectionPaidFeatureLimitEnabled();
+    }
+
     private bool CanEditVibeTransferFeature() =>
         SupportsVibeTransferFeature() &&
         ActivePreciseReferenceCount() == 0;
 
     private bool CanEditPreciseReferenceFeature() =>
         SupportsPreciseReferenceFeature() &&
-        ActiveVibeTransferCount() == 0;
+        (!SupportsVibeTransferFeature() || ActiveVibeTransferCount() == 0);
 
     private bool ShouldShowVibeTransferPanel() =>
         SupportsVibeTransferFeature() && _genVibeTransfers.Count > 0;
@@ -168,7 +185,9 @@ public sealed partial class MainWindow
         int refCost = 0;
         bool isV4Plus = IsV4PlusModelKey(model);
 
-        var activeVibes = _genVibeTransfers.Where(v => !v.IsDisabled).ToList();
+        var activeVibes = SupportsVibeTransferFeature()
+            ? _genVibeTransfers.Where(v => !v.IsDisabled).ToList()
+            : new List<VibeTransferEntry>();
         if (isV4Plus && !IsAssetProtectionPaidFeatureLimitEnabled() && activeVibes.Count > 0)
         {
             int encodingCost = activeVibes.Count(v => !v.IsEncodedFile) * 2;
@@ -194,7 +213,7 @@ public sealed partial class MainWindow
         if (!IsPromptMode(_currentMode))
             return true;
 
-        int activeVibeCount = ActiveVibeTransferCount();
+        int activeVibeCount = SupportsVibeTransferFeature() ? ActiveVibeTransferCount() : 0;
         int activePreciseCount = ActivePreciseReferenceCount();
 
         if (activeVibeCount > 0 &&
@@ -229,7 +248,7 @@ public sealed partial class MainWindow
         _genPreciseReferences.Clear();
     }
 
-    private void ApplyReferenceDataFromMetadata(ImageMetadata? meta)
+    private void ApplyReferenceDataFromMetadata(ImageMetadata? meta, AppMode? targetMode = null)
     {
         _genVibeTransfers.Clear();
         _genPreciseReferences.Clear();
@@ -237,34 +256,42 @@ public sealed partial class MainWindow
         if (meta == null)
             return;
 
-        foreach (var vibe in meta.VibeTransfers.Take(GetMaxAllowedVibeTransfers()))
-        {
-            if (string.IsNullOrWhiteSpace(vibe.ImageBase64))
-                continue;
+        AppMode mode = targetMode ?? _currentMode;
 
-            _genVibeTransfers.Add(new VibeTransferEntry
+        if (SupportsVibeTransferFeature(mode))
+        {
+            foreach (var vibe in meta.VibeTransfers.Take(GetMaxAllowedVibeTransfers()))
             {
-                FileName = string.IsNullOrWhiteSpace(vibe.FileName) ? L("references.imported.vibe_label") : vibe.FileName,
-                ImageBase64 = vibe.ImageBase64,
-                Strength = Math.Clamp(vibe.Strength, 0, 1),
-                InformationExtracted = Math.Clamp(vibe.InformationExtracted, 0, 1),
-                IsEncodedFile = true,
-            });
+                if (string.IsNullOrWhiteSpace(vibe.ImageBase64))
+                    continue;
+
+                _genVibeTransfers.Add(new VibeTransferEntry
+                {
+                    FileName = string.IsNullOrWhiteSpace(vibe.FileName) ? L("references.imported.vibe_label") : vibe.FileName,
+                    ImageBase64 = vibe.ImageBase64,
+                    Strength = Math.Clamp(vibe.Strength, 0, 1),
+                    InformationExtracted = Math.Clamp(vibe.InformationExtracted, 0, 1),
+                    IsEncodedFile = true,
+                });
+            }
         }
 
-        foreach (var reference in meta.PreciseReferences.Take(MaxPreciseReferences))
+        if (SupportsPreciseReferenceFeature(mode))
         {
-            if (string.IsNullOrWhiteSpace(reference.ImageBase64))
-                continue;
-
-            _genPreciseReferences.Add(new PreciseReferenceEntry
+            foreach (var reference in meta.PreciseReferences.Take(MaxPreciseReferences))
             {
-                FileName = string.IsNullOrWhiteSpace(reference.FileName) ? L("references.imported.precise_label") : reference.FileName,
-                ImageBase64 = reference.ImageBase64,
-                ReferenceType = reference.ReferenceType,
-                Strength = Math.Clamp(reference.Strength, 0, 1),
-                Fidelity = Math.Clamp(reference.Fidelity, 0, 1),
-            });
+                if (string.IsNullOrWhiteSpace(reference.ImageBase64))
+                    continue;
+
+                _genPreciseReferences.Add(new PreciseReferenceEntry
+                {
+                    FileName = string.IsNullOrWhiteSpace(reference.FileName) ? L("references.imported.precise_label") : reference.FileName,
+                    ImageBase64 = reference.ImageBase64,
+                    ReferenceType = reference.ReferenceType,
+                    Strength = Math.Clamp(reference.Strength, 0, 1),
+                    Fidelity = Math.Clamp(reference.Fidelity, 0, 1),
+                });
+            }
         }
     }
 
@@ -279,6 +306,9 @@ public sealed partial class MainWindow
 
     private async Task<string?> EnsureVibesEncodedAsync(string model, CancellationToken ct)
     {
+        if (!SupportsVibeTransferFeature())
+            return null;
+
         if (!NovelAIService.IsV4PlusModel(model))
             return null;
 

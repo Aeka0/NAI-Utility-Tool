@@ -255,7 +255,6 @@ public sealed partial class MainWindow
         TxtSuperDropGenerateVibe.Text = L("superdrop.generate_vibe");
         TxtSuperDropGeneratePrecise.Text = L("superdrop.generate_precise");
         TxtSuperDropI2IPrompt.Text = L("superdrop.i2i_prompt");
-        TxtSuperDropI2IVibe.Text = L("superdrop.i2i_vibe");
         TxtSuperDropI2IPrecise.Text = L("superdrop.i2i_precise");
         TxtSuperDropUpscale.Text = L("superdrop.upscale");
         TxtSuperDropEffects.Text = L("superdrop.effects");
