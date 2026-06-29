@@ -496,6 +496,7 @@ public sealed partial class MainWindow
             ("Xianyun", L("about.thanks.xianyun"), "\uE77B"),
             ("CloverIris", L("about.thanks.cloveriris"), "\uE77B"),
             ("柊咲桜", L("about.thanks.hiiragisaki_sakura"), "\uE77B"),
+            ("MurasameGenos", L("about.thanks.murasame_genos"), "\uE77B"),
             ("五月不蓝", L("about.thanks.wuyue_bulan"), "\uE77B"),
             ("Dominik Reh", L("about.thanks.dominik_reh"), "\uE8D2"),
             ("SmilingWolf", L("about.thanks.smilingwolf"), "\uE8BA"),
