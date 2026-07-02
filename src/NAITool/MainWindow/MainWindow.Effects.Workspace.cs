@@ -44,12 +44,13 @@ public sealed partial class MainWindow
         EffectType.Glow => new EffectEntry { Type = type, Value1 = 24, Value2 = 55, Value3 = 70, Value4 = 1.0, Value5 = 0, Value6 = 0 },
         EffectType.RadialBlur => new EffectEntry { Type = type, Value1 = 18, Value2 = 50, Value3 = 50, Value4 = 0 },
         EffectType.Vignette => new EffectEntry { Type = type, Value1 = 35, Value2 = 55 },
-        EffectType.ChromaticAberration => new EffectEntry { Type = type, Value1 = 3, Value2 = 0 },
+        EffectType.ChromaticAberration => new EffectEntry { Type = type, Value1 = -3, Value2 = 0, Value3 = 3 },
         EffectType.Noise => new EffectEntry { Type = type, Value1 = 0, Value2 = 0 },
         EffectType.Gamma => new EffectEntry { Type = type, Value1 = 1.0, Value2 = 0 },
         EffectType.Pixelate => new EffectEntry { Type = type, Value1 = 8, Value2 = 50, Value3 = 50, Value4 = 30, Value5 = 30 },
         EffectType.SolidBlock => new EffectEntry { Type = type, Value1 = 50, Value2 = 50, Value3 = 30, Value4 = 30, TextValue = "#000000" },
         EffectType.Scanline => new EffectEntry { Type = type, Value1 = 2, Value2 = 4, Value3 = 30, Value4 = 0, Value5 = 50 },
+        EffectType.JpegLoss => new EffectEntry { Type = type, Value1 = 35, Value2 = 3, Value3 = 8, Value4 = 45 },
         _ => new EffectEntry { Type = type },
     };
 
@@ -67,6 +68,7 @@ public sealed partial class MainWindow
         EffectType.Pixelate => L("post.effect.pixelate"),
         EffectType.SolidBlock => L("post.effect.solid_block"),
         EffectType.Scanline => L("post.effect.scanline"),
+        EffectType.JpegLoss => L("post.effect.jpeg_loss"),
         _ => L("post.effect.unknown"),
     };
 
@@ -338,7 +340,18 @@ public sealed partial class MainWindow
                     AddEffectSlider(stack, L("post.slider.feather"), 0, 100, 1, effect.Value2, "F0", v => effect.Value2 = v);
                     break;
                 case EffectType.ChromaticAberration:
-                    AddEffectSlider(stack, L("post.slider.aberration_strength"), 0, 20, 0.1, effect.Value1, "F1", v => effect.Value1 = v);
+                    AddEffectCombo(stack, L("post.slider.aberration_color_pair"),
+                        new[]
+                        {
+                            L("post.slider.aberration_color_pair_spectrum"),
+                            L("post.slider.aberration_color_pair_cyan_red"),
+                            L("post.slider.aberration_color_pair_green_purple"),
+                            L("post.slider.aberration_color_pair_yellow_blue"),
+                        },
+                        (int)Math.Clamp(effect.Value2, 0, 3),
+                        v => effect.Value2 = v);
+                    AddEffectSlider(stack, L("post.slider.aberration_strength"), -20, 20, 0.1, effect.Value1, "F1", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.aberration_iterations"), 3, 16, 1, effect.Value3 <= 0 ? 3 : effect.Value3, "F0", v => effect.Value3 = v);
                     break;
                 case EffectType.Noise:
                     AddEffectSlider(stack, L("post.slider.mono_noise"), 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
@@ -377,6 +390,12 @@ public sealed partial class MainWindow
                     AddEffectSlider(stack, L("post.slider.softness"), 0, 100, 1, effect.Value3, "F0", v => effect.Value3 = v);
                     AddEffectSlider(stack, L("post.slider.rotation"), -90, 90, 1, effect.Value4, "F0", v => effect.Value4 = v);
                     AddEffectSlider(stack, L("post.slider.opacity"), 0, 100, 1, effect.Value5, "F0", v => effect.Value5 = v);
+                    break;
+                case EffectType.JpegLoss:
+                    AddEffectSlider(stack, L("post.slider.jpeg_loss"), 0, 100, 1, effect.Value1, "F0", v => effect.Value1 = v);
+                    AddEffectSlider(stack, L("post.slider.jpeg_iterations"), 1, 24, 1, effect.Value2 <= 0 ? 3 : effect.Value2, "F0", v => effect.Value2 = v);
+                    AddEffectSlider(stack, L("post.slider.jpeg_block_size"), 4, 24, 1, effect.Value3 <= 0 ? 8 : effect.Value3, "F0", v => effect.Value3 = v);
+                    AddEffectSlider(stack, L("post.slider.jpeg_chroma_bleed"), 0, 100, 1, effect.Value4, "F0", v => effect.Value4 = v);
                     break;
             }
 

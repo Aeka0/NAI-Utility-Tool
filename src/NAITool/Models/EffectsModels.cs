@@ -17,6 +17,7 @@ public enum EffectType
     Pixelate,
     SolidBlock,
     Scanline,
+    JpegLoss,
 }
 
 public sealed class EffectEntry

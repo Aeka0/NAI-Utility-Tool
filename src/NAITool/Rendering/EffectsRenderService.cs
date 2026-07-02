@@ -24,13 +24,15 @@ public sealed class EffectsRenderService
         CancellationToken cancellationToken)
     {
         string requestLabel = "Preview#" + Interlocked.Increment(ref _nextRequestId);
-        bool cpuOnly = IsCpu(devicePreference);
-        debugLog?.Invoke($"[Effects][{requestLabel}] Start | Preference={FormatDevicePreference(devicePreference)} | Route={(cpuOnly ? "CPU" : "GPU preferred")} | SourceBytes={sourceBytes.Length} | Effects={effects.Count} | Chain={DescribeEffectChain(effects)}");
+        bool forcedCpu = ShouldForceCpuForEffectChain(effects, out string? forcedCpuReason);
+        bool cpuOnly = IsCpu(devicePreference) || forcedCpu;
+        string routeReason = forcedCpu ? $"forced CPU ({forcedCpuReason})" : (cpuOnly ? "forced CPU" : "GPU preferred");
+        debugLog?.Invoke($"[Effects][{requestLabel}] Start | Preference={FormatDevicePreference(devicePreference)} | Route={routeReason} | SourceBytes={sourceBytes.Length} | Effects={effects.Count} | Chain={DescribeEffectChain(effects)}");
 
         if (cpuOnly)
         {
             var cpuStopwatch = Stopwatch.StartNew();
-            debugLog?.Invoke($"[Effects][{requestLabel}] CPU preview start | Reason=forced CPU");
+            debugLog?.Invoke($"[Effects][{requestLabel}] CPU preview start | Reason={(forcedCpuReason ?? "forced CPU")}");
             SKBitmap bitmap = await Task.Run(
                 () => CpuEffectsRenderer.RenderEffectsPreview(
                     cachedSourceBitmap,
@@ -94,13 +96,15 @@ public sealed class EffectsRenderService
         CancellationToken cancellationToken)
     {
         string requestLabel = "Png#" + Interlocked.Increment(ref _nextRequestId);
-        bool cpuOnly = IsCpu(devicePreference);
-        debugLog?.Invoke($"[Effects][{requestLabel}] Start | Preference={FormatDevicePreference(devicePreference)} | Route={(cpuOnly ? "CPU" : "GPU preferred")} | SourceBytes={sourceBytes.Length} | Effects={effects.Count} | Chain={DescribeEffectChain(effects)}");
+        bool forcedCpu = ShouldForceCpuForEffectChain(effects, out string? forcedCpuReason);
+        bool cpuOnly = IsCpu(devicePreference) || forcedCpu;
+        string routeReason = forcedCpu ? $"forced CPU ({forcedCpuReason})" : (cpuOnly ? "forced CPU" : "GPU preferred");
+        debugLog?.Invoke($"[Effects][{requestLabel}] Start | Preference={FormatDevicePreference(devicePreference)} | Route={routeReason} | SourceBytes={sourceBytes.Length} | Effects={effects.Count} | Chain={DescribeEffectChain(effects)}");
 
         if (cpuOnly)
         {
             var cpuStopwatch = Stopwatch.StartNew();
-            debugLog?.Invoke($"[Effects][{requestLabel}] CPU PNG render start | Reason=forced CPU");
+            debugLog?.Invoke($"[Effects][{requestLabel}] CPU PNG render start | Reason={(forcedCpuReason ?? "forced CPU")}");
             byte[] bytes = await Task.Run(
                 () => CpuEffectsRenderer.RenderEffects(sourceBytes, CopyEffects(effects), cancellationToken),
                 cancellationToken);
@@ -175,6 +179,21 @@ public sealed class EffectsRenderService
 
     private static string FormatDevicePreference(string? devicePreference) =>
         string.IsNullOrWhiteSpace(devicePreference) ? "(empty)" : devicePreference;
+
+    private static bool ShouldForceCpuForEffectChain(IReadOnlyList<EffectEntry> effects, out string? reason)
+    {
+        foreach (var effect in effects)
+        {
+            if (effect.Type == EffectType.RadialBlur)
+            {
+                reason = "RadialBlur uses CPU to avoid non-cancellable Win2D DrawImage hangs";
+                return true;
+            }
+        }
+
+        reason = null;
+        return false;
+    }
 
     private static List<EffectEntry> CopyEffects(IReadOnlyList<EffectEntry> effects)
     {

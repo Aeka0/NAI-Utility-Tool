@@ -166,7 +166,7 @@ public readonly partial struct RadialBlurShader : ID2D1PixelShader
         float4 accum = new(0f, 0f, 0f, 0f);
         float weightSum = 0f;
 
-        for (int i = 0; i < 84; i++)
+        for (int i = 0; i < 48; i++)
         {
             if (i >= this.sampleCount)
             {
@@ -294,12 +294,16 @@ public readonly partial struct VignetteShader : ID2D1PixelShader
 public readonly partial struct ChromaticAberrationShader : ID2D1PixelShader
 {
     private readonly float shift;
+    private readonly int colorPair;
+    private readonly int sampleCount;
     private readonly float width;
     private readonly float height;
 
-    public ChromaticAberrationShader(float shift, float width, float height)
+    public ChromaticAberrationShader(float shift, int colorPair, int sampleCount, float width, float height)
     {
         this.shift = shift;
+        this.colorPair = colorPair;
+        this.sampleCount = sampleCount;
         this.width = width;
         this.height = height;
     }
@@ -314,13 +318,190 @@ public readonly partial struct ChromaticAberrationShader : ID2D1PixelShader
         float dy = pos.Y - cy;
         float len = Hlsl.Sqrt(dx * dx + dy * dy);
         float2 unit = len > 0.001f ? new float2(dx / len, dy / len) : new float2(0f, 0f);
-        float2 offset = unit * this.shift;
+
+        float redTarget = 1f;
+        float greenTarget = 0f;
+        float blueTarget = -1f;
+        if (this.colorPair == 1)
+        {
+            redTarget = -1f;
+            greenTarget = 1f;
+            blueTarget = 1f;
+        }
+        else if (this.colorPair == 2)
+        {
+            redTarget = -1f;
+            greenTarget = 1f;
+            blueTarget = -1f;
+        }
+        else if (this.colorPair >= 3)
+        {
+            redTarget = 1f;
+            greenTarget = 1f;
+            blueTarget = -1f;
+        }
+
+        int samples = Hlsl.Clamp(this.sampleCount, 3, 16);
+        float denominator = Hlsl.Max(samples - 1f, 1f);
+        float bandWidth = Hlsl.Max(2.7f / denominator, 0.42f);
+        float3 sum = new(0f, 0f, 0f);
+        float3 total = new(0f, 0f, 0f);
+
+        for (int i = 0; i < 16; i++)
+        {
+            if (i < samples)
+            {
+                float t = -1f + 2f * i / denominator;
+                float3 weights = new(
+                    SmoothBandWeight(t, redTarget, bandWidth),
+                    SmoothBandWeight(t, greenTarget, bandWidth),
+                    SmoothBandWeight(t, blueTarget, bandWidth));
+                float3 sampled = D2D.SampleInputAtPosition(0, pos + unit * this.shift * t).RGB;
+                sum += sampled * weights;
+                total += weights;
+            }
+        }
 
         float4 center = D2D.SampleInputAtPosition(0, pos);
-        float4 red = D2D.SampleInputAtPosition(0, pos + offset);
-        float4 blue = D2D.SampleInputAtPosition(0, pos - offset);
+        float3 rgb = new(
+            total.X > 0.0001f ? sum.X / total.X : center.R,
+            total.Y > 0.0001f ? sum.Y / total.Y : center.G,
+            total.Z > 0.0001f ? sum.Z / total.Z : center.B);
 
-        return new(red.R, center.G, blue.B, center.A);
+        return new(Hlsl.Saturate(rgb), center.A);
+    }
+
+    private static float SmoothBandWeight(float value, float target, float bandWidth)
+    {
+        float weight = Hlsl.Clamp(1f - Hlsl.Abs(value - target) / bandWidth, 0f, 1f);
+        return weight * weight * (3f - 2f * weight);
+    }
+}
+
+[D2DInputCount(1)]
+[D2DInputComplex(0)]
+[D2DRequiresScenePosition]
+[D2DShaderProfile(D2D1ShaderProfile.PixelShader50)]
+[D2DGeneratedPixelShaderDescriptor]
+public readonly partial struct JpegLossShader : ID2D1PixelShader
+{
+    private readonly float loss;
+    private readonly float iterations;
+    private readonly float blockSize;
+    private readonly float chromaBleed;
+    private readonly float width;
+    private readonly float height;
+
+    public JpegLossShader(float loss, float iterations, float blockSize, float chromaBleed, float width, float height)
+    {
+        this.loss = loss;
+        this.iterations = iterations;
+        this.blockSize = blockSize;
+        this.chromaBleed = chromaBleed;
+        this.width = width;
+        this.height = height;
+    }
+
+    public float4 Execute()
+    {
+        float4 color = D2D.GetInput(0);
+        float4 scenePosition = D2D.GetScenePosition();
+        float2 pos = new(scenePosition.X, scenePosition.Y);
+        float safeWidth = Hlsl.Max(this.width, 1f);
+        float safeHeight = Hlsl.Max(this.height, 1f);
+        float block = Hlsl.Max(this.blockSize, 1f);
+        float lossBase = Hlsl.Max(1f - this.loss * 0.82f, 0.0001f);
+        float cumulativeLoss = 1f - Hlsl.Pow(lossBase, this.iterations * 0.32f);
+        float severeLoss = cumulativeLoss * cumulativeLoss;
+        float2 blockOrigin = new(
+            Hlsl.Floor(pos.X / block) * block,
+            Hlsl.Floor(pos.Y / block) * block);
+        float2 blockCenter = blockOrigin + new float2(block * 0.5f, block * 0.5f);
+        blockCenter = ClampPosition(blockCenter, safeWidth, safeHeight);
+        float2 blockLocal = new(
+            Hlsl.Frac(pos.X / block),
+            Hlsl.Frac(pos.Y / block));
+
+        float3 rgb = color.RGB;
+        float3 ycbcr = ToYcbcr(rgb);
+        float3 blockAverage = new(0f, 0f, 0f);
+        for (int y = -1; y <= 1; y++)
+        {
+            for (int x = -1; x <= 1; x++)
+            {
+                float2 sampleOffset = new float2(x * block * 0.28f, y * block * 0.28f);
+                blockAverage += D2D.SampleInputAtPosition(0, ClampPosition(blockCenter + sampleOffset, safeWidth, safeHeight)).RGB;
+            }
+        }
+
+        blockAverage /= 9f;
+        float3 blockYcbcr = ToYcbcr(blockAverage);
+        float yLevels = Lerp(220f, 12f, severeLoss);
+        float cLevels = Lerp(160f, 7f, severeLoss);
+        ycbcr.X = Hlsl.Floor(Lerp(ycbcr.X, blockYcbcr.X, severeLoss * 0.45f) * yLevels + 0.5f) / yLevels;
+        ycbcr.Y = Hlsl.Floor(Lerp(ycbcr.Y, blockYcbcr.Y, cumulativeLoss * this.chromaBleed) * cLevels + 0.5f) / cLevels;
+        ycbcr.Z = Hlsl.Floor(Lerp(ycbcr.Z, blockYcbcr.Z, cumulativeLoss * this.chromaBleed) * cLevels + 0.5f) / cLevels;
+
+        float3 compressed = FromYcbcr(ycbcr);
+        float3 blurSample = (
+            D2D.SampleInputAtPosition(0, ClampPosition(pos + new float2(1f, 0f), safeWidth, safeHeight)).RGB +
+            D2D.SampleInputAtPosition(0, ClampPosition(pos - new float2(1f, 0f), safeWidth, safeHeight)).RGB +
+            D2D.SampleInputAtPosition(0, ClampPosition(pos + new float2(0f, 1f), safeWidth, safeHeight)).RGB +
+            D2D.SampleInputAtPosition(0, ClampPosition(pos - new float2(0f, 1f), safeWidth, safeHeight)).RGB) * 0.25f;
+        float3 diff = rgb - blurSample;
+        float edge = Hlsl.Clamp(Hlsl.Sqrt(diff.X * diff.X + diff.Y * diff.Y + diff.Z * diff.Z) * 4f, 0f, 1f);
+        float ringingPattern = Hlsl.Cos((blockLocal.X - 0.5f) * 6.28318f) * Hlsl.Cos((blockLocal.Y - 0.5f) * 6.28318f);
+        float blockBoundary = Hlsl.Max(
+            SmoothStep(0f, 0.16f, 0.16f - Hlsl.Min(blockLocal.X, 1f - blockLocal.X)),
+            SmoothStep(0f, 0.16f, 0.16f - Hlsl.Min(blockLocal.Y, 1f - blockLocal.Y)));
+        float mosquito = (HashNoise(pos.X, pos.Y, this.iterations + 11f) - 0.5f) * edge * cumulativeLoss * 0.12f;
+        compressed += ringingPattern * edge * cumulativeLoss * 0.06f + mosquito;
+        compressed = Lerp(compressed, blockAverage, blockBoundary * severeLoss * 0.18f);
+        float3 finalRgb = Lerp(rgb, compressed, Hlsl.Clamp(cumulativeLoss * 1.18f, 0f, 1f));
+
+        return new(Hlsl.Saturate(finalRgb), color.A);
+    }
+
+    private static float2 ClampPosition(float2 pos, float width, float height)
+    {
+        return new(
+            Hlsl.Clamp(pos.X, 0f, Hlsl.Max(width - 1f, 0f)),
+            Hlsl.Clamp(pos.Y, 0f, Hlsl.Max(height - 1f, 0f)));
+    }
+
+    private static float3 ToYcbcr(float3 rgb)
+    {
+        float y = rgb.X * 0.299f + rgb.Y * 0.587f + rgb.Z * 0.114f;
+        float cb = rgb.X * -0.168736f + rgb.Y * -0.331264f + rgb.Z * 0.5f + 0.5f;
+        float cr = rgb.X * 0.5f + rgb.Y * -0.418688f + rgb.Z * -0.081312f + 0.5f;
+        return new(y, cb, cr);
+    }
+
+    private static float3 FromYcbcr(float3 ycbcr)
+    {
+        float y = ycbcr.X;
+        float cb = ycbcr.Y - 0.5f;
+        float cr = ycbcr.Z - 0.5f;
+        return new(
+            y + 1.402f * cr,
+            y - 0.344136f * cb - 0.714136f * cr,
+            y + 1.772f * cb);
+    }
+
+    private static float SmoothStep(float edge0, float edge1, float value)
+    {
+        float t = Hlsl.Clamp((value - edge0) / Hlsl.Max(edge1 - edge0, 0.0001f), 0f, 1f);
+        return t * t * (3f - 2f * t);
+    }
+
+    private static float Lerp(float a, float b, float t) => a + (b - a) * t;
+
+    private static float3 Lerp(float3 a, float3 b, float t) => a + (b - a) * t;
+
+    private static float HashNoise(float x, float y, float salt)
+    {
+        float n = x * 12.9898f + y * 78.233f + salt * 37.719f;
+        return Hlsl.Frac(Hlsl.Sin(n) * 43758.5453f);
     }
 }
 

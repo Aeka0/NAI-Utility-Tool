@@ -58,7 +58,7 @@ public static class CpuEffectsRenderer
                     ApplyVignette(baseBitmap, effect.Value1, effect.Value2);
                     break;
                 case EffectType.ChromaticAberration:
-                    ApplyChromaticAberration(baseBitmap, effect.Value1);
+                    ApplyChromaticAberration(baseBitmap, effect.Value1, effect.Value2, effect.Value3);
                     break;
                 case EffectType.Noise:
                     ApplyNoise(baseBitmap, effect.Value1, effect.Value2);
@@ -74,6 +74,9 @@ public static class CpuEffectsRenderer
                     break;
                 case EffectType.Scanline:
                     ApplyScanline(baseBitmap, effect.Value1, effect.Value2, effect.Value3, effect.Value4, effect.Value5);
+                    break;
+                case EffectType.JpegLoss:
+                    ApplyJpegLoss(baseBitmap, effect.Value1, effect.Value2, effect.Value3, effect.Value4);
                     break;
             }
             cancellationToken.ThrowIfCancellationRequested();
@@ -342,8 +345,10 @@ public static class CpuEffectsRenderer
         float cx = (float)(Math.Clamp(centerXPct, 0, 100) / 100.0 * (width - 1));
         float cy = (float)(Math.Clamp(centerYPct, 0, 100) / 100.0 * (height - 1));
         int sampleCount = 4 + GetRadialBlurSampleCount(strength, mode) * 2;
-        float zoomRadius = 0.0025f + strength / 100f * 0.075f;
-        float spinAngle = strength / 100f * 0.22f;
+        float rawStrength = strength / 100f;
+        float shapedStrength = mode == 0 ? rawStrength : ShapeRadialBlurStrength(strength);
+        float zoomRadius = 0.0025f + rawStrength * 0.075f;
+        float spinAngle = shapedStrength * 0.22f;
         float maxDist = MathF.Sqrt(MathF.Max(cx, width - 1 - cx) * MathF.Max(cx, width - 1 - cx) +
                                    MathF.Max(cy, height - 1 - cy) * MathF.Max(cy, height - 1 - cy));
         maxDist = MathF.Max(maxDist, 1f);
@@ -392,7 +397,7 @@ public static class CpuEffectsRenderer
                     if (mode == 2) // 娓愯繘锛氱涓績瓒婅繙锛岃秺杩涜鍚勫悜鍚屾€фā绯?
                     {
                         float distNorm = MathF.Sqrt(dx * dx + dy * dy) / maxDist;
-                        float localRadius = distNorm * (0.5f + strength / 100f * 14f);
+                            float localRadius = distNorm * (0.5f + shapedStrength * 14f);
                         if (localRadius < 0.75f)
                         {
                             sample = SampleEffectsPixel(source, width, height, x, y);
@@ -439,16 +444,23 @@ public static class CpuEffectsRenderer
     {
         int baseCount = mode switch
         {
-            1 => 16, // 鏃嬭浆鏇翠緷璧栭噰鏍?
-            2 => 14, // 娓愯繘妯＄硦
+            1 => 8, // 鏃嬭浆鏇翠緷璧栭噰鏍?
+            2 => 8, // 娓愯繘妯＄硦
             _ => 3, // 鏀惧皠榛樿鏇磋交
         };
         int scaled = mode switch
         {
-            0 => baseCount + (int)MathF.Round(strength / 100f * 12f),
-            _ => baseCount + (int)MathF.Round(strength / 100f * 24f),
+            0 => baseCount + (int)MathF.Round(strength / 100f * 8f),
+            _ => baseCount + (int)MathF.Round(strength / 100f * 14f),
         };
-        return Math.Clamp(scaled, baseCount, 40);
+        return Math.Clamp(scaled, baseCount, 22);
+    }
+
+    private static float ShapeRadialBlurStrength(float strength)
+    {
+        float raw = Math.Clamp(strength, 0f, 100f) / 100f;
+        float shaped = MathF.Log(1f + raw) / MathF.Log(2f);
+        return shaped * shaped;
     }
 
     private static void ApplyVignette(SKBitmap bitmap, double strengthValue, double featherValue)
@@ -485,10 +497,10 @@ public static class CpuEffectsRenderer
         bitmap.Pixels = pixels;
     }
 
-    private static void ApplyChromaticAberration(SKBitmap bitmap, double amountValue)
+    private static void ApplyChromaticAberration(SKBitmap bitmap, double amountValue, double colorPairValue, double iterationsValue)
     {
-        float shift = (float)(amountValue / 20.0 * 6.0);
-        if (shift <= 0.01f) return;
+        float shift = (float)(-amountValue / 20.0 * 6.0);
+        if (MathF.Abs(shift) <= 0.01f) return;
 
         int width = bitmap.Width;
         int height = bitmap.Height;
@@ -497,6 +509,32 @@ public static class CpuEffectsRenderer
 
         float cx = (width - 1) / 2f;
         float cy = (height - 1) / 2f;
+        int colorPair = Math.Clamp((int)Math.Round(colorPairValue), 0, 3);
+        int samples = Math.Clamp((int)Math.Round(iterationsValue <= 0 ? 3 : iterationsValue), 3, 16);
+        float redTarget = 1f;
+        float greenTarget = 0f;
+        float blueTarget = -1f;
+        switch (colorPair)
+        {
+            case 1:
+                redTarget = -1f;
+                greenTarget = 1f;
+                blueTarget = 1f;
+                break;
+            case 2:
+                redTarget = -1f;
+                greenTarget = 1f;
+                blueTarget = -1f;
+                break;
+            case 3:
+                redTarget = 1f;
+                greenTarget = 1f;
+                blueTarget = -1f;
+                break;
+        }
+
+        float sampleDenominator = MathF.Max(samples - 1f, 1f);
+        float bandWidth = MathF.Max(2.7f / sampleDenominator, 0.42f);
 
         Parallel.For(0, height, y =>
         {
@@ -509,13 +547,42 @@ public static class CpuEffectsRenderer
                 float uy = len > 0.001f ? dy / len : 0f;
 
                 var center = SampleEffectsPixel(source, width, height, x, y);
-                var red = SampleEffectsPixel(source, width, height, x + ux * shift, y + uy * shift);
-                var blue = SampleEffectsPixel(source, width, height, x - ux * shift, y - uy * shift);
+                float sumR = 0f;
+                float sumG = 0f;
+                float sumB = 0f;
+                float weightR = 0f;
+                float weightG = 0f;
+                float weightB = 0f;
 
-                result[y * width + x] = new SKColor(red.Red, center.Green, blue.Blue, center.Alpha);
+                for (int i = 0; i < samples; i++)
+                {
+                    float t = -1f + 2f * i / sampleDenominator;
+                    float wr = SmoothBandWeight(t, redTarget, bandWidth);
+                    float wg = SmoothBandWeight(t, greenTarget, bandWidth);
+                    float wb = SmoothBandWeight(t, blueTarget, bandWidth);
+                    var sampled = SampleEffectsPixel(source, width, height, x + ux * shift * t, y + uy * shift * t);
+                    sumR += sampled.Red * wr;
+                    sumG += sampled.Green * wg;
+                    sumB += sampled.Blue * wb;
+                    weightR += wr;
+                    weightG += wg;
+                    weightB += wb;
+                }
+
+                result[y * width + x] = new SKColor(
+                    ClampToByte(weightR > 0.0001f ? sumR / weightR : center.Red),
+                    ClampToByte(weightG > 0.0001f ? sumG / weightG : center.Green),
+                    ClampToByte(weightB > 0.0001f ? sumB / weightB : center.Blue),
+                    center.Alpha);
             }
         });
         bitmap.Pixels = result;
+    }
+
+    private static float SmoothBandWeight(float value, float target, float bandWidth)
+    {
+        float weight = Math.Clamp(1f - MathF.Abs(value - target) / bandWidth, 0f, 1f);
+        return weight * weight * (3f - 2f * weight);
     }
 
     private static void ApplyNoise(SKBitmap bitmap, double monoValue, double colorValue)
@@ -679,6 +746,134 @@ public static class CpuEffectsRenderer
 
         bitmap.Pixels = pixels;
     }
+
+    private static void ApplyJpegLoss(SKBitmap bitmap, double lossValue, double iterationsValue, double blockSizeValue, double chromaBleedValue)
+    {
+        float loss = Math.Clamp((float)lossValue / 100f, 0f, 1f);
+        if (loss <= 0.0001f) return;
+
+        float iterations = Math.Clamp((float)(iterationsValue <= 0 ? 3 : iterationsValue), 1f, 24f);
+        float blockSize = MathF.Max(1f, (float)(blockSizeValue <= 0 ? 8 : blockSizeValue));
+        float chromaBleed = Math.Clamp((float)chromaBleedValue / 100f, 0f, 1f);
+        float cumulativeLoss = 1f - MathF.Pow(1f - loss * 0.82f, iterations * 0.32f);
+        float severeLoss = cumulativeLoss * cumulativeLoss;
+
+        int width = bitmap.Width;
+        int height = bitmap.Height;
+        var source = bitmap.Pixels;
+        var result = new SKColor[source.Length];
+
+        Parallel.For(0, height, y =>
+        {
+            for (int x = 0; x < width; x++)
+            {
+                var px = source[y * width + x];
+                float blockOriginX = MathF.Floor(x / blockSize) * blockSize;
+                float blockOriginY = MathF.Floor(y / blockSize) * blockSize;
+                float blockCenterX = blockOriginX + blockSize * 0.5f;
+                float blockCenterY = blockOriginY + blockSize * 0.5f;
+                float blockLocalX = Frac(x / blockSize);
+                float blockLocalY = Frac(y / blockSize);
+
+                float avgR = 0f;
+                float avgG = 0f;
+                float avgB = 0f;
+                for (int oy = -1; oy <= 1; oy++)
+                {
+                    for (int ox = -1; ox <= 1; ox++)
+                    {
+                        var sample = SampleEffectsPixel(
+                            source,
+                            width,
+                            height,
+                            blockCenterX + ox * blockSize * 0.28f,
+                            blockCenterY + oy * blockSize * 0.28f);
+                        avgR += sample.Red;
+                        avgG += sample.Green;
+                        avgB += sample.Blue;
+                    }
+                }
+
+                avgR /= 9f;
+                avgG /= 9f;
+                avgB /= 9f;
+
+                RgbToYcbcr(px.Red, px.Green, px.Blue, out float yValue, out float cb, out float cr);
+                RgbToYcbcr(avgR, avgG, avgB, out float blockY, out float blockCb, out float blockCr);
+
+                float yLevels = Lerp(220f, 12f, severeLoss);
+                float cLevels = Lerp(160f, 7f, severeLoss);
+                yValue = MathF.Floor(Lerp(yValue, blockY, severeLoss * 0.45f) * yLevels + 0.5f) / yLevels;
+                cb = MathF.Floor(Lerp(cb, blockCb, cumulativeLoss * chromaBleed) * cLevels + 0.5f) / cLevels;
+                cr = MathF.Floor(Lerp(cr, blockCr, cumulativeLoss * chromaBleed) * cLevels + 0.5f) / cLevels;
+                YcbcrToRgb(yValue, cb, cr, out float compressedR, out float compressedG, out float compressedB);
+
+                var right = SampleEffectsPixel(source, width, height, x + 1, y);
+                var left = SampleEffectsPixel(source, width, height, x - 1, y);
+                var down = SampleEffectsPixel(source, width, height, x, y + 1);
+                var up = SampleEffectsPixel(source, width, height, x, y - 1);
+                float blurR = (right.Red + left.Red + down.Red + up.Red) * 0.25f;
+                float blurG = (right.Green + left.Green + down.Green + up.Green) * 0.25f;
+                float blurB = (right.Blue + left.Blue + down.Blue + up.Blue) * 0.25f;
+                float edge = Math.Clamp(
+                    MathF.Sqrt(Square(px.Red - blurR) + Square(px.Green - blurG) + Square(px.Blue - blurB)) / 255f * 4f,
+                    0f,
+                    1f);
+                float ringingPattern = MathF.Cos((blockLocalX - 0.5f) * MathF.Tau) * MathF.Cos((blockLocalY - 0.5f) * MathF.Tau);
+                float blockBoundary = MathF.Max(
+                    SmoothStep(0f, 0.16f, 0.16f - MathF.Min(blockLocalX, 1f - blockLocalX)),
+                    SmoothStep(0f, 0.16f, 0.16f - MathF.Min(blockLocalY, 1f - blockLocalY)));
+                float mosquito = (HashNoise(x, y, (int)MathF.Round(iterations + 11f)) - 0.5f) * edge * cumulativeLoss * 255f * 0.12f;
+                float ringing = ringingPattern * edge * cumulativeLoss * 255f * 0.06f + mosquito;
+                compressedR += ringing;
+                compressedG += ringing;
+                compressedB += ringing;
+                compressedR = Lerp(compressedR, avgR, blockBoundary * severeLoss * 0.18f);
+                compressedG = Lerp(compressedG, avgG, blockBoundary * severeLoss * 0.18f);
+                compressedB = Lerp(compressedB, avgB, blockBoundary * severeLoss * 0.18f);
+
+                float mix = Math.Clamp(cumulativeLoss * 1.18f, 0f, 1f);
+                result[y * width + x] = new SKColor(
+                    ClampToByte(Lerp(px.Red, compressedR, mix)),
+                    ClampToByte(Lerp(px.Green, compressedG, mix)),
+                    ClampToByte(Lerp(px.Blue, compressedB, mix)),
+                    px.Alpha);
+            }
+        });
+
+        bitmap.Pixels = result;
+    }
+
+    private static void RgbToYcbcr(float r, float g, float b, out float y, out float cb, out float cr)
+    {
+        r /= 255f;
+        g /= 255f;
+        b /= 255f;
+        y = r * 0.299f + g * 0.587f + b * 0.114f;
+        cb = r * -0.168736f + g * -0.331264f + b * 0.5f + 0.5f;
+        cr = r * 0.5f + g * -0.418688f + b * -0.081312f + 0.5f;
+    }
+
+    private static void YcbcrToRgb(float y, float cb, float cr, out float r, out float g, out float b)
+    {
+        cb -= 0.5f;
+        cr -= 0.5f;
+        r = (y + 1.402f * cr) * 255f;
+        g = (y - 0.344136f * cb - 0.714136f * cr) * 255f;
+        b = (y + 1.772f * cb) * 255f;
+    }
+
+    private static float SmoothStep(float edge0, float edge1, float value)
+    {
+        float t = Math.Clamp((value - edge0) / MathF.Max(edge1 - edge0, 0.0001f), 0f, 1f);
+        return t * t * (3f - 2f * t);
+    }
+
+    private static float Frac(float value) => value - MathF.Floor(value);
+
+    private static float Lerp(float a, float b, float t) => a + (b - a) * t;
+
+    private static float Square(float value) => value * value;
 
     private static void ApplySolidBlock(SKBitmap bitmap, string colorText, double centerX, double centerY, double widthPct, double heightPct)
     {

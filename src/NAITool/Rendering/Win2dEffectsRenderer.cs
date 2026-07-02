@@ -178,7 +178,8 @@ public sealed class Win2dEffectsRenderer
         EffectType.Noise or
         EffectType.Gamma or
         EffectType.SolidBlock or
-        EffectType.Scanline;
+        EffectType.Scanline or
+        EffectType.JpegLoss;
 
     private static ICanvasImage ApplyEffect(
         ICanvasImage source,
@@ -217,7 +218,9 @@ public sealed class Win2dEffectsRenderer
             EffectType.ChromaticAberration => CreateShaderEffect(
                 source,
                 new ChromaticAberrationShader(
-                    (float)(effect.Value1 / 20.0 * 6.0),
+                    (float)(-effect.Value1 / 20.0 * 6.0),
+                    Math.Clamp((int)Math.Round(effect.Value2), 0, 3),
+                    Math.Clamp((int)Math.Round(effect.Value3 <= 0 ? 3 : effect.Value3), 3, 16),
                     imageWidth,
                     imageHeight)),
             EffectType.Noise => CreateShaderEffect(
@@ -237,6 +240,15 @@ public sealed class Win2dEffectsRenderer
                     Math.Clamp((float)effect.Value3 / 100f, 0f, 1f),
                     (float)(effect.Value4 * Math.PI / 180.0),
                     Math.Clamp((float)effect.Value5 / 100f, 0f, 1f))),
+            EffectType.JpegLoss => CreateShaderEffect(
+                source,
+                new JpegLossShader(
+                    Math.Clamp((float)effect.Value1 / 100f, 0f, 1f),
+                    Math.Clamp((float)(effect.Value2 <= 0 ? 3 : effect.Value2), 1f, 24f),
+                    MathF.Max(1f, (float)(effect.Value3 <= 0 ? 8 : effect.Value3)),
+                    Math.Clamp((float)effect.Value4 / 100f, 0f, 1f),
+                    imageWidth,
+                    imageHeight)),
             _ => throw new NotSupportedException($"GPU renderer does not yet support {effect.Type}."),
         };
     }
@@ -295,12 +307,13 @@ public sealed class Win2dEffectsRenderer
         float centerY = (float)(Math.Clamp(effect.Value3, 0, 100) / 100.0 * (imageHeight - 1));
         int mode = Math.Clamp((int)Math.Round(effect.Value4), 0, 2);
         int sampleCount = 4 + GetRadialBlurSampleCount(strength, mode) * 2;
-        debugLog?.Invoke($"[Effects][{requestLabel}][Win2D] RadialBlur graph | Strength={FormatEffectNumber(strength)} | Center={FormatEffectNumber(centerX)},{FormatEffectNumber(centerY)} | Mode={mode} | Samples={sampleCount} | Size={FormatEffectNumber(imageWidth)}x{FormatEffectNumber(imageHeight)}");
+        float shaderStrength = mode == 0 ? strength / 100f : ShapeRadialBlurStrength(strength);
+        debugLog?.Invoke($"[Effects][{requestLabel}][Win2D] RadialBlur graph | Strength={FormatEffectNumber(strength)} | ShaderStrength={FormatEffectNumber(shaderStrength)} | Center={FormatEffectNumber(centerX)},{FormatEffectNumber(centerY)} | Mode={mode} | Samples={sampleCount} | Size={FormatEffectNumber(imageWidth)}x{FormatEffectNumber(imageHeight)}");
 
         return CreateShaderEffect(
             source,
             new RadialBlurShader(
-                strength / 100f,
+                shaderStrength,
                 centerX,
                 centerY,
                 mode,
@@ -313,16 +326,23 @@ public sealed class Win2dEffectsRenderer
     {
         int baseCount = mode switch
         {
-            1 => 16,
-            2 => 14,
+            1 => 8,
+            2 => 8,
             _ => 3,
         };
         int scaled = mode switch
         {
-            0 => baseCount + (int)MathF.Round(strength / 100f * 12f),
-            _ => baseCount + (int)MathF.Round(strength / 100f * 24f),
+            0 => baseCount + (int)MathF.Round(strength / 100f * 8f),
+            _ => baseCount + (int)MathF.Round(strength / 100f * 14f),
         };
-        return Math.Clamp(scaled, baseCount, 40);
+        return Math.Clamp(scaled, baseCount, 22);
+    }
+
+    private static float ShapeRadialBlurStrength(float strength)
+    {
+        float raw = Math.Clamp(strength, 0f, 100f) / 100f;
+        float shaped = MathF.Log(1f + raw) / MathF.Log(2f);
+        return shaped * shaped;
     }
 
     private static ICanvasImage CreateSolidBlockEffect(
