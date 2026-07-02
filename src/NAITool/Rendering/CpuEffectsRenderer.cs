@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using NAITool.Models;
 using NAITool.Services;
@@ -10,9 +11,13 @@ namespace NAITool.Rendering;
 
 public static class CpuEffectsRenderer
 {
-    public static byte[] RenderEffects(byte[] sourceBytes, List<EffectEntry> effects)
+    public static byte[] RenderEffects(
+        byte[] sourceBytes,
+        List<EffectEntry> effects,
+        CancellationToken cancellationToken = default)
     {
-        using var bitmap = RenderEffectsPreview(null, sourceBytes, effects);
+        using var bitmap = RenderEffectsPreview(null, sourceBytes, effects, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         using var image = SKImage.FromBitmap(bitmap);
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
         return data?.ToArray() ?? sourceBytes;
@@ -21,14 +26,17 @@ public static class CpuEffectsRenderer
     public static SKBitmap RenderEffectsPreview(
         SKBitmap? cachedSourceBitmap,
         byte[] sourceBytes,
-        List<EffectEntry> effects)
+        List<EffectEntry> effects,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         SKBitmap? baseBitmap = cachedSourceBitmap?.Copy() ?? SKBitmap.Decode(sourceBytes);
         if (baseBitmap == null)
             throw new InvalidOperationException(LocalizationService.Instance.GetString("post.error.decode_source_failed"));
 
         foreach (var effect in effects)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             switch (effect.Type)
             {
                 case EffectType.BrightnessContrast:
@@ -41,10 +49,10 @@ public static class CpuEffectsRenderer
                     ApplyTemperature(baseBitmap, effect.Value1, effect.Value2);
                     break;
                 case EffectType.Glow:
-                    ApplyGlow(baseBitmap, effect.Value1, effect.Value2, effect.Value3, effect.Value4, effect.Value6, effect.Value5);
+                    ApplyGlow(baseBitmap, effect.Value1, effect.Value2, effect.Value3, effect.Value4, effect.Value6, effect.Value5, cancellationToken);
                     break;
                 case EffectType.RadialBlur:
-                    ApplyRadialBlur(baseBitmap, effect.Value1, effect.Value2, effect.Value3, (int)Math.Round(effect.Value4));
+                    ApplyRadialBlur(baseBitmap, effect.Value1, effect.Value2, effect.Value3, (int)Math.Round(effect.Value4), cancellationToken);
                     break;
                 case EffectType.Vignette:
                     ApplyVignette(baseBitmap, effect.Value1, effect.Value2);
@@ -68,6 +76,7 @@ public static class CpuEffectsRenderer
                     ApplyScanline(baseBitmap, effect.Value1, effect.Value2, effect.Value3, effect.Value4, effect.Value5);
                     break;
             }
+            cancellationToken.ThrowIfCancellationRequested();
         }
 
         return baseBitmap;
@@ -141,7 +150,8 @@ public static class CpuEffectsRenderer
         double strengthValue,
         double aspectRatioValue,
         double tiltValue,
-        double saturationValue)
+        double saturationValue,
+        CancellationToken cancellationToken)
     {
         int width = bitmap.Width;
         int height = bitmap.Height;
@@ -166,8 +176,9 @@ public static class CpuEffectsRenderer
 
         var src = bitmap.Pixels;
         var brightPixels = new SKColor[src.Length];
+        var parallelOptions = new ParallelOptions { CancellationToken = cancellationToken };
 
-        Parallel.For(0, src.Length, i =>
+        Parallel.For(0, src.Length, parallelOptions, i =>
         {
             var px = src[i];
             
@@ -196,6 +207,7 @@ public static class CpuEffectsRenderer
         bright.Pixels = brightPixels;
         using var blurred = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
         var sampling = new SKSamplingOptions(SKCubicResampler.Mitchell);
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (Math.Abs(tiltDegrees) < 0.01f)
         {
@@ -221,6 +233,7 @@ public static class CpuEffectsRenderer
             using var rotatedInput = new SKBitmap(rotatedSize, rotatedSize, SKColorType.Bgra8888, SKAlphaType.Premul);
             using (var rotatedInputCanvas = new SKCanvas(rotatedInput))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 rotatedInputCanvas.Clear(SKColors.Black);
                 rotatedInputCanvas.Translate(center, center);
                 rotatedInputCanvas.RotateDegrees(tiltDegrees);
@@ -237,6 +250,7 @@ public static class CpuEffectsRenderer
                 ImageFilter = SKImageFilter.CreateBlur(sigmaX, sigmaY),
             })
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 using var rotatedInputImage = SKImage.FromBitmap(rotatedInput);
                 rotatedBlurCanvas.Clear(SKColors.Black);
                 rotatedBlurCanvas.DrawImage(rotatedInputImage, 0, 0, sampling, paint);
@@ -246,6 +260,7 @@ public static class CpuEffectsRenderer
             using var untilted = new SKBitmap(rotatedSize, rotatedSize, SKColorType.Bgra8888, SKAlphaType.Premul);
             using (var untiltedCanvas = new SKCanvas(untilted))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 untiltedCanvas.Clear(SKColors.Black);
                 untiltedCanvas.Translate(center, center);
                 untiltedCanvas.RotateDegrees(-tiltDegrees);
@@ -255,6 +270,7 @@ public static class CpuEffectsRenderer
             }
 
             using var canvas = new SKCanvas(blurred);
+            cancellationToken.ThrowIfCancellationRequested();
             canvas.Clear(SKColors.Black);
             canvas.DrawBitmap(
                 untilted,
@@ -265,8 +281,9 @@ public static class CpuEffectsRenderer
 
         var glowPixels = blurred.Pixels;
         var outPixels = new SKColor[src.Length];
+        cancellationToken.ThrowIfCancellationRequested();
 
-        Parallel.For(0, outPixels.Length, i =>
+        Parallel.For(0, outPixels.Length, parallelOptions, i =>
         {
             var basePx = src[i];
             var glowPx = glowPixels[i];
@@ -306,7 +323,13 @@ public static class CpuEffectsRenderer
         bitmap.Pixels = outPixels;
     }
 
-    private static void ApplyRadialBlur(SKBitmap bitmap, double strengthValue, double centerXPct, double centerYPct, int mode)
+    private static void ApplyRadialBlur(
+        SKBitmap bitmap,
+        double strengthValue,
+        double centerXPct,
+        double centerYPct,
+        int mode,
+        CancellationToken cancellationToken)
     {
         float strength = (float)Math.Clamp(strengthValue, 0, 100);
         if (strength <= 0.01f) return;
@@ -324,8 +347,9 @@ public static class CpuEffectsRenderer
         float maxDist = MathF.Sqrt(MathF.Max(cx, width - 1 - cx) * MathF.Max(cx, width - 1 - cx) +
                                    MathF.Max(cy, height - 1 - cy) * MathF.Max(cy, height - 1 - cy));
         maxDist = MathF.Max(maxDist, 1f);
+        var parallelOptions = new ParallelOptions { CancellationToken = cancellationToken };
 
-        Parallel.For(0, height, y =>
+        Parallel.For(0, height, parallelOptions, y =>
         {
             for (int x = 0; x < width; x++)
             {

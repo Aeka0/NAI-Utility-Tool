@@ -35,7 +35,8 @@ public sealed class EffectsRenderService
                 () => CpuEffectsRenderer.RenderEffectsPreview(
                     cachedSourceBitmap,
                     sourceBytes,
-                    CopyEffects(effects)),
+                    CopyEffects(effects),
+                    cancellationToken),
                 cancellationToken);
             debugLog?.Invoke($"[Effects][{requestLabel}] CPU preview completed | Elapsed={FormatElapsed(cpuStopwatch)} | Output={bitmap.Width}x{bitmap.Height}");
             return new EffectsPreviewRenderResult
@@ -63,13 +64,15 @@ public sealed class EffectsRenderService
         catch (Exception ex)
         {
             debugLog?.Invoke($"[Effects][{requestLabel}] GPU preview failed, falling back to CPU | Chain={DescribeEffectChain(effects)} | Exception={ex}");
+            cancellationToken.ThrowIfCancellationRequested();
             var cpuStopwatch = Stopwatch.StartNew();
             debugLog?.Invoke($"[Effects][{requestLabel}] CPU fallback preview start");
             SKBitmap bitmap = await Task.Run(
                 () => CpuEffectsRenderer.RenderEffectsPreview(
                     cachedSourceBitmap,
                     sourceBytes,
-                    CopyEffects(effects)),
+                    CopyEffects(effects),
+                    cancellationToken),
                 cancellationToken);
             debugLog?.Invoke($"[Effects][{requestLabel}] CPU fallback preview completed | Elapsed={FormatElapsed(cpuStopwatch)} | Output={bitmap.Width}x{bitmap.Height}");
             return new EffectsPreviewRenderResult
@@ -99,7 +102,7 @@ public sealed class EffectsRenderService
             var cpuStopwatch = Stopwatch.StartNew();
             debugLog?.Invoke($"[Effects][{requestLabel}] CPU PNG render start | Reason=forced CPU");
             byte[] bytes = await Task.Run(
-                () => CpuEffectsRenderer.RenderEffects(sourceBytes, CopyEffects(effects)),
+                () => CpuEffectsRenderer.RenderEffects(sourceBytes, CopyEffects(effects), cancellationToken),
                 cancellationToken);
             debugLog?.Invoke($"[Effects][{requestLabel}] CPU PNG render completed | Elapsed={FormatElapsed(cpuStopwatch)} | OutputBytes={bytes.Length}");
             return new EffectsPngRenderResult
@@ -125,10 +128,11 @@ public sealed class EffectsRenderService
         catch (Exception ex)
         {
             debugLog?.Invoke($"[Effects][{requestLabel}] GPU PNG render failed, falling back to CPU | Chain={DescribeEffectChain(effects)} | Exception={ex}");
+            cancellationToken.ThrowIfCancellationRequested();
             var cpuStopwatch = Stopwatch.StartNew();
             debugLog?.Invoke($"[Effects][{requestLabel}] CPU fallback PNG render start");
             byte[] bytes = await Task.Run(
-                () => CpuEffectsRenderer.RenderEffects(sourceBytes, CopyEffects(effects)),
+                () => CpuEffectsRenderer.RenderEffects(sourceBytes, CopyEffects(effects), cancellationToken),
                 cancellationToken);
             debugLog?.Invoke($"[Effects][{requestLabel}] CPU fallback PNG render completed | Elapsed={FormatElapsed(cpuStopwatch)} | OutputBytes={bytes.Length}");
             return new EffectsPngRenderResult

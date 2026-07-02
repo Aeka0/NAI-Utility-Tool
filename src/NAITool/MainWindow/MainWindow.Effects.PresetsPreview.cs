@@ -369,6 +369,12 @@ public sealed partial class MainWindow
     private void QueueEffectsPreviewRefresh(bool fitToScreen = false, bool immediate = false)
     {
         _effectsPreviewQueuedFit |= fitToScreen;
+        if (_effectsPreviewRendering)
+        {
+            _effectsPreviewPending = true;
+            _effectsPreviewCts?.Cancel();
+        }
+
         if (_effectsPreviewTimer == null)
         {
             _ = RenderQueuedEffectsPreview();
@@ -382,6 +388,14 @@ public sealed partial class MainWindow
 
     private async Task RenderQueuedEffectsPreview()
     {
+        if (_effectsPreviewRendering)
+        {
+            _effectsPreviewPending = true;
+            _effectsPreviewCts?.Cancel();
+            return;
+        }
+
+        _effectsPreviewRendering = true;
         int version = ++_effectsPreviewVersion;
         _effectsPreviewCts?.Cancel();
         var cts = new CancellationTokenSource();
@@ -392,25 +406,22 @@ public sealed partial class MainWindow
         var sourceBytes = _effectsImageBytes;
         var sourceBitmap = _effectsSourceBitmap;
 
-        if (sourceBytes == null)
-        {
-            _effectsPreviewImageBytes = null;
-            ReplaceEffectsSourceBitmap(null);
-            EffectsPreviewImage.Source = null;
-            EffectsImagePlaceholder.Visibility = Visibility.Visible;
-            UpdateDynamicMenuStates();
-            if (ReferenceEquals(_effectsPreviewCts, cts))
-                _effectsPreviewCts = null;
-            cts.Dispose();
-            return;
-        }
-
-        var snapshot = _effects
-            .Select(CloneEffect)
-            .ToList();
-
         try
         {
+            if (sourceBytes == null)
+            {
+                _effectsPreviewImageBytes = null;
+                ReplaceEffectsSourceBitmap(null);
+                EffectsPreviewImage.Source = null;
+                EffectsImagePlaceholder.Visibility = Visibility.Visible;
+                UpdateDynamicMenuStates();
+                return;
+            }
+
+            var snapshot = _effects
+                .Select(CloneEffect)
+                .ToList();
+
             if (snapshot.Count == 0)
             {
                 _effectsPreviewImageBytes = sourceBytes;
@@ -466,6 +477,12 @@ public sealed partial class MainWindow
             if (ReferenceEquals(_effectsPreviewCts, cts))
                 _effectsPreviewCts = null;
             cts.Dispose();
+            _effectsPreviewRendering = false;
+            if (_effectsPreviewPending)
+            {
+                _effectsPreviewPending = false;
+                QueueEffectsPreviewRefresh(immediate: true);
+            }
         }
     }
 

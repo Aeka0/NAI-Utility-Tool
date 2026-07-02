@@ -21,6 +21,8 @@ namespace NAITool.Rendering;
 
 public sealed class Win2dEffectsRenderer
 {
+    private const float MaxRealtimeGlowBlurAmount = 220f;
+
     private readonly CanvasDevice _device;
 
     public Win2dEffectsRenderer()
@@ -257,19 +259,20 @@ public sealed class Win2dEffectsRenderer
         float ratioPow = MathF.Pow(aspectRatio, 1.25f);
         float sigmaX = MathF.Max(0.1f, glowSize * ratioPow / 3.0f);
         float sigmaY = MathF.Max(0.1f, glowSize / MathF.Max(0.05f, ratioPow) / 3.0f);
-        float blurAmount = MathF.Max(0.1f, (sigmaX + sigmaY) * 0.5f);
+        float requestedBlurAmount = MathF.Max(0.1f, (sigmaX + sigmaY) * 0.5f);
+        float blurAmount = Math.Clamp(requestedBlurAmount, 0.1f, MaxRealtimeGlowBlurAmount);
 
-        debugLog?.Invoke($"[Effects][{requestLabel}][Win2D] Glow graph | Size={FormatEffectNumber(glowSize)} | Threshold={FormatEffectNumber(threshold)} | Strength={FormatEffectNumber(strength)} | Aspect={FormatEffectNumber(aspectRatio)} | Tilt={FormatEffectNumber(tiltDegrees)} | Saturation={FormatEffectNumber(saturation)} | SigmaX={FormatEffectNumber(sigmaX)} | SigmaY={FormatEffectNumber(sigmaY)} | BlurAmount={FormatEffectNumber(blurAmount)} | Note=Win2D GaussianBlurEffect uses isotropic blur; CPU tilt/anisotropic blur is approximated");
+        debugLog?.Invoke($"[Effects][{requestLabel}][Win2D] Glow graph | Size={FormatEffectNumber(glowSize)} | Threshold={FormatEffectNumber(threshold)} | Strength={FormatEffectNumber(strength)} | Aspect={FormatEffectNumber(aspectRatio)} | Tilt={FormatEffectNumber(tiltDegrees)} | Saturation={FormatEffectNumber(saturation)} | SigmaX={FormatEffectNumber(sigmaX)} | SigmaY={FormatEffectNumber(sigmaY)} | BlurAmount={FormatEffectNumber(blurAmount)} | RequestedBlurAmount={FormatEffectNumber(requestedBlurAmount)} | Note=Win2D GaussianBlurEffect uses isotropic blur; CPU tilt/anisotropic blur is approximated");
         var bright = CreateShaderEffect(source, new GlowExtractShader(threshold));
         debugLog?.Invoke($"[Effects][{requestLabel}][Win2D] Glow bright-pass shader created");
         var blurred = new GaussianBlurEffect
         {
             Source = bright,
             BlurAmount = blurAmount,
-            Optimization = EffectOptimization.Quality,
+            Optimization = EffectOptimization.Speed,
             BorderMode = EffectBorderMode.Soft,
         };
-        debugLog?.Invoke($"[Effects][{requestLabel}][Win2D] Glow GaussianBlurEffect created | Optimization=Quality | Border=Soft");
+        debugLog?.Invoke($"[Effects][{requestLabel}][Win2D] Glow GaussianBlurEffect created | Optimization=Speed | Border=Soft");
 
         ICanvasImage result = CreateShaderEffect(
             source,

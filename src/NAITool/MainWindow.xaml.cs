@@ -228,6 +228,8 @@ public sealed partial class MainWindow : Window
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _effectsPreviewTimer;
     private CancellationTokenSource? _effectsPreviewCts;
     private bool _effectsPreviewQueuedFit;
+    private bool _effectsPreviewRendering;
+    private bool _effectsPreviewPending;
     private bool _effectsGpuFallbackNotified;
     private Guid? _selectedEffectId;
     private bool _effectsApplyingHistory;
