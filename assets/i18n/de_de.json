@@ -859,6 +859,7 @@
   "post.preset.save_failed": "Failed to save preset: {0}",
   "post.preset.saved": "Preset saved: {0}",
   "post.preset.use_hint": "Wählen Sie eine Voreinstellung aus, um sie auf die gesamte Nachbearbeitungseffektkette anzuwenden",
+  "post.preset.empty_option": "Keine",
   "post.status.loaded_source": "Loaded: {0}",
   "post.status.sent_to_post": "An Effekte gesendet",
   "post.status.sent_to_post_with_name": "Sent to Effects: {0}",

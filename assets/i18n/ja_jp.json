@@ -859,6 +859,7 @@
     "post.preset.save_failed":  "プリセットの保存に失敗しました: {0}",
     "post.preset.saved":  "プリセットを保存しました: {0}",
     "post.preset.use_hint":  "プリセットを選択して、後処理エフェクトチェーン全体に適用します",
+    "post.preset.empty_option":  "なし",
     "post.status.loaded_source":  "読み込み完了: {0}",
     "post.status.sent_to_post":  "後処理へ送信しました",
     "post.status.sent_to_post_with_name":  "後処理へ送信しました: {0}",

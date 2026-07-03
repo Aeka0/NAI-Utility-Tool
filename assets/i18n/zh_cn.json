@@ -860,6 +860,7 @@
     "post.preset.save_failed":  "保存预设失败: {0}",
     "post.preset.saved":  "已保存预设：{0}",
     "post.preset.use_hint":  "选择一个预设并整体应用到后期效果链",
+    "post.preset.empty_option":  "无",
     "post.status.loaded_source":  "已加载: {0}",
     "post.status.sent_to_post":  "已发送到效果",
     "post.status.sent_to_post_with_name":  "已发送到效果: {0}",

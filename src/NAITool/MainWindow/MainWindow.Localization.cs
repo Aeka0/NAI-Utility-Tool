@@ -99,6 +99,7 @@ public sealed partial class MainWindow
         RefreshVibeTransferPanel();
         RefreshPreciseReferencePanel();
         RefreshHistoryPanel();
+        RefreshEffectsPresetCombo(_selectedEffectsPresetPath);
         RefreshEffectsPanel();
 
         ApplyUiFontToVisualTree(RootGrid);

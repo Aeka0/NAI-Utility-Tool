@@ -859,6 +859,7 @@
   "post.preset.save_failed": "Failed to save preset: {0}",
   "post.preset.saved": "Preset saved: {0}",
   "post.preset.use_hint": "전체 후처리 효과 체인에 적용할 사전 설정을 선택합니다.",
+  "post.preset.empty_option": "없음",
   "post.status.loaded_source": "Loaded: {0}",
   "post.status.sent_to_post": "효과로 보냄",
   "post.status.sent_to_post_with_name": "Sent to Effects: {0}",

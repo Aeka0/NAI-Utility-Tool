@@ -172,6 +172,7 @@ public sealed partial class MainWindow
 
             _effects.Clear();
             _effects.AddRange(state.Effects.Select(CloneEffect));
+            ClearSelectedEffectsPreset();
 
             RefreshEffectsPanel();
             if (_effectsImageBytes == null)
@@ -224,6 +225,7 @@ public sealed partial class MainWindow
     private void RefreshEffectsPanel()
     {
         EffectsPanel.Children.Clear();
+        RefreshEffectsSidebarChrome();
 
         for (int i = 0; i < _effects.Count; i++)
         {
@@ -290,6 +292,7 @@ public sealed partial class MainWindow
             deleteBtn.Click += (_, _) =>
             {
                 PushEffectsUndoState();
+                ClearSelectedEffectsPreset();
                 _effects.RemoveAll(x => x.Id == effect.Id);
                 if (_selectedEffectId == effect.Id) _selectedEffectId = null;
                 RefreshEffectsPanel();
@@ -408,8 +411,17 @@ public sealed partial class MainWindow
                 Margin = new Thickness(0, 2, 0, 2),
             });
         }
+    }
 
-        EffectsPanel.Children.Add(CreateAddEffectButton());
+    private void RefreshEffectsSidebarChrome()
+    {
+        TxtEffectsPresetLabel.Text = L("automation.tab.preset");
+        ToolTipService.SetToolTip(CboEffectsPreset, L("post.preset.use_hint"));
+        ToolTipService.SetToolTip(BtnSaveEffectsPreset, L("menu.edit.add_preset"));
+        BtnSaveEffectsPreset.IsEnabled = _effects.Count > 0;
+
+        EffectsFooterPanel.Children.Clear();
+        EffectsFooterPanel.Children.Add(CreateAddEffectButton());
     }
 
     private void AddEffectSlider(
@@ -452,6 +464,7 @@ public sealed partial class MainWindow
         slider.PointerPressed += (_, _) => PushEffectsUndoState();
         slider.ValueChanged += (_, args) =>
         {
+            ClearSelectedEffectsPreset();
             setValue(args.NewValue);
             valueText.Text = args.NewValue.ToString(format);
             QueueEffectsPreviewRefresh();
@@ -511,6 +524,7 @@ public sealed partial class MainWindow
         slider.PointerPressed += (_, _) => PushEffectsUndoState();
         slider.ValueChanged += (_, args) =>
         {
+            ClearSelectedEffectsPreset();
             double t = Math.Clamp(args.NewValue, 0, 1);
             double mapped = t <= 0.5
                 ? min * Math.Pow(center / min, t / 0.5)
@@ -551,6 +565,7 @@ public sealed partial class MainWindow
         combo.SelectedIndex = Math.Clamp(selectedIndex, 0, Math.Max(0, options.Count - 1));
         combo.SelectionChanged += (_, _) =>
         {
+            ClearSelectedEffectsPreset();
             setValue(Math.Max(0, combo.SelectedIndex));
             QueueEffectsPreviewRefresh();
             UpdateFileMenuState();
@@ -611,6 +626,7 @@ public sealed partial class MainWindow
         textBox.GotFocus += (_, _) => PushEffectsUndoState();
         textBox.TextChanged += (_, _) =>
         {
+            ClearSelectedEffectsPreset();
             string newValue = textBox.Text.Trim();
             setValue(newValue);
             var parsed = TryParseEffectsColor(newValue) ?? new SKColor(0, 0, 0, 255);
@@ -634,6 +650,7 @@ public sealed partial class MainWindow
                 : $"#{args.NewColor.A:X2}{args.NewColor.R:X2}{args.NewColor.G:X2}{args.NewColor.B:X2}";
             textBox.Text = hex;
             previewBorder.Background = new SolidColorBrush(args.NewColor);
+            ClearSelectedEffectsPreset();
             setValue(hex);
             QueueEffectsPreviewRefresh();
             UpdateFileMenuState();
@@ -682,6 +699,7 @@ public sealed partial class MainWindow
                 }
 
                 PushEffectsUndoState();
+                ClearSelectedEffectsPreset();
                 var entry = CreateEffect(type);
                 _effects.Add(entry);
                 if (IsRegionEffect(type))

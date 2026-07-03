@@ -586,6 +586,7 @@ public sealed partial class MainWindow
 
         ApplyMenuTypography(CboModel);
         ApplyMenuTypography(CboSize);
+        ApplyMenuTypography(CboEffectsPreset);
     }
 
     // ═══════════════════════════════════════════════════════════

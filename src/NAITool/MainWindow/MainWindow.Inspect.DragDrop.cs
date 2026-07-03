@@ -117,6 +117,7 @@ public sealed partial class MainWindow
         }
 
         PushEffectsUndoState();
+        ClearSelectedEffectsPreset();
         _effectsRegionDragging = inRect && !inResize;
         _effectsRegionResizing = inResize;
         _effectsRegionDragStart = pos;

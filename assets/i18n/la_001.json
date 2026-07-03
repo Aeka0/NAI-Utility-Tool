@@ -859,6 +859,7 @@
   "post.preset.save_failed": "Non potuit save preset: {0}",
   "post.preset.saved": "Praedefinitum servatum: {0}",
   "post.preset.use_hint": "Praedefinitum elige ut toti catenae effectuum post-processus applicetur",
+  "post.preset.empty_option": "Nullum",
   "post.status.loaded_source": "Oneratum: {0}",
   "post.status.sent_to_post": "Ad Effectus missum",
   "post.status.sent_to_post_with_name": "Ad Effectus missum: {0}",

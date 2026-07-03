@@ -36,6 +36,14 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
+    private const string EmptyEffectsPresetTag = "__NAITOOL_EMPTY_EFFECTS_PRESET__";
+
+    private sealed class EffectsPresetOption
+    {
+        public required string DisplayName { get; init; }
+        public required string FilePath { get; init; }
+    }
+
     private static bool HasEffectsPresets()
     {
         EnsureDefaultFxPresets();
@@ -83,6 +91,180 @@ public sealed partial class MainWindow
         Value6 = x.Value6,
         TextValue = x.TextValue ?? "",
     };
+
+    private static List<EffectsPresetOption> GetAvailableEffectsPresetOptions()
+    {
+        EnsureDefaultFxPresets();
+        if (!Directory.Exists(FxPresetsDir)) return [];
+
+        var options = new List<EffectsPresetOption>();
+        var usedLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string file in Directory.EnumerateFiles(FxPresetsDir, "*.json")
+            .OrderByDescending(File.GetLastWriteTime))
+        {
+            string label = Path.GetFileNameWithoutExtension(file);
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<EffectsPresetFile>(File.ReadAllText(file));
+                if (parsed != null && !string.IsNullOrWhiteSpace(parsed.Name))
+                    label = parsed.Name;
+            }
+            catch { }
+
+            string uniqueLabel = label;
+            int suffix = 2;
+            while (!usedLabels.Add(uniqueLabel))
+            {
+                uniqueLabel = $"{label} ({suffix})";
+                suffix++;
+            }
+
+            options.Add(new EffectsPresetOption
+            {
+                DisplayName = uniqueLabel,
+                FilePath = file,
+            });
+        }
+
+        return options;
+    }
+
+    private void RefreshEffectsPresetCombo(string? preferredFilePath = null)
+    {
+        string? currentPath = preferredFilePath ?? _selectedEffectsPresetPath;
+        if (string.IsNullOrWhiteSpace(currentPath) &&
+            CboEffectsPreset.SelectedItem is ComboBoxItem selectedItem &&
+            selectedItem.Tag is string selectedPath)
+        {
+            currentPath = selectedPath;
+        }
+
+        _effectsPresetComboRefreshing = true;
+        try
+        {
+            CboEffectsPreset.Items.Clear();
+            CboEffectsPreset.PlaceholderText = L("automation.tab.preset");
+
+            var emptyItem = CreateTextComboBoxItem(L("post.preset.empty_option"));
+            emptyItem.Tag = EmptyEffectsPresetTag;
+            CboEffectsPreset.Items.Add(emptyItem);
+
+            var options = GetAvailableEffectsPresetOptions();
+            foreach (var option in options)
+            {
+                var item = CreateTextComboBoxItem(option.DisplayName);
+                item.Tag = option.FilePath;
+                CboEffectsPreset.Items.Add(item);
+            }
+
+            CboEffectsPreset.IsEnabled = true;
+            if (string.Equals(currentPath, EmptyEffectsPresetTag, StringComparison.Ordinal))
+            {
+                CboEffectsPreset.SelectedIndex = 0;
+                _selectedEffectsPresetPath = EmptyEffectsPresetTag;
+            }
+            else
+            {
+                int selectedIndex = options.FindIndex(option =>
+                    string.Equals(option.FilePath, currentPath, StringComparison.OrdinalIgnoreCase));
+                CboEffectsPreset.SelectedIndex = selectedIndex >= 0 ? selectedIndex + 1 : -1;
+                _selectedEffectsPresetPath = selectedIndex >= 0 ? options[selectedIndex].FilePath : null;
+            }
+
+            ApplyMenuTypography(CboEffectsPreset);
+        }
+        finally
+        {
+            _effectsPresetComboRefreshing = false;
+        }
+    }
+
+    private async void OnEffectsPresetSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_effectsPresetComboRefreshing) return;
+        if (CboEffectsPreset.SelectedItem is not ComboBoxItem item || item.Tag is not string presetTag)
+            return;
+
+        string displayName = item.Content?.ToString() ?? L("automation.tab.preset");
+        if (string.Equals(presetTag, EmptyEffectsPresetTag, StringComparison.Ordinal))
+        {
+            ApplyEmptyEffectsPreset(displayName);
+            return;
+        }
+
+        _selectedEffectsPresetPath = presetTag;
+        await ApplyEffectsPresetFileAsync(presetTag, displayName);
+    }
+
+    private void ApplyEmptyEffectsPreset(string displayName)
+    {
+        if (_effects.Count == 0)
+        {
+            _selectedEffectId = null;
+            _selectedEffectsPresetPath = EmptyEffectsPresetTag;
+            TxtStatus.Text = Lf("post.preset.applied", displayName);
+            return;
+        }
+
+        PushEffectsUndoState();
+        _effects.Clear();
+        _selectedEffectId = null;
+        _selectedEffectsPresetPath = EmptyEffectsPresetTag;
+        RefreshEffectsPanel();
+        RefreshEffectsOverlay();
+        QueueEffectsPreviewRefresh(immediate: true);
+        UpdateDynamicMenuStates();
+        UpdateFileMenuState();
+        TxtStatus.Text = Lf("post.preset.applied", displayName);
+    }
+
+    private async Task ApplyEffectsPresetFileAsync(string selectedFile, string selectedName)
+    {
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<EffectsPresetFile>(await File.ReadAllTextAsync(selectedFile));
+            var loadedEffects = parsed?.Effects ?? new List<EffectEntry>();
+            if (loadedEffects.Count == 0)
+            {
+                TxtStatus.Text = L("post.preset.empty");
+                return;
+            }
+
+            PushEffectsUndoState();
+            _effects.Clear();
+            foreach (var fx in loadedEffects.Take(10))
+                _effects.Add(RehydratePresetEffect(fx));
+
+            _selectedEffectId = _effects.Count > 0 ? _effects[0].Id : null;
+            RefreshEffectsPanel();
+            RefreshEffectsOverlay();
+            QueueEffectsPreviewRefresh(immediate: true);
+            UpdateDynamicMenuStates();
+            UpdateFileMenuState();
+            TxtStatus.Text = Lf("post.preset.applied", selectedName);
+        }
+        catch (Exception ex)
+        {
+            TxtStatus.Text = Lf("post.preset.load_failed", ex.Message);
+        }
+    }
+
+    private void ClearSelectedEffectsPreset()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedEffectsPresetPath) && CboEffectsPreset.SelectedIndex < 0)
+            return;
+
+        _selectedEffectsPresetPath = null;
+        _effectsPresetComboRefreshing = true;
+        try
+        {
+            CboEffectsPreset.SelectedIndex = -1;
+        }
+        finally
+        {
+            _effectsPresetComboRefreshing = false;
+        }
+    }
 
     private async void OnAddEffectsPreset(object sender, RoutedEventArgs e)
     {
@@ -147,6 +329,8 @@ public sealed partial class MainWindow
             string path = Path.Combine(FxPresetsDir, $"{fileName}.json");
             string json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(path, json);
+            _selectedEffectsPresetPath = path;
+            RefreshEffectsPresetCombo(path);
             TxtStatus.Text = Lf("post.preset.saved", presetName);
             UpdateDynamicMenuStates();
         }
@@ -165,10 +349,8 @@ public sealed partial class MainWindow
             return;
         }
 
-        var files = Directory.EnumerateFiles(FxPresetsDir, "*.json")
-            .OrderByDescending(f => File.GetLastWriteTime(f))
-            .ToList();
-        if (files.Count == 0)
+        var options = GetAvailableEffectsPresetOptions();
+        if (options.Count == 0)
         {
             TxtStatus.Text = L("post.preset.none_available");
             return;
@@ -176,26 +358,10 @@ public sealed partial class MainWindow
 
         var fileToDisplay = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var presetCombo = new ComboBox { MinWidth = 320, FontFamily = UiTextFontFamily };
-        foreach (var file in files)
+        foreach (var option in options)
         {
-            string label = Path.GetFileNameWithoutExtension(file);
-            try
-            {
-                var parsed = JsonSerializer.Deserialize<EffectsPresetFile>(await File.ReadAllTextAsync(file));
-                if (parsed != null && !string.IsNullOrWhiteSpace(parsed.Name))
-                    label = parsed.Name;
-            }
-            catch { }
-
-            string uniqueLabel = label;
-            int suffix = 2;
-            while (fileToDisplay.ContainsKey(uniqueLabel))
-            {
-                uniqueLabel = $"{label} ({suffix})";
-                suffix++;
-            }
-            fileToDisplay[uniqueLabel] = file;
-            presetCombo.Items.Add(CreateTextComboBoxItem(uniqueLabel));
+            fileToDisplay[option.DisplayName] = option.FilePath;
+            presetCombo.Items.Add(CreateTextComboBoxItem(option.DisplayName));
         }
         presetCombo.SelectedIndex = 0;
         ApplyMenuTypography(presetCombo);
@@ -225,33 +391,9 @@ public sealed partial class MainWindow
         if (selectedName == null || !fileToDisplay.TryGetValue(selectedName, out var selectedFile))
             return;
 
-        try
-        {
-            var parsed = JsonSerializer.Deserialize<EffectsPresetFile>(await File.ReadAllTextAsync(selectedFile));
-            var loadedEffects = parsed?.Effects ?? new List<EffectEntry>();
-            if (loadedEffects.Count == 0)
-            {
-                TxtStatus.Text = L("post.preset.empty");
-                return;
-            }
-
-            PushEffectsUndoState();
-            _effects.Clear();
-            foreach (var fx in loadedEffects.Take(10))
-                _effects.Add(RehydratePresetEffect(fx));
-
-            _selectedEffectId = _effects.Count > 0 ? _effects[0].Id : null;
-            RefreshEffectsPanel();
-            RefreshEffectsOverlay();
-            QueueEffectsPreviewRefresh(immediate: true);
-            UpdateDynamicMenuStates();
-            UpdateFileMenuState();
-            TxtStatus.Text = Lf("post.preset.applied", selectedName);
-        }
-        catch (Exception ex)
-        {
-            TxtStatus.Text = Lf("post.preset.load_failed", ex.Message);
-        }
+        _selectedEffectsPresetPath = selectedFile;
+        RefreshEffectsPresetCombo(selectedFile);
+        await ApplyEffectsPresetFileAsync(selectedFile, selectedName);
     }
 
     private void OnClearAllEffects(object sender, RoutedEventArgs e)
@@ -260,6 +402,7 @@ public sealed partial class MainWindow
         PushEffectsUndoState();
         _effects.Clear();
         _selectedEffectId = null;
+        ClearSelectedEffectsPreset();
         RefreshEffectsPanel();
         QueueEffectsPreviewRefresh();
         UpdateDynamicMenuStates();
@@ -286,6 +429,7 @@ public sealed partial class MainWindow
         _effectsPreviewVersion++;
         _effects.Clear();
         _selectedEffectId = null;
+        ClearSelectedEffectsPreset();
         RefreshEffectsPanel();
         await ShowEffectsPreviewAsync(bytes, fitToScreen: false);
         UpdateDynamicMenuStates();

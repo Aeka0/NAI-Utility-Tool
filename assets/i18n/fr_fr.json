@@ -859,6 +859,7 @@
   "post.preset.save_failed": "Failed to save preset: {0}",
   "post.preset.saved": "Preset saved: {0}",
   "post.preset.use_hint": "Sélectionnez un préréglage pour l'appliquer à toute la chaîne d'effets de post-traitement",
+  "post.preset.empty_option": "Aucun",
   "post.status.loaded_source": "Loaded: {0}",
   "post.status.sent_to_post": "Envoyé aux effets",
   "post.status.sent_to_post_with_name": "Sent to Effects: {0}",

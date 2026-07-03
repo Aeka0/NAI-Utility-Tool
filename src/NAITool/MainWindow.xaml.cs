@@ -240,6 +240,8 @@ public sealed partial class MainWindow : Window
     private double _effectsRegionStartCenterY;
     private double _effectsRegionStartWidth;
     private double _effectsRegionStartHeight;
+    private bool _effectsPresetComboRefreshing;
+    private string? _selectedEffectsPresetPath;
 
     // ═══ 超分模式 ═══
     private byte[]? _upscaleInputImageBytes;
@@ -471,6 +473,7 @@ public sealed partial class MainWindow : Window
         SyncParamsToUI();
         SwitchMode(AppMode.ImageGeneration);
         ApplyLocalization();
+        RefreshEffectsPresetCombo();
         SetupPromptContextFlyouts();
         SetupGenPreviewContextMenu();
         SetupPreviewScrollZoomAndDrag();

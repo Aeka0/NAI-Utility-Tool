@@ -63,6 +63,7 @@ public sealed partial class MainWindow
         if (newIndex == index) return;
 
         PushEffectsUndoState();
+        ClearSelectedEffectsPreset();
         var item = _effects[index];
         _effects.RemoveAt(index);
         _effects.Insert(newIndex, item);

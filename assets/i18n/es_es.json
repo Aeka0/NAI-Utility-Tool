@@ -859,6 +859,7 @@
   "post.preset.save_failed": "Failed to save preset: {0}",
   "post.preset.saved": "Preset saved: {0}",
   "post.preset.use_hint": "Selecciona un preset para aplicarlo a toda la cadena de efectos de posprocesamiento",
+  "post.preset.empty_option": "Ninguno",
   "post.status.loaded_source": "Loaded: {0}",
   "post.status.sent_to_post": "Enviado a Efectos",
   "post.status.sent_to_post_with_name": "Sent to Effects: {0}",

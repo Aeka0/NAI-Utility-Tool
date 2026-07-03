@@ -859,6 +859,7 @@
   "post.preset.save_failed": "Failed to save preset: {0}",
   "post.preset.saved": "Preset saved: {0}",
   "post.preset.use_hint": "Выберите пресет, чтобы применить его ко всей цепочке эффектов постобработки.",
+  "post.preset.empty_option": "Нет",
   "post.status.loaded_source": "Loaded: {0}",
   "post.status.sent_to_post": "Отправлено в эффекты",
   "post.status.sent_to_post_with_name": "Sent to Effects: {0}",

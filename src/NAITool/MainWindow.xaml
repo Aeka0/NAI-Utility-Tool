@@ -1280,9 +1280,52 @@
             <Border x:Name="PanelLeftEffects" Grid.Column="0" Visibility="Collapsed"
                     BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                     BorderThickness="0,0,1,0">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel x:Name="EffectsPanel" Padding="12" Spacing="10"/>
-                </ScrollViewer>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Padding="12,12,12,10"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,0,0,1">
+                        <StackPanel Spacing="6">
+                            <TextBlock x:Name="TxtEffectsPresetLabel"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="CboEffectsPreset"
+                                          Grid.Column="0"
+                                          HorizontalAlignment="Stretch"
+                                          SelectionChanged="OnEffectsPresetSelectionChanged"/>
+                                <Button x:Name="BtnSaveEffectsPreset"
+                                        Grid.Column="1"
+                                        Width="36"
+                                        Height="32"
+                                        MinWidth="36"
+                                        MinHeight="32"
+                                        Padding="0"
+                                        Click="OnAddEffectsPreset">
+                                    <SymbolIcon Symbol="Save"/>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="EffectsPanel" Padding="12" Spacing="10"/>
+                    </ScrollViewer>
+
+                    <Border Grid.Row="2" Padding="12,8"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0">
+                        <StackPanel x:Name="EffectsFooterPanel"/>
+                    </Border>
+                </Grid>
             </Border>
 
             <!-- ═══ 左侧栏（超分） ═══ -->
