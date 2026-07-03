@@ -346,6 +346,8 @@ public readonly partial struct ChromaticAberrationShader : ID2D1PixelShader
         float bandWidth = Hlsl.Max(2.7f / denominator, 0.42f);
         float3 sum = new(0f, 0f, 0f);
         float3 total = new(0f, 0f, 0f);
+        float3 fullTotal = new(0f, 0f, 0f);
+        float4 center = D2D.SampleInputAtPosition(0, pos);
 
         for (int i = 0; i < 16; i++)
         {
@@ -356,13 +358,18 @@ public readonly partial struct ChromaticAberrationShader : ID2D1PixelShader
                     SmoothBandWeight(t, redTarget, bandWidth),
                     SmoothBandWeight(t, greenTarget, bandWidth),
                     SmoothBandWeight(t, blueTarget, bandWidth));
-                float3 sampled = D2D.SampleInputAtPosition(0, pos + unit * this.shift * t).RGB;
-                sum += sampled * weights;
-                total += weights;
+                float2 samplePos = pos + unit * this.shift * t;
+                float edgeWeight = EdgeSampleWeight(samplePos);
+                float3 weighted = weights * edgeWeight;
+                float3 sampled = D2D.SampleInputAtPosition(0, samplePos).RGB;
+                sum += sampled * weighted;
+                total += weighted;
+                fullTotal += weights;
             }
         }
 
-        float4 center = D2D.SampleInputAtPosition(0, pos);
+        sum += center.RGB * Hlsl.Max(fullTotal - total, new float3(0f, 0f, 0f));
+        total = Hlsl.Max(fullTotal, total);
         float3 rgb = new(
             total.X > 0.0001f ? sum.X / total.X : center.R,
             total.Y > 0.0001f ? sum.Y / total.Y : center.G,
@@ -375,6 +382,21 @@ public readonly partial struct ChromaticAberrationShader : ID2D1PixelShader
     {
         float weight = Hlsl.Clamp(1f - Hlsl.Abs(value - target) / bandWidth, 0f, 1f);
         return weight * weight * (3f - 2f * weight);
+    }
+
+    private float EdgeSampleWeight(float2 pos)
+    {
+        float xIn = SmoothStep(-1f, 0f, pos.X);
+        float yIn = SmoothStep(-1f, 0f, pos.Y);
+        float xOut = SmoothStep(-1f, 0f, this.width - 1f - pos.X);
+        float yOut = SmoothStep(-1f, 0f, this.height - 1f - pos.Y);
+        return xIn * yIn * xOut * yOut;
+    }
+
+    private static float SmoothStep(float edge0, float edge1, float value)
+    {
+        float t = Hlsl.Clamp((value - edge0) / Hlsl.Max(edge1 - edge0, 0.0001f), 0f, 1f);
+        return t * t * (3f - 2f * t);
     }
 }
 

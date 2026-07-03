@@ -553,6 +553,9 @@ public static class CpuEffectsRenderer
                 float weightR = 0f;
                 float weightG = 0f;
                 float weightB = 0f;
+                float fullWeightR = 0f;
+                float fullWeightG = 0f;
+                float fullWeightB = 0f;
 
                 for (int i = 0; i < samples; i++)
                 {
@@ -560,14 +563,30 @@ public static class CpuEffectsRenderer
                     float wr = SmoothBandWeight(t, redTarget, bandWidth);
                     float wg = SmoothBandWeight(t, greenTarget, bandWidth);
                     float wb = SmoothBandWeight(t, blueTarget, bandWidth);
-                    var sampled = SampleEffectsPixel(source, width, height, x + ux * shift * t, y + uy * shift * t);
-                    sumR += sampled.Red * wr;
-                    sumG += sampled.Green * wg;
-                    sumB += sampled.Blue * wb;
-                    weightR += wr;
-                    weightG += wg;
-                    weightB += wb;
+                    float sampleX = x + ux * shift * t;
+                    float sampleY = y + uy * shift * t;
+                    float edgeWeight = EdgeSampleWeight(sampleX, sampleY, width, height);
+                    float clippedWr = wr * edgeWeight;
+                    float clippedWg = wg * edgeWeight;
+                    float clippedWb = wb * edgeWeight;
+                    var sampled = SampleEffectsPixel(source, width, height, sampleX, sampleY);
+                    sumR += sampled.Red * clippedWr;
+                    sumG += sampled.Green * clippedWg;
+                    sumB += sampled.Blue * clippedWb;
+                    weightR += clippedWr;
+                    weightG += clippedWg;
+                    weightB += clippedWb;
+                    fullWeightR += wr;
+                    fullWeightG += wg;
+                    fullWeightB += wb;
                 }
+
+                sumR += center.Red * MathF.Max(fullWeightR - weightR, 0f);
+                sumG += center.Green * MathF.Max(fullWeightG - weightG, 0f);
+                sumB += center.Blue * MathF.Max(fullWeightB - weightB, 0f);
+                weightR = MathF.Max(fullWeightR, weightR);
+                weightG = MathF.Max(fullWeightG, weightG);
+                weightB = MathF.Max(fullWeightB, weightB);
 
                 result[y * width + x] = new SKColor(
                     ClampToByte(weightR > 0.0001f ? sumR / weightR : center.Red),
@@ -583,6 +602,14 @@ public static class CpuEffectsRenderer
     {
         float weight = Math.Clamp(1f - MathF.Abs(value - target) / bandWidth, 0f, 1f);
         return weight * weight * (3f - 2f * weight);
+    }
+
+    private static float EdgeSampleWeight(float x, float y, int width, int height)
+    {
+        return SmoothStep(-1f, 0f, x) *
+            SmoothStep(-1f, 0f, y) *
+            SmoothStep(-1f, 0f, width - 1f - x) *
+            SmoothStep(-1f, 0f, height - 1f - y);
     }
 
     private static void ApplyNoise(SKBitmap bitmap, double monoValue, double colorValue)

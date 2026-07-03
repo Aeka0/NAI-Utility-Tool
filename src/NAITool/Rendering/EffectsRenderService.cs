@@ -189,6 +189,12 @@ public sealed class EffectsRenderService
                 reason = "RadialBlur uses CPU to avoid non-cancellable Win2D DrawImage hangs";
                 return true;
             }
+
+            if (effect.Type == EffectType.Glow)
+            {
+                reason = "Glow uses CPU to avoid non-cancellable Win2D multi-pass bloom hangs";
+                return true;
+            }
         }
 
         reason = null;
