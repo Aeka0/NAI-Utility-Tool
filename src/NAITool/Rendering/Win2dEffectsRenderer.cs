@@ -274,7 +274,7 @@ public sealed class Win2dEffectsRenderer
         float requestedBlurAmount = MathF.Max(0.1f, (sigmaX + sigmaY) * 0.5f);
         float blurAmount = Math.Clamp(requestedBlurAmount, 0.1f, MaxRealtimeGlowBlurAmount);
 
-        debugLog?.Invoke($"[Effects][{requestLabel}][Win2D] Glow graph | Size={FormatEffectNumber(glowSize)} | Threshold={FormatEffectNumber(threshold)} | Strength={FormatEffectNumber(strength)} | Aspect={FormatEffectNumber(aspectRatio)} | Tilt={FormatEffectNumber(tiltDegrees)} | Saturation={FormatEffectNumber(saturation)} | SigmaX={FormatEffectNumber(sigmaX)} | SigmaY={FormatEffectNumber(sigmaY)} | BlurAmount={FormatEffectNumber(blurAmount)} | RequestedBlurAmount={FormatEffectNumber(requestedBlurAmount)} | Note=Win2D GaussianBlurEffect uses isotropic blur; CPU tilt/anisotropic blur is approximated");
+        debugLog?.Invoke($"[Effects][{requestLabel}][Win2D] Glow graph | Size={FormatEffectNumber(glowSize)} | Threshold={FormatEffectNumber(threshold)} | Strength={FormatEffectNumber(strength)} | Aspect={FormatEffectNumber(aspectRatio)} | Tilt={FormatEffectNumber(tiltDegrees)} | Saturation={FormatEffectNumber(saturation)} | SigmaX={FormatEffectNumber(sigmaX)} | SigmaY={FormatEffectNumber(sigmaY)} | BlurAmount={FormatEffectNumber(blurAmount)} | RequestedBlurAmount={FormatEffectNumber(requestedBlurAmount)} | Note=Glow is normally routed to CPU for cancellable anisotropic tilt");
         var bright = CreateShaderEffect(source, new GlowExtractShader(threshold));
         debugLog?.Invoke($"[Effects][{requestLabel}][Win2D] Glow bright-pass shader created");
         var blurred = new GaussianBlurEffect
