@@ -500,7 +500,8 @@
                                                 Height="28"
                                                 CornerRadius="8"
                                                 Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                                            <FontIcon Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                            <FontIcon x:Name="WorkspaceModeGenerateIcon"
+                                                      Style="{StaticResource WorkspaceModeCardIconStyle}"
                                                       Glyph="&#xE91B;"/>
                                         </Border>
                                         <StackPanel Grid.Column="1"
@@ -558,7 +559,8 @@
                                                 Height="28"
                                                 CornerRadius="8"
                                                 Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                                            <FontIcon Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                            <FontIcon x:Name="WorkspaceModeI2IIcon"
+                                                      Style="{StaticResource WorkspaceModeCardIconStyle}"
                                                       Glyph="&#xEDFB;"/>
                                         </Border>
                                         <StackPanel Grid.Column="1"
@@ -616,7 +618,8 @@
                                                 Height="28"
                                                 CornerRadius="8"
                                                 Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                                            <FontIcon Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                            <FontIcon x:Name="WorkspaceModeUpscaleIcon"
+                                                      Style="{StaticResource WorkspaceModeCardIconStyle}"
                                                       Glyph="&#xECE9;"/>
                                         </Border>
                                         <StackPanel Grid.Column="1"
@@ -674,7 +677,8 @@
                                                 Height="28"
                                                 CornerRadius="8"
                                                 Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                                            <FontIcon Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                            <FontIcon x:Name="WorkspaceModeEffectsIcon"
+                                                      Style="{StaticResource WorkspaceModeCardIconStyle}"
                                                       Glyph="&#xEB3C;"/>
                                         </Border>
                                         <StackPanel Grid.Column="1"
@@ -732,7 +736,8 @@
                                                 Height="28"
                                                 CornerRadius="8"
                                                 Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                                            <FontIcon Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                            <FontIcon x:Name="WorkspaceModeInspectIcon"
+                                                      Style="{StaticResource WorkspaceModeCardIconStyle}"
                                                       Glyph="&#xE71E;"/>
                                         </Border>
                                         <StackPanel Grid.Column="1"

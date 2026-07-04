@@ -159,6 +159,12 @@ public sealed partial class MainWindow
         WorkspaceModeText.Text = currentLabel;
         ToolTipService.SetToolTip(WorkspaceModeButton, $"{L("workspace.switcher")}: {currentLabel}");
 
+        WorkspaceModeGenerateIcon.Glyph = GetModeIconGlyph(AppMode.ImageGeneration);
+        WorkspaceModeI2IIcon.Glyph = GetModeIconGlyph(AppMode.I2I);
+        WorkspaceModeUpscaleIcon.Glyph = GetModeIconGlyph(AppMode.Upscale);
+        WorkspaceModeEffectsIcon.Glyph = GetModeIconGlyph(AppMode.Effects);
+        WorkspaceModeInspectIcon.Glyph = GetModeIconGlyph(AppMode.Inspect);
+
         UpdateWorkspaceModeCardState(
             WorkspaceModeGenerateCard,
             WorkspaceModeGenerateCheck,
