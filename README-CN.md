@@ -1,10 +1,12 @@
 <img width="1344" height="768" alt="Title" src="https://github.com/user-attachments/assets/ada996fb-730e-400a-826a-c614b0bd6087" />
 
+语言： [English](README.md) | 简体中文
+
 # NAI Utility Tool
 
 NAI Utility Tool 是一个面向 NovelAI 图像工作流的 Windows 桌面客户端。它基于 .NET 9、WinUI 3、Windows App SDK、Win2D、SkiaSharp 和 ONNX Runtime 构建，目标不是替代 NovelAI 官方站点，而是把日常高频操作整合到一个本地工具里：生成、重绘、遮罩编辑、提示词管理、参考图工作流、批量自动化、后期处理、超分、元数据检视和本地反推。
 
-项目当前版本为 `1.0.3`，仍在快速迭代。本文档以当前 `main` 分支源码结构为准。
+项目当前版本为 `1.1.0`，仍在快速迭代。本文档以当前 `main` 分支源码结构为准。
 
 <img width="1384" height="892" alt="Interface" src="https://github.com/user-attachments/assets/f24696cb-dce5-4e37-8e44-8976be5c9c06" />
 
@@ -38,8 +40,8 @@ NAI Utility Tool 是一个面向 NovelAI 图像工作流的 Windows 桌面客户
 
 ### 参考图与 Vibe
 
-- 支持 Vibe Transfer。
-- 支持 Precise Reference，并可选择角色、风格或角色加风格参考类型。
+- 支持 NAI 官方 Vibe Transfer。
+- 支持 NAI 官方 Precise Reference，并可选择角色、风格或角色加风格参考类型。
 - 支持本地 Vibe 预编码缓存，减少重复编码消耗。
 - 提供 Vibe 预编码管理器，可查看、清理、重定位原图和导出编码文件。
 - 可选自动复制 Vibe 原图到本地工作目录，便于长期管理参考素材。
@@ -55,14 +57,15 @@ NAI Utility Tool 是一个面向 NovelAI 图像工作流的 Windows 桌面客户
 ### 后期处理
 
 - 支持效果链编辑、排序、撤销、重做、保存预设和应用预设。
-- 当前内置效果包括亮度/对比度、饱和度/自然饱和度、色温、泛光、径向模糊、暗角、镜头色散、杂色、Gamma、像素化、实色遮挡和扫描线。
+- 当前内置效果包括亮度/对比度、饱和度/自然饱和度、色温、泛光、径向模糊、暗角、镜头色散、杂色、Gamma、像素化、实色遮挡、扫描线和 JPEG 损耗。
+- 预览和导出使用后期渲染服务统一处理，优先使用 Win2D GPU 路径，并在不适合 GPU 的效果链上回退到 CPU 路径。
 - 像素化和实色遮挡支持区域编辑，可在预览区域直接调整位置和范围。
 
 ### 本地超分
 
 - 使用 ONNX Runtime DirectML 执行本地超分，设置中可切换 GPU/CPU 偏好。
 - 仓库内置 `models/upscaler/` 下的动漫向超分模型。
-- 支持按目标倍率多轮处理，并使用分块推理降低大图内存压力。
+- 支持滑块或手动输入目标倍率，按目标倍率多轮处理，并使用分块推理降低大图内存压力。
 
 ### 检视、元数据与反推
 
@@ -71,10 +74,12 @@ NAI Utility Tool 是一个面向 NovelAI 图像工作流的 Windows 桌面客户
 - 支持保存时移除元数据，也支持全局元数据消除。
 - 支持图像混淆与还原混淆。
 - 可选配置本地 ONNX 反推模型，对图片执行 Tagger 推理。
+- 反推支持常见 WD14、SmilingWolf 和 PixAI Tagger 模型目录格式，使用模型目录中的 `selected_tags.csv` 读取标签定义。
+- 反推结果会区分普通标签、角色标签和评级标签，可分别控制阈值，并可选择是否把评级标签加入生成提示词。
 
 ### 本地体验
 
-- 支持简体中文、繁体中文、英文、日文界面资源。
+- 支持简体中文、繁体中文、英文、日文、韩文、俄文、德文、法文、西班牙文和拉丁文界面资源。
 - 支持浅色、深色、跟随系统和透明度选项。
 - 支持 SuperDrop：把图片拖入窗口后选择生成提示词、Vibe、Precise Reference、重绘、超分、后期或检视等目标。
 - API Token 使用 Windows DPAPI 加密后保存在本机当前用户下。
@@ -90,6 +95,7 @@ NAI Utility Tool 是一个面向 NovelAI 图像工作流的 Windows 桌面客户
 - `nai-diffusion-4-full`
 - `nai-diffusion-4-curated-preview`
 - `nai-diffusion-3`
+- `nai-diffusion-furry-3`
 
 重绘模型：
 
@@ -98,6 +104,7 @@ NAI Utility Tool 是一个面向 NovelAI 图像工作流的 Windows 桌面客户
 - `nai-diffusion-4-full-inpainting`
 - `nai-diffusion-4-curated-inpainting`
 - `nai-diffusion-3-inpainting`
+- `nai-diffusion-furry-3-inpainting`
 
 采样器：
 
@@ -125,7 +132,7 @@ NAI Utility Tool 是一个面向 NovelAI 图像工作流的 Windows 桌面客户
 - 从源码构建需要 .NET SDK `9.0.301` 或兼容的更新 feature band SDK。
 - 需要可用的 Windows App SDK 构建环境，通常由 Visual Studio 2022 及相关 Windows 开发组件提供。
 - 需要 NovelAI API Token 才能使用生成、重绘、Vibe 编码、提示词生成、账户额度查询等联网功能。
-- 可选：本地 ONNX 反推模型目录，用于图片 Tagger 推理。
+- 可选：本地 ONNX 反推模型目录，用于图片 Tagger 推理；模型目录需要包含 `.onnx` 模型和 `selected_tags.csv`。
 
 检查本机 SDK：
 
@@ -147,6 +154,7 @@ NAITool/
 |   |-- icon/                应用图标
 |   |-- img/                 应用内图片资源
 |   |-- splash/              启动画面资源
+|   |-- svg/                 UI中用到的svg资源
 |   |-- tagsheet/            标签补全与风格词数据
 |   `-- wildcards/           内置抽卡器资源
 |-- models/
@@ -260,7 +268,7 @@ publish/NAI Utility Tool/
 
 仓库内置的小型超分模型位于 `models/upscaler/`，供本地超分工作流使用。
 
-本地反推模型不是仓库的一部分。默认建议把用户自行下载的反推模型放在 `models/tagger/` 或其他本地目录，并在设置中选择该目录。该目录已被 `.gitignore` 排除，因为模型体积较大且可能有独立授权条款。
+本地反推模型不是仓库的一部分。默认建议把用户自行下载的反推模型放在 `models/tagger/` 或其他本地目录，并在设置中选择该目录。模型目录需要包含 `.onnx` 模型和 `selected_tags.csv`，应用会根据 CSV 列结构兼容常见 WD14、SmilingWolf 和 PixAI Tagger 标签表。该目录已被 `.gitignore` 排除，因为模型体积较大且可能有独立授权条款。
 
 `assets/` 下的 tagsheet、wildcards、预设和其他资源可能来自第三方或派生数据。如果你要重新分发、打包到其他项目或商业使用，请自行核对这些资源和额外模型的原始授权与再分发条款。
 
@@ -294,4 +302,4 @@ publish/NAI Utility Tool/
 
 ## 许可证
 
-本项目使用 GPL-3.0 协议开源。完整文本见 `LICENSE`。
+本项目使用 GPL-3.0 协议开源。完整文本见 `LICENSE`，如果使用该项目源码或设计参考请署名并指向该项目仓库。

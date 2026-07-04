@@ -454,8 +454,37 @@ public sealed partial class MainWindow
         }
     }
 
+    private static async Task<SvgImageSource?> CreateGitHubIconSourceAsync(bool invertForDarkMode)
+    {
+        try
+        {
+            const string resourceName = "NAITool.svg.GitHub_Invertocat_Black.svg";
+            await using Stream? resourceStream = typeof(MainWindow).Assembly.GetManifestResourceStream(resourceName);
+            if (resourceStream == null)
+                return null;
+
+            using var reader = new StreamReader(resourceStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            string svg = await reader.ReadToEndAsync();
+            if (invertForDarkMode)
+            {
+                svg = svg.Replace("fill=\"black\"", "fill=\"white\"", StringComparison.OrdinalIgnoreCase);
+            }
+
+            byte[] svgBytes = Encoding.UTF8.GetBytes(svg);
+            using var svgStream = new MemoryStream(svgBytes);
+            var source = new SvgImageSource();
+            await source.SetSourceAsync(svgStream.AsRandomAccessStream());
+            return source;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private async void OnAbout(object sender, RoutedEventArgs e)
     {
+        bool aboutIsDark = ((FrameworkElement)this.Content).ActualTheme == ElementTheme.Dark;
         var aboutPanel = new StackPanel
         {
             Spacing = 12,
@@ -468,6 +497,46 @@ public sealed partial class MainWindow
             FontSize = 22,
             FontWeight = Microsoft.UI.Text.FontWeights.Bold
         });
+        var repositoryLinkContent = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        SvgImageSource? repositoryIconSource = await CreateGitHubIconSourceAsync(aboutIsDark);
+        if (repositoryIconSource != null)
+        {
+            repositoryLinkContent.Children.Add(new Image
+            {
+                Source = repositoryIconSource,
+                Width = 16,
+                Height = 16,
+                Stretch = Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+        }
+        else
+        {
+            repositoryLinkContent.Children.Add(new FontIcon
+            {
+                FontFamily = SymbolFontFamily,
+                Glyph = "\uE8A7",
+                FontSize = 14,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+        }
+        repositoryLinkContent.Children.Add(new TextBlock
+        {
+            Text = "Aeka0/NAI-Utility-Tool",
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        aboutPanel.Children.Add(new HyperlinkButton
+        {
+            Content = repositoryLinkContent,
+            NavigateUri = new Uri("https://github.com/Aeka0/NAI-Utility-Tool"),
+            Padding = new Thickness(0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+        });
         aboutPanel.Children.Add(new TextBlock
         {
             Text = L("about.version"),
@@ -479,7 +548,6 @@ public sealed partial class MainWindow
             TextWrapping = TextWrapping.Wrap
         });
 
-        bool aboutIsDark = ((FrameworkElement)this.Content).ActualTheme == ElementTheme.Dark;
         var cardBg = new SolidColorBrush(aboutIsDark
             ? Windows.UI.Color.FromArgb(28, 255, 255, 255)
             : Windows.UI.Color.FromArgb(16, 0, 0, 0));

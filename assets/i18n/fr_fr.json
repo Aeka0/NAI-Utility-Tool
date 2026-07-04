@@ -532,7 +532,7 @@
   "about.thanks.smilingwolf": "Auteur du modèle et de la méthodologie du tagger WD14",
   "about.thanks.xinntao": "Auteur du modèle haut de gamme",
   "about.thanks.novelai": "Référence du code de données stéganographique officiel / PNG",
-  "about.version": "Version 1.0.3",
+  "about.version": "Version 1.1.0",
   "help.highlights.actions.body": "Les utilisateurs peuvent insérer rapidement des préfixes d'interaction à partir des assistants d'action du menu contextuel dans l'invite principale et l'invite de caractère.\n\nL'initiateur utilise le numéro source, le côté passif utilise le numéro cible et les interactions mutuelles utilisent le numéro mutuel. Si rien n’est sélectionné, le préfixe est inséré à la position actuelle du curseur. Cela correspond au format standard utilisé dans les versions post-NAI4 et est utile pour les interactions entre les personnages, les relations entre les regards et la direction des actions.",
   "help.highlights.actions.title": "Interactions d'actions",
   "help.highlights.automation.body": "Prend en charge la génération unique standard ainsi que les exécutions continues automatisées.\n\nVous pouvez verrouiller une invite et des paramètres de base, puis laisser l'outil envoyer des requêtes en boucle et combiner cela avec des fonctionnalités d'invite de style aléatoire pour produire de nombreuses variations pour les tests de style, les tests de composition et les balayages d'inspiration.",

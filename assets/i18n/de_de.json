@@ -532,7 +532,7 @@
   "about.thanks.smilingwolf": "Autor des WD14-Tagger-Modells und der Methodik",
   "about.thanks.xinntao": "Autor des gehobenen Modells",
   "about.thanks.novelai": "Offizielle/PNG-steganografische Datencode-Referenz",
-  "about.version": "Version 1.0.3",
+  "about.version": "Version 1.1.0",
   "help.highlights.actions.body": "Benutzer können Interaktionspräfixe schnell über die Aktionshilfen des Kontextmenüs sowohl in der Hauptaufforderung als auch in der Zeichenaufforderung einfügen.\n\nDer Initiator verwendet Quellnummer, die passive Seite verwendet Zielnummer und gegenseitige Interaktionen verwenden gegenseitige Nummer. Wenn nichts ausgewählt ist, wird das Präfix an der aktuellen Caret-Position eingefügt. Dies entspricht dem Standardformat, das in Post-NAI4-Versionen verwendet wird, und ist hilfreich für Charakterinteraktionen, Blickbeziehungen und Handlungsanweisungen.",
   "help.highlights.actions.title": "Aktionsinteraktionen",
   "help.highlights.automation.body": "Unterstützt die standardmäßige einmalige Generierung sowie automatisierte kontinuierliche Läufe.\n\nSie können einen Basis-Prompt und Parameter festlegen, dann das Tool Anfragen in einer Schleife senden lassen und diese mit zufälligen Style-Prompt-Funktionen kombinieren, um viele Variationen für Stiltests, Kompositionstests und Inspirations-Sweeps zu erstellen.",

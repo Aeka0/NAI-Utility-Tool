@@ -532,7 +532,7 @@
   "about.thanks.smilingwolf": "Autor del modelo y metodología del etiquetador WD14",
   "about.thanks.xinntao": "Autor del modelo de lujo",
   "about.thanks.novelai": "Referencia de código de datos esteganográficos oficial / PNG",
-  "about.version": "Versión 1.0.3",
+  "about.version": "Versión 1.1.0",
   "help.highlights.actions.body": "Los usuarios pueden insertar rápidamente prefijos de interacción desde los asistentes de acción del menú contextual tanto en el mensaje principal como en el mensaje de caracteres.\n\nEl iniciador usa el número de origen, el lado pasivo usa el número de destino y las interacciones mutuas usan el número mutuo. Si no se selecciona nada, el prefijo se inserta en la posición actual del cursor. Esto coincide con el formato estándar utilizado en las versiones posteriores a NAI4 y es útil para las interacciones de los personajes, las relaciones de mirada y la dirección de la acción.",
   "help.highlights.actions.title": "Interacciones de acción",
   "help.highlights.automation.body": "Admite generación única estándar, así como ejecuciones continuas automatizadas.\n\nPuede bloquear un mensaje base y parámetros, luego dejar que la herramienta envíe solicitudes en un bucle y combinarlas con características de mensajes de estilo aleatorios para producir muchas variaciones para pruebas de estilo, pruebas de composición y barridos de inspiración.",
