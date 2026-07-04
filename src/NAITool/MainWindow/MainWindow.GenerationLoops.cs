@@ -229,17 +229,18 @@ public sealed partial class MainWindow
 
     private void UpdateAnlasBalanceText()
     {
-        if (TxtAnlasBalance == null)
+        if (TxtAnlasBalance == null || AnlasBalanceButton == null)
             return;
 
         bool visible = IsPromptMode(_currentMode) &&
                        !string.IsNullOrWhiteSpace(_settings.Settings.ApiToken);
-        TxtAnlasBalance.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        AnlasBalanceButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         if (!visible)
             return;
 
         TxtAnlasBalance.Text = _anlasBalance.HasValue
             ? $"Anlas: {_anlasBalance.Value:N0}"
             : "Anlas: --";
+        ToolTipService.SetToolTip(AnlasBalanceButton, L("menu.settings.quota"));
     }
 }
