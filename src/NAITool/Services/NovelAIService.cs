@@ -388,6 +388,7 @@ public class NovelAIService : IDisposable
         "nai-diffusion-4-curated" => "rating:general, amazing quality, very aesthetic, absurdres",
         "nai-diffusion-4-curated-preview" => "rating:general, amazing quality, very aesthetic, absurdres",
         "nai-diffusion-3" => "best quality, amazing quality, very aesthetic, absurdres",
+        "nai-diffusion-furry-3" => "{best quality}, {amazing quality}",
         _ => "",
     };
 
@@ -406,6 +407,8 @@ public class NovelAIService : IDisposable
         ("nai-diffusion-4-curated-preview", 1) => "blurry, lowres, error, worst quality, bad quality, jpeg artifacts, very displeasing, logo, dated, signature",
         ("nai-diffusion-3", 0) => "lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]",
         ("nai-diffusion-3", 1) => "lowres, jpeg artifacts, worst quality, watermark, blurry, very displeasing",
+        ("nai-diffusion-furry-3", 0) => "{{worst quality}}, [displeasing], {unusual pupils}, guide lines, {{unfinished}}, {bad}, url, artist name, {{tall image}}, mosaic, {sketch page}, comic panel, impact (font), [dated], {logo}, ych, {what}, {where is your god now}, {distorted text}, repeated text, {floating head}, {1994}, {widescreen}, absolutely everyone, sequence, {compression artifacts}, hard translated, {cropped}, {commissioner name}, unknown text, high contrast",
+        ("nai-diffusion-furry-3", 1) => "{worst quality}, guide lines, unfinished, bad, url, tall image, widescreen, compression artifacts, unknown text",
         _ => "",
     };
 

@@ -314,6 +314,7 @@ public sealed partial class MainWindow : Window
         "nai-diffusion-4-full",
         "nai-diffusion-4-curated-preview",
         "nai-diffusion-3",
+        "nai-diffusion-furry-3",
     ];
     private static readonly string[] I2IModels =
     [
@@ -322,6 +323,7 @@ public sealed partial class MainWindow : Window
         "nai-diffusion-4-full-inpainting",
         "nai-diffusion-4-curated-inpainting",
         "nai-diffusion-3-inpainting",
+        "nai-diffusion-furry-3-inpainting",
     ];
     private static readonly string[] AvailableSamplers =
     [

@@ -65,8 +65,13 @@ public sealed partial class MainWindow
 
     private string GetCurrentModelKey() => GetSelectedComboText(CboModel) ?? CurrentParams.Model;
 
-    private static bool IsV3ModelKey(string model) =>
-        model == "nai-diffusion-3" || model == "nai-diffusion-3-inpainting";
+    private static bool IsV3ModelKey(string model)
+    {
+        string normalizedModel = model.EndsWith("-inpainting", StringComparison.Ordinal)
+            ? model[..^"-inpainting".Length]
+            : model;
+        return normalizedModel is "nai-diffusion-3" or "nai-diffusion-furry-3";
+    }
 
     private static bool IsV4PlusModelKey(string model) =>
         model.Contains("-4", StringComparison.Ordinal);
