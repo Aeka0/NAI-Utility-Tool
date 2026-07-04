@@ -42,6 +42,7 @@ public sealed partial class MainWindow
     // ═══════════════════════════════════════════════════════════
 
     private List<UpscaleService.UpscaleModelInfo> _upscaleModelInfos = new();
+    private bool _updatingUpscaleScaleControls;
 
     private void PopulateUpscaleModelList()
     {
@@ -76,8 +77,39 @@ public sealed partial class MainWindow
 
     private void OnUpscaleScaleChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
+        if (_updatingUpscaleScaleControls)
+            return;
         if (TxtUpscaleInputRes == null) return;
         UpdateUpscaleResolutionDisplay();
+    }
+
+    private void OnUpscaleScaleInputTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_updatingUpscaleScaleControls)
+            return;
+        if (TxtUpscaleInputRes == null)
+            return;
+        if (!TryParseUpscaleScaleInput(TxtUpscaleScaleValue.Text, out double scale))
+            return;
+        if (scale < UpscaleService.MinTargetScale || scale > UpscaleService.MaxTargetScale)
+            return;
+
+        SetSelectedUpscaleScale(scale, updateText: false);
+        UpdateUpscaleResolutionDisplay();
+    }
+
+    private void OnUpscaleScaleInputLostFocus(object sender, RoutedEventArgs e)
+    {
+        CommitUpscaleScaleInput();
+    }
+
+    private void OnUpscaleScaleInputKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Enter)
+            return;
+
+        CommitUpscaleScaleInput();
+        e.Handled = true;
     }
 
     private double GetSelectedUpscaleScale()
@@ -93,15 +125,51 @@ public sealed partial class MainWindow
         return UpscaleService.NormalizeTargetScale(scale).ToString("0.0", CultureInfo.InvariantCulture);
     }
 
-    private void UpdateUpscaleScaleValueDisplay()
+    private static bool TryParseUpscaleScaleInput(string? text, out double scale)
+    {
+        text = (text ?? string.Empty).Trim();
+        if (text.EndsWith("x", StringComparison.OrdinalIgnoreCase))
+            text = text[..^1].Trim();
+
+        return double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out scale)
+            || double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out scale);
+    }
+
+    private void SetSelectedUpscaleScale(double scale, bool updateText)
+    {
+        scale = UpscaleService.NormalizeTargetScale(scale);
+        _updatingUpscaleScaleControls = true;
+        try
+        {
+            if (SliderUpscaleScale != null && Math.Abs(SliderUpscaleScale.Value - scale) > 0.001)
+                SliderUpscaleScale.Value = scale;
+            if (updateText && TxtUpscaleScaleValue != null)
+                TxtUpscaleScaleValue.Text = FormatUpscaleScale(scale);
+        }
+        finally
+        {
+            _updatingUpscaleScaleControls = false;
+        }
+    }
+
+    private void CommitUpscaleScaleInput()
+    {
+        double scale = GetSelectedUpscaleScale();
+        if (TryParseUpscaleScaleInput(TxtUpscaleScaleValue?.Text, out double parsed))
+            scale = parsed;
+
+        SetSelectedUpscaleScale(scale, updateText: true);
+        UpdateUpscaleResolutionDisplay();
+    }
+
+    private void UpdateUpscaleScaleValueDisplay(bool forceText = false)
     {
         if (SliderUpscaleScale == null || TxtUpscaleScaleValue == null)
             return;
 
         double scale = GetSelectedUpscaleScale();
-        if (Math.Abs(SliderUpscaleScale.Value - scale) > 0.001)
-            SliderUpscaleScale.Value = scale;
-        TxtUpscaleScaleValue.Text = $"{FormatUpscaleScale(scale)}x";
+        bool updateText = forceText || TxtUpscaleScaleValue.FocusState == FocusState.Unfocused;
+        SetSelectedUpscaleScale(scale, updateText);
     }
 
     private void UpdateUpscaleResolutionDisplay()
@@ -219,6 +287,8 @@ public sealed partial class MainWindow
 
         if (_upscaleRunning) return;
 
+        CommitUpscaleScaleInput();
+
         int modelIdx = CboUpscaleModel.SelectedIndex;
         if (modelIdx < 0 || modelIdx >= _upscaleModelInfos.Count) return;
 
@@ -227,6 +297,7 @@ public sealed partial class MainWindow
         _upscaleRunning = true;
         BtnStartUpscale.IsEnabled = false;
         SliderUpscaleScale.IsEnabled = false;
+        TxtUpscaleScaleValue.IsEnabled = false;
         SetUpscaleButtonText(L("button.upscaling"));
         UpscaleProgressBar.Visibility = Visibility.Visible;
         TxtStatus.Text = L("status.upscale_loading_model");
@@ -292,6 +363,7 @@ public sealed partial class MainWindow
             _upscaleRunning = false;
             BtnStartUpscale.IsEnabled = true;
             SliderUpscaleScale.IsEnabled = true;
+            TxtUpscaleScaleValue.IsEnabled = true;
             SetUpscaleButtonText(L("button.start_upscale"));
             UpscaleProgressBar.Visibility = Visibility.Collapsed;
             UpscaleProgressBar.IsIndeterminate = true;

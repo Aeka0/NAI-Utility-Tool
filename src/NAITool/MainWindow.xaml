@@ -1386,12 +1386,17 @@
                                         StepFrequency="0.1" SmallChange="0.1" LargeChange="0.5"
                                         VerticalAlignment="Center"
                                         ValueChanged="OnUpscaleScaleChanged"/>
-                                <TextBlock x:Name="TxtUpscaleScaleValue" Grid.Column="1"
-                                           Text="2.0x"
-                                           MinWidth="40"
-                                           TextAlignment="Right"
-                                           VerticalAlignment="Center"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <TextBox x:Name="TxtUpscaleScaleValue" Grid.Column="1"
+                                         Text="2.0"
+                                         Width="58"
+                                         MinWidth="58"
+                                         HorizontalContentAlignment="Right"
+                                         VerticalContentAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         InputScope="Number"
+                                         TextChanged="OnUpscaleScaleInputTextChanged"
+                                         LostFocus="OnUpscaleScaleInputLostFocus"
+                                         KeyDown="OnUpscaleScaleInputKeyDown"/>
                             </Grid>
 
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"

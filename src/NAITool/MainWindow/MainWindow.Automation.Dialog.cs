@@ -226,11 +226,20 @@ public sealed partial class MainWindow
             LargeChange = 0.5,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        var txtUpscaleScaleValue = new TextBlock
+        var txtUpscaleScaleValue = new TextBox
         {
-            Text = $"{FormatUpscaleScale(sliderUpscaleScale.Value)}x",
-            MinWidth = 40,
-            TextAlignment = TextAlignment.Right,
+            Text = FormatUpscaleScale(sliderUpscaleScale.Value),
+            Width = 58,
+            MinWidth = 58,
+            HorizontalContentAlignment = HorizontalAlignment.Right,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            InputScope = new Microsoft.UI.Xaml.Input.InputScope
+            {
+                Names =
+                {
+                    new Microsoft.UI.Xaml.Input.InputScopeName(Microsoft.UI.Xaml.Input.InputScopeNameValue.Number),
+                },
+            },
             VerticalAlignment = VerticalAlignment.Center,
             Opacity = 0.7,
         };
@@ -247,12 +256,38 @@ public sealed partial class MainWindow
         upscaleScaleGrid.Children.Add(txtUpscaleScaleValue);
         var upscaleScaleField = CreateAutomationLabeledField(L("automation.upscale_scale"), upscaleScaleGrid);
 
+        bool updatingAutomationUpscaleScaleControls = false;
+        void SetAutomationUpscaleScale(double scale, bool updateText)
+        {
+            scale = UpscaleService.NormalizeTargetScale(scale);
+            updatingAutomationUpscaleScaleControls = true;
+            try
+            {
+                if (Math.Abs(sliderUpscaleScale.Value - scale) > 0.001)
+                    sliderUpscaleScale.Value = scale;
+                if (updateText)
+                    txtUpscaleScaleValue.Text = FormatUpscaleScale(scale);
+            }
+            finally
+            {
+                updatingAutomationUpscaleScaleControls = false;
+            }
+        }
+
+        void CommitAutomationUpscaleScaleInput()
+        {
+            double scale = UpscaleService.NormalizeTargetScale(sliderUpscaleScale.Value);
+            if (TryParseUpscaleScaleInput(txtUpscaleScaleValue.Text, out double parsed))
+                scale = parsed;
+            SetAutomationUpscaleScale(scale, updateText: true);
+            RefreshPresetSummary();
+        }
+
         void UpdateUpscaleScaleValueText()
         {
             double scale = UpscaleService.NormalizeTargetScale(sliderUpscaleScale.Value);
-            if (Math.Abs(sliderUpscaleScale.Value - scale) > 0.001)
-                sliderUpscaleScale.Value = scale;
-            txtUpscaleScaleValue.Text = $"{FormatUpscaleScale(scale)}x";
+            bool updateText = txtUpscaleScaleValue.FocusState == FocusState.Unfocused;
+            SetAutomationUpscaleScale(scale, updateText);
         }
 
         var cboEffectsPreset = new ComboBox { Header = L("automation.post_preset"), HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -261,8 +296,31 @@ public sealed partial class MainWindow
 
         sliderUpscaleScale.ValueChanged += (_, _) =>
         {
+            if (updatingAutomationUpscaleScaleControls)
+                return;
             UpdateUpscaleScaleValueText();
             RefreshPresetSummary();
+        };
+        txtUpscaleScaleValue.TextChanged += (_, _) =>
+        {
+            if (updatingAutomationUpscaleScaleControls)
+                return;
+            if (!TryParseUpscaleScaleInput(txtUpscaleScaleValue.Text, out double scale))
+                return;
+            if (scale < UpscaleService.MinTargetScale || scale > UpscaleService.MaxTargetScale)
+                return;
+
+            SetAutomationUpscaleScale(scale, updateText: false);
+            RefreshPresetSummary();
+        };
+        txtUpscaleScaleValue.LostFocus += (_, _) => CommitAutomationUpscaleScaleInput();
+        txtUpscaleScaleValue.KeyDown += (_, e) =>
+        {
+            if (e.Key != Windows.System.VirtualKey.Enter)
+                return;
+
+            CommitAutomationUpscaleScaleInput();
+            e.Handled = true;
         };
 
         void ApplySettingsToControls(AutomationSettings settings)
@@ -392,6 +450,7 @@ public sealed partial class MainWindow
             bool upscaleOn = chkEnableUpscale.IsOn;
             cboUpscaleModel.IsEnabled = upscaleOn && hasUpscaleModels;
             sliderUpscaleScale.IsEnabled = upscaleOn;
+            txtUpscaleScaleValue.IsEnabled = upscaleOn;
             txtUpscaleScaleValue.Opacity = upscaleOn ? 0.7 : 0.35;
 
             cboEffectsPreset.IsEnabled = chkEnableFx.IsOn;
@@ -429,6 +488,7 @@ public sealed partial class MainWindow
 
         async Task SaveNewPresetAsync()
         {
+            CommitAutomationUpscaleScaleInput();
             string presetName = (txtPresetName.Text ?? "").Trim();
             if (string.IsNullOrWhiteSpace(presetName))
             {
@@ -454,6 +514,7 @@ public sealed partial class MainWindow
 
         async Task OverwritePresetAsync()
         {
+            CommitAutomationUpscaleScaleInput();
             string? selectedName = GetSelectedComboText(presetCombo);
             if (string.IsNullOrWhiteSpace(selectedName))
             {
@@ -755,6 +816,7 @@ public sealed partial class MainWindow
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;
 
+        CommitAutomationUpscaleScaleInput();
         var collected = CollectSettingsFromControls();
         _settings.Settings.Automation = collected;
         _settings.Settings.AutoGenRandomStylePrefix = collected.Randomization.RandomizeStyleTags;
