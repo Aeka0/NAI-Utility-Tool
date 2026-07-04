@@ -474,6 +474,9 @@
                             <Button x:Name="WorkspaceModeGenerateItem"
                                     Style="{StaticResource WorkspaceModeCardButtonStyle}"
                                     Tag="ImageGeneration"
+                                    PointerExited="OnWorkspaceModeCardPointerExited"
+                                    PointerReleased="OnWorkspaceModeCardPointerReleased"
+                                    PointerCaptureLost="OnWorkspaceModeCardPointerCaptureLost"
                                     Click="OnWorkspaceModeMenuItemClick">
                                 <Border x:Name="WorkspaceModeGenerateCard"
                                         BorderThickness="1"
@@ -533,6 +536,9 @@
                             <Button x:Name="WorkspaceModeI2IItem"
                                     Style="{StaticResource WorkspaceModeCardButtonStyle}"
                                     Tag="I2I"
+                                    PointerExited="OnWorkspaceModeCardPointerExited"
+                                    PointerReleased="OnWorkspaceModeCardPointerReleased"
+                                    PointerCaptureLost="OnWorkspaceModeCardPointerCaptureLost"
                                     Click="OnWorkspaceModeMenuItemClick">
                                 <Border x:Name="WorkspaceModeI2ICard"
                                         BorderThickness="1"
@@ -592,6 +598,9 @@
                             <Button x:Name="WorkspaceModeUpscaleItem"
                                     Style="{StaticResource WorkspaceModeCardButtonStyle}"
                                     Tag="Upscale"
+                                    PointerExited="OnWorkspaceModeCardPointerExited"
+                                    PointerReleased="OnWorkspaceModeCardPointerReleased"
+                                    PointerCaptureLost="OnWorkspaceModeCardPointerCaptureLost"
                                     Click="OnWorkspaceModeMenuItemClick">
                                 <Border x:Name="WorkspaceModeUpscaleCard"
                                         BorderThickness="1"
@@ -651,6 +660,9 @@
                             <Button x:Name="WorkspaceModeEffectsItem"
                                     Style="{StaticResource WorkspaceModeCardButtonStyle}"
                                     Tag="Effects"
+                                    PointerExited="OnWorkspaceModeCardPointerExited"
+                                    PointerReleased="OnWorkspaceModeCardPointerReleased"
+                                    PointerCaptureLost="OnWorkspaceModeCardPointerCaptureLost"
                                     Click="OnWorkspaceModeMenuItemClick">
                                 <Border x:Name="WorkspaceModeEffectsCard"
                                         BorderThickness="1"
@@ -710,6 +722,9 @@
                             <Button x:Name="WorkspaceModeInspectItem"
                                     Style="{StaticResource WorkspaceModeCardButtonStyle}"
                                     Tag="Inspect"
+                                    PointerExited="OnWorkspaceModeCardPointerExited"
+                                    PointerReleased="OnWorkspaceModeCardPointerReleased"
+                                    PointerCaptureLost="OnWorkspaceModeCardPointerCaptureLost"
                                     Click="OnWorkspaceModeMenuItemClick">
                                 <Border x:Name="WorkspaceModeInspectCard"
                                         BorderThickness="1"
@@ -807,12 +822,20 @@
                                     <TextBlock x:Name="TxtModelLabel" Text=""
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="TxtAnlasBalance"
-                                               Text="Anlas: --"
-                                               Visibility="Collapsed"
-                                               HorizontalAlignment="Right"
-                                               VerticalAlignment="Center"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <Button x:Name="AnlasBalanceButton"
+                                            Style="{StaticResource SubtleButtonStyle}"
+                                            Visibility="Collapsed"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            HorizontalContentAlignment="Center"
+                                            Padding="6,2"
+                                            MinWidth="0"
+                                            MinHeight="0"
+                                            Click="OnQuotaSettings">
+                                        <TextBlock x:Name="TxtAnlasBalance"
+                                                   Text="Anlas: --"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    </Button>
                                 </Grid>
                                 <ComboBox x:Name="CboModel"
                                           HorizontalAlignment="Stretch"/>

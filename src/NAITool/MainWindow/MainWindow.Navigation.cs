@@ -215,6 +215,22 @@ public sealed partial class MainWindow
         AnimateWorkspaceModeCardHover(sender, 0);
     }
 
+    private void OnWorkspaceModeCardPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        ResetWorkspaceModeCardHoverIfPointerOutside(sender);
+    }
+
+    private void OnWorkspaceModeCardPointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        ResetWorkspaceModeCardHoverIfPointerOutside(sender);
+    }
+
+    private static void ResetWorkspaceModeCardHoverIfPointerOutside(object sender)
+    {
+        if (sender is Button button && !button.IsPointerOver)
+            AnimateWorkspaceModeCardHover(button, 0);
+    }
+
     private void OnWorkspaceModeButtonPointerEntered(object sender, PointerRoutedEventArgs e)
     {
         _workspaceModeButtonHovering = true;
@@ -266,7 +282,14 @@ public sealed partial class MainWindow
 
     private static void AnimateWorkspaceModeCardHover(object sender, double targetOpacity)
     {
-        if (sender is not Border card || card.Child is not Grid grid)
+        Border? card = sender switch
+        {
+            Border border => border,
+            Button { Content: Border border } => border,
+            _ => null,
+        };
+
+        if (card?.Child is not Grid grid)
             return;
 
         Border? hoverLayer = grid.Children.OfType<Border>()
