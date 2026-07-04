@@ -70,7 +70,6 @@ public sealed partial class MainWindow
         RefreshEffectsPanel();
         QueueEffectsPreviewRefresh(immediate: true);
         UpdateDynamicMenuStates();
-        TxtStatus.Text = L("post.status.effects_reordered");
     }
 
     private EffectEntry? GetSelectedEffect()

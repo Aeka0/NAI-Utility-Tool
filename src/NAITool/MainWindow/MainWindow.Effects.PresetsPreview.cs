@@ -408,7 +408,6 @@ public sealed partial class MainWindow
         UpdateDynamicMenuStates();
         UpdateFileMenuState();
         RefreshEffectsOverlay();
-        TxtStatus.Text = L("post.status.effects_cleared");
     }
 
     private async void OnApplyEffects(object sender, RoutedEventArgs e)

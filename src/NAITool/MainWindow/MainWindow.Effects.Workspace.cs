@@ -248,9 +248,6 @@ public sealed partial class MainWindow
                 _selectedEffectId = effect.Id;
                 RefreshEffectsPanel();
                 RefreshEffectsOverlay();
-                TxtStatus.Text = IsRegionEffect(effect.Type)
-                    ? L("post.status.region_selected")
-                    : Lf("post.status.selected_effect", GetEffectTitle(effect.Type));
             };
 
             var stack = new StackPanel { Spacing = 10 };
@@ -300,7 +297,6 @@ public sealed partial class MainWindow
                 UpdateDynamicMenuStates();
                 UpdateFileMenuState();
                 RefreshEffectsOverlay();
-                TxtStatus.Text = L("post.status.removed_effect");
             };
             Grid.SetColumn(deleteBtn, 3);
             header.Children.Add(deleteBtn);
@@ -709,7 +705,6 @@ public sealed partial class MainWindow
                 UpdateDynamicMenuStates();
                 UpdateFileMenuState();
                 RefreshEffectsOverlay();
-                TxtStatus.Text = Lf("post.status.added_effect", GetEffectTitle(type));
             };
             flyout.Items.Add(item);
         }
