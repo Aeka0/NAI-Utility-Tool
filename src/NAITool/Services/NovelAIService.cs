@@ -45,8 +45,8 @@ public class NovelAIService : IDisposable
     private const string OfficialGenerateUrl = "https://image.novelai.net/ai/generate-image";
     private const string OfficialGenerateStreamUrl = "https://image.novelai.net/ai/generate-image-stream";
     private const string OfficialEncodeVibeUrl = "https://image.novelai.net/ai/encode-vibe";
-    private const string OfficialUserInfoUrl = "https://api.novelai.net/user/information";
-    private const string OfficialUserDataUrl = "https://api.novelai.net/user/data";
+    private const string OfficialUserInfoUrl = "https://image.novelai.net/user/information";
+    private const string OfficialUserDataUrl = "https://image.novelai.net/user/data";
     private const string OfficialTextChatCompletionUrl = "https://text.novelai.net/oa/v1/chat/completions";
     private static readonly TimeSpan DefaultHttpClientTimeout = TimeSpan.FromSeconds(300);
     private static readonly TimeSpan AccountInfoRequestTimeout = TimeSpan.FromSeconds(5);
@@ -103,7 +103,13 @@ public class NovelAIService : IDisposable
                 OfficialTextChatCompletionUrl);
         }
 
-        return new NovelAiApiEndpoints(baseUrl, baseUrl, baseUrl, baseUrl, baseUrl, baseUrl);
+        return new NovelAiApiEndpoints(
+            baseUrl,
+            baseUrl,
+            baseUrl,
+            OfficialUserInfoUrl,
+            OfficialUserDataUrl,
+            OfficialTextChatCompletionUrl);
     }
 
     private HttpClient GetOrCreateClient()
@@ -150,7 +156,7 @@ public class NovelAIService : IDisposable
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
             var endpoints = GetApiEndpoints();
-            var response = await client.GetAsync(endpoints.UserInfoUrl, ct);
+            using var response = await client.GetAsync(endpoints.UserInfoUrl, ct);
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => (true, L("settings.network.test.success")),
@@ -219,7 +225,7 @@ public class NovelAIService : IDisposable
     }
 
     /// <summary>
-    /// 根据官方 API 规范 (https://api.novelai.net/docs) 解析账户信息。
+    /// 根据官方 Account API 规范解析账户信息。
     /// /user/data 返回 UserAccountDataResponse：
     ///   { subscription: { tier: int(0-3), active: bool, trainingStepsLeft: int|object, ... }, ... }
     /// tier: 0=Paper, 1=Tablet, 2=Scroll, 3=Opus
@@ -250,7 +256,7 @@ public class NovelAIService : IDisposable
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
             var endpoints = GetApiEndpoints();
-            var response = await client.GetAsync(endpoints.UserDataUrl, requestCt);
+            using var response = await client.GetAsync(endpoints.UserDataUrl, requestCt);
             if (!response.IsSuccessStatusCode)
             {
                 Debug.WriteLine($"[NAI] /user/data request failed: {(int)response.StatusCode}");
