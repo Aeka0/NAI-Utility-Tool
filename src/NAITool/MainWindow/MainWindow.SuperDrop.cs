@@ -530,6 +530,10 @@ public sealed partial class MainWindow
                     break;
                 case SuperDropAction.I2IPrompt:
                     SwitchMode(AppMode.I2I);
+                    await ApplySuperDropI2IPromptAsync(file);
+                    break;
+                case SuperDropAction.I2IImportPrompt:
+                    SwitchMode(AppMode.I2I);
                     await MaskCanvas.LoadImageAsync(file);
                     await ApplySuperDropI2IPromptAsync(file);
                     break;

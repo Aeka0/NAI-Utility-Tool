@@ -1928,8 +1928,17 @@
                             <Grid>
                                 <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="8"/>
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
-                                    <FontIcon Glyph="&#xEDFB;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <FontIcon Glyph="&#xE91B;" Style="{StaticResource SuperDropCardIconStyle}"/>
                                     <TextBlock x:Name="TxtSuperDropI2IPrompt" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource SuperDropCardStyle}" Tag="I2IImportPrompt" AllowDrop="True" DragOver="OnSuperDropCardDragOver" DragLeave="OnSuperDropCardDragLeave" Drop="OnSuperDropCardDrop" PointerEntered="OnSuperDropCardPointerEntered" PointerExited="OnSuperDropCardPointerExited">
+                            <Grid>
+                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0" CornerRadius="8"/>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16">
+                                    <FontIcon Glyph="&#xEDFB;" Style="{StaticResource SuperDropCardIconStyle}"/>
+                                    <TextBlock x:Name="TxtSuperDropI2IImportPrompt" Style="{StaticResource SuperDropCardTextStyle}" Text=""/>
                                 </StackPanel>
                             </Grid>
                         </Border>

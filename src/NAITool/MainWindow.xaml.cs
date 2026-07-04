@@ -40,7 +40,7 @@ public enum AppMode { ImageGeneration, I2I, Upscale, Effects, Inspect }
 public enum I2IEditMode { Inpaint, Denoise }
 public enum PromptWeightFormat { StableDiffusion, NaiClassic, NaiNumeric }
 public enum PromptGeneratorOutputMode { BooruTags, BooruTagsWithNaturalLanguage, NaturalLanguage }
-public enum SuperDropAction { GeneratePrompt, GenerateVibe, GeneratePrecise, I2IPrompt, I2IPrecise, Upscale, Effects, Inspect }
+public enum SuperDropAction { GeneratePrompt, GenerateVibe, GeneratePrecise, I2IPrompt, I2IImportPrompt, I2IPrecise, Upscale, Effects, Inspect }
 
 public sealed class ResizeHandle : Microsoft.UI.Xaml.Controls.Grid
 {
