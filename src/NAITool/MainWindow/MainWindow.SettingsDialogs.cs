@@ -636,7 +636,7 @@ public sealed partial class MainWindow
                 : value;
         }
 
-        StackPanel BuildRightInfoBlock(string label, string value)
+        StackPanel BuildRightInfoBlock(string label, string value, out TextBlock valueBlock)
         {
             var block = new StackPanel
             {
@@ -651,7 +651,7 @@ public sealed partial class MainWindow
                 FontSize = 12,
                 HorizontalAlignment = HorizontalAlignment.Right,
             });
-            block.Children.Add(new TextBlock
+            valueBlock = new TextBlock
             {
                 Text = value,
                 FontSize = 15,
@@ -660,16 +660,22 @@ public sealed partial class MainWindow
                 HorizontalAlignment = HorizontalAlignment.Right,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxWidth = 220,
-            });
+            };
+            block.Children.Add(valueBlock);
             return block;
         }
 
-        int? accountAnlas = latestAccountInfo?.AnlasBalance ??
-                            _anlasBalance ??
-                            cachedAccountInfo.CachedAnlas;
-        string accountAnlasText = accountAnlas.HasValue
-            ? accountAnlas.Value.ToString("N0")
-            : notAvailable;
+        string ResolveAnlasLabel()
+        {
+            int? accountAnlas = latestAccountInfo?.AnlasBalance ??
+                                _anlasBalance ??
+                                cachedAccountInfo.CachedAnlas;
+            return accountAnlas.HasValue
+                ? accountAnlas.Value.ToString("N0")
+                : notAvailable;
+        }
+
+        string accountAnlasText = ResolveAnlasLabel();
         string accountTierText = ResolveTierLabel();
         string accountExpiryText = ResolveExpiryLabel();
 
@@ -677,20 +683,26 @@ public sealed partial class MainWindow
         accountGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         accountGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var anlasPanel = new StackPanel { Spacing = 2 };
+        var anlasPanel = new StackPanel
+        {
+            Spacing = 1,
+            VerticalAlignment = VerticalAlignment.Bottom,
+        };
         anlasPanel.Children.Add(new TextBlock
         {
             Text = L("settings.quota.account.current_anlas"),
             Foreground = accountLabelBrush,
             FontSize = 12,
         });
-        anlasPanel.Children.Add(new TextBlock
+        var accountAnlasTextBlock = new TextBlock
         {
             Text = accountAnlasText,
-            FontSize = 34,
+            FontSize = 46,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            LineHeight = 38,
-        });
+            LineHeight = 50,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+        anlasPanel.Children.Add(accountAnlasTextBlock);
         Grid.SetColumn(anlasPanel, 0);
 
         var rightInfoPanel = new StackPanel
@@ -699,15 +711,105 @@ public sealed partial class MainWindow
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        rightInfoPanel.Children.Add(BuildRightInfoBlock(L("settings.quota.account.subscription_tier"), accountTierText));
-        rightInfoPanel.Children.Add(BuildRightInfoBlock(L("settings.quota.account.expires_at"), accountExpiryText));
+        rightInfoPanel.Children.Add(BuildRightInfoBlock(L("settings.quota.account.subscription_tier"), accountTierText, out var accountTierTextBlock));
+        rightInfoPanel.Children.Add(BuildRightInfoBlock(L("settings.quota.account.expires_at"), accountExpiryText, out var accountExpiryTextBlock));
+
+        void RefreshAccountTextBlocks()
+        {
+            accountAnlasTextBlock.Text = ResolveAnlasLabel();
+            accountTierTextBlock.Text = ResolveTierLabel();
+            accountExpiryTextBlock.Text = ResolveExpiryLabel();
+        }
+
+        var refreshRotateTransform = new RotateTransform();
+        var refreshIcon = new FontIcon
+        {
+            FontFamily = SymbolFontFamily,
+            Glyph = "\uE72C",
+            FontSize = 12,
+            Foreground = accountLabelBrush,
+            RenderTransform = refreshRotateTransform,
+            RenderTransformOrigin = new Point(0.5, 0.5),
+        };
+        var transparentColor = Windows.UI.Color.FromArgb(0, 0, 0, 0);
+        var refreshButton = new Button
+        {
+            Width = 16,
+            Height = 16,
+            MinWidth = 16,
+            Padding = new Thickness(0),
+            Margin = new Thickness(3, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Background = new SolidColorBrush(transparentColor),
+            BorderBrush = new SolidColorBrush(transparentColor),
+            BorderThickness = new Thickness(0),
+            Content = refreshIcon,
+        };
+        var transparentBrush = new SolidColorBrush(transparentColor);
+        refreshButton.Resources["ButtonBackground"] = transparentBrush;
+        refreshButton.Resources["ButtonBackgroundPointerOver"] = transparentBrush;
+        refreshButton.Resources["ButtonBackgroundPressed"] = transparentBrush;
+        refreshButton.Resources["ButtonBackgroundDisabled"] = transparentBrush;
+        refreshButton.Resources["ButtonBorderBrush"] = transparentBrush;
+        refreshButton.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
+        refreshButton.Resources["ButtonBorderBrushPressed"] = transparentBrush;
+        refreshButton.Resources["ButtonBorderBrushDisabled"] = transparentBrush;
+        ToolTipService.SetToolTip(refreshButton, L("dialog.vibe_manager.action.refresh"));
+        var refreshSpinTimer = DispatcherQueue.CreateTimer();
+        refreshSpinTimer.Interval = TimeSpan.FromMilliseconds(16);
+        refreshSpinTimer.Tick += (_, _) => refreshRotateTransform.Angle = (refreshRotateTransform.Angle + 18) % 360;
+        refreshButton.Click += async (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken) ||
+                _anlasRefreshRunning ||
+                refreshButton.IsEnabled == false)
+                return;
+
+            _anlasRefreshRunning = true;
+            refreshButton.IsEnabled = false;
+            refreshSpinTimer.Start();
+            try
+            {
+                latestAccountInfo = await _naiService.GetAccountInfoAsync();
+                if (latestAccountInfo != null)
+                {
+                    _anlasBalance = latestAccountInfo.AnlasBalance;
+                    _isOpusSubscriber = latestAccountInfo.IsOpus;
+                    _hasActiveSubscription = latestAccountInfo.HasActiveSubscription;
+                    _anlasInitialFetchDone = true;
+                    _settings.UpdateCachedAccountInfo(
+                        latestAccountInfo.AnlasBalance,
+                        latestAccountInfo.TierName,
+                        latestAccountInfo.TierLevel,
+                        latestAccountInfo.HasActiveSubscription,
+                        latestAccountInfo.ExpiresAt);
+                    UpdateAnlasBalanceText();
+                    RefreshAccountTextBlocks();
+                }
+            }
+            finally
+            {
+                refreshSpinTimer.Stop();
+                refreshRotateTransform.Angle = 0;
+                refreshButton.IsEnabled = true;
+                _anlasRefreshRunning = false;
+            }
+        };
+
         Grid.SetColumn(rightInfoPanel, 1);
 
         accountGrid.Children.Add(anlasPanel);
         accountGrid.Children.Add(rightInfoPanel);
 
         var accountPanel = new StackPanel { Spacing = 10 };
-        accountPanel.Children.Add(CreateThemedCaption(L("settings.quota.account.title")));
+        var accountHeader = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 0,
+        };
+        accountHeader.Children.Add(CreateThemedCaption(L("settings.quota.account.title")));
+        accountHeader.Children.Add(refreshButton);
+        accountPanel.Children.Add(accountHeader);
         accountPanel.Children.Add(accountGrid);
 
         var accountCard = new Border
