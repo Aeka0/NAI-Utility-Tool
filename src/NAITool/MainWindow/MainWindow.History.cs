@@ -191,7 +191,10 @@ public sealed partial class MainWindow
         int startIdx = _historyAvailableDates.IndexOf(_selectedHistoryDate);
         if (startIdx < 0)
         {
-            if (string.Equals(_selectedHistoryDate, GetTodayHistoryDateString(), StringComparison.Ordinal))
+            bool hasPendingItemsForSelectedDate = _historyPendingItems.Any(item =>
+                string.Equals(item.DateKey, _selectedHistoryDate, StringComparison.Ordinal));
+            if (!hasPendingItemsForSelectedDate &&
+                string.Equals(_selectedHistoryDate, GetTodayHistoryDateString(), StringComparison.Ordinal))
                 return;
             startIdx = 0;
         }
