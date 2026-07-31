@@ -97,7 +97,7 @@ public sealed partial class MainWindow
         int caret = textBox.SelectionStart;
         if (caret < 0 || caret > text.Length) return false;
         if (caret > 0 && (text[caret - 1] == ',' || IsAutoCompleteLineBreak(text[caret - 1]))) return false;
-        if (caret < text.Length && (text[caret] == ',' || IsAutoCompleteLineBreak(text[caret]))) return false;
+        if (caret < text.Length && IsAutoCompleteLineBreak(text[caret])) return false;
 
         return !string.IsNullOrWhiteSpace(token);
     }
@@ -116,6 +116,8 @@ public sealed partial class MainWindow
     }
 
     private static bool IsAutoCompleteLineBreak(char ch) => ch is '\r' or '\n';
+
+    private static bool IsAutoCompleteTrailingPunctuation(char ch) => ch is ',' or '.';
 
     private static string ExtractCurrentToken(PromptTextBox textBox)
     {
@@ -139,7 +141,7 @@ public sealed partial class MainWindow
 
         int end = caret;
         while (end < text.Length
-            && text[end] != ','
+            && !IsAutoCompleteTrailingPunctuation(text[end])
             && !IsAutoCompleteLineBreak(text[end])
             && !(end + 1 < text.Length && text[end] == ':' && text[end + 1] == ':'))
         {
@@ -267,7 +269,7 @@ public sealed partial class MainWindow
             string text = textBox.Text;
 
             string suffix = ", ";
-            if (end < text.Length && text[end] == ',') suffix = "";
+            if (end < text.Length && IsAutoCompleteTrailingPunctuation(text[end])) suffix = "";
 
             string newText = text.Substring(0, start) + tag + suffix + text.Substring(end);
             textBox.Text = newText;
