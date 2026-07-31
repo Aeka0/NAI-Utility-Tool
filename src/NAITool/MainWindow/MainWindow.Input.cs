@@ -144,6 +144,36 @@ public sealed partial class MainWindow
     //  键盘快捷键
     // ═══════════════════════════════════════════════════════════
 
+    private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (FocusManager.GetFocusedElement(this.Content.XamlRoot) is not TextBox
+            and not RichEditBox
+            and not PasswordBox)
+        {
+            return;
+        }
+
+        if (IsWithinTextInput(e.OriginalSource as DependencyObject))
+            return;
+
+        KeyboardShortcutFocusSink.IsTabStop = true;
+        if (!KeyboardShortcutFocusSink.Focus(FocusState.Programmatic))
+            KeyboardShortcutFocusSink.IsTabStop = false;
+    }
+
+    private static bool IsWithinTextInput(DependencyObject? element)
+    {
+        while (element != null)
+        {
+            if (element is TextBox or RichEditBox or PasswordBox or NumberBox or AutoSuggestBox)
+                return true;
+
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return false;
+    }
+
     private void OnGlobalKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == Windows.System.VirtualKey.Enter)

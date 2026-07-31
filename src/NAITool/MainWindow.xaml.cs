@@ -490,6 +490,10 @@ public sealed partial class MainWindow : Window
         _ = LoadTagServiceAsync();
 
         this.Content.KeyDown += OnGlobalKeyDown;
+        RootGrid.AddHandler(UIElement.PointerPressedEvent,
+            new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
+        KeyboardShortcutFocusSink.LostFocus += (_, _) =>
+            KeyboardShortcutFocusSink.IsTabStop = false;
         MaskCanvas.SizeChanged += OnMaskCanvasSizeChanged;
 
         BtnCompare.AddHandler(UIElement.PointerPressedEvent,
