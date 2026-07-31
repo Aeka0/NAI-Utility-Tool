@@ -8,7 +8,7 @@ NAI Utility Tool 是一个面向 NovelAI 图像工作流的 Windows 桌面客户
 
 项目当前版本为 `1.1.0`，仍在快速迭代。本文档以当前 `main` 分支源码结构为准。
 
-<img width="1384" height="892" alt="Interface" src="https://github.com/user-attachments/assets/f24696cb-dce5-4e37-8e44-8976be5c9c06" />
+<img width="1455" height="940" alt="Preview" src="https://github.com/user-attachments/assets/88c9a0d3-5fcb-464f-80bf-98075fc9f3f6" />
 
 ## 主要能力
 
