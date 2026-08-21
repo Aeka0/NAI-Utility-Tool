@@ -169,6 +169,7 @@ public sealed partial class MainWindow
         {
             _anlasBalance = null;
             _v5UsagePercent = null;
+            _v5UsageTimeUntilNextPercentSeconds = null;
             _isOpusSubscriber = false;
             _hasActiveSubscription = false;
             _anlasInitialFetchDone = false;
@@ -203,6 +204,7 @@ public sealed partial class MainWindow
                 {
                     _anlasBalance = accountInfo.AnlasBalance;
                     _v5UsagePercent = accountInfo.V5UsagePercent;
+                    _v5UsageTimeUntilNextPercentSeconds = accountInfo.V5UsageTimeUntilNextPercentSeconds;
                     _isOpusSubscriber = accountInfo.IsOpus;
                     _hasActiveSubscription = accountInfo.HasActiveSubscription;
                     _anlasInitialFetchDone = true;
@@ -212,7 +214,8 @@ public sealed partial class MainWindow
                         accountInfo.TierName,
                         accountInfo.TierLevel,
                         accountInfo.HasActiveSubscription,
-                        accountInfo.ExpiresAt);
+                        accountInfo.ExpiresAt,
+                        accountInfo.V5UsageTimeUntilNextPercentSeconds);
                 }
             }
             finally
@@ -234,6 +237,8 @@ public sealed partial class MainWindow
             _anlasBalance = cached.CachedAnlas;
         if (cached.CachedV5UsagePercent.HasValue)
             _v5UsagePercent = Math.Clamp(cached.CachedV5UsagePercent.Value, 0, 100);
+        if (cached.CachedV5UsageTimeUntilNextPercentSeconds.HasValue)
+            _v5UsageTimeUntilNextPercentSeconds = Math.Max(cached.CachedV5UsageTimeUntilNextPercentSeconds.Value, 0);
         if (cached.SubscriptionTierLevel.HasValue)
             _isOpusSubscriber = cached.SubscriptionTierLevel.Value >= 3;
         if (cached.SubscriptionActive.HasValue)
@@ -430,6 +435,8 @@ public sealed partial class MainWindow
 
         int? anlas = _anlasBalance ?? _settings.CachedApiConfig.CachedAnlas;
         int? v5Usage = _v5UsagePercent ?? _settings.CachedApiConfig.CachedV5UsagePercent;
+        int? v5TimeUntilNextPercentSeconds = _v5UsageTimeUntilNextPercentSeconds ??
+                                              _settings.CachedApiConfig.CachedV5UsageTimeUntilNextPercentSeconds;
         bool isDark = this.Content is FrameworkElement root && root.ActualTheme == ElementTheme.Dark;
         var summaryTextBrush = new SolidColorBrush(isDark
             ? Windows.UI.Color.FromArgb(255, 245, 245, 245)
@@ -465,8 +472,8 @@ public sealed partial class MainWindow
         _quotaSummaryV5UsageEstimateText.Text = Lf("settings.quota.summary.v5_estimate", v5ImageCount);
         _quotaSummaryV5UsageRecoveryText.Text = v5Usage.HasValue && v5Usage.Value >= 100
             ? L("settings.quota.summary.v5_full")
-            : v5Usage.HasValue
-                ? FormatV5UsageRecoveryTime(v5Usage.Value)
+            : v5Usage.HasValue && v5TimeUntilNextPercentSeconds.HasValue
+                ? FormatV5UsageRecoveryTime(v5Usage.Value, v5TimeUntilNextPercentSeconds.Value)
                 : Lf("settings.quota.summary.v5_recovery", "--", "--");
 
         _quotaSummaryAnlasLabel.Foreground = summaryTextBrush;
@@ -478,12 +485,13 @@ public sealed partial class MainWindow
         _quotaSummaryV5UsageRecoveryText.Foreground = summaryTextBrush;
     }
 
-    private string FormatV5UsageRecoveryTime(int usagePercent)
+    private string FormatV5UsageRecoveryTime(int usagePercent, int timeUntilNextPercentSeconds)
     {
         int remainingPercentagePoints = 100 - Math.Clamp(usagePercent, 0, 100);
-        int remainingMinutes = (int)Math.Ceiling(remainingPercentagePoints * 24d * 60d / 11d);
-        int hours = remainingMinutes / 60;
-        int minutes = remainingMinutes % 60;
+        long remainingSeconds = remainingPercentagePoints * (long)Math.Max(timeUntilNextPercentSeconds, 0);
+        long remainingMinutes = (remainingSeconds + 59) / 60;
+        long hours = remainingMinutes / 60;
+        long minutes = remainingMinutes % 60;
         return Lf("settings.quota.summary.v5_recovery", hours, minutes);
     }
 

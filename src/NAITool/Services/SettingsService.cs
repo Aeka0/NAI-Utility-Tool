@@ -166,10 +166,12 @@ public class SettingsService
         string? tier,
         int? tierLevel,
         bool? active,
-        string? expiresAt)
+        string? expiresAt,
+        int? v5UsageTimeUntilNextPercentSeconds)
     {
         CachedApiConfig.CachedAnlas = anlas;
         CachedApiConfig.CachedV5UsagePercent = v5UsagePercent;
+        CachedApiConfig.CachedV5UsageTimeUntilNextPercentSeconds = v5UsageTimeUntilNextPercentSeconds;
         CachedApiConfig.SubscriptionTier = tier;
         CachedApiConfig.SubscriptionTierLevel = tierLevel;
         CachedApiConfig.SubscriptionActive = active;
@@ -186,6 +188,7 @@ public class ApiConfig
     public string? EncryptedApiToken { get; set; }
     public int? CachedAnlas { get; set; }
     public int? CachedV5UsagePercent { get; set; }
+    public int? CachedV5UsageTimeUntilNextPercentSeconds { get; set; }
     public string? SubscriptionTier { get; set; }
     public int? SubscriptionTierLevel { get; set; }
     public bool? SubscriptionActive { get; set; }

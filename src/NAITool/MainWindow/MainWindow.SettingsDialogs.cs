@@ -231,10 +231,11 @@ public sealed partial class MainWindow
 
             _anlasBalance = null;
             _v5UsagePercent = null;
+            _v5UsageTimeUntilNextPercentSeconds = null;
             _isOpusSubscriber = false;
             _hasActiveSubscription = false;
             _anlasInitialFetchDone = true;
-            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null);
+            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null, null);
             UpdateAnlasBalanceText();
             UpdateBtnGenerateForApiKey();
             UpdateGenerateButtonWarning();
@@ -788,6 +789,7 @@ public sealed partial class MainWindow
                 {
                     _anlasBalance = latestAccountInfo.AnlasBalance;
                     _v5UsagePercent = latestAccountInfo.V5UsagePercent;
+                    _v5UsageTimeUntilNextPercentSeconds = latestAccountInfo.V5UsageTimeUntilNextPercentSeconds;
                     _isOpusSubscriber = latestAccountInfo.IsOpus;
                     _hasActiveSubscription = latestAccountInfo.HasActiveSubscription;
                     _anlasInitialFetchDone = true;
@@ -797,7 +799,8 @@ public sealed partial class MainWindow
                         latestAccountInfo.TierName,
                         latestAccountInfo.TierLevel,
                         latestAccountInfo.HasActiveSubscription,
-                        latestAccountInfo.ExpiresAt);
+                        latestAccountInfo.ExpiresAt,
+                        latestAccountInfo.V5UsageTimeUntilNextPercentSeconds);
                     UpdateAnlasBalanceText();
                     RefreshAccountTextBlocks();
                 }
@@ -1004,10 +1007,11 @@ public sealed partial class MainWindow
         {
             _anlasBalance = null;
             _v5UsagePercent = null;
+            _v5UsageTimeUntilNextPercentSeconds = null;
             _isOpusSubscriber = false;
             _hasActiveSubscription = false;
             _anlasInitialFetchDone = true;
-            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null);
+            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null, null);
             UpdateAnlasBalanceText();
             UpdateBtnGenerateForApiKey();
             UpdateGenerateButtonWarning();
@@ -1039,10 +1043,11 @@ public sealed partial class MainWindow
         {
             _anlasBalance = null;
             _v5UsagePercent = null;
+            _v5UsageTimeUntilNextPercentSeconds = null;
             _isOpusSubscriber = false;
             _hasActiveSubscription = false;
             _anlasInitialFetchDone = true;
-            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null);
+            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null, null);
             UpdateAnlasBalanceText();
             UpdateBtnGenerateForApiKey();
             UpdateGenerateButtonWarning();
@@ -1059,12 +1064,13 @@ public sealed partial class MainWindow
         _settings.Settings.ApiToken = null;
         _anlasBalance = null;
         _v5UsagePercent = null;
+        _v5UsageTimeUntilNextPercentSeconds = null;
         _isOpusSubscriber = false;
         _hasActiveSubscription = false;
         _anlasInitialFetchDone = false;
 
         if (save)
-            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null);
+            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null, null);
 
         UpdateAnlasBalanceText();
         UpdateBtnGenerateForApiKey();
@@ -1076,6 +1082,7 @@ public sealed partial class MainWindow
     {
         _anlasBalance = accountInfo.AnlasBalance;
         _v5UsagePercent = accountInfo.V5UsagePercent;
+        _v5UsageTimeUntilNextPercentSeconds = accountInfo.V5UsageTimeUntilNextPercentSeconds;
         _isOpusSubscriber = accountInfo.IsOpus;
         _hasActiveSubscription = accountInfo.HasActiveSubscription;
         _anlasInitialFetchDone = true;
@@ -1088,7 +1095,8 @@ public sealed partial class MainWindow
                 accountInfo.TierName,
                 accountInfo.TierLevel,
                 accountInfo.HasActiveSubscription,
-                accountInfo.ExpiresAt);
+                accountInfo.ExpiresAt,
+                accountInfo.V5UsageTimeUntilNextPercentSeconds);
         }
 
         UpdateAnlasBalanceText();

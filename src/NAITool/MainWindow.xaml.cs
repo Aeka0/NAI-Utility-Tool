@@ -169,6 +169,7 @@ public sealed partial class MainWindow : Window
     private bool _continuousStopRequested;
     private int? _anlasBalance;
     private int? _v5UsagePercent;
+    private int? _v5UsageTimeUntilNextPercentSeconds;
     private Flyout? _quotaSummaryFlyout;
     private TextBlock? _quotaSummaryAnlasLabel;
     private TextBlock? _quotaSummaryAnlasText;

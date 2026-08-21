@@ -30,6 +30,7 @@ public class NovelAiAccountInfo
 {
     public int? AnlasBalance { get; init; }
     public int? V5UsagePercent { get; init; }
+    public int? V5UsageTimeUntilNextPercentSeconds { get; init; }
     public string TierName { get; init; } = "";
     public bool IsOpus { get; init; }
     public bool HasActiveSubscription { get; init; }
@@ -338,6 +339,7 @@ public class NovelAIService : IDisposable
             // NovelAI Diffusion V5 uses a separate, continuously refilling Opus allowance.
             // The official client treats an unavailable/negative allowance as 0%.
             int? v5UsagePercent = null;
+            int? v5UsageTimeUntilNextPercentSeconds = null;
             if (TryGetPropertyIgnoreCase(sub, "usage", out var usageEl) &&
                 usageEl.ValueKind == JsonValueKind.Object)
             {
@@ -352,6 +354,13 @@ public class NovelAIService : IDisposable
                     negativeEl.ValueKind == JsonValueKind.True)
                 {
                     v5UsagePercent = 0;
+                }
+
+                if (TryGetPropertyIgnoreCase(usageEl, "timeUntilNextPercent", out var nextPercentTimeEl))
+                {
+                    int? parsedSeconds = ReadNullableInt(nextPercentTimeEl);
+                    if (parsedSeconds.HasValue)
+                        v5UsageTimeUntilNextPercentSeconds = Math.Max(parsedSeconds.Value, 0);
                 }
             }
 
@@ -370,12 +379,13 @@ public class NovelAIService : IDisposable
 
             bool hasActiveSubscription = tier.HasValue && tier.Value > 0 && active && !expired;
 
-            Debug.WriteLine($"[NAI] Parsed account info: tier={tier}, tierName={tierName}, active={active}, expired={expired}, isOpus={isOpus}, anlas={anlas}, v5Usage={v5UsagePercent}, expires={expiresAt}");
+            Debug.WriteLine($"[NAI] Parsed account info: tier={tier}, tierName={tierName}, active={active}, expired={expired}, isOpus={isOpus}, anlas={anlas}, v5Usage={v5UsagePercent}, v5NextPercentSeconds={v5UsageTimeUntilNextPercentSeconds}, expires={expiresAt}");
 
             return new NovelAiAccountInfo
             {
                 AnlasBalance = anlas,
                 V5UsagePercent = v5UsagePercent,
+                V5UsageTimeUntilNextPercentSeconds = v5UsageTimeUntilNextPercentSeconds,
                 TierName = tierName,
                 IsOpus = isOpus,
                 HasActiveSubscription = hasActiveSubscription,

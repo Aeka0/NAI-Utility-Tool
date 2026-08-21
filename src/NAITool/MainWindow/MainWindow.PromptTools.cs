@@ -231,6 +231,7 @@ public sealed partial class MainWindow
                     {
                         _anlasBalance = accountInfo.AnlasBalance;
                         _v5UsagePercent = accountInfo.V5UsagePercent;
+                        _v5UsageTimeUntilNextPercentSeconds = accountInfo.V5UsageTimeUntilNextPercentSeconds;
                         _isOpusSubscriber = accountInfo.IsOpus;
                         _hasActiveSubscription = accountInfo.HasActiveSubscription;
                         _anlasInitialFetchDone = true;
@@ -240,7 +241,8 @@ public sealed partial class MainWindow
                             accountInfo.TierName,
                             accountInfo.TierLevel,
                             accountInfo.HasActiveSubscription,
-                            accountInfo.ExpiresAt);
+                            accountInfo.ExpiresAt,
+                            accountInfo.V5UsageTimeUntilNextPercentSeconds);
                         UpdateAnlasBalanceText();
                     }
                 }
