@@ -376,17 +376,17 @@ public sealed partial class MainWindow
 
     private static NAIParameters CreateDefaultGenerationParameters() => new()
     {
-        Model = "nai-diffusion-4-5-full",
+        Model = NAIParameters.DefaultGenerationModel,
     };
 
     private static NAIParameters CreateDefaultInpaintParameters() => new()
     {
-        Model = "nai-diffusion-4-5-full-inpainting",
+        Model = NAIParameters.DefaultInpaintModel,
     };
 
     private static NAIParameters CreateDefaultI2IDenoiseParameters() => new()
     {
-        Model = "nai-diffusion-4-5-full",
+        Model = NAIParameters.DefaultI2IDenoiseModel,
         DenoiseStrength = 0.7,
         DenoiseNoise = 0,
     };

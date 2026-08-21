@@ -230,9 +230,9 @@ public class AppSettings
     public OnnxPerformanceSettings OnnxPerformance { get; set; } = null!;
     public PostEffectsPerformanceSettings PostEffectsPerformance { get; set; } = null!;
     public ReverseTaggerSettings ReverseTagger { get; set; } = new();
-    public NAIParameters GenParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full" };
-    public NAIParameters InpaintParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full-inpainting" };
-    public NAIParameters I2IDenoiseParameters { get; set; } = new() { Model = "nai-diffusion-4-5-full", DenoiseStrength = 0.7, DenoiseNoise = 0 };
+    public NAIParameters GenParameters { get; set; } = new() { Model = NAIParameters.DefaultGenerationModel };
+    public NAIParameters InpaintParameters { get; set; } = new() { Model = NAIParameters.DefaultInpaintModel };
+    public NAIParameters I2IDenoiseParameters { get; set; } = new() { Model = NAIParameters.DefaultI2IDenoiseModel, DenoiseStrength = 0.7, DenoiseNoise = 0 };
     public RememberedPromptState RememberedPrompts { get; set; } = new();
     public int RememberedCustomWidth { get; set; } = 832;
     public int RememberedCustomHeight { get; set; } = 1216;
@@ -265,9 +265,9 @@ public class AppSettings
         PostEffectsPerformance.Normalize();
         ReverseTagger ??= new();
         ReverseTagger.UnloadModelAfterInference = OnnxPerformance.UnloadModelAfterInference;
-        GenParameters ??= new() { Model = "nai-diffusion-4-5-full" };
-        InpaintParameters ??= new() { Model = "nai-diffusion-4-5-full-inpainting" };
-        I2IDenoiseParameters ??= new() { Model = "nai-diffusion-4-5-full", DenoiseStrength = 0.7, DenoiseNoise = 0 };
+        GenParameters ??= new() { Model = NAIParameters.DefaultGenerationModel };
+        InpaintParameters ??= new() { Model = NAIParameters.DefaultInpaintModel };
+        I2IDenoiseParameters ??= new() { Model = NAIParameters.DefaultI2IDenoiseModel, DenoiseStrength = 0.7, DenoiseNoise = 0 };
         RememberedPrompts ??= new();
         Automation ??= new();
         Automation.Normalize();
@@ -371,7 +371,11 @@ public class ReverseTaggerSettings
 
 public class NAIParameters
 {
-    public string Model { get; set; } = "nai-diffusion-4-5-curated";
+    public const string DefaultGenerationModel = "nai-diffusion-5-full";
+    public const string DefaultInpaintModel = "nai-diffusion-4-5-full-inpainting";
+    public const string DefaultI2IDenoiseModel = "nai-diffusion-4-5-full";
+
+    public string Model { get; set; } = DefaultGenerationModel;
     public string Sampler { get; set; } = "k_euler_ancestral";
     public string Schedule { get; set; } = "karras";
     public double Scale { get; set; } = 3.0;

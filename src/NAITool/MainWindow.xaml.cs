@@ -312,8 +312,8 @@ public sealed partial class MainWindow : Window
     // ═══ 模型列表 ═══
     private static readonly string[] GenerationModels =
     [
+        NAIParameters.DefaultGenerationModel,
         "nai-diffusion-5-curated",
-        "nai-diffusion-5-full",
         "nai-diffusion-4-5-full",
         "nai-diffusion-4-5-curated",
         "nai-diffusion-4-full",
