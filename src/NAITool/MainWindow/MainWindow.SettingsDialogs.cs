@@ -576,25 +576,7 @@ public sealed partial class MainWindow
             : Windows.UI.Color.FromArgb(255, 100, 100, 100));
 
         NovelAiAccountInfo? latestAccountInfo = null;
-        if (!string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
-        {
-            latestAccountInfo = await _naiService.GetAccountInfoAsync();
-            if (latestAccountInfo != null)
-            {
-                _anlasBalance = latestAccountInfo.AnlasBalance;
-                _v5UsagePercent = latestAccountInfo.V5UsagePercent;
-                _isOpusSubscriber = latestAccountInfo.IsOpus;
-                _hasActiveSubscription = latestAccountInfo.HasActiveSubscription;
-                _settings.UpdateCachedAccountInfo(
-                    latestAccountInfo.AnlasBalance,
-                    latestAccountInfo.V5UsagePercent,
-                    latestAccountInfo.TierName,
-                    latestAccountInfo.TierLevel,
-                    latestAccountInfo.HasActiveSubscription,
-                    latestAccountInfo.ExpiresAt);
-                UpdateAnlasBalanceText();
-            }
-        }
+        using var dialogLifetimeCts = new CancellationTokenSource();
 
         var cachedAccountInfo = _settings.CachedApiConfig;
         string notAvailable = L("settings.quota.account.not_available");
@@ -788,19 +770,20 @@ public sealed partial class MainWindow
         var refreshSpinTimer = DispatcherQueue.CreateTimer();
         refreshSpinTimer.Interval = TimeSpan.FromMilliseconds(16);
         refreshSpinTimer.Tick += (_, _) => refreshRotateTransform.Angle = (refreshRotateTransform.Angle + 18) % 360;
-        refreshButton.Click += async (_, _) =>
+        async Task RefreshAccountInfoAsync(bool showProgress)
         {
             if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken) ||
                 _anlasRefreshRunning ||
-                refreshButton.IsEnabled == false)
+                dialogLifetimeCts.IsCancellationRequested)
                 return;
 
             _anlasRefreshRunning = true;
             refreshButton.IsEnabled = false;
-            refreshSpinTimer.Start();
+            if (showProgress)
+                refreshSpinTimer.Start();
             try
             {
-                latestAccountInfo = await _naiService.GetAccountInfoAsync();
+                latestAccountInfo = await _naiService.GetAccountInfoAsync(dialogLifetimeCts.Token);
                 if (latestAccountInfo != null)
                 {
                     _anlasBalance = latestAccountInfo.AnlasBalance;
@@ -821,12 +804,17 @@ public sealed partial class MainWindow
             }
             finally
             {
-                refreshSpinTimer.Stop();
-                refreshRotateTransform.Angle = 0;
+                if (showProgress)
+                {
+                    refreshSpinTimer.Stop();
+                    refreshRotateTransform.Angle = 0;
+                }
                 refreshButton.IsEnabled = true;
                 _anlasRefreshRunning = false;
             }
-        };
+        }
+
+        refreshButton.Click += async (_, _) => await RefreshAccountInfoAsync(showProgress: true);
 
         var accountPanel = new StackPanel { Spacing = 10 };
         var accountHeader = new StackPanel
@@ -932,7 +920,14 @@ public sealed partial class MainWindow
             RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
         };
 
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        dialog.Closed += (_, _) => dialogLifetimeCts.Cancel();
+        var dialogResultOperation = dialog.ShowAsync();
+        Task initialAccountRefreshTask = RefreshAccountInfoAsync(showProgress: false);
+
+        ContentDialogResult dialogResult = await dialogResultOperation;
+        await initialAccountRefreshTask;
+
+        if (dialogResult == ContentDialogResult.Primary)
         {
             bool oldSizeLimitEnabled = IsAssetProtectionSizeLimitEnabled();
             bool oldStepLimitEnabled = IsAssetProtectionStepLimitEnabled();

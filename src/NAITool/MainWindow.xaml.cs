@@ -169,9 +169,20 @@ public sealed partial class MainWindow : Window
     private bool _continuousStopRequested;
     private int? _anlasBalance;
     private int? _v5UsagePercent;
+    private Flyout? _quotaSummaryFlyout;
+    private TextBlock? _quotaSummaryAnlasLabel;
+    private TextBlock? _quotaSummaryAnlasText;
+    private ProgressBar? _quotaSummaryAnlasProgress;
+    private TextBlock? _quotaSummaryAnlasEstimateText;
+    private TextBlock? _quotaSummaryV5UsageLabel;
+    private TextBlock? _quotaSummaryV5UsageText;
+    private ProgressBar? _quotaSummaryV5UsageProgress;
+    private TextBlock? _quotaSummaryV5UsageEstimateText;
+    private TextBlock? _quotaSummaryV5UsageRecoveryText;
     private bool _isOpusSubscriber;
     private bool _hasActiveSubscription;
     private bool _anlasRefreshRunning;
+    private bool _anlasRefreshPending;
     private bool _anlasInitialFetchDone;
     private bool _isWildcardDialogOpen;
 

@@ -849,7 +849,7 @@
                                             Padding="6,2"
                                             MinWidth="0"
                                             MinHeight="0"
-                                            Click="OnQuotaSettings">
+                                            Click="OnQuotaSummaryFlyout">
                                         <StackPanel Orientation="Horizontal" Spacing="4">
                                             <TextBlock x:Name="TxtAnlasBalance"
                                                        Text="--"

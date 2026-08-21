@@ -381,6 +381,7 @@ public sealed partial class MainWindow
 
         UpdateI2IRedoButtonWarning();
         UpdateGenEnhanceButtonWarning();
+        UpdateQuotaSummaryFlyoutContent();
     }
 
     private void UpdateI2IRedoButtonWarning()
