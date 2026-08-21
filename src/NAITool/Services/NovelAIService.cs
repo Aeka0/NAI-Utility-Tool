@@ -29,6 +29,7 @@ public class CharacterPromptInfo
 public class NovelAiAccountInfo
 {
     public int? AnlasBalance { get; init; }
+    public int? V5UsagePercent { get; init; }
     public string TierName { get; init; } = "";
     public bool IsOpus { get; init; }
     public bool HasActiveSubscription { get; init; }
@@ -334,6 +335,26 @@ public class NovelAIService : IDisposable
                 Debug.WriteLine("[NAI] trainingStepsLeft field was not found in subscription");
             }
 
+            // NovelAI Diffusion V5 uses a separate, continuously refilling Opus allowance.
+            // The official client treats an unavailable/negative allowance as 0%.
+            int? v5UsagePercent = null;
+            if (TryGetPropertyIgnoreCase(sub, "usage", out var usageEl) &&
+                usageEl.ValueKind == JsonValueKind.Object)
+            {
+                if (TryGetPropertyIgnoreCase(usageEl, "percent", out var percentEl))
+                {
+                    int? parsedPercent = ReadNullableInt(percentEl);
+                    if (parsedPercent.HasValue)
+                        v5UsagePercent = Math.Clamp(parsedPercent.Value, 0, 100);
+                }
+
+                if (TryGetPropertyIgnoreCase(usageEl, "isNegative", out var negativeEl) &&
+                    negativeEl.ValueKind == JsonValueKind.True)
+                {
+                    v5UsagePercent = 0;
+                }
+            }
+
             string? expiresAt = null;
             bool expired = false;
             if (TryGetPropertyIgnoreCase(sub, "expiresAt", out var expiresEl) && expiresEl.ValueKind == JsonValueKind.Number)
@@ -349,11 +370,12 @@ public class NovelAIService : IDisposable
 
             bool hasActiveSubscription = tier.HasValue && tier.Value > 0 && active && !expired;
 
-            Debug.WriteLine($"[NAI] Parsed account info: tier={tier}, tierName={tierName}, active={active}, expired={expired}, isOpus={isOpus}, anlas={anlas}, expires={expiresAt}");
+            Debug.WriteLine($"[NAI] Parsed account info: tier={tier}, tierName={tierName}, active={active}, expired={expired}, isOpus={isOpus}, anlas={anlas}, v5Usage={v5UsagePercent}, expires={expiresAt}");
 
             return new NovelAiAccountInfo
             {
                 AnlasBalance = anlas,
+                V5UsagePercent = v5UsagePercent,
                 TierName = tierName,
                 IsOpus = isOpus,
                 HasActiveSubscription = hasActiveSubscription,

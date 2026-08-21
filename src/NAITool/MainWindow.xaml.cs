@@ -168,6 +168,7 @@ public sealed partial class MainWindow : Window
     private int _continuousGenRemaining;
     private bool _continuousStopRequested;
     private int? _anlasBalance;
+    private int? _v5UsagePercent;
     private bool _isOpusSubscriber;
     private bool _hasActiveSubscription;
     private bool _anlasRefreshRunning;

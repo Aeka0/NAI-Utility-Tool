@@ -230,11 +230,13 @@ public sealed partial class MainWindow
                     if (accountInfo != null)
                     {
                         _anlasBalance = accountInfo.AnlasBalance;
+                        _v5UsagePercent = accountInfo.V5UsagePercent;
                         _isOpusSubscriber = accountInfo.IsOpus;
                         _hasActiveSubscription = accountInfo.HasActiveSubscription;
                         _anlasInitialFetchDone = true;
                         _settings.UpdateCachedAccountInfo(
                             accountInfo.AnlasBalance,
+                            accountInfo.V5UsagePercent,
                             accountInfo.TierName,
                             accountInfo.TierLevel,
                             accountInfo.HasActiveSubscription,

@@ -830,10 +830,17 @@
 
                             <StackPanel x:Name="ModelHeaderPanel" Grid.Row="0" Spacing="4">
                                 <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
                                     <TextBlock x:Name="TxtModelLabel" Text=""
+                                               Grid.Column="0"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                               VerticalAlignment="Center"/>
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
                                     <Button x:Name="AnlasBalanceButton"
+                                            Grid.Column="1"
                                             Style="{StaticResource SubtleButtonStyle}"
                                             Visibility="Collapsed"
                                             HorizontalAlignment="Right"
@@ -843,9 +850,24 @@
                                             MinWidth="0"
                                             MinHeight="0"
                                             Click="OnQuotaSettings">
-                                        <TextBlock x:Name="TxtAnlasBalance"
-                                                   Text="Anlas: --"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock x:Name="TxtAnlasBalance"
+                                                       Text="--"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <FontIcon Glyph="&#xF159;"
+                                                      FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                      FontSize="12"
+                                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock x:Name="TxtV5UsagePercent"
+                                                       Text="--%"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <FontIcon Glyph="&#xF156;"
+                                                      FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                      FontSize="12"
+                                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
                                     </Button>
                                 </Grid>
                                 <ComboBox x:Name="CboModel"

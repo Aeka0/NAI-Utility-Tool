@@ -162,12 +162,13 @@ public sealed partial class MainWindow
 
     private async Task RefreshAnlasInfoAsync(bool forceRefresh = false)
     {
-        if (TxtAnlasBalance == null)
+        if (TxtAnlasBalance == null || TxtV5UsagePercent == null)
             return;
 
         if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
         {
             _anlasBalance = null;
+            _v5UsagePercent = null;
             _isOpusSubscriber = false;
             _hasActiveSubscription = false;
             _anlasInitialFetchDone = false;
@@ -195,11 +196,13 @@ public sealed partial class MainWindow
             if (accountInfo != null)
             {
                 _anlasBalance = accountInfo.AnlasBalance;
+                _v5UsagePercent = accountInfo.V5UsagePercent;
                 _isOpusSubscriber = accountInfo.IsOpus;
                 _hasActiveSubscription = accountInfo.HasActiveSubscription;
                 _anlasInitialFetchDone = true;
                 _settings.UpdateCachedAccountInfo(
                     accountInfo.AnlasBalance,
+                    accountInfo.V5UsagePercent,
                     accountInfo.TierName,
                     accountInfo.TierLevel,
                     accountInfo.HasActiveSubscription,
@@ -221,6 +224,8 @@ public sealed partial class MainWindow
         var cached = _settings.CachedApiConfig;
         if (cached.CachedAnlas.HasValue)
             _anlasBalance = cached.CachedAnlas;
+        if (cached.CachedV5UsagePercent.HasValue)
+            _v5UsagePercent = Math.Clamp(cached.CachedV5UsagePercent.Value, 0, 100);
         if (cached.SubscriptionTierLevel.HasValue)
             _isOpusSubscriber = cached.SubscriptionTierLevel.Value >= 3;
         if (cached.SubscriptionActive.HasValue)
@@ -229,7 +234,7 @@ public sealed partial class MainWindow
 
     private void UpdateAnlasBalanceText()
     {
-        if (TxtAnlasBalance == null || AnlasBalanceButton == null)
+        if (TxtAnlasBalance == null || TxtV5UsagePercent == null || AnlasBalanceButton == null)
             return;
 
         bool visible = IsPromptMode(_currentMode) &&
@@ -238,9 +243,13 @@ public sealed partial class MainWindow
         if (!visible)
             return;
 
-        TxtAnlasBalance.Text = _anlasBalance.HasValue
-            ? $"Anlas: {_anlasBalance.Value:N0}"
-            : "Anlas: --";
+        TxtAnlasBalance.Text = _anlasBalance?.ToString("N0") ?? "--";
+        TxtV5UsagePercent.Text = _v5UsagePercent.HasValue
+            ? $"{Math.Clamp(_v5UsagePercent.Value, 0, 100)}%"
+            : "--%";
         ToolTipService.SetToolTip(AnlasBalanceButton, L("menu.settings.quota"));
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
+            AnlasBalanceButton,
+            L("menu.settings.quota"));
     }
 }

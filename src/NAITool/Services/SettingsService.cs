@@ -160,9 +160,16 @@ public class SettingsService
     }
 
     /// <summary>更新缓存的账户信息并写入 apiconfig.json</summary>
-    public void UpdateCachedAccountInfo(int? anlas, string? tier, int? tierLevel, bool? active, string? expiresAt)
+    public void UpdateCachedAccountInfo(
+        int? anlas,
+        int? v5UsagePercent,
+        string? tier,
+        int? tierLevel,
+        bool? active,
+        string? expiresAt)
     {
         CachedApiConfig.CachedAnlas = anlas;
+        CachedApiConfig.CachedV5UsagePercent = v5UsagePercent;
         CachedApiConfig.SubscriptionTier = tier;
         CachedApiConfig.SubscriptionTierLevel = tierLevel;
         CachedApiConfig.SubscriptionActive = active;
@@ -178,6 +185,7 @@ public class ApiConfig
     public string? ApiToken { get; set; }
     public string? EncryptedApiToken { get; set; }
     public int? CachedAnlas { get; set; }
+    public int? CachedV5UsagePercent { get; set; }
     public string? SubscriptionTier { get; set; }
     public int? SubscriptionTierLevel { get; set; }
     public bool? SubscriptionActive { get; set; }
