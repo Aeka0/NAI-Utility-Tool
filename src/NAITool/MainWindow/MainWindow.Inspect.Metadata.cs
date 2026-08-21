@@ -501,7 +501,12 @@ public sealed partial class MainWindow
         }
         if (meta.Seed > 0 && meta.Seed <= int.MaxValue) p.Seed = (int)meta.Seed;
         if (meta.Scale > 0) p.Scale = meta.Scale;
-        if (!meta.IsSdFormat) p.CfgRescale = meta.CfgRescale;
+        if (!meta.IsSdFormat)
+        {
+            p.CfgRescale = meta.CfgRescale;
+            if (meta.TagHintTransparentBackground.HasValue) p.TagHintTransparentBackground = meta.TagHintTransparentBackground.Value;
+            if (meta.StraightAlpha.HasValue) p.StraightAlpha = meta.StraightAlpha.Value;
+        }
         if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = NormalizeSamplerForModel(meta.Sampler, p.Model);
         if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = NormalizeScheduleForModel(meta.NoiseSchedule, p.Model, p.Schedule);
         if (!meta.IsSdFormat) p.Variety = meta.SmDyn || meta.Sm;

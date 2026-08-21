@@ -145,6 +145,8 @@ public sealed partial class MainWindow : Window
     private CheckBox _advChkSmea = null!;
     private ComboBox _advCboQuality = null!;
     private ComboBox _advCboUcPreset = null!;
+    private CheckBox _advChkTransparentBackground = null!;
+    private CheckBox _advChkStraightAlpha = null!;
     private NumberBox _advNbMaxWidth = null!;
     private NumberBox _advNbMaxHeight = null!;
     private Grid _advMaxSizePanel = null!;
@@ -309,6 +311,8 @@ public sealed partial class MainWindow : Window
     // ═══ 模型列表 ═══
     private static readonly string[] GenerationModels =
     [
+        "nai-diffusion-5-curated",
+        "nai-diffusion-5-full",
         "nai-diffusion-4-5-full",
         "nai-diffusion-4-5-curated",
         "nai-diffusion-4-full",
@@ -318,6 +322,7 @@ public sealed partial class MainWindow : Window
     ];
     private static readonly string[] I2IModels =
     [
+        "nai-diffusion-5-full-inpainting",
         "nai-diffusion-4-5-full-inpainting",
         "nai-diffusion-4-5-curated-inpainting",
         "nai-diffusion-4-full-inpainting",

@@ -370,10 +370,23 @@ public class NovelAIService : IDisposable
     }
 
     internal static bool IsV4PlusModel(string model) =>
-        model.Contains("-4", StringComparison.Ordinal);
+        model.Contains("-4", StringComparison.Ordinal) ||
+        model.Contains("-5", StringComparison.Ordinal);
 
     private static bool IsV45Model(string model) =>
         model.Contains("4-5", StringComparison.Ordinal);
+
+    internal static bool IsV5Model(string model)
+    {
+        string normalizedModel = NormalizeModelKey(model);
+        return normalizedModel is "nai-diffusion-5" or "nai-diffusion-5-full" or "nai-diffusion-5-curated";
+    }
+
+    private static bool SupportsVibeTransferModel(string model) =>
+        !IsV5Model(model);
+
+    private static bool SupportsPreciseReferenceModel(string model) =>
+        IsV45Model(model);
 
     private static string NormalizeModelKey(string model) =>
         model.EndsWith("-inpainting", StringComparison.Ordinal)
@@ -801,6 +814,12 @@ public class NovelAIService : IDisposable
             ["qualityToggle"] = naiParams.QualityToggle,
             ["quality_toggle"] = naiParams.QualityToggle,
         };
+        if (IsV5Model(naiParams.Model))
+        {
+            parameters["tag_hint_transparent_background"] = naiParams.TagHintTransparentBackground;
+            parameters["straight_alpha"] = naiParams.StraightAlpha;
+            parameters["image_format"] = "png";
+        }
 
         if (naiParams.Variety) parameters["variety"] = true;
         if (_settings.Settings.StreamGeneration) parameters["stream"] = "sse";
@@ -866,9 +885,9 @@ public class NovelAIService : IDisposable
             parameters["sm_dyn"] = false;
         }
 
-        if (preciseReferences is { Count: > 0 })
+        if (preciseReferences is { Count: > 0 } && SupportsPreciseReferenceModel(naiParams.Model))
             ApplyPreciseReferenceParameters(parameters, preciseReferences);
-        else if (vibeTransfers is { Count: > 0 })
+        else if (vibeTransfers is { Count: > 0 } && SupportsVibeTransferModel(naiParams.Model))
         {
             if (IsV4PlusModel(naiParams.Model))
                 await EncodeUnencodedVibesAsync(vibeTransfers, naiParams.Model, ct);
@@ -998,6 +1017,12 @@ public class NovelAIService : IDisposable
             ["qualityToggle"] = naiParams.QualityToggle,
             ["quality_toggle"] = naiParams.QualityToggle,
         };
+        if (IsV5Model(naiParams.Model))
+        {
+            parameters["tag_hint_transparent_background"] = naiParams.TagHintTransparentBackground;
+            parameters["straight_alpha"] = naiParams.StraightAlpha;
+            parameters["image_format"] = "png";
+        }
 
         if (naiParams.Variety) parameters["variety"] = true;
         if (_settings.Settings.StreamGeneration) parameters["stream"] = "sse";
@@ -1063,9 +1088,9 @@ public class NovelAIService : IDisposable
             parameters["sm_dyn"] = false;
         }
 
-        if (preciseReferences is { Count: > 0 })
+        if (preciseReferences is { Count: > 0 } && SupportsPreciseReferenceModel(naiParams.Model))
             ApplyPreciseReferenceParameters(parameters, preciseReferences);
-        else if (vibeTransfers is { Count: > 0 })
+        else if (vibeTransfers is { Count: > 0 } && SupportsVibeTransferModel(naiParams.Model))
         {
             if (IsV4PlusModel(naiParams.Model))
                 await EncodeUnencodedVibesAsync(vibeTransfers, naiParams.Model, ct);
@@ -1192,6 +1217,12 @@ public class NovelAIService : IDisposable
             ["qualityToggle"] = naiParams.QualityToggle,
             ["quality_toggle"] = naiParams.QualityToggle,
         };
+        if (IsV5Model(model))
+        {
+            parameters["tag_hint_transparent_background"] = naiParams.TagHintTransparentBackground;
+            parameters["straight_alpha"] = naiParams.StraightAlpha;
+            parameters["image_format"] = "png";
+        }
 
         if (naiParams.Variety) parameters["variety"] = true;
         if (_settings.Settings.StreamGeneration) parameters["stream"] = "sse";
@@ -1257,9 +1288,9 @@ public class NovelAIService : IDisposable
             parameters["sm_dyn"] = false;
         }
 
-        if (preciseReferences is { Count: > 0 })
+        if (preciseReferences is { Count: > 0 } && SupportsPreciseReferenceModel(model))
             ApplyPreciseReferenceParameters(parameters, preciseReferences);
-        else if (vibeTransfers is { Count: > 0 })
+        else if (vibeTransfers is { Count: > 0 } && SupportsVibeTransferModel(model))
         {
             if (IsV4PlusModel(model))
                 await EncodeUnencodedVibesAsync(vibeTransfers, model, ct);

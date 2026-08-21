@@ -371,6 +371,8 @@ public class NAIParameters
     public bool Sm { get; set; }
     public bool Variety { get; set; } = false;
     public bool QualityToggle { get; set; } = true;
+    public bool TagHintTransparentBackground { get; set; } = true;
+    public bool StraightAlpha { get; set; } = false;
     public int Steps { get; set; } = 28;
     public int Seed { get; set; } = 0;
     public int UcPreset { get; set; } = 0;

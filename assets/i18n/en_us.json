@@ -744,6 +744,8 @@
   "dialog.advanced.uc_preset.light": "Light",
   "dialog.advanced.uc_preset.none": "None",
   "dialog.advanced.variety": "Variety+",
+  "dialog.advanced.transparent_background": "Allow transparent background",
+  "dialog.advanced.straight_alpha": "Straight alpha mask",
   "dialog.vibe_encode.cache_hint": "Hint: Encoded results are cached by image SHA256 + IE value, so identical inputs won't be requested again.",
   "dialog.vibe_encode.cache_hit": "Cache hit. An encoding for this image at IE={0:0.00} already exists.\nSaved at: {1}",
   "dialog.vibe_encode.encoding": "Encoding, please wait... (costs 2 Anlas)",

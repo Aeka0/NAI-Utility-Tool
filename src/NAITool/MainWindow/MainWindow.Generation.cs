@@ -610,6 +610,8 @@ public sealed partial class MainWindow
         Schedule = source.Schedule,
         Scale = source.Scale,
         CfgRescale = source.CfgRescale,
+        TagHintTransparentBackground = source.TagHintTransparentBackground,
+        StraightAlpha = source.StraightAlpha,
         Sm = source.Sm,
         Variety = source.Variety,
         QualityToggle = source.QualityToggle,
@@ -1025,6 +1027,8 @@ public sealed partial class MainWindow
         if (!skipSeed && meta.Seed > 0 && meta.Seed <= int.MaxValue) p.Seed = (int)meta.Seed;
         if (meta.Scale > 0) p.Scale = meta.Scale;
         p.CfgRescale = meta.CfgRescale;
+        if (meta.TagHintTransparentBackground.HasValue) p.TagHintTransparentBackground = meta.TagHintTransparentBackground.Value;
+        if (meta.StraightAlpha.HasValue) p.StraightAlpha = meta.StraightAlpha.Value;
         if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = meta.Sampler;
         if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = meta.NoiseSchedule;
         p.Variety = meta.SmDyn || meta.Sm;

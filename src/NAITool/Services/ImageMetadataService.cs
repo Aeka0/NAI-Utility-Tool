@@ -34,6 +34,8 @@ public class ImageMetadata
     public Dictionary<string, string> TextChunks { get; set; } = new(StringComparer.Ordinal);
     public bool? QualityToggle { get; set; }
     public int? UcPreset { get; set; }
+    public bool? TagHintTransparentBackground { get; set; }
+    public bool? StraightAlpha { get; set; }
     public string RawJson { get; set; } = "";
     public bool IsNaiParsed { get; set; }
     public bool IsSdFormat { get; set; }
@@ -644,6 +646,10 @@ public static class ImageMetadataService
                 meta.QualityToggle = qt.GetBoolean();
             if (root.TryGetProperty("ucPreset", out var ucPreset))
                 meta.UcPreset = ucPreset.GetInt32();
+            if (root.TryGetProperty("tag_hint_transparent_background", out var transparent))
+                meta.TagHintTransparentBackground = transparent.GetBoolean();
+            if (root.TryGetProperty("straight_alpha", out var straightAlpha))
+                meta.StraightAlpha = straightAlpha.GetBoolean();
 
             if (root.TryGetProperty("v4_prompt", out var v4p) &&
                 v4p.TryGetProperty("caption", out var v4Caption) &&

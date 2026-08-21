@@ -90,6 +90,8 @@ The current project version is `1.1.0`. The project is still evolving quickly, a
 
 Generation models:
 
+- `nai-diffusion-5-curated`
+- `nai-diffusion-5-full`
 - `nai-diffusion-4-5-full`
 - `nai-diffusion-4-5-curated`
 - `nai-diffusion-4-full`
@@ -99,12 +101,16 @@ Generation models:
 
 Inpainting models:
 
+- `nai-diffusion-5-full-inpainting`
 - `nai-diffusion-4-5-full-inpainting`
 - `nai-diffusion-4-5-curated-inpainting`
 - `nai-diffusion-4-full-inpainting`
 - `nai-diffusion-4-curated-inpainting`
 - `nai-diffusion-3-inpainting`
 - `nai-diffusion-furry-3-inpainting`
+
+`nai-diffusion-5-curated-inpainting` is intentionally not listed because the
+model is not currently available for generation.
 
 Samplers:
 

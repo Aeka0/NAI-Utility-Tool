@@ -151,6 +151,18 @@ public sealed partial class MainWindow
             Visibility = (_currentMode == AppMode.ImageGeneration && IsCurrentModelV3())
                 ? Visibility.Visible : Visibility.Collapsed,
         };
+        _advChkTransparentBackground = new CheckBox
+        {
+            Content = L("dialog.advanced.transparent_background"), IsChecked = p.TagHintTransparentBackground,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Visibility = IsV5ModelKey(p.Model) ? Visibility.Visible : Visibility.Collapsed,
+        };
+        _advChkStraightAlpha = new CheckBox
+        {
+            Content = L("dialog.advanced.straight_alpha"), IsChecked = p.StraightAlpha,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Visibility = IsV5ModelKey(p.Model) ? Visibility.Visible : Visibility.Collapsed,
+        };
         _advNbSeed.ValueChanged += (_, _) =>
         {
             if (_isSyncingSidebarAdv) return;
@@ -288,7 +300,10 @@ public sealed partial class MainWindow
 
         Grid.SetRow(_advChkVariety, 5); Grid.SetColumn(_advChkVariety, 0);
         Grid.SetRow(_advChkSmea, 5); Grid.SetColumn(_advChkSmea, 1);
+        Grid.SetRow(_advChkTransparentBackground, 6); Grid.SetColumn(_advChkTransparentBackground, 0);
+        Grid.SetRow(_advChkStraightAlpha, 6); Grid.SetColumn(_advChkStraightAlpha, 1);
 
+        paramsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         paramsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         paramsGrid.Children.Add(sizeStack);
         paramsGrid.Children.Add(_advNbSteps);
@@ -301,6 +316,8 @@ public sealed partial class MainWindow
         paramsGrid.Children.Add(rescaleStack);
         paramsGrid.Children.Add(_advChkVariety);
         paramsGrid.Children.Add(_advChkSmea);
+        paramsGrid.Children.Add(_advChkTransparentBackground);
+        paramsGrid.Children.Add(_advChkStraightAlpha);
 
         var rootPanel = new StackPanel
         {
@@ -384,6 +401,8 @@ public sealed partial class MainWindow
         p.Sm = _currentMode == AppMode.ImageGeneration && _advChkSmea.IsChecked == true;
         p.QualityToggle = _advCboQuality.SelectedIndex == 0;
         p.UcPreset = _advCboUcPreset.SelectedIndex >= 0 ? _advCboUcPreset.SelectedIndex : 0;
+        p.TagHintTransparentBackground = _advChkTransparentBackground.IsChecked == true;
+        p.StraightAlpha = _advChkStraightAlpha.IsChecked == true;
 
         NbSeed.Value = p.Seed;
         ChkVariety.IsChecked = p.Variety;

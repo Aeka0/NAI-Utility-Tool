@@ -74,10 +74,19 @@ public sealed partial class MainWindow
     }
 
     private static bool IsV4PlusModelKey(string model) =>
-        model.Contains("-4", StringComparison.Ordinal);
+        model.Contains("-4", StringComparison.Ordinal) ||
+        model.Contains("-5", StringComparison.Ordinal);
 
     private static bool IsV45ModelKey(string model) =>
         model.Contains("4-5", StringComparison.Ordinal);
+
+    private static bool IsV5ModelKey(string model)
+    {
+        string normalizedModel = model.EndsWith("-inpainting", StringComparison.Ordinal)
+            ? model[..^"-inpainting".Length]
+            : model;
+        return normalizedModel is "nai-diffusion-5" or "nai-diffusion-5-full" or "nai-diffusion-5-curated";
+    }
 
     private bool SupportsCharacterFeature()
     {
@@ -92,6 +101,7 @@ public sealed partial class MainWindow
     {
         if (!IsPromptMode(_currentMode)) return false;
         if (IsCurrentI2IRequestMode()) return false;
+        if (IsV5ModelKey(GetCurrentModelKey())) return false;
         return true;
     }
 
@@ -99,6 +109,7 @@ public sealed partial class MainWindow
     {
         if (!IsPromptMode(mode)) return false;
         if (mode == AppMode.I2I) return false;
+        if (IsV5ModelKey(GetCurrentModelKey())) return false;
         return true;
     }
 

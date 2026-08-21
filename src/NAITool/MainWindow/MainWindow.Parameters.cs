@@ -346,6 +346,10 @@ public sealed partial class MainWindow
             if (_advChkSmea != null)
                 _advChkSmea.Visibility = (_currentMode == AppMode.ImageGeneration && isV3)
                     ? Visibility.Visible : Visibility.Collapsed;
+            if (_advChkTransparentBackground != null)
+                _advChkTransparentBackground.Visibility = IsV5ModelKey(GetCurrentModelKey()) ? Visibility.Visible : Visibility.Collapsed;
+            if (_advChkStraightAlpha != null)
+                _advChkStraightAlpha.Visibility = IsV5ModelKey(GetCurrentModelKey()) ? Visibility.Visible : Visibility.Collapsed;
             RefreshAdvancedSamplerOptions();
         }
 
