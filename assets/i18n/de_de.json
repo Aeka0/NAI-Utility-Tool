@@ -470,6 +470,7 @@
   "settings.quota.disable_paid_features_hint": "Deaktivieren Sie die Vibe-Übertragung, die eine Kodierung, eine kodierte Vibe-Übertragung mit 5 oder mehr Bildern und eine genaue Referenz erfordert.",
   "settings.quota.account.title": "Kontoinformationen",
   "settings.quota.account.current_anlas": "Aktuell Anlas",
+  "settings.quota.account.v5_usage": "V5-Nutzung",
   "settings.quota.account.subscription_tier": "Abonnementstufe",
   "settings.quota.account.expires_at": "Läuft ab um",
   "settings.quota.account.inactive": "Inaktiv",

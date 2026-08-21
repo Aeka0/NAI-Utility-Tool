@@ -470,6 +470,7 @@
   "settings.quota.disable_paid_features_hint": "Disable vibe transfer that requires encoding, encoded vibe transfer with 5 or more images, and precise reference.",
   "settings.quota.account.title": "Account Info",
   "settings.quota.account.current_anlas": "Current Anlas",
+  "settings.quota.account.v5_usage": "V5 Usage",
   "settings.quota.account.subscription_tier": "Subscription Tier",
   "settings.quota.account.expires_at": "Expires At",
   "settings.quota.account.inactive": "Inactive",

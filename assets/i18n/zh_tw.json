@@ -470,6 +470,7 @@
     "settings.quota.disable_paid_features_hint":  "禁用需要編碼的氛圍遷移、5張及以上已預編碼氛圍遷移，以及精確參考。",
     "settings.quota.account.title":  "帳戶資訊",
     "settings.quota.account.current_anlas":  "目前 Anlas",
+    "settings.quota.account.v5_usage":  "V5 模型額度",
     "settings.quota.account.subscription_tier":  "訂閱等級",
     "settings.quota.account.expires_at":  "到期時間",
     "settings.quota.account.inactive":  "未啟用",

@@ -470,6 +470,7 @@
   "settings.quota.disable_paid_features_hint": "Desactiva la transferencia de vibración que requiere codificación, transferencia de vibración codificada con 5 o más imágenes y referencia precisa.",
   "settings.quota.account.title": "Información de la cuenta",
   "settings.quota.account.current_anlas": "Actual Anlas",
+  "settings.quota.account.v5_usage": "Uso de V5",
   "settings.quota.account.subscription_tier": "Nivel de suscripción",
   "settings.quota.account.expires_at": "Vence a las",
   "settings.quota.account.inactive": "Inactivo",

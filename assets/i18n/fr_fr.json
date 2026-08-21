@@ -470,6 +470,7 @@
   "settings.quota.disable_paid_features_hint": "Désactivez le transfert d'ambiance qui nécessite un encodage, un transfert d'ambiance codé avec 5 images ou plus et une référence précise.",
   "settings.quota.account.title": "Informations sur le compte",
   "settings.quota.account.current_anlas": "Actuel Anlas",
+  "settings.quota.account.v5_usage": "Utilisation V5",
   "settings.quota.account.subscription_tier": "Niveau d'abonnement",
   "settings.quota.account.expires_at": "Expire à",
   "settings.quota.account.inactive": "Inactif",

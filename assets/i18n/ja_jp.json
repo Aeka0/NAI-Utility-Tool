@@ -470,6 +470,7 @@
     "settings.quota.disable_paid_features_hint":  "エンコードが必要な Vibe 転送、5 件以上のエンコード済み Vibe 転送、精密参照を無効化します。",
     "settings.quota.account.title":  "アカウント情報",
     "settings.quota.account.current_anlas":  "現在の Anlas",
+    "settings.quota.account.v5_usage":  "V5 利用可能枠",
     "settings.quota.account.subscription_tier":  "サブスクリプション階層",
     "settings.quota.account.expires_at":  "有効期限",
     "settings.quota.account.inactive":  "無効",

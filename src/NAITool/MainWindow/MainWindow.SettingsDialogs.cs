@@ -639,12 +639,16 @@ public sealed partial class MainWindow
                 : value;
         }
 
-        StackPanel BuildRightInfoBlock(string label, string value, out TextBlock valueBlock)
+        StackPanel BuildAccountInfoBlock(
+            string label,
+            string value,
+            bool isPrimary,
+            out TextBlock valueBlock)
         {
             var block = new StackPanel
             {
                 Spacing = 2,
-                HorizontalAlignment = HorizontalAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
             };
 
             block.Children.Add(new TextBlock
@@ -652,17 +656,15 @@ public sealed partial class MainWindow
                 Text = label,
                 Foreground = accountLabelBrush,
                 FontSize = 12,
-                HorizontalAlignment = HorizontalAlignment.Right,
+                TextWrapping = TextWrapping.WrapWholeWords,
             });
             valueBlock = new TextBlock
             {
                 Text = value,
-                FontSize = 15,
+                FontSize = isPrimary ? 36 : 15,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                TextAlignment = TextAlignment.Right,
-                HorizontalAlignment = HorizontalAlignment.Right,
+                LineHeight = isPrimary ? 40 : 20,
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                MaxWidth = 220,
             };
             block.Children.Add(valueBlock);
             return block;
@@ -678,48 +680,73 @@ public sealed partial class MainWindow
                 : notAvailable;
         }
 
+        string ResolveV5UsageLabel()
+        {
+            int? usagePercent = latestAccountInfo?.V5UsagePercent ??
+                                _v5UsagePercent ??
+                                cachedAccountInfo.CachedV5UsagePercent;
+            return usagePercent.HasValue
+                ? $"{Math.Clamp(usagePercent.Value, 0, 100)}%"
+                : notAvailable;
+        }
+
         string accountAnlasText = ResolveAnlasLabel();
+        string accountV5UsageText = ResolveV5UsageLabel();
         string accountTierText = ResolveTierLabel();
         string accountExpiryText = ResolveExpiryLabel();
 
-        var accountGrid = new Grid { ColumnSpacing = 20 };
-        accountGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        accountGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var primaryInfoGrid = new Grid { ColumnSpacing = 24 };
+        primaryInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        primaryInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        var anlasPanel = new StackPanel
-        {
-            Spacing = 1,
-            VerticalAlignment = VerticalAlignment.Bottom,
-        };
-        anlasPanel.Children.Add(new TextBlock
-        {
-            Text = L("settings.quota.account.current_anlas"),
-            Foreground = accountLabelBrush,
-            FontSize = 12,
-        });
-        var accountAnlasTextBlock = new TextBlock
-        {
-            Text = accountAnlasText,
-            FontSize = 46,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            LineHeight = 50,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-        };
-        anlasPanel.Children.Add(accountAnlasTextBlock);
+        var anlasPanel = BuildAccountInfoBlock(
+            L("settings.quota.account.current_anlas"),
+            accountAnlasText,
+            isPrimary: true,
+            out var accountAnlasTextBlock);
         Grid.SetColumn(anlasPanel, 0);
+        primaryInfoGrid.Children.Add(anlasPanel);
 
-        var rightInfoPanel = new StackPanel
+        var v5UsagePanel = BuildAccountInfoBlock(
+            L("settings.quota.account.v5_usage"),
+            accountV5UsageText,
+            isPrimary: true,
+            out var accountV5UsageTextBlock);
+        Grid.SetColumn(v5UsagePanel, 1);
+        primaryInfoGrid.Children.Add(v5UsagePanel);
+
+        var secondaryInfoGrid = new Grid { ColumnSpacing = 24 };
+        secondaryInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        secondaryInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var tierPanel = BuildAccountInfoBlock(
+            L("settings.quota.account.subscription_tier"),
+            accountTierText,
+            isPrimary: false,
+            out var accountTierTextBlock);
+        Grid.SetColumn(tierPanel, 0);
+        secondaryInfoGrid.Children.Add(tierPanel);
+
+        var expiryPanel = BuildAccountInfoBlock(
+            L("settings.quota.account.expires_at"),
+            accountExpiryText,
+            isPrimary: false,
+            out var accountExpiryTextBlock);
+        Grid.SetColumn(expiryPanel, 1);
+        secondaryInfoGrid.Children.Add(expiryPanel);
+
+        var secondaryInfoBorder = new Border
         {
-            Spacing = 10,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
+            BorderBrush = cardBorderBrush,
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(0, 10, 0, 0),
+            Child = secondaryInfoGrid,
         };
-        rightInfoPanel.Children.Add(BuildRightInfoBlock(L("settings.quota.account.subscription_tier"), accountTierText, out var accountTierTextBlock));
-        rightInfoPanel.Children.Add(BuildRightInfoBlock(L("settings.quota.account.expires_at"), accountExpiryText, out var accountExpiryTextBlock));
 
         void RefreshAccountTextBlocks()
         {
             accountAnlasTextBlock.Text = ResolveAnlasLabel();
+            accountV5UsageTextBlock.Text = ResolveV5UsageLabel();
             accountTierTextBlock.Text = ResolveTierLabel();
             accountExpiryTextBlock.Text = ResolveExpiryLabel();
         }
@@ -801,11 +828,6 @@ public sealed partial class MainWindow
             }
         };
 
-        Grid.SetColumn(rightInfoPanel, 1);
-
-        accountGrid.Children.Add(anlasPanel);
-        accountGrid.Children.Add(rightInfoPanel);
-
         var accountPanel = new StackPanel { Spacing = 10 };
         var accountHeader = new StackPanel
         {
@@ -815,7 +837,8 @@ public sealed partial class MainWindow
         accountHeader.Children.Add(CreateThemedCaption(L("settings.quota.account.title")));
         accountHeader.Children.Add(refreshButton);
         accountPanel.Children.Add(accountHeader);
-        accountPanel.Children.Add(accountGrid);
+        accountPanel.Children.Add(primaryInfoGrid);
+        accountPanel.Children.Add(secondaryInfoBorder);
 
         var accountCard = new Border
         {

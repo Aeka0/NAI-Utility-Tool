@@ -470,6 +470,7 @@
   "settings.quota.disable_paid_features_hint": "Vibe translationem quae encoding requirit, Vibe translationem encoded cum 5 vel pluribus imaginibus, et relationem precisam inhibere.",
   "settings.quota.account.title": "Info rationis",
   "settings.quota.account.current_anlas": "Anlas praesens",
+  "settings.quota.account.v5_usage": "Usus V5",
   "settings.quota.account.subscription_tier": "Gradus subscriptionis",
   "settings.quota.account.expires_at": "Exspirat die",
   "settings.quota.account.inactive": "Inactiva",

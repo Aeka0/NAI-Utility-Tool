@@ -470,6 +470,7 @@
   "settings.quota.disable_paid_features_hint": "인코딩이 필요한 진동 전송, 5개 이상의 이미지로 인코딩된 진동 전송 및 정확한 참조를 비활성화합니다.",
   "settings.quota.account.title": "계정 정보",
   "settings.quota.account.current_anlas": "현재 Anlas",
+  "settings.quota.account.v5_usage": "V5 사용량",
   "settings.quota.account.subscription_tier": "구독 등급",
   "settings.quota.account.expires_at": "만료 날짜",
   "settings.quota.account.inactive": "비활성",

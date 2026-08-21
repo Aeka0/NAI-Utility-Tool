@@ -470,6 +470,7 @@
     "settings.quota.disable_paid_features_hint":  "禁用需要编码的氛围迁移、5张及以上已预编码氛围迁移，以及精确参考。",
     "settings.quota.account.title":  "账户信息",
     "settings.quota.account.current_anlas":  "当前 Anlas",
+    "settings.quota.account.v5_usage":  "V5 模型额度",
     "settings.quota.account.subscription_tier":  "订阅等级",
     "settings.quota.account.expires_at":  "到期时间",
     "settings.quota.account.inactive":  "未激活",

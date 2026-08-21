@@ -470,6 +470,7 @@
   "settings.quota.disable_paid_features_hint": "Отключите передачу вибрации, требующую кодирования, передачу закодированной вибрации с 5 или более изображениями и точную ссылку.",
   "settings.quota.account.title": "Информация об аккаунте",
   "settings.quota.account.current_anlas": "Текущий Anlas",
+  "settings.quota.account.v5_usage": "Лимит V5",
   "settings.quota.account.subscription_tier": "Уровень подписки",
   "settings.quota.account.expires_at": "Срок действия истекает в",
   "settings.quota.account.inactive": "Неактивно",
