@@ -646,9 +646,11 @@ public static class ImageMetadataService
                 meta.QualityToggle = qt.GetBoolean();
             if (root.TryGetProperty("ucPreset", out var ucPreset))
                 meta.UcPreset = ucPreset.GetInt32();
-            if (root.TryGetProperty("tag_hint_transparent_background", out var transparent))
+            if (root.TryGetProperty("tag_hint_transparent_background", out var transparent) &&
+                transparent.ValueKind is JsonValueKind.True or JsonValueKind.False)
                 meta.TagHintTransparentBackground = transparent.GetBoolean();
-            if (root.TryGetProperty("straight_alpha", out var straightAlpha))
+            if (root.TryGetProperty("straight_alpha", out var straightAlpha) &&
+                straightAlpha.ValueKind is JsonValueKind.True or JsonValueKind.False)
                 meta.StraightAlpha = straightAlpha.GetBoolean();
 
             if (root.TryGetProperty("v4_prompt", out var v4p) &&
