@@ -743,6 +743,8 @@
   "dialog.advanced.uc_preset.light": "빛",
   "dialog.advanced.uc_preset.none": "없음",
   "dialog.advanced.variety": "다양성+",
+  "dialog.advanced.transparent_background": "투명 배경 허용",
+  "dialog.advanced.straight_alpha": "스트레이트 알파 마스크",
   "dialog.vibe_encode.cache_hint": "힌트: 인코딩된 결과는 이미지 SHA256 + IE 값으로 캐시되므로 동일한 입력이 다시 요청되지 않습니다.",
   "dialog.vibe_encode.cache_hit": "Cache hit. An encoding for this image at IE={0:0.00} already exists.\nSaved at: {1}",
   "dialog.vibe_encode.encoding": "인코딩 중입니다. 잠시만 기다려 주세요... (비용 2 Anlas)",

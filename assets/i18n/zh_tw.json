@@ -744,6 +744,8 @@
     "dialog.advanced.uc_preset.light":  "簡略",
     "dialog.advanced.uc_preset.none":  "不新增",
     "dialog.advanced.variety":  "多樣化 (Variety+)",
+    "dialog.advanced.transparent_background":  "允許透明背景",
+    "dialog.advanced.straight_alpha":  "直線 Alpha 遮罩",
     "dialog.vibe_encode.cache_hint":  "提示: 編碼結果會依 圖片SHA256+IE值 快取，相同圖片與參數不會重複請求。",
     "dialog.vibe_encode.cache_hit":  "快取命中！此圖片在 IE={0:0.00} 下已有編碼，無需重複請求。\n儲存位置: {1}",
     "dialog.vibe_encode.encoding":  "正在編碼，請稍候...（消耗 2 Anlas）",

@@ -743,6 +743,8 @@
   "dialog.advanced.uc_preset.light": "Свет",
   "dialog.advanced.uc_preset.none": "Нет",
   "dialog.advanced.variety": "Разнообразие+",
+  "dialog.advanced.transparent_background": "Разрешить прозрачный фон",
+  "dialog.advanced.straight_alpha": "Маска прямого альфа-канала",
   "dialog.vibe_encode.cache_hint": "Подсказка: закодированные результаты кэшируются по значению SHA256 изображения + IE, поэтому идентичные входные данные не будут запрашиваться снова.",
   "dialog.vibe_encode.cache_hit": "Cache hit. An encoding for this image at IE={0:0.00} already exists.\nSaved at: {1}",
   "dialog.vibe_encode.encoding": "Кодирование, подождите... (стоит 2 Anlas)",

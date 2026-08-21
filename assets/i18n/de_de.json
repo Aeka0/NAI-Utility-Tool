@@ -743,6 +743,8 @@
   "dialog.advanced.uc_preset.light": "Licht",
   "dialog.advanced.uc_preset.none": "Keine",
   "dialog.advanced.variety": "Vielfalt+",
+  "dialog.advanced.transparent_background": "Transparenten Hintergrund erlauben",
+  "dialog.advanced.straight_alpha": "Gerade Alpha-Maske",
   "dialog.vibe_encode.cache_hint": "Hinweis: Kodierte Ergebnisse werden nach Bild-SHA256 + IE-Wert zwischengespeichert, sodass identische Eingaben nicht erneut angefordert werden.",
   "dialog.vibe_encode.cache_hit": "Cache hit. An encoding for this image at IE={0:0.00} already exists.\nSaved at: {1}",
   "dialog.vibe_encode.encoding": "Codierung, bitte warten... (kostet 2 Anlas)",

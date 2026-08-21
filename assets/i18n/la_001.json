@@ -743,6 +743,8 @@
   "dialog.advanced.uc_preset.light": "Lucidum",
   "dialog.advanced.uc_preset.none": "Nullum",
   "dialog.advanced.variety": "Variety+",
+  "dialog.advanced.transparent_background": "Allow transparent background",
+  "dialog.advanced.straight_alpha": "Straight alpha mask",
   "dialog.vibe_encode.cache_hint": "Monitio: eventus encoded per SHA256 imaginis + valorem IE in cache servantur, itaque input identicum iterum non petitur.",
   "dialog.vibe_encode.cache_hit": "Cache hit. An encoding for this imago at IE={0:0.00} already exists.\nServatum at: {1}",
   "dialog.vibe_encode.encoding": "Encoding fit; exspecta... (2 Anlas constat)",

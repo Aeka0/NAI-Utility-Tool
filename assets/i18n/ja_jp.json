@@ -743,6 +743,8 @@
     "dialog.advanced.uc_preset.light":  "簡易",
     "dialog.advanced.uc_preset.none":  "追加しない",
     "dialog.advanced.variety":  "Variety+",
+    "dialog.advanced.transparent_background":  "透明背景を許可",
+    "dialog.advanced.straight_alpha":  "ストレートアルファマスク",
     "dialog.vibe_encode.cache_hint":  "ヒント: エンコード結果は画像SHA256とIE値でキャッシュされるため、同じ画像と設定では再リクエストされません。",
     "dialog.vibe_encode.cache_hit":  "キャッシュヒット。IE={0:0.00} のエンコードが既に存在します。\n保存先: {1}",
     "dialog.vibe_encode.encoding":  "エンコード中です。しばらくお待ちください... (2 Anlas 消費)",
