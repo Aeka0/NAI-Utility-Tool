@@ -321,8 +321,8 @@ public sealed partial class MainWindow
 
     private void SetGenResultBarRequested(bool requested, bool resetPosition = false)
     {
-        _genResultBarRequested = requested;
-        if (requested)
+        _genResultBarRequested = requested && _genResultBarAutoOpenEnabled;
+        if (_genResultBarRequested)
         {
             if (resetPosition)
             {
@@ -354,10 +354,9 @@ public sealed partial class MainWindow
     {
         bool showGenResultBar =
             (_genResultBarRequested ||
-             (_genResultBarPinned && _currentGenImageBytes != null)) &&
+             (_genResultBarResident && _currentGenImageBytes != null)) &&
             _currentMode == AppMode.ImageGeneration &&
             !_autoGenRunning &&
-            _settings.Settings.ShowGenerationResultBar &&
             _currentGenImageBytes != null;
         GenResultBar.Visibility = showGenResultBar ? Visibility.Visible : Visibility.Collapsed;
 
@@ -375,22 +374,8 @@ public sealed partial class MainWindow
 
     private void OnShowGenResultBar(object sender, RoutedEventArgs e)
     {
-        _genResultBarPinned = true;
-        BtnPinGenResult.IsChecked = true;
-        var icon = BtnPinGenResult.Content as FontIcon;
-        if (icon != null)
-            icon.Glyph = "";
-        UpdateFloatingResultBarsVisibility();
-    }
-
-    private void OnPinGenResult(object sender, RoutedEventArgs e)
-    {
-        _genResultBarPinned = BtnPinGenResult.IsChecked == true;
-        if (!_genResultBarPinned)
-            _genResultBarRequested = true;
-        var icon = BtnPinGenResult.Content as FontIcon;
-        if (icon != null)
-            icon.Glyph = _genResultBarPinned ? "" : "";
+        _genResultBarResident = true;
+        _genResultBarRequested = false;
         UpdateFloatingResultBarsVisibility();
     }
 

@@ -1367,7 +1367,7 @@ public sealed partial class MainWindow
             var bytes = await File.ReadAllBytesAsync(filePath);
             _currentGenImageBytes = bytes;
             _currentGenImagePath = filePath;
-            if (!_genResultBarPinned)
+            if (!_genResultBarResident)
                 SetGenResultBarRequested(false);
             else
                 UpdateFloatingResultBarsVisibility();

@@ -58,7 +58,6 @@ public sealed partial class MainWindow
         bool autoComplete,
         bool rememberPromptAndParameters,
         bool superDropEnabled,
-        bool showGenerationResultBar,
         bool scrollHistoryToTopAfterGeneration,
         bool wildcardsEnabled,
         bool wildcardsRequireExplicitSyntax,
@@ -68,7 +67,6 @@ public sealed partial class MainWindow
         _settings.Settings.AutoComplete = autoComplete;
         _settings.Settings.RememberPromptAndParameters = rememberPromptAndParameters;
         _settings.Settings.SuperDropEnabled = superDropEnabled;
-        _settings.Settings.ShowGenerationResultBar = showGenerationResultBar;
         _settings.Settings.ScrollHistoryToTopAfterGeneration = scrollHistoryToTopAfterGeneration;
         _settings.Settings.WildcardsEnabled = wildcardsEnabled;
         _settings.Settings.WildcardsRequireExplicitSyntax = wildcardsRequireExplicitSyntax;

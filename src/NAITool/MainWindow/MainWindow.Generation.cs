@@ -686,7 +686,7 @@ public sealed partial class MainWindow
         if (TryBlockNewImageDeletion(_currentGenImagePath, isCurrentPreviewAction: true))
             return;
 
-        if (!_genResultBarPinned)
+        if (!_genResultBarResident)
             SetGenResultBarRequested(false);
 
         string? deletedPath = _currentGenImagePath;
@@ -768,8 +768,8 @@ public sealed partial class MainWindow
 
     private void OnCloseGenResultBar(object sender, RoutedEventArgs e)
     {
-        _genResultBarPinned = false;
-        BtnPinGenResult.IsChecked = false;
+        _genResultBarAutoOpenEnabled = false;
+        _genResultBarResident = false;
         SetGenResultBarRequested(false);
     }
 

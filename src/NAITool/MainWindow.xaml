@@ -1590,12 +1590,6 @@
                                     <TextBlock x:Name="TxtCloseGenResult" Text=""/>
                                 </StackPanel>
                             </Button>
-                            <ToggleButton x:Name="BtnPinGenResult" Click="OnPinGenResult"
-                                          Height="32" Width="32" Padding="0"
-                                          ToolTipService.ToolTip="Pin">
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                          Glyph="&#xE718;" FontSize="14"/>
-                            </ToggleButton>
                         </StackPanel>
                     </Border>
                 </Grid>

@@ -221,7 +221,8 @@ public sealed partial class MainWindow : Window
     private bool _newImageDeleteProtectionCoversUnsavedResult;
     private DateTimeOffset _newImageDeleteProtectionUntilUtc;
     private bool _genResultBarRequested;
-    private bool _genResultBarPinned;
+    private bool _genResultBarAutoOpenEnabled = true;
+    private bool _genResultBarResident;
 
     // ═══ 检视模式 ═══
     private ImageMetadata? _inspectMetadata;
