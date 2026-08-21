@@ -6,7 +6,7 @@ Language: English | [简体中文](README-CN.md)
 
 NAI Utility Tool is a Windows desktop client for NovelAI image workflows. It is built with .NET 9, WinUI 3, Windows App SDK, Win2D, SkiaSharp, and ONNX Runtime. It is not intended to replace the official NovelAI website; instead, it brings day-to-day local workflows into one tool: generation, image-to-image editing, mask editing, prompt management, reference-image workflows, batch automation, post-processing, upscaling, metadata inspection, and local reverse tagging.
 
-The current project version is `1.1.0`. The project is still evolving quickly, and this document follows the current `main` branch source layout.
+The current project version is `1.2.0`. The project is still evolving quickly, and this document follows the current `main` branch source layout.
 
 <img width="1455" height="940" alt="Preview" src="https://github.com/user-attachments/assets/88c9a0d3-5fcb-464f-80bf-98075fc9f3f6" />
 

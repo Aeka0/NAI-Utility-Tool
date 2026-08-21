@@ -6,7 +6,7 @@
 
 NAI Utility Tool 是一个面向 NovelAI 图像工作流的 Windows 桌面客户端。它基于 .NET 9、WinUI 3、Windows App SDK、Win2D、SkiaSharp 和 ONNX Runtime 构建，目标不是替代 NovelAI 官方站点，而是把日常高频操作整合到一个本地工具里：生成、重绘、遮罩编辑、提示词管理、参考图工作流、批量自动化、后期处理、超分、元数据检视和本地反推。
 
-项目当前版本为 `1.1.0`，仍在快速迭代。本文档以当前 `main` 分支源码结构为准。
+项目当前版本为 `1.2.0`，仍在快速迭代。本文档以当前 `main` 分支源码结构为准。
 
 <img width="1455" height="940" alt="Preview" src="https://github.com/user-attachments/assets/88c9a0d3-5fcb-464f-80bf-98075fc9f3f6" />
 
