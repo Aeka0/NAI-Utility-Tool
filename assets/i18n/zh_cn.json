@@ -473,6 +473,7 @@
     "settings.quota.summary.v5_estimate":  "大约还能生成 {0} 张图片",
     "settings.quota.summary.v5_recovery":  "最多 {0} 小时 {1} 分钟后回满",
     "settings.quota.summary.v5_full":  "已满或者消耗不到 1%",
+    "settings.quota.summary.v5_overage":  "超额状态，停止增加额度",
     "settings.quota.account.subscription_tier":  "订阅等级",
     "settings.quota.account.expires_at":  "到期时间",
     "settings.quota.account.inactive":  "未激活",

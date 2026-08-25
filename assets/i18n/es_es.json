@@ -473,6 +473,7 @@
   "settings.quota.summary.v5_estimate": "Quedan aproximadamente {0} imágenes",
   "settings.quota.summary.v5_recovery": "Se llenará en un máximo de {0} h {1} min",
   "settings.quota.summary.v5_full": "Lleno o con menos del 1 % consumido",
+  "settings.quota.summary.v5_overage": "Estado excedente; la cuota no seguirá aumentando",
   "settings.quota.account.subscription_tier": "Nivel de suscripción",
   "settings.quota.account.expires_at": "Vence a las",
   "settings.quota.account.inactive": "Inactivo",

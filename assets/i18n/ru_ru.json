@@ -473,6 +473,7 @@
   "settings.quota.summary.v5_estimate": "Осталось примерно {0} изображений",
   "settings.quota.summary.v5_recovery": "Полностью восстановится не более чем через {0} ч {1} мин",
   "settings.quota.summary.v5_full": "Лимит заполнен либо израсходовано менее 1 %",
+  "settings.quota.summary.v5_overage": "Превышение лимита; квота больше не увеличивается",
   "settings.quota.account.subscription_tier": "Уровень подписки",
   "settings.quota.account.expires_at": "Срок действия истекает в",
   "settings.quota.account.inactive": "Неактивно",

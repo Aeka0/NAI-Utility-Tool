@@ -667,7 +667,7 @@ public sealed partial class MainWindow
                                 _v5UsagePercent ??
                                 cachedAccountInfo.CachedV5UsagePercent;
             return usagePercent.HasValue
-                ? $"{Math.Clamp(usagePercent.Value, 0, 100)}%"
+                ? $"{Math.Max(usagePercent.Value, 0)}%"
                 : notAvailable;
         }
 

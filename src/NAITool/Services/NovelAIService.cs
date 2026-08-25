@@ -347,7 +347,7 @@ public class NovelAIService : IDisposable
                 {
                     int? parsedPercent = ReadNullableInt(percentEl);
                     if (parsedPercent.HasValue)
-                        v5UsagePercent = Math.Clamp(parsedPercent.Value, 0, 100);
+                        v5UsagePercent = Math.Max(parsedPercent.Value, 0);
                 }
 
                 if (TryGetPropertyIgnoreCase(usageEl, "isNegative", out var negativeEl) &&

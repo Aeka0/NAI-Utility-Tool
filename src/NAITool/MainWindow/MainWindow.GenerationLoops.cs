@@ -236,7 +236,7 @@ public sealed partial class MainWindow
         if (cached.CachedAnlas.HasValue)
             _anlasBalance = cached.CachedAnlas;
         if (cached.CachedV5UsagePercent.HasValue)
-            _v5UsagePercent = Math.Clamp(cached.CachedV5UsagePercent.Value, 0, 100);
+            _v5UsagePercent = Math.Max(cached.CachedV5UsagePercent.Value, 0);
         if (cached.CachedV5UsageTimeUntilNextPercentSeconds.HasValue)
             _v5UsageTimeUntilNextPercentSeconds = Math.Max(cached.CachedV5UsageTimeUntilNextPercentSeconds.Value, 0);
         if (cached.SubscriptionTierLevel.HasValue)
@@ -258,7 +258,7 @@ public sealed partial class MainWindow
 
         TxtAnlasBalance.Text = _anlasBalance?.ToString("N0") ?? "--";
         TxtV5UsagePercent.Text = _v5UsagePercent.HasValue
-            ? $"{Math.Clamp(_v5UsagePercent.Value, 0, 100)}%"
+            ? $"{Math.Max(_v5UsagePercent.Value, 0)}%"
             : "--%";
         ToolTipService.SetToolTip(AnlasBalanceButton, L("menu.settings.quota"));
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
@@ -459,19 +459,23 @@ public sealed partial class MainWindow
 
         _quotaSummaryV5UsageLabel.Text = L("settings.quota.account.v5_usage");
         _quotaSummaryV5UsageText.Text = v5Usage.HasValue
-            ? $"{Math.Clamp(v5Usage.Value, 0, 100)}%"
+            ? $"{Math.Max(v5Usage.Value, 0)}%"
             : "--%";
-        _quotaSummaryV5UsageProgress.Maximum = 100;
+        _quotaSummaryV5UsageProgress.Maximum = v5Usage.HasValue
+            ? Math.Max(100, v5Usage.Value)
+            : 100;
         _quotaSummaryV5UsageProgress.Value = v5Usage.HasValue
-            ? Math.Clamp(v5Usage.Value, 0, 100)
+            ? Math.Max(v5Usage.Value, 0)
             : 0;
         _quotaSummaryV5UsageProgress.Opacity = v5Usage.HasValue ? 1 : 0.45;
         string v5ImageCount = v5Usage.HasValue
-            ? Math.Floor(1_730d * Math.Clamp(v5Usage.Value, 0, 100) / 100).ToString("N0")
+            ? Math.Floor(1_730d * Math.Max(v5Usage.Value, 0) / 100).ToString("N0")
             : "--";
         _quotaSummaryV5UsageEstimateText.Text = Lf("settings.quota.summary.v5_estimate", v5ImageCount);
-        _quotaSummaryV5UsageRecoveryText.Text = v5Usage.HasValue && v5Usage.Value >= 100
-            ? L("settings.quota.summary.v5_full")
+        _quotaSummaryV5UsageRecoveryText.Text = v5Usage.HasValue && v5Usage.Value > 100
+            ? L("settings.quota.summary.v5_overage")
+            : v5Usage.HasValue && v5Usage.Value >= 100
+                ? L("settings.quota.summary.v5_full")
             : v5Usage.HasValue && v5TimeUntilNextPercentSeconds.HasValue
                 ? FormatV5UsageRecoveryTime(v5Usage.Value, v5TimeUntilNextPercentSeconds.Value)
                 : Lf("settings.quota.summary.v5_recovery", "--", "--");
@@ -487,7 +491,7 @@ public sealed partial class MainWindow
 
     private string FormatV5UsageRecoveryTime(int usagePercent, int timeUntilNextPercentSeconds)
     {
-        int remainingPercentagePoints = 100 - Math.Clamp(usagePercent, 0, 100);
+        int remainingPercentagePoints = Math.Max(0, 100 - Math.Max(usagePercent, 0));
         long remainingSeconds = remainingPercentagePoints * (long)Math.Max(timeUntilNextPercentSeconds, 0);
         long remainingMinutes = (remainingSeconds + 59) / 60;
         long hours = remainingMinutes / 60;

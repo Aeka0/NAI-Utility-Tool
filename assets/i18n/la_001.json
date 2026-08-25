@@ -473,6 +473,7 @@
   "settings.quota.summary.v5_estimate": "Circiter {0} imagines restant",
   "settings.quota.summary.v5_recovery": "Ad plenum intra {0} horas {1} minuta ad summum",
   "settings.quota.summary.v5_full": "Plenus aut minus quam 1% consumptus",
+  "settings.quota.summary.v5_overage": "Status excedens; quota amplius non augebitur",
   "settings.quota.account.subscription_tier": "Gradus subscriptionis",
   "settings.quota.account.expires_at": "Exspirat die",
   "settings.quota.account.inactive": "Inactiva",

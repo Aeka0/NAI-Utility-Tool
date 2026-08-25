@@ -473,6 +473,7 @@
     "settings.quota.summary.v5_estimate":  "あと約 {0} 枚生成できます",
     "settings.quota.summary.v5_recovery":  "最大 {0} 時間 {1} 分で満タンになります",
     "settings.quota.summary.v5_full":  "満タン、または消費量が 1% 未満です",
+    "settings.quota.summary.v5_overage":  "超過状態です。利用枠の増加は停止します",
     "settings.quota.account.subscription_tier":  "サブスクリプション階層",
     "settings.quota.account.expires_at":  "有効期限",
     "settings.quota.account.inactive":  "無効",

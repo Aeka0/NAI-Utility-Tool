@@ -473,6 +473,7 @@
   "settings.quota.summary.v5_estimate": "Approximately {0} images remaining",
   "settings.quota.summary.v5_recovery": "Full in at most {0} h {1} min",
   "settings.quota.summary.v5_full": "Full or less than 1% consumed",
+  "settings.quota.summary.v5_overage": "Over quota; allowance will no longer increase",
   "settings.quota.account.subscription_tier": "Subscription Tier",
   "settings.quota.account.expires_at": "Expires At",
   "settings.quota.account.inactive": "Inactive",
