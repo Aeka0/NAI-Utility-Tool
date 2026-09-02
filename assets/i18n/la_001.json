@@ -364,7 +364,7 @@
   "settings.hub.performance.device_gpu": "GPU praeferre (DirectML, ad CPU relabitur)",
   "settings.hub.performance.device_cpu": "CPU tantum",
   "settings.hub.performance.unload_after_inference": "Exemplaria ONNX e VRAM/memoria post inference exonerare",
-  "settings.hub.performance.unload_after_inference_hint": "Ad omnia exemplaria ONNX pertinet, etiam upscale et reverse tag/tag inference. Hoc averte ut exemplaria onerata maneant et tempus reload minuatur. Usoribus cum hard drives mechanicis commendatur.",
+  "settings.hub.performance.unload_after_inference_hint": "Ad omnia exemplaria ONNX pertinet, etiam upscale et reverse tag/tag inference. Hoc averte ut exemplaria onerata maneant et tempus reload minuatur. Usoribus cum hard drives mechanicis hoc avertere commendatur.",
   "settings.hub.performance.description": "Instrumentum inference ONNX compone. GPU in plerisque casibus commendatur.",
   "settings.hub.performance.post_effects_device": "Acceleratio ferramentaria post-effectuum",
   "settings.hub.performance.post_effects_device_gpu": "Acceleratio GPU",

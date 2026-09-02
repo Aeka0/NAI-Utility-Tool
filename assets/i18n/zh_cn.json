@@ -320,7 +320,7 @@
     "settings.hub.performance.device_gpu":  "优先 GPU（基于DirectML，不可用时回退 CPU）",
     "settings.hub.performance.device_cpu":  "仅 CPU",
     "settings.hub.performance.unload_after_inference":  "推理结束后从显存/内存卸载 ONNX 模型",
-    "settings.hub.performance.unload_after_inference_hint":  "对所有 ONNX 模型生效，包括超分与反推/tag 推理。关闭后会保留已加载模型，以减少重复加载时间。建议机械硬盘用户开启。",
+    "settings.hub.performance.unload_after_inference_hint":  "对所有 ONNX 模型生效，包括超分与反推/tag 推理。关闭后会保留已加载模型，以减少重复加载时间。建议机械硬盘用户关闭。",
     "settings.hub.performance.description":  "调整 ONNX 推理设备。大部分情况下建议使用GPU。",
     "settings.hub.performance.post_effects_device":  "后期特效硬件加速",
     "settings.hub.performance.post_effects_device_gpu":  "GPU 加速",

@@ -364,7 +364,7 @@
   "settings.hub.performance.device_gpu": "GPU 선호(DirectML 기반, CPU로 폴백)",
   "settings.hub.performance.device_cpu": "CPU 전용",
   "settings.hub.performance.unload_after_inference": "추론 후 VRAM/메모리에서 ONNX 모델 언로드",
-  "settings.hub.performance.unload_after_inference_hint": "업스케일링 및 역방향 태그/태그 추론을 포함하여 모든 ONNX 모델에 적용됩니다. 모델을 계속 로드하고 다시 로드 시간을 줄이려면 이 옵션을 끄세요. 기계식 하드 드라이브 사용자에게 권장됩니다.",
+  "settings.hub.performance.unload_after_inference_hint": "업스케일링 및 역방향 태그/태그 추론을 포함하여 모든 ONNX 모델에 적용됩니다. 모델을 계속 로드하고 다시 로드 시간을 줄이려면 이 옵션을 끄세요. 기계식 하드 드라이브 사용자는 이 옵션을 끄는 것이 좋습니다.",
   "settings.hub.performance.description": "ONNX 추론 장치를 조정합니다. 대부분의 경우 GPU가 권장됩니다.",
   "settings.hub.performance.post_effects_device": "후처리 효과 하드웨어 가속",
   "settings.hub.performance.post_effects_device_gpu": "GPU 가속",

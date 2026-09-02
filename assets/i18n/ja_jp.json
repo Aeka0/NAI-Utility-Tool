@@ -320,7 +320,7 @@
     "settings.hub.performance.device_gpu":  "GPU 優先（DirectML ベース、使えない場合は CPU にフォールバック）",
     "settings.hub.performance.device_cpu":  "CPU のみ",
     "settings.hub.performance.unload_after_inference":  "推論完了後に ONNX モデルを VRAM/メモリからアンロードする",
-    "settings.hub.performance.unload_after_inference_hint":  "アップスケールと逆タグ/tag 推論を含む、すべての ONNX モデルに適用されます。オフにするとモデルを保持して再読み込み時間を減らせます。機械式 HDD の環境では有効化を推奨します。",
+    "settings.hub.performance.unload_after_inference_hint":  "アップスケールと逆タグ/tag 推論を含む、すべての ONNX モデルに適用されます。オフにするとモデルを保持して再読み込み時間を減らせます。機械式 HDD の環境ではオフを推奨します。",
     "settings.hub.performance.description":  "ONNX 推論デバイスを調整します。ほとんどの場合は GPU を推奨します。",
     "settings.hub.performance.post_effects_device":  "後処理エフェクトのハードウェアアクセラレーション",
     "settings.hub.performance.post_effects_device_gpu":  "GPU アクセラレーション",

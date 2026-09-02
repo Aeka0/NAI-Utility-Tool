@@ -364,7 +364,7 @@
   "settings.hub.performance.device_gpu": "GPU bevorzugen (DirectML-basiert, greift auf CPU zurück)",
   "settings.hub.performance.device_cpu": "Nur CPU",
   "settings.hub.performance.unload_after_inference": "Entladen Sie ONNX-Modelle nach der Inferenz aus VRAM/Speicher",
-  "settings.hub.performance.unload_after_inference_hint": "Gilt für alle ONNX-Modelle, einschließlich Hochskalierung und umgekehrter Tag/Tag-Inferenz. Schalten Sie diese Option aus, um die Modelle geladen zu halten und die Nachladezeit zu verkürzen. Empfohlen für Benutzer mechanischer Festplatten.",
+  "settings.hub.performance.unload_after_inference_hint": "Gilt für alle ONNX-Modelle, einschließlich Hochskalierung und umgekehrter Tag/Tag-Inferenz. Schalten Sie diese Option aus, um die Modelle geladen zu halten und die Nachladezeit zu verkürzen. Benutzern mechanischer Festplatten wird empfohlen, diese Option auszuschalten.",
   "settings.hub.performance.description": "Passen Sie das Inferenzgerät ONNX an. In den meisten Fällen wird eine GPU empfohlen.",
   "settings.hub.performance.post_effects_device": "Hardwarebeschleunigung für Nachbearbeitungseffekte",
   "settings.hub.performance.post_effects_device_gpu": "GPU-Beschleunigung",

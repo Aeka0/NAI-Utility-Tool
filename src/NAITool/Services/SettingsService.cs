@@ -304,7 +304,7 @@ public class AppSettings
 public class OnnxPerformanceSettings
 {
     public string DevicePreference { get; set; } = "Gpu";
-    public bool UnloadModelAfterInference { get; set; } = true;
+    public bool UnloadModelAfterInference { get; set; }
 
     [JsonIgnore]
     public bool PreferCpu =>
@@ -368,7 +368,7 @@ public class ReverseTaggerSettings
     public bool ReplaceUnderscoresWithSpaces { get; set; } = true;
     public double GeneralThreshold { get; set; } = 0.7;
     public double CharacterThreshold { get; set; } = 0.9;
-    public bool UnloadModelAfterInference { get; set; } = true;
+    public bool UnloadModelAfterInference { get; set; }
 }
 
 public class NAIParameters

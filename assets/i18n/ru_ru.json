@@ -364,7 +364,7 @@
   "settings.hub.performance.device_gpu": "Предпочитаю графический процессор (на основе DirectML, переключается на процессор)",
   "settings.hub.performance.device_cpu": "Только ЦП",
   "settings.hub.performance.unload_after_inference": "Выгрузить модели ONNX из VRAM/памяти после вывода",
-  "settings.hub.performance.unload_after_inference_hint": "Применяется ко всем моделям ONNX, включая масштабирование и обратный вывод тегов/тегов. Отключите это, чтобы сохранить загрузку моделей и сократить время перезагрузки. Рекомендуется для пользователей механических жестких дисков.",
+  "settings.hub.performance.unload_after_inference_hint": "Применяется ко всем моделям ONNX, включая масштабирование и обратный вывод тегов/тегов. Отключите это, чтобы сохранить загрузку моделей и сократить время перезагрузки. Пользователям механических жестких дисков рекомендуется отключить эту опцию.",
   "settings.hub.performance.description": "Настройте устройство вывода ONNX. В большинстве случаев рекомендуется использовать графический процессор.",
   "settings.hub.performance.post_effects_device": "Аппаратное ускорение постэффектов",
   "settings.hub.performance.post_effects_device_gpu": "Ускорение GPU",

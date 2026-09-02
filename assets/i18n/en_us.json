@@ -364,7 +364,7 @@
   "settings.hub.performance.device_gpu": "Prefer GPU (DirectML-based, falls back to CPU)",
   "settings.hub.performance.device_cpu": "CPU Only",
   "settings.hub.performance.unload_after_inference": "Unload ONNX models from VRAM/memory after inference",
-  "settings.hub.performance.unload_after_inference_hint": "Applies to all ONNX models, including upscaling and reverse tag/tag inference. Turn this off to keep models loaded and reduce reload time. Recommended for users on mechanical hard drives.",
+  "settings.hub.performance.unload_after_inference_hint": "Applies to all ONNX models, including upscaling and reverse tag/tag inference. Turn this off to keep models loaded and reduce reload time. Users with mechanical hard drives are advised to turn this off.",
   "settings.hub.performance.description": "Adjust the ONNX inference device. GPU is recommended in most cases.",
   "settings.hub.performance.post_effects_device": "Post-Effects Hardware Acceleration",
   "settings.hub.performance.post_effects_device_gpu": "GPU Acceleration",

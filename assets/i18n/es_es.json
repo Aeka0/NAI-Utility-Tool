@@ -364,7 +364,7 @@
   "settings.hub.performance.device_gpu": "Prefiere GPU (basada en DirectML, recurre a la CPU)",
   "settings.hub.performance.device_cpu": "Sólo CPU",
   "settings.hub.performance.unload_after_inference": "Descargar modelos ONNX de VRAM/memoria después de la inferencia",
-  "settings.hub.performance.unload_after_inference_hint": "Se aplica a todos los modelos ONNX, incluido el escalado y la inferencia inversa de etiquetas/etiquetas. Desactívelo para mantener los modelos cargados y reducir el tiempo de recarga. Recomendado para usuarios de discos duros mecánicos.",
+  "settings.hub.performance.unload_after_inference_hint": "Se aplica a todos los modelos ONNX, incluido el escalado y la inferencia inversa de etiquetas/etiquetas. Desactívelo para mantener los modelos cargados y reducir el tiempo de recarga. Se recomienda a los usuarios de discos duros mecánicos desactivar esta opción.",
   "settings.hub.performance.description": "Ajusta el dispositivo de inferencia ONNX. Se recomienda GPU en la mayoría de los casos.",
   "settings.hub.performance.post_effects_device": "Aceleración por hardware de posprocesamiento",
   "settings.hub.performance.post_effects_device_gpu": "Aceleración GPU",
