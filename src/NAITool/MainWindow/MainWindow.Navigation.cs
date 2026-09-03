@@ -88,6 +88,7 @@ public sealed partial class MainWindow
         bool isUpscale = mode == AppMode.Upscale;
         bool isPost = mode == AppMode.Effects;
         bool isReader = mode == AppMode.Inspect;
+        bool isGallery = mode == AppMode.Gallery;
 
         GenPreviewArea.Visibility = isGen ? Visibility.Visible : Visibility.Collapsed;
         MaskCanvas.Visibility = isI2I ? Visibility.Visible : Visibility.Collapsed;
@@ -95,12 +96,17 @@ public sealed partial class MainWindow
         EffectsPreviewArea.Visibility = isPost ? Visibility.Visible : Visibility.Collapsed;
         InspectPreviewArea.Visibility = isReader ? Visibility.Visible : Visibility.Collapsed;
 
-        PanelLeftMain.Visibility = (isReader || isPost || isUpscale) ? Visibility.Collapsed : Visibility.Visible;
+        PanelLeftMain.Visibility = (isReader || isPost || isUpscale || isGallery) ? Visibility.Collapsed : Visibility.Visible;
         PanelLeftEffects.Visibility = isPost ? Visibility.Visible : Visibility.Collapsed;
         PanelLeftUpscale.Visibility = isUpscale ? Visibility.Visible : Visibility.Collapsed;
         PanelLeftInspect.Visibility = isReader ? Visibility.Visible : Visibility.Collapsed;
 
-        PanelHistory.Visibility = isGen ? Visibility.Visible : Visibility.Collapsed;
+        PanelHistory.Visibility = (isGen || isGallery) ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumn(PanelHistory, isGallery ? 0 : 3);
+        Grid.SetColumnSpan(PanelHistory, isGallery ? 4 : 1);
+        PanelHistory.BorderThickness = isGallery
+            ? new Thickness(0)
+            : new Thickness(1, 0, 0, 0);
         PanelI2ITools.Visibility = isI2I ? Visibility.Visible : Visibility.Collapsed;
         CharacterPanel.Visibility = (isGen || isI2I) ? Visibility.Visible : Visibility.Collapsed;
         UpdateI2IEditModeUI();
@@ -136,6 +142,7 @@ public sealed partial class MainWindow
         AppMode.Upscale => L("mode.upscale"),
         AppMode.Effects => L("mode.post"),
         AppMode.Inspect => L("mode.inspect"),
+        AppMode.Gallery => L("mode.gallery"),
         _ => mode.ToString(),
     };
 
@@ -146,6 +153,7 @@ public sealed partial class MainWindow
         AppMode.Upscale => "\uECE9",
         AppMode.Effects => "\uEB3C",
         AppMode.Inspect => "\uE71E",
+        AppMode.Gallery => "\uE7B8",
         _ => "\uE91B",
     };
 
@@ -164,6 +172,7 @@ public sealed partial class MainWindow
         WorkspaceModeUpscaleIcon.Glyph = GetModeIconGlyph(AppMode.Upscale);
         WorkspaceModeEffectsIcon.Glyph = GetModeIconGlyph(AppMode.Effects);
         WorkspaceModeInspectIcon.Glyph = GetModeIconGlyph(AppMode.Inspect);
+        WorkspaceModeGalleryIcon.Glyph = GetModeIconGlyph(AppMode.Gallery);
 
         UpdateWorkspaceModeCardState(
             WorkspaceModeGenerateCard,
@@ -185,6 +194,10 @@ public sealed partial class MainWindow
             WorkspaceModeInspectCard,
             WorkspaceModeInspectCheck,
             _currentMode == AppMode.Inspect);
+        UpdateWorkspaceModeCardState(
+            WorkspaceModeGalleryCard,
+            WorkspaceModeGalleryCheck,
+            _currentMode == AppMode.Gallery);
     }
 
     private void UpdateWorkspaceModeCardState(Border card, FontIcon check, bool selected)

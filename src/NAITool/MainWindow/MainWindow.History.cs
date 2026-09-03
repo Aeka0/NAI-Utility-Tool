@@ -1341,6 +1341,9 @@ public sealed partial class MainWindow
             {
                 var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
                     Windows.System.VirtualKey.Control);
+                if (_currentMode == AppMode.Gallery)
+                    SwitchMode(AppMode.ImageGeneration);
+
                 if (ctrl.HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
                     _ = ApplyHistoryParamsNoSeedAsync(filePath);
                 else

@@ -792,6 +792,68 @@
                                     </Grid>
                                 </Border>
                             </Button>
+                            <Button x:Name="WorkspaceModeGalleryItem"
+                                    Style="{StaticResource WorkspaceModeCardButtonStyle}"
+                                    Tag="Gallery"
+                                    PointerExited="OnWorkspaceModeCardPointerExited"
+                                    PointerReleased="OnWorkspaceModeCardPointerReleased"
+                                    PointerCaptureLost="OnWorkspaceModeCardPointerCaptureLost"
+                                    Click="OnWorkspaceModeMenuItemClick">
+                                <Border x:Name="WorkspaceModeGalleryCard"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="10"
+                                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                        BorderBrush="Transparent"
+                                        PointerEntered="OnWorkspaceModeCardPointerEntered"
+                                        PointerExited="OnWorkspaceModeCardPointerExited">
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28"/>
+                                            <ColumnDefinition Width="*" MinWidth="0"/>
+                                            <ColumnDefinition Width="18"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="WorkspaceModeGalleryHover"
+                                                Grid.ColumnSpan="3"
+                                                Margin="-10"
+                                                Background="{ThemeResource WorkspaceModeCardHoverBrush}"
+                                                CornerRadius="8"
+                                                IsHitTestVisible="False"
+                                                Opacity="0"/>
+                                        <Border Width="28"
+                                                Height="28"
+                                                CornerRadius="8"
+                                                Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                            <FontIcon x:Name="WorkspaceModeGalleryIcon"
+                                                      Style="{StaticResource WorkspaceModeCardIconStyle}"
+                                                      Glyph="&#xE7B8;"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="4"
+                                                    VerticalAlignment="Top">
+                                            <TextBlock x:Name="WorkspaceModeGalleryTitle"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="WorkspaceModeGalleryDescription"
+                                                       FontSize="12"
+                                                       LineHeight="17"
+                                                       MaxLines="3"
+                                                       TextWrapping="Wrap"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <FontIcon x:Name="WorkspaceModeGalleryCheck"
+                                                  Grid.Column="2"
+                                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                  FontSize="15"
+                                                  Glyph="&#xE73E;"
+                                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                  Visibility="Collapsed"/>
+                                    </Grid>
+                                </Border>
+                            </Button>
                         </StackPanel>
                     </Flyout>
                 </Button.Flyout>

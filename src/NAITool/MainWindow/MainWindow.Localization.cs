@@ -193,11 +193,13 @@ public sealed partial class MainWindow
         WorkspaceModeUpscaleTitle.Text = L("mode.upscale");
         WorkspaceModeEffectsTitle.Text = L("mode.post");
         WorkspaceModeInspectTitle.Text = L("mode.inspect");
+        WorkspaceModeGalleryTitle.Text = L("mode.gallery");
         WorkspaceModeGenerateDescription.Text = L("workspace.generate.description");
         WorkspaceModeI2IDescription.Text = L("workspace.i2i.description");
         WorkspaceModeUpscaleDescription.Text = L("workspace.upscale.description");
         WorkspaceModeEffectsDescription.Text = L("workspace.effects.description");
         WorkspaceModeInspectDescription.Text = L("workspace.inspect.description");
+        WorkspaceModeGalleryDescription.Text = L("workspace.gallery.description");
         UpdateWorkspaceModeButton();
         UpdatePromptTabText();
 

@@ -36,7 +36,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace NAITool;
 
-public enum AppMode { ImageGeneration, I2I, Upscale, Effects, Inspect }
+public enum AppMode { ImageGeneration, I2I, Upscale, Effects, Inspect, Gallery }
 public enum I2IEditMode { Inpaint, Denoise }
 public enum PromptWeightFormat { StableDiffusion, NaiClassic, NaiNumeric }
 public enum PromptGeneratorOutputMode { BooruTags, BooruTagsWithNaturalLanguage, NaturalLanguage }
