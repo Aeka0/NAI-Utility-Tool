@@ -998,6 +998,7 @@
   "common.on": "Activé",
   "common.off": "Désactivé",
   "common.stopping": "Arrêt...",
+  "api.error.generation_cost_limit": "Le coût de base de la génération dépasse {0} Anlas. Réduisez la résolution ou le nombre d’étapes.",
   "api.error.status": "API error ({0}): {1}",
   "api.error.proxy_hint": "Astuce : Vérifiez que votre client proxy est en cours d'exécution et que le port est correct.",
   "api.error.network_failed": "Network request failed: {0}",

@@ -998,6 +998,7 @@
     "common.on":  "オン",
     "common.off":  "オフ",
     "common.stopping":  "停止中...",
+    "api.error.generation_cost_limit": "生成の基本料金が {0} Anlas を超えています。解像度またはステップ数を下げてください。",
     "api.error.status":  "API エラー ({0}): {1}",
     "api.error.proxy_hint":  "\n\nヒント: プロキシクライアントが起動しており、ポート設定が正しいか確認してください。",
     "api.error.network_failed":  "ネットワークリクエストに失敗しました: {0}",

@@ -301,7 +301,7 @@ public sealed partial class MainWindow
     private int EstimateGenEnhanceAnlasCost(int width, int height)
     {
         var parameters = CreateGenEnhanceParameters(_settings.Settings.GenParameters);
-        return EstimatePromptRequestAnlasCost(parameters, parameters.Model, width, height);
+        return EstimatePromptRequestAnlasCost(parameters, parameters.Model, width, height, imageToImageOverride: true);
     }
 
     private void ApplyGoldAccentResources(ResourceDictionary resources)

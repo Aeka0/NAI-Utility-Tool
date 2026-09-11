@@ -998,6 +998,7 @@
   "common.on": "Activum",
   "common.off": "Inactivum",
   "common.stopping": "Sistit...",
+  "api.error.generation_cost_limit": "Sumptus generationis initialis {0} Anlas excedit. Resolutionem vel numerum graduum minue.",
   "api.error.status": "Error API ({0}): {1}",
   "api.error.proxy_hint": "\n\nMonitio: verifica clientem proxy currere et portum rectum esse.",
   "api.error.network_failed": "Petitio retis defecit: {0}",

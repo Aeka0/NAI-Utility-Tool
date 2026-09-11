@@ -169,6 +169,7 @@ public sealed partial class MainWindow
         {
             _anlasBalance = null;
             _v5UsagePercent = null;
+            _v5UsageIsNegative = null;
             _v5UsageTimeUntilNextPercentSeconds = null;
             _isOpusSubscriber = false;
             _hasActiveSubscription = false;
@@ -204,6 +205,7 @@ public sealed partial class MainWindow
                 {
                     _anlasBalance = accountInfo.AnlasBalance;
                     _v5UsagePercent = accountInfo.V5UsagePercent;
+                    _v5UsageIsNegative = accountInfo.V5UsageIsNegative;
                     _v5UsageTimeUntilNextPercentSeconds = accountInfo.V5UsageTimeUntilNextPercentSeconds;
                     _isOpusSubscriber = accountInfo.IsOpus;
                     _hasActiveSubscription = accountInfo.HasActiveSubscription;
@@ -215,7 +217,8 @@ public sealed partial class MainWindow
                         accountInfo.TierLevel,
                         accountInfo.HasActiveSubscription,
                         accountInfo.ExpiresAt,
-                        accountInfo.V5UsageTimeUntilNextPercentSeconds);
+                        accountInfo.V5UsageTimeUntilNextPercentSeconds,
+                        accountInfo.V5UsageIsNegative);
                 }
             }
             finally
@@ -233,6 +236,7 @@ public sealed partial class MainWindow
     private void ApplyCachedAccountInfo()
     {
         var cached = _settings.CachedApiConfig;
+        _v5UsageIsNegative = cached.CachedV5UsageIsNegative;
         if (cached.CachedAnlas.HasValue)
             _anlasBalance = cached.CachedAnlas;
         if (cached.CachedV5UsagePercent.HasValue)

@@ -998,6 +998,7 @@
   "common.on": "Вкл.",
   "common.off": "Выкл.",
   "common.stopping": "Остановка...",
+  "api.error.generation_cost_limit": "Базовая стоимость генерации превышает {0} Anlas. Уменьшите разрешение или число шагов.",
   "api.error.status": "API error ({0}): {1}",
   "api.error.proxy_hint": "Подсказка: убедитесь, что ваш прокси-клиент работает и порт правильный.",
   "api.error.network_failed": "Network request failed: {0}",

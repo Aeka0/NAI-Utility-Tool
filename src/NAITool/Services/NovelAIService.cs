@@ -30,6 +30,7 @@ public class NovelAiAccountInfo
 {
     public int? AnlasBalance { get; init; }
     public int? V5UsagePercent { get; init; }
+    public bool? V5UsageIsNegative { get; init; }
     public int? V5UsageTimeUntilNextPercentSeconds { get; init; }
     public string TierName { get; init; } = "";
     public bool IsOpus { get; init; }
@@ -339,6 +340,7 @@ public class NovelAIService : IDisposable
             // NovelAI Diffusion V5 uses a separate, continuously refilling Opus allowance.
             // The official client treats an unavailable/negative allowance as 0%.
             int? v5UsagePercent = null;
+            bool? v5UsageIsNegative = null;
             int? v5UsageTimeUntilNextPercentSeconds = null;
             if (TryGetPropertyIgnoreCase(sub, "usage", out var usageEl) &&
                 usageEl.ValueKind == JsonValueKind.Object)
@@ -351,9 +353,10 @@ public class NovelAIService : IDisposable
                 }
 
                 if (TryGetPropertyIgnoreCase(usageEl, "isNegative", out var negativeEl) &&
-                    negativeEl.ValueKind == JsonValueKind.True)
+                    negativeEl.ValueKind is JsonValueKind.True or JsonValueKind.False)
                 {
-                    v5UsagePercent = 0;
+                    v5UsageIsNegative = negativeEl.GetBoolean();
+                    if (v5UsageIsNegative == true) v5UsagePercent = 0;
                 }
 
                 if (TryGetPropertyIgnoreCase(usageEl, "timeUntilNextPercent", out var nextPercentTimeEl))
@@ -385,6 +388,7 @@ public class NovelAIService : IDisposable
             {
                 AnlasBalance = anlas,
                 V5UsagePercent = v5UsagePercent,
+                V5UsageIsNegative = v5UsageIsNegative,
                 V5UsageTimeUntilNextPercentSeconds = v5UsageTimeUntilNextPercentSeconds,
                 TierName = tierName,
                 IsOpus = isOpus,
@@ -408,11 +412,7 @@ public class NovelAIService : IDisposable
     private static bool IsV45Model(string model) =>
         model.Contains("4-5", StringComparison.Ordinal);
 
-    internal static bool IsV5Model(string model)
-    {
-        string normalizedModel = NormalizeModelKey(model);
-        return normalizedModel is "nai-diffusion-5" or "nai-diffusion-5-full" or "nai-diffusion-5-curated";
-    }
+    internal static bool IsV5Model(string model) => NovelAiAnlasCalculator.IsV5Model(model);
 
     private static bool SupportsVibeTransferModel(string model) =>
         !IsV5Model(model);
@@ -812,6 +812,11 @@ public class NovelAIService : IDisposable
             return (null, L("api.error.token_missing_network"));
 
         var naiParams = _settings.Settings.InpaintParameters;
+        if (!_settings.Settings.UsesCustomApiBaseUrl &&
+            NovelAiAnlasCalculator.PaidBaseCost(naiParams.Model, width, height, naiParams.Steps,
+                sm: false, strength: 1) > NovelAiAnlasCalculator.MaxBaseCost)
+            return (null, Lf("api.error.generation_cost_limit", NovelAiAnlasCalculator.MaxBaseCost));
+
         int seed = naiParams.Seed > 0 ? naiParams.Seed : Random.Shared.Next(1, int.MaxValue);
         bool isV4Plus = IsV4PlusModel(naiParams.Model);
         bool isV45 = IsV45Model(naiParams.Model);
@@ -913,7 +918,8 @@ public class NovelAIService : IDisposable
         }
         else
         {
-            parameters["sm"] = naiParams.Sm;
+            // SMEA is unsupported for image-based requests.
+            parameters["sm"] = false;
             parameters["sm_dyn"] = false;
         }
 
@@ -1017,6 +1023,11 @@ public class NovelAIService : IDisposable
             return (null, L("api.error.token_missing_network"));
 
         var naiParams = parametersOverride ?? _settings.Settings.I2IDenoiseParameters;
+        if (!_settings.Settings.UsesCustomApiBaseUrl &&
+            NovelAiAnlasCalculator.PaidBaseCost(naiParams.Model, width, height, naiParams.Steps,
+                sm: false, strength: naiParams.DenoiseStrength) > NovelAiAnlasCalculator.MaxBaseCost)
+            return (null, Lf("api.error.generation_cost_limit", NovelAiAnlasCalculator.MaxBaseCost));
+
         int seed = naiParams.Seed > 0 ? naiParams.Seed : Random.Shared.Next(1, int.MaxValue);
         bool isV4Plus = IsV4PlusModel(naiParams.Model);
         bool isV45 = IsV45Model(naiParams.Model);
@@ -1116,7 +1127,8 @@ public class NovelAIService : IDisposable
         }
         else
         {
-            parameters["sm"] = naiParams.Sm;
+            // SMEA is unsupported for image-based requests.
+            parameters["sm"] = false;
             parameters["sm_dyn"] = false;
         }
 
@@ -1220,6 +1232,11 @@ public class NovelAIService : IDisposable
 
         var naiParams = _settings.Settings.GenParameters;
         string model = naiParams.Model;
+        if (!_settings.Settings.UsesCustomApiBaseUrl &&
+            NovelAiAnlasCalculator.PaidBaseCost(naiParams.Model, width, height, naiParams.Steps,
+                sm: naiParams.Sm, strength: 1) > NovelAiAnlasCalculator.MaxBaseCost)
+            return (null, Lf("api.error.generation_cost_limit", NovelAiAnlasCalculator.MaxBaseCost));
+
         int seed = naiParams.Seed > 0 ? naiParams.Seed : Random.Shared.Next(1, int.MaxValue);
         bool isV4Plus = IsV4PlusModel(model);
         bool isV45 = IsV45Model(model);

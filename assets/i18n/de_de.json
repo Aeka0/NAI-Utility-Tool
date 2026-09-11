@@ -998,6 +998,7 @@
   "common.on": "Ein",
   "common.off": "Aus",
   "common.stopping": "Stoppt...",
+  "api.error.generation_cost_limit": "Die Grundkosten der Generierung überschreiten {0} Anlas. Verringern Sie die Auflösung oder Schrittzahl.",
   "api.error.status": "API error ({0}): {1}",
   "api.error.proxy_hint": "Hinweis: Überprüfen Sie, ob Ihr Proxy-Client läuft und der Port korrekt ist.",
   "api.error.network_failed": "Network request failed: {0}",

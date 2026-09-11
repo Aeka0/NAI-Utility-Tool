@@ -998,6 +998,7 @@
   "common.on": "켜짐",
   "common.off": "끄기\n중지하는 중...",
   "common.stopping": "멎는...",
+  "api.error.generation_cost_limit": "기본 생성 비용이 {0} Anlas를 초과합니다. 해상도 또는 스텝 수를 줄여 주세요.",
   "api.error.status": "API error ({0}): {1}",
   "api.error.proxy_hint": "힌트: 프록시 클라이언트가 실행 중이고 포트가 올바른지 확인하세요.",
   "api.error.network_failed": "Network request failed: {0}",

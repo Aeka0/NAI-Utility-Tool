@@ -64,6 +64,9 @@ public sealed partial class MainWindow
     {
         _settings.Settings.I2IDenoiseParameters.DenoiseStrength = Math.Round(e.NewValue, 2);
         if (TxtDenoiseStrength != null) TxtDenoiseStrength.Text = e.NewValue.ToString("0.00", CultureInfo.InvariantCulture);
+        UpdateGenerateButtonWarning();
+        UpdateBtnGenerateForApiKey();
+        UpdateQuotaSummaryFlyoutContent();
     }
 
     private void OnDenoiseNoiseChanged(object sender,

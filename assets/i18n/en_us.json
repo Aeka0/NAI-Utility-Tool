@@ -999,6 +999,7 @@
   "common.on": "On",
   "common.off": "Off",
   "common.stopping": "Stopping...",
+  "api.error.generation_cost_limit": "The base generation cost exceeds {0} Anlas. Reduce the resolution or steps.",
   "api.error.status": "API error ({0}): {1}",
   "api.error.proxy_hint": "\n\nHint: Check that your proxy client is running and the port is correct.",
   "api.error.network_failed": "Network request failed: {0}",

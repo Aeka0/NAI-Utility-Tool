@@ -999,6 +999,7 @@
     "common.on":  "開",
     "common.off":  "關",
     "common.stopping":  "正在停止...",
+    "api.error.generation_cost_limit": "生成基礎費用超過 {0} Anlas，請降低解析度或步數。",
     "api.error.status":  "API 錯誤 ({0}): {1}",
     "api.error.proxy_hint":  "\n\n提示：請檢查代理程式是否正在執行，以及連接埠是否正確。",
     "api.error.network_failed":  "網路請求失敗：{0}",

@@ -80,13 +80,7 @@ public sealed partial class MainWindow
     private static bool IsV45ModelKey(string model) =>
         model.Contains("4-5", StringComparison.Ordinal);
 
-    private static bool IsV5ModelKey(string model)
-    {
-        string normalizedModel = model.EndsWith("-inpainting", StringComparison.Ordinal)
-            ? model[..^"-inpainting".Length]
-            : model;
-        return normalizedModel is "nai-diffusion-5" or "nai-diffusion-5-full" or "nai-diffusion-5-curated";
-    }
+    private static bool IsV5ModelKey(string model) => NovelAiAnlasCalculator.IsV5Model(model);
 
     private bool SupportsCharacterFeature()
     {
@@ -172,30 +166,19 @@ public sealed partial class MainWindow
         string model,
         int width,
         int height,
-        int? stepOverride = null)
+        int? stepOverride = null,
+        bool? imageToImageOverride = null)
     {
         if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
             return 0;
 
         int steps = stepOverride ?? parameters.Steps;
-        long pixelCount = (long)width * height;
-        bool isSmEnabled = parameters.Sm;
-        bool isSmDynamic = false;
-
-        long dimension = Math.Max(pixelCount, 65536);
-        int accountTier = _isOpusSubscriber ? 3 : 1;
-
-        // ── 基础生图费用 ──
-        // Opus 免费条件: <=28步, 总像素 <= 1024x1024
-        int baseCost = 0;
-        bool opusFree = steps <= 28 && dimension <= 1024L * 1024L && accountTier >= 3;
-        if (!opusFree)
-        {
-            double factor = isSmDynamic ? 1.4 : isSmEnabled ? 1.2 : 1.0;
-            double raw = Math.Ceiling(2951823174884865e-21 * pixelCount +
-                                      5.753298233447344e-7 * pixelCount * steps) * factor;
-            baseCost = Math.Clamp((int)Math.Ceiling(raw), 2, 140);
-        }
+        bool imageToImage = imageToImageOverride ??
+            (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Denoise);
+        int baseCost = NovelAiAnlasCalculator.BaseCost(model, width, height, steps,
+            _isOpusSubscriber && _hasActiveSubscription, _v5UsageIsNegative,
+            sm: parameters.Sm && !imageToImage && _currentMode != AppMode.I2I,
+            strength: imageToImage ? parameters.DenoiseStrength : 1);
 
         // ── 氛围迁移 / 精确参考额外费用 ──
         int refCost = 0;
@@ -206,18 +189,17 @@ public sealed partial class MainWindow
             : new List<VibeTransferEntry>();
         if (isV4Plus && !IsAssetProtectionPaidFeatureLimitEnabled() && activeVibes.Count > 0)
         {
-            int encodingCost = activeVibes.Count(v => !v.IsEncodedFile) * 2;
-            int slotCost = Math.Max(activeVibes.Count - 4, 0) * 2;
-            refCost += encodingCost + slotCost;
+            refCost += NovelAiAnlasCalculator.ReferenceCost(
+                activeVibes.Count(v => !v.IsEncodedFile), activeVibes.Count, 0);
         }
 
         int activePreciseCount = ActivePreciseReferenceCount();
         if (IsV45ModelKey(model) && !IsAssetProtectionPaidFeatureLimitEnabled() && activePreciseCount > 0)
         {
-            refCost += activePreciseCount * 5;
+            refCost += NovelAiAnlasCalculator.ReferenceCost(0, 0, activePreciseCount);
         }
 
-        return baseCost + refCost;
+        return (int)Math.Min((long)baseCost + refCost, int.MaxValue);
     }
 
     private bool CurrentRequestUsesAnlas() => EstimateCurrentRequestAnlasCost() > 0;
