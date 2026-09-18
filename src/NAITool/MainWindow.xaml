@@ -116,8 +116,8 @@
                 <Setter Property="HorizontalAlignment" Value="Center"/>
                 <Setter Property="VerticalAlignment" Value="Center"/>
             </Style>
-            <DataTemplate x:Key="HistorySeparatorTemplate" x:DataType="local:HistoryListItem">
-                <Grid Margin="8,10,8,4">
+            <DataTemplate x:Key="HistorySeparatorTemplate" x:DataType="local:HistoryRow">
+                <Grid Height="32" Margin="8,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
@@ -132,6 +132,7 @@
                     <TextBlock Grid.Column="1"
                                Text="{x:Bind DateLabel}"
                                FontSize="12"
+                               VerticalAlignment="Center"
                                Foreground="Gray"/>
                     <Border Grid.Column="2"
                             Height="1"
@@ -146,20 +147,21 @@
                         Background="Transparent"
                         CornerRadius="4"
                         Padding="2"
-                        Margin="8,0,8,0"
+                        Margin="8,2,8,2"
+                        Width="{x:Bind ThumbnailWidth}"
+                        Height="144"
                         Tag="{x:Bind FilePath, Mode=OneWay}"
                         PointerPressed="OnHistoryItemClick"
                         Loaded="OnHistoryThumbnailHostLoaded"
                         DataContextChanged="OnHistoryThumbnailHostDataContextChanged">
-                    <Grid HorizontalAlignment="Center">
+                    <Grid HorizontalAlignment="Stretch">
                         <Border x:Name="HistoryThumbnailPlaceholder"
-                                Width="{x:Bind ThumbnailWidth, Mode=OneWay}"
                                 Height="{x:Bind ThumbnailHeight, Mode=OneWay}"
                                 CornerRadius="8"
                                 Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                                 BorderBrush="Transparent"
                                 BorderThickness="0"
-                                HorizontalAlignment="Center">
+                                HorizontalAlignment="Stretch">
                             <Grid>
                                 <Border Background="{StaticResource HistoryThumbnailGlassOverlayBrush}"
                                         CornerRadius="8"
@@ -169,6 +171,7 @@
                                         BorderThickness="1"
                                         Background="Transparent"
                                         IsHitTestVisible="False"/>
+                                <FontIcon Glyph="&#xEB9F;" Visibility="Collapsed" FontSize="24"/>
                                 <ProgressRing IsActive="True"
                                               Width="28"
                                               Height="28"
@@ -177,19 +180,27 @@
                             </Grid>
                         </Border>
                         <Image x:Name="HistoryThumbnailImage"
-                               Width="{x:Bind ThumbnailWidth, Mode=OneWay}"
                                Height="{x:Bind ThumbnailHeight, Mode=OneWay}"
                                Stretch="Uniform"
-                               HorizontalAlignment="Center"
+                               HorizontalAlignment="Stretch"
                                Loaded="OnHistoryThumbnailImageLoaded"
                                Unloaded="OnHistoryThumbnailImageUnloaded"
                                DataContextChanged="OnHistoryThumbnailImageDataContextChanged"/>
                     </Grid>
                 </Border>
             </DataTemplate>
-            <local:HistoryItemTemplateSelector x:Key="HistoryTemplateSelector"
-                                               SeparatorTemplate="{StaticResource HistorySeparatorTemplate}"
-                                               ThumbnailTemplate="{StaticResource HistoryThumbnailTemplate}"/>
+            <DataTemplate x:Key="HistoryRowTemplate" x:DataType="local:HistoryRow">
+                <ItemsControl ItemsSource="{x:Bind Items}" ItemTemplate="{StaticResource HistoryThumbnailTemplate}" Height="148">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </DataTemplate>
+            <local:HistoryRowTemplateSelector x:Key="HistoryTemplateSelector"
+                                             SeparatorTemplate="{StaticResource HistorySeparatorTemplate}"
+                                             RowTemplate="{StaticResource HistoryRowTemplate}"/>
             </ResourceDictionary>
         </Grid.Resources>
         <Grid.RowDefinitions>
@@ -1819,17 +1830,19 @@
                               Visibility="Collapsed"
                               SelectionMode="None"
                               IsItemClickEnabled="False"
+                              SizeChanged="OnHistoryListSizeChanged"
                               Loaded="OnHistoryListViewLoaded"
                               Unloaded="OnHistoryListViewUnloaded"
                               ItemTemplateSelector="{StaticResource HistoryTemplateSelector}"
                               ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              ScrollViewer.HorizontalScrollMode="Disabled"
                               Padding="0,0,0,8">
-                        <ListView.ItemContainerTransitions>
-                            <TransitionCollection>
-                                <AddDeleteThemeTransition/>
-                                <ReorderThemeTransition/>
-                            </TransitionCollection>
-                        </ListView.ItemContainerTransitions>
+                        <ListView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsStackPanel Orientation="Vertical" ItemsUpdatingScrollMode="KeepItemsInView"/>
+                            </ItemsPanelTemplate>
+                        </ListView.ItemsPanel>
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>

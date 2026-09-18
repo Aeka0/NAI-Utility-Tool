@@ -298,40 +298,18 @@ public sealed partial class MainWindow
         if (key != Windows.System.VirtualKey.Up && key != Windows.System.VirtualKey.Down)
             return false;
 
-        if (_historyListItems.Count == 0 || _currentGenImagePath == null)
+        if (_historyFiles.Count == 0 || _currentGenImagePath == null)
             return false;
+        int currentIndex = _historyFiles.IndexOf(_currentGenImagePath);
+        if (currentIndex < 0) return false;
+        int targetIndex = currentIndex + (key == Windows.System.VirtualKey.Up ? -1 : 1);
+        if (targetIndex < 0 || targetIndex >= _historyFiles.Count) return true;
 
-        int currentIdx = -1;
-        for (int i = 0; i < _historyListItems.Count; i++)
-        {
-            var item = _historyListItems[i];
-            if (!item.IsSeparator && !item.IsPending &&
-                string.Equals(item.FilePath, _currentGenImagePath, StringComparison.OrdinalIgnoreCase))
-            {
-                currentIdx = i;
-                break;
-            }
-        }
-
-        if (currentIdx < 0)
-            return false;
-
-        bool up = key == Windows.System.VirtualKey.Up;
-        int targetIdx = currentIdx;
-        do
-        {
-            targetIdx += up ? -1 : 1;
-            if (targetIdx < 0 || targetIdx >= _historyListItems.Count)
-                return true;
-        }
-        while (_historyListItems[targetIdx].IsSeparator || _historyListItems[targetIdx].IsPending);
-
-        var targetPath = _historyListItems[targetIdx].FilePath;
-        if (targetPath != null)
-        {
-            _ = ShowHistoryImageAsync(targetPath);
-            HistoryListView.ScrollIntoView(_historyListItems[targetIdx], ScrollIntoViewAlignment.Leading);
-        }
+        var targetPath = _historyFiles[targetIndex];
+        _ = ShowHistoryImageAsync(targetPath);
+        int row = _historyRows.FindRow(targetPath);
+        if (row >= 0)
+            HistoryListView.ScrollIntoView(_historyRows.GetRow(row), ScrollIntoViewAlignment.Leading);
 
         return true;
     }

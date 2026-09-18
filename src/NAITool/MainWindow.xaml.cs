@@ -267,55 +267,12 @@ public sealed partial class MainWindow : Window
     private bool _upscaleRunning;
     private UpscaleService? _upscaleService;
 
-    // ═══ 历史记录 ═══
-    private readonly List<string> _historyFiles = new();
-    private readonly Dictionary<string, List<string>> _historyByDate = new();
-    private readonly List<string> _historyAvailableDates = new();
-    private readonly HashSet<string> _historyAvailableDateSet = new();
-    private readonly ObservableCollection<HistoryListItem> _historyListItems = [];
-    private readonly List<HistoryListItem> _historyPendingItems = [];
-    private readonly Dictionary<string, HistoryListItem> _historyFileItemsByPath = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, BitmapImage> _historyThumbnailCache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly LinkedList<string> _historyThumbnailCacheLru = new();
-    private readonly object _historyThumbnailCacheLock = new();
-    private readonly object _historyThumbnailRequestLock = new();
-    private readonly List<HistoryThumbnailQueueEntry> _historyThumbnailQueue = [];
-    private readonly Dictionary<string, List<WeakReference<Image>>> _historyThumbnailWaiters = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _historyThumbnailQueuedPaths = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _historyThumbnailInFlightPaths = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _historyThumbnailRevealPendingPaths = new(StringComparer.OrdinalIgnoreCase);
-    private ScrollViewer? _historyListScrollViewer;
-    private string? _selectedHistoryDate;
-    private const double HistoryThumbnailHeight = 140;
-    private const int HistoryThumbnailCacheLimit = 96;
-    private const int HistoryThumbnailMaxConcurrentLoads = 2;
-    private int _historyItemsVersion;
-    private int _historyPendingSequence;
-    private int _historyThumbnailActiveLoads;
-    private int _historyThumbnailRequestSequence;
-    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _historyDateRefreshTimer;
-    private string _historyTodayDateMarker = DateTime.Now.ToString("yyyy-MM-dd");
     private bool _superDropOverlayVisible;
     private bool _superDropOverlayOpening;
     private bool _superDropWindowRaisedTopmost;
     private bool _superDropWindowWasTopmost;
     private int _superDropDragVersion;
     private int _superDropBackdropVersion;
-
-    private sealed class HistoryLoadSnapshot
-    {
-        public Dictionary<string, List<string>> ByDate { get; init; } = new();
-        public List<string> AvailableDates { get; init; } = [];
-        public HashSet<string> AvailableDateSet { get; init; } = [];
-    }
-
-    private sealed class HistoryThumbnailQueueEntry
-    {
-        public required string FilePath { get; init; }
-        public required int ItemsVersion { get; init; }
-        public required int Sequence { get; init; }
-        public int Priority { get; set; }
-    }
 
     // ═══ 预览拖拽 ═══
     private bool _imgDragging;
@@ -413,7 +370,8 @@ public sealed partial class MainWindow : Window
 
         this.InitializeComponent();
         SetupGenerationPreviewPulse();
-        HistoryListView.ItemsSource = _historyListItems;
+        HistoryListView.ItemsSource = _historyRows;
+        HistoryListView.LayoutUpdated += OnHistoryLayoutUpdated;
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
@@ -435,6 +393,7 @@ public sealed partial class MainWindow : Window
         {
             CloseAdvancedParamsWindow();
             _historyDateRefreshTimer?.Stop();
+            DisposeHistory();
             ResetGenerationPreviewPulseVisuals();
             _effectsPreviewCts?.Cancel();
             _effectsPreviewCts?.Dispose();

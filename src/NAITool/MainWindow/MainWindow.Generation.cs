@@ -172,7 +172,7 @@ public sealed partial class MainWindow
             }
 
             if (!_settings.Settings.PrivacyMode)
-                pendingHistoryId = AddPendingHistoryItem(w, h);
+                pendingHistoryId = AddPendingHistoryItem();
             DebugLog($"[Generate] Start | {w}x{h} | Model={p.Model} | Seed={actualSeed}");
             IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
                 ? new Progress<byte[]>(bytes =>
@@ -226,7 +226,7 @@ public sealed partial class MainWindow
             if (finalSavedPath != null)
             {
                 if (pendingHistoryId != null)
-                    ResolvePendingHistoryItem(pendingHistoryId, finalSavedPath, finalBytes);
+                    ResolvePendingHistoryItem(pendingHistoryId, finalSavedPath);
                 else
                     AddHistoryItem(finalSavedPath);
             }
@@ -525,7 +525,7 @@ public sealed partial class MainWindow
                 : null;
 
             if (!_settings.Settings.PrivacyMode)
-                pendingHistoryId = AddPendingHistoryItem(width, height);
+                pendingHistoryId = AddPendingHistoryItem();
             DebugLog($"[Enhance] Start | {width}x{height} | Model={enhanceParams.Model} | Seed={actualSeed} | Strength=0.5");
             var (imageBytes, error) = await _naiService.ImageToImageAsync(
                 imageBase64,
@@ -560,7 +560,7 @@ public sealed partial class MainWindow
             if (savedPath != null)
             {
                 if (pendingHistoryId != null)
-                    ResolvePendingHistoryItem(pendingHistoryId, savedPath, imageBytes);
+                    ResolvePendingHistoryItem(pendingHistoryId, savedPath);
                 else
                     AddHistoryItem(savedPath);
             }
@@ -698,19 +698,7 @@ public sealed partial class MainWindow
                 if (!TryDeleteImageFileWithConfiguredBehavior(deletedPath))
                     return;
 
-                var delDateStr = GetDateFromFilePath(deletedPath);
-                if (delDateStr != null && _historyByDate.ContainsKey(delDateStr))
-                {
-                    _historyByDate[delDateStr].Remove(deletedPath);
-                    if (_historyByDate[delDateStr].Count == 0)
-                    {
-                        _historyByDate.Remove(delDateStr);
-                        _historyAvailableDates.Remove(delDateStr);
-                        _historyAvailableDateSet.Remove(delDateStr);
-                    }
-                }
-                _historyFiles.Remove(deletedPath);
-                RemoveHistoryThumbnailCacheEntry(deletedPath);
+                RemoveHistoryFile(deletedPath);
                 RefreshHistoryPanel();
 
                 string? nextPath = null;

@@ -107,6 +107,8 @@ public sealed partial class MainWindow
         PanelHistory.BorderThickness = isGallery
             ? new Thickness(0)
             : new Thickness(1, 0, 0, 0);
+        UpdateHistoryLayout();
+        QueueHistoryThumbnailPump();
         PanelI2ITools.Visibility = isI2I ? Visibility.Visible : Visibility.Collapsed;
         CharacterPanel.Visibility = (isGen || isI2I) ? Visibility.Visible : Visibility.Collapsed;
         UpdateI2IEditModeUI();
