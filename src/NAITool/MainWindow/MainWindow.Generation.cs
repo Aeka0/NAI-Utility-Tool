@@ -93,7 +93,7 @@ public sealed partial class MainWindow
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
         var p = _settings.Settings.GenParameters;
-        int restoreSeed = p.Seed;
+        string restoreSeed = p.Seed;
         string? pendingHistoryId = null;
 
         try
@@ -108,7 +108,7 @@ public sealed partial class MainWindow
                 return false;
             }
 
-            int actualSeed;
+            string actualSeed;
             string prompt;
             string negPrompt;
             List<CharacterPromptInfo>? chars;
@@ -116,7 +116,7 @@ public sealed partial class MainWindow
             List<PreciseReferenceInfo>? preciseReferences;
             while (true)
             {
-                actualSeed = (!forceRandomSeed && p.Seed > 0) ? p.Seed : Random.Shared.Next(1, int.MaxValue);
+                actualSeed = SeedValue.Resolve(p.Seed, forceRandomSeed);
                 p.Seed = actualSeed;
 
                 var wildcardContext = CreateWildcardContext(actualSeed, p.Model);
@@ -162,7 +162,7 @@ public sealed partial class MainWindow
                     return false;
                 if (duplicateDecision == DuplicateGenerationDecision.ProceedWithRandomSeed)
                 {
-                    restoreSeed = 0;
+                    restoreSeed = "0";
                     forceRandomSeed = true;
                     continue;
                 }
@@ -445,7 +445,7 @@ public sealed partial class MainWindow
         await ShowGenPreviewAsync(sourceImageBytes, width, height);
 
         var enhanceParams = CreateGenEnhanceParameters(_settings.Settings.GenParameters);
-        int requestedSeed = enhanceParams.Seed;
+        string requestedSeed = enhanceParams.Seed;
         string? pendingHistoryId = null;
 
         try
@@ -456,7 +456,7 @@ public sealed partial class MainWindow
             SaveCurrentPromptToBuffer();
 
             string imageBase64 = Convert.ToBase64String(sourceImageBytes);
-            int actualSeed;
+            string actualSeed;
             string prompt;
             string negPrompt;
             List<CharacterPromptInfo>? chars;
@@ -465,7 +465,7 @@ public sealed partial class MainWindow
 
             while (true)
             {
-                actualSeed = (!forceRandomSeed && requestedSeed > 0) ? requestedSeed : Random.Shared.Next(1, int.MaxValue);
+                actualSeed = SeedValue.Resolve(requestedSeed, forceRandomSeed);
                 enhanceParams.Seed = actualSeed;
 
                 var wildcardContext = CreateWildcardContext(actualSeed, enhanceParams.Model);
@@ -507,7 +507,7 @@ public sealed partial class MainWindow
                     return false;
                 if (duplicateDecision == DuplicateGenerationDecision.ProceedWithRandomSeed)
                 {
-                    requestedSeed = 0;
+                    requestedSeed = "0";
                     forceRandomSeed = true;
                     continue;
                 }
@@ -1012,7 +1012,7 @@ public sealed partial class MainWindow
             else
                 p.Steps = meta.Steps;
         }
-        if (!skipSeed && meta.Seed > 0 && meta.Seed <= int.MaxValue) p.Seed = (int)meta.Seed;
+        if (!skipSeed && !string.IsNullOrEmpty(meta.Seed)) p.Seed = meta.Seed;
         if (meta.Scale > 0) p.Scale = meta.Scale;
         p.CfgRescale = meta.CfgRescale;
         if (meta.TagHintTransparentBackground.HasValue) p.TagHintTransparentBackground = meta.TagHintTransparentBackground.Value;
@@ -1064,13 +1064,13 @@ public sealed partial class MainWindow
     private async Task ApplyImageSeedToGenerationAsync(byte[] bytes, string fileName)
     {
         var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
-        if (meta == null || meta.Seed <= 0 || meta.Seed > int.MaxValue)
+        if (meta == null || string.IsNullOrEmpty(meta.Seed))
         {
             TxtStatus.Text = Lf("metadata.no_usable_seed", fileName);
             return;
         }
 
-        int seed = (int)meta.Seed;
+        string seed = meta.Seed;
         _settings.Settings.GenParameters.Seed = seed;
         NbSeed.Value = seed;
         if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();

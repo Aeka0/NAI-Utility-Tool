@@ -817,7 +817,7 @@ public class NovelAIService : IDisposable
                 sm: false, strength: IsV4PlusModel(naiParams.Model) ? naiParams.InpaintStrength : 1) > NovelAiAnlasCalculator.MaxBaseCost)
             return (null, Lf("api.error.generation_cost_limit", NovelAiAnlasCalculator.MaxBaseCost));
 
-        int seed = naiParams.Seed > 0 ? naiParams.Seed : Random.Shared.Next(1, int.MaxValue);
+        object seed = SeedValue.ToRequestValue(SeedValue.Resolve(naiParams.Seed));
         bool isV4Plus = IsV4PlusModel(naiParams.Model);
         bool isV45 = IsV45Model(naiParams.Model);
         string effectivePrompt = ApplyQualityTags(prompt, naiParams.Model, naiParams.QualityToggle);
@@ -1028,7 +1028,7 @@ public class NovelAIService : IDisposable
                 sm: false, strength: naiParams.DenoiseStrength) > NovelAiAnlasCalculator.MaxBaseCost)
             return (null, Lf("api.error.generation_cost_limit", NovelAiAnlasCalculator.MaxBaseCost));
 
-        int seed = naiParams.Seed > 0 ? naiParams.Seed : Random.Shared.Next(1, int.MaxValue);
+        object seed = SeedValue.ToRequestValue(SeedValue.Resolve(naiParams.Seed));
         bool isV4Plus = IsV4PlusModel(naiParams.Model);
         bool isV45 = IsV45Model(naiParams.Model);
         string effectivePrompt = ApplyQualityTags(prompt, naiParams.Model, naiParams.QualityToggle);
@@ -1237,7 +1237,7 @@ public class NovelAIService : IDisposable
                 sm: naiParams.Sm, strength: 1) > NovelAiAnlasCalculator.MaxBaseCost)
             return (null, Lf("api.error.generation_cost_limit", NovelAiAnlasCalculator.MaxBaseCost));
 
-        int seed = naiParams.Seed > 0 ? naiParams.Seed : Random.Shared.Next(1, int.MaxValue);
+        object seed = SeedValue.ToRequestValue(SeedValue.Resolve(naiParams.Seed));
         bool isV4Plus = IsV4PlusModel(model);
         bool isV45 = IsV45Model(model);
         string effectivePrompt = ApplyQualityTags(prompt, model, naiParams.QualityToggle);

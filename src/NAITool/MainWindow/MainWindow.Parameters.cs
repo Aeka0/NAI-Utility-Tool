@@ -44,7 +44,6 @@ public sealed partial class MainWindow
         SetSizeInputsSilently(_customWidth, _customHeight);
         SuppressNumberBoxClearButton(NbMaxWidth);
         SuppressNumberBoxClearButton(NbMaxHeight);
-        SuppressNumberBoxClearButton(NbSeed);
         UpdateSizeControlMode();
         UpdateSizeWarningVisuals();
     }
@@ -368,7 +367,7 @@ public sealed partial class MainWindow
     private void SyncUIToParams()
     {
         var p = CurrentParams;
-        p.Seed = (int)NbSeed.Value;
+        p.Seed = NbSeed.Value;
         p.Variety = ChkVariety.IsChecked == true;
         p.Model = GetSelectedComboText(CboModel) ?? p.Model;
         p.Sampler = NormalizeSamplerForModel(p.Sampler, p.Model);
@@ -433,8 +432,8 @@ public sealed partial class MainWindow
             ? WildcardWeightFormat.NaiClassic
             : WildcardWeightFormat.NaiNumeric;
 
-    private WildcardExpandContext CreateWildcardContext(int seed, string model) =>
-        new(seed, GetWildcardWeightFormatForModel(model));
+    private WildcardExpandContext CreateWildcardContext(string seed, string model) =>
+        new(SeedValue.ToWildcardSeed(seed), GetWildcardWeightFormatForModel(model));
 
     private string ExpandPromptFeatures(string text, WildcardExpandContext context, bool isNegativeText = false)
     {

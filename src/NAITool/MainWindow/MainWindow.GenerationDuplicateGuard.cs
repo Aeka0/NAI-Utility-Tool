@@ -106,7 +106,7 @@ public sealed partial class MainWindow
         NAIParameters parameters,
         int width,
         int height,
-        int actualSeed,
+        string actualSeed,
         string prompt,
         string negativePrompt,
         List<CharacterPromptInfo>? characters,
@@ -128,7 +128,7 @@ public sealed partial class MainWindow
             parameters.QualityToggle,
             parameters.Steps,
             parameters.UcPreset,
-            Seed = actualSeed,
+            Seed = SeedValue.ToRequestValue(actualSeed),
             Prompt = prompt,
             NegativePrompt = negativePrompt,
             Characters = CreateCharacterSignatureData(characters),
@@ -147,7 +147,7 @@ public sealed partial class MainWindow
         NAIParameters parameters,
         int width,
         int height,
-        int actualSeed,
+        string actualSeed,
         string prompt,
         string negativePrompt,
         List<CharacterPromptInfo>? characters,
@@ -176,7 +176,7 @@ public sealed partial class MainWindow
             parameters.DenoiseNoise,
             parameters.InpaintStrength,
             parameters.InpaintNoise,
-            Seed = actualSeed,
+            Seed = SeedValue.ToRequestValue(actualSeed),
             Prompt = prompt,
             NegativePrompt = negativePrompt,
             ImageHash = ComputeStableHash(imageBase64),
@@ -199,7 +199,7 @@ public sealed partial class MainWindow
         _lastGenerationRequestFingerprint = signature.Fingerprint;
     }
 
-    private void ApplyRequestedSeedToCurrentMode(int seed)
+    private void ApplyRequestedSeedToCurrentMode(string seed)
     {
         CurrentParams.Seed = seed;
         NbSeed.Value = seed;
@@ -210,12 +210,12 @@ public sealed partial class MainWindow
 
     private async Task<DuplicateGenerationDecision> CheckDuplicateGenerationRequestAsync(
         GenerationRequestSignature signature,
-        int requestedSeed)
+        string requestedSeed)
     {
         if (_autoGenRunning || _continuousGenRunning)
             return DuplicateGenerationDecision.Proceed;
 
-        if (requestedSeed <= 0)
+        if (SeedValue.IsRandom(requestedSeed))
             return DuplicateGenerationDecision.Proceed;
 
         if (!string.Equals(_lastGenerationRequestFingerprint, signature.Fingerprint, StringComparison.Ordinal))
@@ -256,7 +256,7 @@ public sealed partial class MainWindow
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
         {
-            ApplyRequestedSeedToCurrentMode(0);
+            ApplyRequestedSeedToCurrentMode("0");
             _settings.Save();
             return DuplicateGenerationDecision.ProceedWithRandomSeed;
         }

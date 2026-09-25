@@ -212,7 +212,7 @@ public sealed partial class MainWindow
         TxtInspectSchedule.Text = FormatInspectValue(meta.NoiseSchedule);
         TxtInspectScale.Text = FormatInspectNumber(meta.Scale);
         TxtInspectCfgRescale.Text = meta.IsSdFormat || meta.IsModelInference ? "-" : FormatInspectNumber(meta.CfgRescale);
-        TxtInspectSeed.Text = meta.Seed > 0 ? meta.Seed.ToString() : "-";
+        TxtInspectSeed.Text = !string.IsNullOrEmpty(meta.Seed) ? meta.Seed : "-";
         TxtInspectVariety.Text = meta.IsSdFormat || meta.IsModelInference ? "-" : ((meta.SmDyn || meta.Sm) ? L("common.yes") : L("common.no"));
         UpdateDynamicMenuStates();
     }
@@ -499,7 +499,7 @@ public sealed partial class MainWindow
             else
                 p.Steps = meta.Steps;
         }
-        if (meta.Seed > 0 && meta.Seed <= int.MaxValue) p.Seed = (int)meta.Seed;
+        if (!string.IsNullOrEmpty(meta.Seed)) p.Seed = meta.Seed;
         if (meta.Scale > 0) p.Scale = meta.Scale;
         if (!meta.IsSdFormat)
         {
@@ -589,7 +589,7 @@ public sealed partial class MainWindow
             else
                 p.Steps = meta.Steps;
         }
-        if (meta.Seed > 0 && meta.Seed <= int.MaxValue) p.Seed = (int)meta.Seed;
+        if (!string.IsNullOrEmpty(meta.Seed)) p.Seed = meta.Seed;
         if (meta.Scale > 0) p.Scale = meta.Scale;
         if (!meta.IsSdFormat) p.CfgRescale = meta.CfgRescale;
         if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = NormalizeSamplerForModel(meta.Sampler, p.Model);

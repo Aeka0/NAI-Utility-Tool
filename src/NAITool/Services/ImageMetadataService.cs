@@ -24,7 +24,7 @@ public class ImageMetadata
     public int Steps { get; set; }
     public double Scale { get; set; }
     public double CfgRescale { get; set; }
-    public long Seed { get; set; }
+    public string? Seed { get; set; }
     public string Sampler { get; set; } = "";
     public string NoiseSchedule { get; set; } = "";
     public bool Sm { get; set; }
@@ -236,7 +236,7 @@ public static class ImageMetadataService
 
         string paramsLine = text[paramsLineIdx..].Trim();
         meta.Steps = ExtractSdInt(paramsLine, @"Steps:\s*(\d+)");
-        meta.Seed = ExtractSdLong(paramsLine, @"Seed:\s*(\d+)");
+        meta.Seed = ExtractSdString(paramsLine, @"(?:^|,\s*)Seed:\s*([^,\r\n]+)");
         meta.Scale = ExtractSdDouble(paramsLine, @"CFG scale:\s*([\d.]+)");
 
         var sizeMatch = System.Text.RegularExpressions.Regex.Match(paramsLine, @"Size:\s*(\d+)x(\d+)");
@@ -272,12 +272,6 @@ public static class ImageMetadataService
     {
         var m = System.Text.RegularExpressions.Regex.Match(s, pattern);
         return m.Success && int.TryParse(m.Groups[1].Value, out int v) ? v : 0;
-    }
-
-    private static long ExtractSdLong(string s, string pattern)
-    {
-        var m = System.Text.RegularExpressions.Regex.Match(s, pattern);
-        return m.Success && long.TryParse(m.Groups[1].Value, out long v) ? v : 0;
     }
 
     private static double ExtractSdDouble(string s, string pattern)
@@ -633,7 +627,7 @@ public static class ImageMetadataService
             if (root.TryGetProperty("cfg_rescale", out var cfgRescale))
                 meta.CfgRescale = cfgRescale.GetDouble();
             if (root.TryGetProperty("seed", out var seed))
-                meta.Seed = seed.GetInt64();
+                meta.Seed = SeedValue.ReadJson(seed);
             if (root.TryGetProperty("sampler", out var sampler))
                 meta.Sampler = sampler.GetString() ?? "";
             if (root.TryGetProperty("noise_schedule", out var schedule))

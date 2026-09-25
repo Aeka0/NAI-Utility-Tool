@@ -1228,15 +1228,14 @@
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <NumberBox x:Name="NbSeed"
-                                           Grid.Column="0"
-                                           Minimum="0" Value="0"
-                                           SpinButtonPlacementMode="Compact">
-                                    <NumberBox.Header>
-                            <TextBlock x:Name="TxtSeedLabel" Text=""
+                                <controls:SeedInput x:Name="NbSeed"
+                                                    Grid.Column="0"
+                                                    Value="0">
+                                    <controls:SeedInput.Header>
+                                        <TextBlock x:Name="TxtSeedLabel" Text=""
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                    </NumberBox.Header>
-                                </NumberBox>
+                                    </controls:SeedInput.Header>
+                                </controls:SeedInput>
                                 <Button x:Name="BtnSeedRandomize" Grid.Column="1" Click="OnSeedRandomize"
                                     ToolTipService.ToolTip=""
                                         VerticalAlignment="Bottom" Width="32" Height="32"

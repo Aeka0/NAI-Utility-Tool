@@ -332,7 +332,7 @@ public sealed partial class MainWindow
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
         var ip = _settings.Settings.InpaintParameters;
-        int restoreSeed = ip.Seed;
+        string restoreSeed = ip.Seed;
 
         try
         {
@@ -354,10 +354,10 @@ public sealed partial class MainWindow
                 return false;
             }
 
-            int actualSeed;
+            string actualSeed;
             while (true)
             {
-                actualSeed = (!forceRandomSeed && ip.Seed > 0) ? ip.Seed : Random.Shared.Next(1, int.MaxValue);
+                actualSeed = SeedValue.Resolve(ip.Seed, forceRandomSeed);
                 ip.Seed = actualSeed;
                 var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
                 var (prompt, negPrompt) = GetPrompts(wildcardContext);
@@ -389,7 +389,7 @@ public sealed partial class MainWindow
                     return false;
                 if (duplicateDecision == DuplicateGenerationDecision.ProceedWithRandomSeed)
                 {
-                    restoreSeed = 0;
+                    restoreSeed = "0";
                     forceRandomSeed = true;
                     continue;
                 }
@@ -552,7 +552,7 @@ public sealed partial class MainWindow
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
         var dp = _settings.Settings.I2IDenoiseParameters;
-        int restoreSeed = dp.Seed;
+        string restoreSeed = dp.Seed;
 
         try
         {
@@ -572,10 +572,10 @@ public sealed partial class MainWindow
                 return false;
             }
 
-            int actualSeed;
+            string actualSeed;
             while (true)
             {
-                actualSeed = (!forceRandomSeed && dp.Seed > 0) ? dp.Seed : Random.Shared.Next(1, int.MaxValue);
+                actualSeed = SeedValue.Resolve(dp.Seed, forceRandomSeed);
                 dp.Seed = actualSeed;
                 var wildcardContext = CreateWildcardContext(actualSeed, dp.Model);
                 var (prompt, negPrompt) = GetPrompts(wildcardContext);
@@ -607,7 +607,7 @@ public sealed partial class MainWindow
                     return false;
                 if (duplicateDecision == DuplicateGenerationDecision.ProceedWithRandomSeed)
                 {
-                    restoreSeed = 0;
+                    restoreSeed = "0";
                     forceRandomSeed = true;
                     continue;
                 }
@@ -808,7 +808,7 @@ public sealed partial class MainWindow
         var ip = editMode == I2IEditMode.Denoise
             ? _settings.Settings.I2IDenoiseParameters
             : _settings.Settings.InpaintParameters;
-        int restoreSeed = ip.Seed;
+        string restoreSeed = ip.Seed;
 
         try
         {
@@ -830,10 +830,10 @@ public sealed partial class MainWindow
                 return false;
             }
 
-            int actualSeed;
+            string actualSeed;
             while (true)
             {
-                actualSeed = (!forceRandomSeed && ip.Seed > 0) ? ip.Seed : Random.Shared.Next(1, int.MaxValue);
+                actualSeed = SeedValue.Resolve(ip.Seed, forceRandomSeed);
                 ip.Seed = actualSeed;
                 var wildcardContext = CreateWildcardContext(actualSeed, ip.Model);
                 var (prompt, negPrompt) = GetPrompts(wildcardContext);
@@ -865,7 +865,7 @@ public sealed partial class MainWindow
                     return false;
                 if (duplicateDecision == DuplicateGenerationDecision.ProceedWithRandomSeed)
                 {
-                    restoreSeed = 0;
+                    restoreSeed = "0";
                     forceRandomSeed = true;
                     continue;
                 }

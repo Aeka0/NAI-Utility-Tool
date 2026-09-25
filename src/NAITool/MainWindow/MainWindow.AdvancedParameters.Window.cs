@@ -106,11 +106,10 @@ public sealed partial class MainWindow
             MinHeight = 32,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
         };
-        _advNbSeed = new NumberBox
+        _advNbSeed = new SeedInput
         {
-            Header = L("panel.seed"), Minimum = 0, Value = p.Seed,
+            Header = L("panel.seed"), Value = p.Seed,
             MinHeight = 32,
-            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
         };
         _advNbScale = new NumberBox
         {
@@ -223,7 +222,6 @@ public sealed partial class MainWindow
         if (_advCboSchedule.SelectedIndex < 0) _advCboSchedule.SelectedIndex = 0;
 
         SuppressNumberBoxClearButton(_advNbSteps);
-        SuppressNumberBoxClearButton(_advNbSeed);
         SuppressNumberBoxClearButton(_advNbScale);
         SuppressNumberBoxClearButton(_advNbMaxWidth);
         SuppressNumberBoxClearButton(_advNbMaxHeight);
@@ -394,7 +392,7 @@ public sealed partial class MainWindow
         p.Sampler = GetSelectedComboText(_advCboSampler) ?? p.Sampler;
         p.Schedule = GetSelectedComboText(_advCboSchedule) ?? p.Schedule;
         p.Steps = (int)_advNbSteps.Value;
-        p.Seed = (int)_advNbSeed.Value;
+        p.Seed = _advNbSeed.Value;
         p.Scale = Math.Round(_advNbScale.Value, 1);
         p.CfgRescale = Math.Round(_advSliderCfgRescale.Value, 2);
         p.Variety = _advChkVariety.IsChecked == true;
@@ -438,13 +436,13 @@ public sealed partial class MainWindow
 
     private void OnSeedRandomize(object sender, RoutedEventArgs e)
     {
-        NbSeed.Value = 0;
-        if (IsAdvancedWindowOpen) _advNbSeed.Value = 0;
+        NbSeed.Value = "0";
+        if (IsAdvancedWindowOpen) _advNbSeed.Value = "0";
     }
 
     private void OnSeedRestore(object sender, RoutedEventArgs e)
     {
-        if (_lastUsedSeed > 0)
+        if (!string.IsNullOrEmpty(_lastUsedSeed))
         {
             NbSeed.Value = _lastUsedSeed;
             if (IsAdvancedWindowOpen) _advNbSeed.Value = _lastUsedSeed;
@@ -458,7 +456,7 @@ public sealed partial class MainWindow
 
     private void UpdateSeedRandomizeButtonStyle()
     {
-        bool isFixed = !double.IsNaN(NbSeed.Value) && (int)NbSeed.Value != 0;
+        bool isFixed = !SeedValue.IsRandom(NbSeed.Value);
         if (isFixed)
         {
             BtnSeedRandomize.Style = (Style)Application.Current.Resources["AccentButtonStyle"];

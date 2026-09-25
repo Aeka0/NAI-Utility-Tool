@@ -126,7 +126,7 @@ public sealed partial class MainWindow : Window
     // ═══ 生成 ═══
     private CancellationTokenSource? _generateCts;
     private byte[]? _lastGeneratedImageBytes;
-    private int _lastUsedSeed;
+    private string? _lastUsedSeed;
     private int _customWidth = 832;
     private int _customHeight = 1216;
     private bool _isUpdatingMaxSize;
@@ -137,7 +137,7 @@ public sealed partial class MainWindow : Window
     private ComboBox _advCboSampler = null!;
     private ComboBox _advCboSchedule = null!;
     private NumberBox _advNbSteps = null!;
-    private NumberBox _advNbSeed = null!;
+    private SeedInput _advNbSeed = null!;
     private NumberBox _advNbScale = null!;
     private Slider _advSliderCfgRescale = null!;
     private TextBlock _advTxtCfgRescale = null!;
