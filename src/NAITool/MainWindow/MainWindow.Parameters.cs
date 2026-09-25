@@ -334,6 +334,7 @@ public sealed partial class MainWindow
     {
         if (ChkVariety == null || CboModel == null) return;
         bool isV3 = IsCurrentModelV3();
+        UpdateImageRequestParameterControls();
         CurrentParams.Sampler = NormalizeSamplerForModel(CurrentParams.Sampler, GetCurrentModelKey());
         CurrentParams.Schedule = NormalizeScheduleForModel(CurrentParams.Schedule, GetCurrentModelKey());
         RecheckVibeTransferCacheState();

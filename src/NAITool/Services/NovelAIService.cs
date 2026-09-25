@@ -814,7 +814,7 @@ public class NovelAIService : IDisposable
         var naiParams = _settings.Settings.InpaintParameters;
         if (!_settings.Settings.UsesCustomApiBaseUrl &&
             NovelAiAnlasCalculator.PaidBaseCost(naiParams.Model, width, height, naiParams.Steps,
-                sm: false, strength: 1) > NovelAiAnlasCalculator.MaxBaseCost)
+                sm: false, strength: IsV4PlusModel(naiParams.Model) ? naiParams.InpaintStrength : 1) > NovelAiAnlasCalculator.MaxBaseCost)
             return (null, Lf("api.error.generation_cost_limit", NovelAiAnlasCalculator.MaxBaseCost));
 
         int seed = naiParams.Seed > 0 ? naiParams.Seed : Random.Shared.Next(1, int.MaxValue);
@@ -846,8 +846,8 @@ public class NovelAIService : IDisposable
             ["legacy_v3_extend"] = false,
             ["dynamic_thresholding"] = naiParams.CfgRescale > 0,
             ["skip_cfg_above_sigma"] = null,
-            ["strength"] = 1.0,
-            ["noise"] = 0,
+            ["strength"] = isV4Plus ? Math.Clamp(naiParams.InpaintStrength, 0, 1) : 1.0,
+            ["noise"] = isV4Plus ? Math.Clamp(naiParams.InpaintNoise, 0, 1) : 0.0,
             ["qualityToggle"] = naiParams.QualityToggle,
             ["quality_toggle"] = naiParams.QualityToggle,
         };

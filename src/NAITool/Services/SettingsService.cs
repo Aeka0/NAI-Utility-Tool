@@ -200,6 +200,11 @@ public class ApiConfig
 
 public class AppSettings
 {
+    public const double DefaultHistorySidebarWidth = 260;
+    public const double MinHistorySidebarWidth = 200;
+    public const double MaxHistorySidebarWidth = 600;
+
+    public double HistorySidebarWidth { get; set; } = DefaultHistorySidebarWidth;
     [JsonIgnore]
     public string? ApiToken { get; set; }
     public string ApiBaseUrl { get; set; } = "";
@@ -248,6 +253,9 @@ public class AppSettings
 
     public void Normalize()
     {
+        HistorySidebarWidth = double.IsFinite(HistorySidebarWidth)
+            ? Math.Clamp(HistorySidebarWidth, MinHistorySidebarWidth, MaxHistorySidebarWidth)
+            : DefaultHistorySidebarWidth;
         ApiBaseUrl = NormalizeApiBaseUrl(ApiBaseUrl);
         if (!string.IsNullOrWhiteSpace(LanguageCode))
             LanguageCode = LocalizationService.NormalizeLanguageCode(LanguageCode);
@@ -393,6 +401,8 @@ public class NAIParameters
     public int Steps { get; set; } = 28;
     public int Seed { get; set; } = 0;
     public int UcPreset { get; set; } = 0;
+    public double InpaintStrength { get; set; } = 1.0;
+    public double InpaintNoise { get; set; }
     public double DenoiseStrength { get; set; } = 0.7;
     public double DenoiseNoise { get; set; } = 0;
 }

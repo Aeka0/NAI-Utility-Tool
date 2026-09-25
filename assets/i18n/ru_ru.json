@@ -111,6 +111,7 @@
   "button.upscaling": "Масштабирование...",
   "history.select_date": "Выберите дату",
   "history.title": "История",
+  "history.resize_sidebar": "Перетащите, чтобы изменить ширину боковой панели истории",
   "inpaint.brush_size": "Размер кисти",
   "inpaint.preview": "Предварительный просмотр (перетащите, чтобы переместить изображение)",
   "inpaint.preview_mask": "Только маска предварительного просмотра",
@@ -1081,5 +1082,7 @@
   "oobe.reverse.skip_hint": "Вы можете оставить это поле пустым, но обратная маркировка будет недоступна.",
   "oobe.done.title": "Все готово",
   "oobe.done.description": "Настройка завершена. Вы можете начать использовать NovelAI Utility Tool.",
-  "oobe.status.completed": "Краткий обзор завершен"
+  "oobe.status.completed": "Краткий обзор завершен",
+  "tooltip.move_mask": "Перемещение выделения (M): перетащите маску; Shift фиксирует направление, Esc отменяет",
+  "inpaint.error.move_mask_failed": "Не удалось переместить маску: {0}"
 }

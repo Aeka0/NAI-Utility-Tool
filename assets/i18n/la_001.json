@@ -111,6 +111,7 @@
   "button.upscaling": "Upscale fit...",
   "history.select_date": "Diem eligere",
   "history.title": "Historia",
+  "history.resize_sidebar": "Trahe ad latitudinem lateris historiae mutandam",
   "inpaint.brush_size": "Magnitudo penicilli",
   "inpaint.preview": "Praevisio (trahe ut imaginem moveas)",
   "inpaint.preview_mask": "Solam larvam praevidere",
@@ -1081,5 +1082,7 @@
   "oobe.reverse.skip_hint": "Hoc vacuum relinquere potes, sed reverse tagging praesto non erit.",
   "oobe.done.title": "Omnia parata",
   "oobe.done.description": "Institutio completa est. NovelAI Utility Tool uti incipere potes.",
-  "oobe.status.completed": "Brevis ductus completus"
+  "oobe.status.completed": "Brevis ductus completus",
+  "tooltip.move_mask": "Selectionem movere (M): personam trahe; Shift directionem figit, Esc revocat",
+  "inpaint.error.move_mask_failed": "Persona moveri non potuit: {0}"
 }

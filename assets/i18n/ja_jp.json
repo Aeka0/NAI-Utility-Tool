@@ -130,6 +130,7 @@
     "button.upscaling":  "アップスケール中...",
     "history.select_date":  "日付を選択",
     "history.title":  "履歴",
+    "history.resize_sidebar":  "ドラッグして履歴サイドバーの幅を変更",
     "inpaint.brush_size":  "ブラシサイズ",
     "inpaint.preview":  "プレビュー（ドラッグで移動）",
     "inpaint.preview_mask":  "マスクのみ表示",
@@ -1081,5 +1082,7 @@
     "oobe.reverse.skip_hint":  "空のままでも進めますが、逆引き機能は利用できません。",
     "oobe.done.title":  "設定完了",
     "oobe.done.description":  "NovelAI Utility Tool を使い始められます。",
-    "oobe.status.completed":  "クイックツアーが完了しました"
+    "oobe.status.completed":  "クイックツアーが完了しました",
+    "tooltip.move_mask": "選択範囲を移動 (M)：マスクをドラッグ、Shift で方向固定、Esc でキャンセル",
+    "inpaint.error.move_mask_failed": "マスクの移動に失敗しました：{0}"
 }

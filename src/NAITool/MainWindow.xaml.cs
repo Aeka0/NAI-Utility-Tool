@@ -369,6 +369,7 @@ public sealed partial class MainWindow : Window
         _loc.LanguageChanged += OnAppLanguageChanged;
 
         this.InitializeComponent();
+        _updatingImageRequestParameters = false;
         SetupGenerationPreviewPulse();
         HistoryListView.ItemsSource = _historyRows;
         HistoryListView.LayoutUpdated += OnHistoryLayoutUpdated;

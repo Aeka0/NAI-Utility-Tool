@@ -111,6 +111,7 @@
   "button.upscaling": "Hochskalierung...",
   "history.select_date": "Wählen Sie ein Datum aus",
   "history.title": "Geschichte",
+  "history.resize_sidebar": "Ziehen, um die Breite der Verlaufsleiste anzupassen",
   "inpaint.brush_size": "Pinselgröße",
   "inpaint.preview": "Vorschau (Ziehen, um das Bild zu verschieben)",
   "inpaint.preview_mask": "Nur Vorschaumaske",
@@ -1081,5 +1082,7 @@
   "oobe.reverse.skip_hint": "Sie können dieses Feld leer lassen, das Reverse-Tagging ist jedoch nicht verfügbar.",
   "oobe.done.title": "Alles klar",
   "oobe.done.description": "Die Einrichtung ist abgeschlossen. Sie können mit der Verwendung des NovelAI Utility Tool beginnen.",
-  "oobe.status.completed": "Kurztour abgeschlossen"
+  "oobe.status.completed": "Kurztour abgeschlossen",
+  "tooltip.move_mask": "Auswahl verschieben (M): Maske ziehen; Umschalt fixiert die Richtung, Esc bricht ab",
+  "inpaint.error.move_mask_failed": "Maske konnte nicht verschoben werden: {0}"
 }

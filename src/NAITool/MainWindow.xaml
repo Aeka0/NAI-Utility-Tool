@@ -872,12 +872,12 @@
         </Grid>
 
         <!-- ════════════ 主内容 ════════════ -->
-        <Grid x:Name="MainContentGrid" Grid.Row="1">
+        <Grid x:Name="MainContentGrid" Grid.Row="1" SizeChanged="OnHistorySidebarContainerSizeChanged">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="300"/>
                 <ColumnDefinition Width="1"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="260"/>
+                <ColumnDefinition x:Name="RightSidebarColumn" Width="260"/>
             </Grid.ColumnDefinitions>
 
             <!-- ═══ 左侧栏（生图/重绘） ═══ -->
@@ -1856,6 +1856,20 @@
                 </Grid>
             </Border>
 
+            <local:ResizeHandle x:Name="HistoryResizeHandle" Grid.Column="2"
+                                Width="8" HorizontalAlignment="Right" Background="Transparent"
+                                PointerPressed="OnHistoryResizePressed"
+                                PointerMoved="OnHistoryResizeMoved"
+                                PointerReleased="OnHistoryResizeReleased"
+                                PointerCanceled="OnHistoryResizeReleased"
+                                PointerCaptureLost="OnHistoryResizeReleased"
+                                PointerEntered="OnHistoryResizeEntered"
+                                PointerExited="OnHistoryResizeExited">
+                <Border x:Name="HistoryResizeGrip" Width="2" Height="32" CornerRadius="1"
+                        Background="{ThemeResource TextFillColorSecondaryBrush}" Opacity="0.45"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </local:ResizeHandle>
+
             <!-- ═══ 右侧栏：重绘模式 ═══ -->
             <Border x:Name="PanelI2ITools" Grid.Column="3" Visibility="Collapsed"
                     BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
@@ -1917,6 +1931,12 @@
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
                                               Glyph="&#xE739;" FontSize="18"/>
                                 </ToggleButton>
+                                <ToggleButton x:Name="BtnMoveMask"
+                                              Click="OnToolMoveMask" ToolTipService.ToolTip=""
+                                              Width="40" Height="40" Padding="0">
+                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                              Glyph="&#xE7C2;" FontSize="18"/>
+                                </ToggleButton>
                             </StackPanel>
 
                             <TextBlock x:Name="TxtBrushSizeLabel" Text="" Style="{StaticResource CaptionTextBlockStyle}"
@@ -1936,7 +1956,7 @@
                             </Grid>
                         </StackPanel>
 
-                        <StackPanel x:Name="PanelI2IDenoiseTools" Spacing="12" Visibility="Collapsed">
+                        <StackPanel x:Name="PanelI2IRequestParameters" Spacing="12">
                             <TextBlock x:Name="TxtDenoiseStrengthLabel" Text="" Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                             <Grid>

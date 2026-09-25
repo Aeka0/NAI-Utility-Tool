@@ -111,6 +111,7 @@
   "button.upscaling": "Mise à l'échelle...",
   "history.select_date": "Sélectionnez une date",
   "history.title": "Histoire",
+  "history.resize_sidebar": "Faites glisser pour redimensionner la barre latérale de l’historique",
   "inpaint.brush_size": "Taille du pinceau",
   "inpaint.preview": "Aperçu (faire glisser pour déplacer l'image)",
   "inpaint.preview_mask": "Masque de prévisualisation uniquement",
@@ -1081,5 +1082,7 @@
   "oobe.reverse.skip_hint": "Vous pouvez laisser ce champ vide, mais le marquage inversé ne sera pas disponible.",
   "oobe.done.title": "Tout est réglé",
   "oobe.done.description": "La configuration est terminée. Vous pouvez commencer à utiliser l'utilitaire NovelAI.",
-  "oobe.status.completed": "Visite rapide terminée"
+  "oobe.status.completed": "Visite rapide terminée",
+  "tooltip.move_mask": "Déplacer la sélection (M) : glisser le masque ; Maj contraint la direction, Échap annule",
+  "inpaint.error.move_mask_failed": "Échec du déplacement du masque : {0}"
 }

@@ -174,6 +174,8 @@ public sealed partial class MainWindow
             parameters.UcPreset,
             parameters.DenoiseStrength,
             parameters.DenoiseNoise,
+            parameters.InpaintStrength,
+            parameters.InpaintNoise,
             Seed = actualSeed,
             Prompt = prompt,
             NegativePrompt = negativePrompt,

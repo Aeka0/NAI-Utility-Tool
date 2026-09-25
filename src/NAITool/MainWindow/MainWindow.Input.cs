@@ -39,16 +39,20 @@ public sealed partial class MainWindow
     private void SetToolSelection(StrokeTool tool)
     {
         if (_i2iEditMode != I2IEditMode.Inpaint) return;
+        MaskCanvas.CancelMaskMove();
+        if (MaskCanvas.IsActivelyDrawing) return;
         MaskCanvas.Brush.CurrentTool = tool;
         BtnBrush.IsChecked = tool == StrokeTool.Brush;
         BtnEraser.IsChecked = tool == StrokeTool.Eraser;
         BtnRect.IsChecked = tool == StrokeTool.Rectangle;
+        BtnMoveMask.IsChecked = tool == StrokeTool.MoveMask;
         MaskCanvas.RefreshToolCursor();
     }
 
     private void OnToolBrush(object sender, RoutedEventArgs e) => SetToolSelection(StrokeTool.Brush);
     private void OnToolEraser(object sender, RoutedEventArgs e) => SetToolSelection(StrokeTool.Eraser);
     private void OnToolRect(object sender, RoutedEventArgs e) => SetToolSelection(StrokeTool.Rectangle);
+    private void OnToolMoveMask(object sender, RoutedEventArgs e) => SetToolSelection(StrokeTool.MoveMask);
 
     private void OnBrushSizeChanged(object sender,
         Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
@@ -59,10 +63,20 @@ public sealed partial class MainWindow
         if (TxtBrushSize != null) TxtBrushSize.Text = $"{(int)e.NewValue}";
     }
 
+    // XAML assigns slider defaults during InitializeComponent; these must not overwrite loaded settings.
+    private bool _updatingImageRequestParameters = true;
+
+    private NAIParameters ImageRequestParameters => _i2iEditMode == I2IEditMode.Inpaint
+        ? _settings.Settings.InpaintParameters : _settings.Settings.I2IDenoiseParameters;
+
     private void OnDenoiseStrengthChanged(object sender,
         Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
-        _settings.Settings.I2IDenoiseParameters.DenoiseStrength = Math.Round(e.NewValue, 2);
+        if (_updatingImageRequestParameters || MaskCanvas == null) return;
+        if (_i2iEditMode == I2IEditMode.Inpaint)
+            ImageRequestParameters.InpaintStrength = Math.Round(e.NewValue, 2);
+        else
+            ImageRequestParameters.DenoiseStrength = Math.Round(e.NewValue, 2);
         if (TxtDenoiseStrength != null) TxtDenoiseStrength.Text = e.NewValue.ToString("0.00", CultureInfo.InvariantCulture);
         UpdateGenerateButtonWarning();
         UpdateBtnGenerateForApiKey();
@@ -72,7 +86,11 @@ public sealed partial class MainWindow
     private void OnDenoiseNoiseChanged(object sender,
         Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
-        _settings.Settings.I2IDenoiseParameters.DenoiseNoise = Math.Round(e.NewValue, 2);
+        if (_updatingImageRequestParameters || MaskCanvas == null) return;
+        if (_i2iEditMode == I2IEditMode.Inpaint)
+            ImageRequestParameters.InpaintNoise = Math.Round(e.NewValue, 2);
+        else
+            ImageRequestParameters.DenoiseNoise = Math.Round(e.NewValue, 2);
         if (TxtDenoiseNoise != null) TxtDenoiseNoise.Text = e.NewValue.ToString("0.00", CultureInfo.InvariantCulture);
     }
 
@@ -120,7 +138,6 @@ public sealed partial class MainWindow
         BtnI2IDenoiseMode.IsChecked = !isInpaint;
 
         PanelI2IInpaintTools.Visibility = isInpaint ? Visibility.Visible : Visibility.Collapsed;
-        PanelI2IDenoiseTools.Visibility = isInpaint ? Visibility.Collapsed : Visibility.Visible;
 
         MaskCanvas.IsMaskEditingEnabled = isInpaint;
         MaskCanvas.IsMaskOverlayVisible = isInpaint;
@@ -130,12 +147,33 @@ public sealed partial class MainWindow
             MaskCanvas.PreviewMaskOnly = ChkPreviewMask.IsChecked == true;
         MaskCanvas.RefreshCanvas();
 
-        var denoiseParams = _settings.Settings.I2IDenoiseParameters;
-        SliderDenoiseStrength.Value = Math.Clamp(denoiseParams.DenoiseStrength, 0, 1);
-        SliderDenoiseNoise.Value = Math.Clamp(denoiseParams.DenoiseNoise, 0, 1);
-        TxtDenoiseStrength.Text = SliderDenoiseStrength.Value.ToString("0.00", CultureInfo.InvariantCulture);
-        TxtDenoiseNoise.Text = SliderDenoiseNoise.Value.ToString("0.00", CultureInfo.InvariantCulture);
+        UpdateImageRequestParameterControls();
         UpdateReferenceButtonAndPanelState();
+    }
+
+    private void UpdateImageRequestParameterControls()
+    {
+        if (SliderDenoiseStrength == null || SliderDenoiseNoise == null) return;
+        bool inpaint = _i2iEditMode == I2IEditMode.Inpaint;
+        var p = ImageRequestParameters;
+        bool supported = !inpaint || IsV4PlusModelKey(p.Model);
+        bool wasUpdating = _updatingImageRequestParameters;
+        _updatingImageRequestParameters = true;
+        try
+        {
+            SliderDenoiseStrength.IsEnabled = supported;
+            SliderDenoiseNoise.IsEnabled = supported;
+            SliderDenoiseStrength.Value = supported
+                ? Math.Clamp(inpaint ? p.InpaintStrength : p.DenoiseStrength, 0, 1) : 1;
+            SliderDenoiseNoise.Value = supported
+                ? Math.Clamp(inpaint ? p.InpaintNoise : p.DenoiseNoise, 0, 1) : 0;
+            TxtDenoiseStrength.Text = SliderDenoiseStrength.Value.ToString("0.00", CultureInfo.InvariantCulture);
+            TxtDenoiseNoise.Text = SliderDenoiseNoise.Value.ToString("0.00", CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            _updatingImageRequestParameters = wasUpdating;
+        }
     }
 
     private void OnTogglePreviewMask(object sender, RoutedEventArgs e)
@@ -219,6 +257,11 @@ public sealed partial class MainWindow
 
         if (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint)
         {
+            if (e.Key == Windows.System.VirtualKey.Escape && MaskCanvas.CancelMaskMove())
+            {
+                e.Handled = true;
+                return;
+            }
             var ctrlState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
                 Windows.System.VirtualKey.Control);
             bool ctrlDown = ctrlState.HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
@@ -252,6 +295,8 @@ public sealed partial class MainWindow
                     SetToolSelection(StrokeTool.Eraser); e.Handled = true; break;
                 case Windows.System.VirtualKey.R:
                     SetToolSelection(StrokeTool.Rectangle); e.Handled = true; break;
+                case Windows.System.VirtualKey.M:
+                    SetToolSelection(StrokeTool.MoveMask); e.Handled = true; break;
             }
         }
     }

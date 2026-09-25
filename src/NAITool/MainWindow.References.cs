@@ -178,7 +178,8 @@ public sealed partial class MainWindow
         int baseCost = NovelAiAnlasCalculator.BaseCost(model, width, height, steps,
             _isOpusSubscriber && _hasActiveSubscription, _v5UsageIsNegative,
             sm: parameters.Sm && !imageToImage && _currentMode != AppMode.I2I,
-            strength: imageToImage ? parameters.DenoiseStrength : 1);
+            strength: imageToImage ? parameters.DenoiseStrength
+                : _currentMode == AppMode.I2I && IsV4PlusModelKey(model) ? parameters.InpaintStrength : 1);
 
         // ── 氛围迁移 / 精确参考额外费用 ──
         int refCost = 0;

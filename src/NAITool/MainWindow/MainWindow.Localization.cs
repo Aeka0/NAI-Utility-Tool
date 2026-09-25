@@ -216,6 +216,8 @@ public sealed partial class MainWindow
         ToolTipService.SetToolTip(BtnBrush, L("tooltip.brush"));
         ToolTipService.SetToolTip(BtnEraser, L("tooltip.eraser"));
         ToolTipService.SetToolTip(BtnRect, L("tooltip.rectangle"));
+        ToolTipService.SetToolTip(BtnMoveMask, L("tooltip.move_mask"));
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(BtnMoveMask, L("tooltip.move_mask"));
         ChkVariety.Content = L("panel.variety");
         TxtAdvancedParamsButton.Text = L("button.advanced_parameters");
         TxtGenerateButton.Text = L("button.generate");
@@ -264,6 +266,7 @@ public sealed partial class MainWindow
         TxtSuperDropEffects.Text = L("superdrop.effects");
         TxtSuperDropInspect.Text = L("superdrop.inspect");
         TxtHistoryTitle.Text = L("history.title");
+        ToolTipService.SetToolTip(HistoryResizeHandle, L("history.resize_sidebar"));
         HistoryDatePicker.PlaceholderText = L("history.select_date");
 
         TxtI2IPreviewLabel.Text = L("inpaint.preview");

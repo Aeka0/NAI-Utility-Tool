@@ -65,6 +65,7 @@ public sealed partial class MainWindow
 
     private void SwitchMode(AppMode mode)
     {
+        MaskCanvas.CancelMaskMove();
         if (_continuousGenRunning) StopContinuousGeneration();
 
         if (IsPromptMode(_currentMode) && _promptBufferLoaded)
@@ -89,6 +90,10 @@ public sealed partial class MainWindow
         bool isPost = mode == AppMode.Effects;
         bool isReader = mode == AppMode.Inspect;
         bool isGallery = mode == AppMode.Gallery;
+
+        FinishHistorySidebarResize();
+        HistoryResizeHandle.Visibility = isGen ? Visibility.Visible : Visibility.Collapsed;
+        UpdateHistorySidebarWidth();
 
         GenPreviewArea.Visibility = isGen ? Visibility.Visible : Visibility.Collapsed;
         MaskCanvas.Visibility = isI2I ? Visibility.Visible : Visibility.Collapsed;

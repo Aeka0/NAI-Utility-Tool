@@ -130,6 +130,7 @@
     "button.upscaling":  "超分中...",
     "history.select_date":  "選擇日期",
     "history.title":  "歷史記錄",
+    "history.resize_sidebar":  "拖曳調整歷史記錄側欄寬度",
     "inpaint.brush_size":  "筆刷大小",
     "inpaint.preview":  "預覽（拖動可移動圖像）",
     "inpaint.preview_mask":  "僅預覽遮罩",
@@ -137,8 +138,8 @@
     "i2i.mode":  "模式",
     "i2i.mode.inpaint":  "遮罩重繪",
     "i2i.mode.denoise":  "降噪重繪",
-    "i2i.denoise_strength":  "重繪強度",
-    "i2i.denoise_noise":  "添加噪聲",
+    "i2i.denoise_strength":  "重繪幅度",
+    "i2i.denoise_noise":  "加噪",
     "language.english":  "English",
     "language.ja_jp":  "日本語",
     "language.zh_cn":  "简体中文",
@@ -1082,5 +1083,7 @@
     "oobe.reverse.skip_hint":  "可以略過，但這樣就無法使用反推功能。",
     "oobe.done.title":  "全部設定完畢",
     "oobe.done.description":  "現在可以開始使用 NovelAI Utility Tool。",
-    "oobe.status.completed":  "快速導覽已完成"
+    "oobe.status.completed":  "快速導覽已完成",
+    "tooltip.move_mask": "選區移動 (M)：拖曳遮罩，Shift 鎖定方向，Esc 取消",
+    "inpaint.error.move_mask_failed": "移動遮罩失敗：{0}"
 }

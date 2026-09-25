@@ -153,7 +153,7 @@ public sealed partial class MaskCanvasControl : UserControl
         set { _previewMaskOnly = value; }
     }
 
-    public bool IsActivelyDrawing => _isDrawing || _isRectDrawing || _isPanning || _isImageDragging;
+    public bool IsActivelyDrawing => _isDrawing || _isRectDrawing || _isPanning || _isImageDragging || _isMaskMoving;
     public bool IsInPreviewMode => _previewBitmap != null;
     public bool IsImageFileDropEnabled { get; set; } = true;
     private bool _isImageMoveLocked;
@@ -165,7 +165,10 @@ public sealed partial class MaskCanvasControl : UserControl
             if (_isImageMoveLocked == value) return;
             _isImageMoveLocked = value;
             if (value)
+            {
                 _isImageDragging = false;
+                CancelMaskMove();
+            }
         }
     }
     public bool CanMoveImage => !_isImageMoveLocked && !IsInPreviewMode;
@@ -177,6 +180,7 @@ public sealed partial class MaskCanvasControl : UserControl
         {
             if (_isMaskEditingEnabled == value) return;
             _isMaskEditingEnabled = value;
+            if (!value) CancelMaskMove();
             ApplySystemCursorVisibility();
         }
     }
@@ -449,6 +453,8 @@ public sealed partial class MaskCanvasControl : UserControl
         _canvas.PointerPressed += OnPointerPressed;
         _canvas.PointerMoved += OnPointerMoved;
         _canvas.PointerReleased += OnPointerReleased;
+        _canvas.PointerCaptureLost += OnMaskMoveCaptureLost;
+        _canvas.PointerCanceled += OnMaskMoveCaptureLost;
         _canvas.PointerEntered += OnPointerEntered;
         _canvas.PointerExited += OnPointerExited;
         _canvas.PointerWheelChanged += OnPointerWheelChanged;
@@ -475,8 +481,10 @@ public sealed partial class MaskCanvasControl : UserControl
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        CancelMaskMove();
         _resourcesReady = false;
         RestoreSystemCursor();
+        _maskMoveCursor.Dispose();
         if (_canvas != null)
         {
             _canvas.RemoveFromVisualTree();
@@ -520,6 +528,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void InitializeCanvas(int width, int height)
     {
+        CancelMaskMove();
         _canvasWidth = width;
         _canvasHeight = height;
         if (_device != null)
@@ -537,6 +546,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     private bool ApplyImportCanvasSize(uint imageWidth, uint imageHeight)
     {
+        CancelMaskMove();
         if (_device == null) return false;
 
         var size = ResolveImportCanvasSize((int)imageWidth, (int)imageHeight, UseAssetProtectionCanvasSizing);
@@ -643,6 +653,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void PerformUndo()
     {
+        CancelMaskMove();
         var current = _document.GetMaskSnapshot();
         if (current == null) return;
 
@@ -656,6 +667,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void PerformRedo()
     {
+        CancelMaskMove();
         var current = _document.GetMaskSnapshot();
         if (current == null) return;
 
@@ -702,6 +714,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void ClearMask()
     {
+        CancelMaskMove();
         var current = _document.GetMaskSnapshot();
         if (current != null && current.Length > 0)
             _undoManager.PushState(current, _document.ImageOffset, _canvasWidth, _canvasHeight);
@@ -711,6 +724,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void BeginMoveImage()
     {
+        CancelMaskMove();
         if (!CanMoveImage) return;
 
         var snapshot = _document.GetMaskSnapshot();
@@ -893,6 +907,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public async Task RestoreWorkspaceSnapshotAsync(WorkspaceSnapshot snapshot)
     {
+        CancelMaskMove();
         if (_device == null) return;
 
         _resourcesReady = false;
@@ -1040,6 +1055,7 @@ public sealed partial class MaskCanvasControl : UserControl
     /// </summary>
     public bool TrimCanvas()
     {
+        CancelMaskMove();
         if (_device == null || _document.OriginalImage == null) return false;
 
         int imgW = (int)_document.OriginalImage.SizeInPixels.Width;
@@ -1088,6 +1104,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public CanvasBitmap? SetPreview(CanvasBitmap bitmap)
     {
+        CancelMaskMove();
         var previous = _previewBitmap;
         _previewBitmap = bitmap;
         ApplySystemCursorVisibility();
@@ -1115,6 +1132,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void InvertMask()
     {
+        CancelMaskMove();
         if (_document.MaskTarget == null) return;
         var snapshot = _document.GetMaskSnapshot();
         if (snapshot != null && snapshot.Length > 0) _undoManager.PushState(snapshot, _document.ImageOffset, _canvasWidth, _canvasHeight);
@@ -1133,6 +1151,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void ExpandMask()
     {
+        CancelMaskMove();
         if (_document.MaskTarget == null) return;
         var snapshot = _document.GetMaskSnapshot();
         if (snapshot != null && snapshot.Length > 0) _undoManager.PushState(snapshot, _document.ImageOffset, _canvasWidth, _canvasHeight);
@@ -1164,6 +1183,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     public void ShrinkMask()
     {
+        CancelMaskMove();
         if (_document.MaskTarget == null) return;
         var snapshot = _document.GetMaskSnapshot();
         if (snapshot != null && snapshot.Length > 0) _undoManager.PushState(snapshot, _document.ImageOffset, _canvasWidth, _canvasHeight);
@@ -1218,12 +1238,7 @@ public sealed partial class MaskCanvasControl : UserControl
                 lock (_renderLock)
                 {
                     if (_document.MaskTarget == null) return;
-                    using var maskDs = _document.MaskTarget.CreateDrawingSession();
-                    while (_strokeQueue.TryDequeue(out var segment))
-                    {
-                        BrushStampRenderer.DrawSegment(maskDs, segment);
-                        hasStrokes = true;
-                    }
+                    hasStrokes = FlushPendingMaskStrokes();
                 }
             }
 
@@ -1307,12 +1322,12 @@ public sealed partial class MaskCanvasControl : UserControl
                             if (_previewMaskOnly)
                             {
                                 ds.FillRectangle(0, 0, _canvasWidth, _canvasHeight, Color.FromArgb(255, 0, 0, 0));
-                                ds.DrawImage(mask);
+                                DrawMovingMask(ds, mask);
                             }
                             else if (_maskOverlayEffect != null)
                             {
                                 _maskOverlayEffect.Source = mask;
-                                ds.DrawImage(_maskOverlayEffect);
+                                DrawMovingMask(ds, _maskOverlayEffect);
                             }
                         }
                     }
@@ -1343,6 +1358,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        if (_isMaskMoving) { e.Handled = true; return; }
         if (_canvas == null || !_resourcesReady || _document.MaskTarget == null) return;
         var point = e.GetCurrentPoint(_canvas);
         var screenPos = new Vector2((float)point.Position.X, (float)point.Position.Y);
@@ -1395,6 +1411,20 @@ public sealed partial class MaskCanvasControl : UserControl
                 canvasPos = _viewTransform.ScreenToCanvas(screenPos);
             }
 
+            if (_brushSettings.CurrentTool == StrokeTool.MoveMask)
+            {
+                try
+                {
+                    BeginMaskMove(canvasPos, e);
+                }
+                catch (Exception ex)
+                {
+                    CancelMaskMove();
+                    StatusMessage?.Invoke(LocalizationService.Instance.Format("inpaint.error.move_mask_failed", ex.Message));
+                }
+                return;
+            }
+
             var snapshot = _document.GetMaskSnapshot();
             if (snapshot != null && snapshot.Length > 0)
                 _undoManager.PushState(snapshot, _document.ImageOffset, _canvasWidth, _canvasHeight);
@@ -1430,6 +1460,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
+        if (_isMaskMoving) { UpdateMaskMove(e); return; }
         if (_canvas == null || !_resourcesReady) return;
         var points = e.GetIntermediatePoints(_canvas);
         if (points.Count == 0) return;
@@ -1528,6 +1559,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     private void OnPointerReleased(object sender, PointerRoutedEventArgs e)
     {
+        if (_isMaskMoving) { CompleteMaskMove(e); return; }
         if (_canvas == null) return;
 
         if (_isRectDrawing)
@@ -1604,6 +1636,7 @@ public sealed partial class MaskCanvasControl : UserControl
 
     private void OnPointerWheelChanged(object sender, PointerRoutedEventArgs e)
     {
+        if (_isMaskMoving) { e.Handled = true; return; }
         if (_canvas == null) return;
         var point = e.GetCurrentPoint(_canvas);
         int delta = point.Properties.MouseWheelDelta;
@@ -1662,7 +1695,8 @@ public sealed partial class MaskCanvasControl : UserControl
             return;
         }
 
-        var cursor = CreateOrUpdateToolCursor();
+        var cursor = _brushSettings.CurrentTool == StrokeTool.MoveMask
+            ? _maskMoveCursor : CreateOrUpdateToolCursor();
         if (cursor == null)
         {
             RestoreSystemCursor();
@@ -1913,7 +1947,7 @@ public sealed partial class MaskCanvasControl : UserControl
                 if (IsMaskOverlayVisible && mask != null && _thumbnailMaskOverlayEffect != null)
                 {
                     _thumbnailMaskOverlayEffect.Source = mask;
-                    ds.DrawImage(_thumbnailMaskOverlayEffect);
+                    DrawMovingMask(ds, _thumbnailMaskOverlayEffect);
                 }
             }
 

@@ -111,6 +111,7 @@
   "button.upscaling": "Upscaling...",
   "history.select_date": "Select a date",
   "history.title": "History",
+  "history.resize_sidebar": "Drag to resize the history sidebar",
   "inpaint.brush_size": "Brush Size",
   "inpaint.preview": "Preview (drag to move image)",
   "inpaint.preview_mask": "Preview mask only",
@@ -1082,5 +1083,7 @@
   "oobe.reverse.skip_hint": "You can leave this empty, but reverse tagging will not be available.",
   "oobe.done.title": "All Set",
   "oobe.done.description": "Setup is complete. You can start using NovelAI Utility Tool.",
-  "oobe.status.completed": "Quick tour completed"
+  "oobe.status.completed": "Quick tour completed",
+  "tooltip.move_mask": "Move selection (M): drag the mask; Shift constrains direction, Esc cancels",
+  "inpaint.error.move_mask_failed": "Failed to move mask: {0}"
 }
