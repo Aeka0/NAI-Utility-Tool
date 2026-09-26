@@ -223,6 +223,7 @@ public sealed partial class MainWindow
         TxtGenerateButton.Text = L("button.generate");
 
         InspectPlaceholder.Text = L("inspect.placeholder.drop_or_open");
+        TxtInspectModelLabel.Text = L("panel.model");
         TxtInspectPositiveLabel.Text = L("inspect.positive_prompt");
         TxtInspectNegativeLabel.Text = L("inspect.negative_prompt");
         TxtInspectParametersLabel.Text = L("inspect.parameters");

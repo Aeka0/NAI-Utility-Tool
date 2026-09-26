@@ -1298,7 +1298,8 @@
                                   HorizontalScrollBarVisibility="Disabled"
                                   HorizontalContentAlignment="Stretch"
                                   SizeChanged="OnInspectPromptLayoutSizeChanged">
-                        <StackPanel x:Name="InspectMetadataLayout" Padding="12" Spacing="10">
+                        <StackPanel x:Name="InspectMetadataLayout" Padding="12" Spacing="10"
+                                    SizeChanged="OnInspectPromptLayoutSizeChanged">
                             <TextBlock x:Name="InspectPlaceholder"
                           Text=""
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
@@ -1307,13 +1308,19 @@
                                        TextAlignment="Center"
                                        Margin="0,20,0,0"/>
 
+                            <StackPanel x:Name="InspectModelPanel" Visibility="Collapsed" Spacing="4">
+                                <TextBlock x:Name="TxtInspectModelLabel" Text=""
+                                           Style="{StaticResource InspectCaptionStyle}"/>
+                                <TextBox x:Name="TxtInspectModel" IsReadOnly="True"
+                                         TextWrapping="Wrap" MaxHeight="96"/>
+                            </StackPanel>
+
                             <TextBox x:Name="TxtInspectRawMeta" Visibility="Collapsed"
                                      IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="Wrap" FontFamily="Consolas" FontSize="11"
                                      MaxHeight="500"/>
 
-                            <StackPanel x:Name="InspectContent" Visibility="Collapsed" Spacing="10"
-                                        SizeChanged="OnInspectPromptLayoutSizeChanged">
+                            <StackPanel x:Name="InspectContent" Visibility="Collapsed" Spacing="10">
                         <TextBlock x:Name="TxtInspectPositiveLabel" Text=""
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            Style="{StaticResource CaptionTextBlockStyle}"/>

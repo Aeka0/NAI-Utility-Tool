@@ -143,6 +143,19 @@ public sealed partial class MainWindow
         public int? UcPresetMatched { get; init; }
     }
 
+    private void ApplyImportedImageModel(ImageMetadata meta, NAIParameters parameters, string[] availableModels)
+    {
+        if (meta.IsModelInference) return;
+        string? model = ImportedImageModel.ResolveForTarget(meta.ModelDisplayName, availableModels);
+        if (model == null) return;
+        parameters.Model = model;
+        if (ReferenceEquals(parameters, CurrentParams))
+        {
+            CboModel.SelectedIndex = Array.IndexOf(availableModels, model);
+            UpdateModelDependentUI();
+        }
+    }
+
     private sealed class PromptPresetCandidateMatch
     {
         public string Model { get; init; } = "";

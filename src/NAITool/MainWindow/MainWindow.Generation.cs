@@ -993,6 +993,7 @@ public sealed partial class MainWindow
         var skipped = new List<string>();
         var notes = new List<string>();
         var p = _settings.Settings.GenParameters;
+        ApplyImportedImageModel(meta, p, GenerationModels);
 
         var presetMatch = ExtractImportedPromptPresetMatch(meta.PositivePrompt, meta.NegativePrompt, p.Model);
         string positivePrompt = presetMatch.PositivePrompt;

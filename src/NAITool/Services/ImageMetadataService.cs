@@ -12,6 +12,8 @@ namespace NAITool.Services;
 
 public class ImageMetadata
 {
+    public string Model { get; set; } = "";
+    public string ModelDisplayName => !string.IsNullOrWhiteSpace(Model) ? Model : Source ?? "";
     public string PositivePrompt { get; set; } = "";
     public string NegativePrompt { get; set; } = "";
     public List<string> CharacterPrompts { get; set; } = new();
@@ -70,7 +72,7 @@ public static class ImageMetadataService
             {
                 meta.IsNaiParsed = true;
                 meta.Software = textChunks.GetValueOrDefault("Software");
-                meta.Source = textChunks.GetValueOrDefault("Source");
+                meta.Source = textChunks.GetValueOrDefault("Source") ?? meta.Source;
                 meta.TextChunks = new Dictionary<string, string>(textChunks, StringComparer.Ordinal);
                 return meta;
             }
@@ -80,6 +82,7 @@ public static class ImageMetadataService
             var sdMeta = TryParseSdFormat(sdText);
             if (sdMeta != null)
             {
+                sdMeta.Source = textChunks.GetValueOrDefault("Source");
                 sdMeta.TextChunks = new Dictionary<string, string>(textChunks, StringComparer.Ordinal);
                 return sdMeta;
             }
@@ -104,6 +107,7 @@ public static class ImageMetadataService
             {
                 RawJson = sb.ToString().TrimEnd(),
                 IsNaiParsed = false,
+                Source = textChunks.GetValueOrDefault("Source"),
                 TextChunks = new Dictionary<string, string>(textChunks, StringComparer.Ordinal),
             };
         }
@@ -235,6 +239,7 @@ public static class ImageMetadataService
         }
 
         string paramsLine = text[paramsLineIdx..].Trim();
+        meta.Model = ExtractSdString(paramsLine, @"(?:^|,\s*)Model:\s*([^,\r\n]+)");
         meta.Steps = ExtractSdInt(paramsLine, @"Steps:\s*(\d+)");
         meta.Seed = ExtractSdString(paramsLine, @"(?:^|,\s*)Seed:\s*([^,\r\n]+)");
         meta.Scale = ExtractSdDouble(paramsLine, @"CFG scale:\s*([\d.]+)");
@@ -610,7 +615,12 @@ public static class ImageMetadataService
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
-            var meta = new ImageMetadata { RawJson = json };
+            var meta = new ImageMetadata
+            {
+                RawJson = json,
+                Model = TryReadString(root, "model", "model_name", "Model"),
+                Source = TryReadString(root, "Source", "source"),
+            };
 
             if (root.TryGetProperty("prompt", out var prompt))
                 meta.PositivePrompt = prompt.GetString() ?? "";

@@ -76,3 +76,4 @@ foreach (string seedJson in new[] { "4294967295", "\"中文种子\"" })
 }
 
 Console.WriteLine($"Passed {checks} seed regression checks.");
+ModelMetadataChecks.Run();

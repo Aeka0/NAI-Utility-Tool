@@ -119,6 +119,8 @@ public sealed partial class MainWindow
 
     private void DisplayInspectMetadata(ImageMetadata? meta)
     {
+        TxtInspectModel.Text = meta == null || meta.IsModelInference ? "-" : FormatInspectValue(meta.ModelDisplayName);
+        InspectModelPanel.Visibility = meta != null ? Visibility.Visible : Visibility.Collapsed;
         TxtInspectRawMeta.Visibility = Visibility.Collapsed;
         InspectCharPanel.Children.Clear();
         InspectCharPanel.Visibility = Visibility.Collapsed;
@@ -468,6 +470,7 @@ public sealed partial class MainWindow
         }
 
         var p = _settings.Settings.GenParameters;
+        ApplyImportedImageModel(meta, p, GenerationModels);
         var presetMatch = ExtractImportedPromptPresetMatch(positivePrompt, negativePrompt, p.Model);
         positivePrompt = presetMatch.PositivePrompt;
         negativePrompt = presetMatch.NegativePrompt;
@@ -570,7 +573,8 @@ public sealed partial class MainWindow
             notes.Add(L("metadata.note.sd_converted"));
         }
 
-        var p = _settings.Settings.InpaintParameters;
+        var p = ImageRequestParameters;
+        ApplyImportedImageModel(meta, p, _i2iEditMode == I2IEditMode.Denoise ? GenerationModels : I2IModels);
         var presetMatch = ExtractImportedPromptPresetMatch(positivePrompt, negativePrompt, p.Model);
         positivePrompt = presetMatch.PositivePrompt;
         negativePrompt = presetMatch.NegativePrompt;

@@ -19,7 +19,8 @@ public sealed partial class MainWindow
                 InspectMetadataScroller.ActualHeight <= 0)
                 return;
 
-            double otherContentHeight = Math.Max(0, InspectContent.ActualHeight
+            double otherContentHeight = Math.Max(0, InspectMetadataLayout.ActualHeight
+                - InspectMetadataLayout.Padding.Top - InspectMetadataLayout.Padding.Bottom
                 - TxtInspectPositive.ActualHeight - TxtInspectNegative.ActualHeight);
             double availableHeight = InspectMetadataScroller.ActualHeight
                 - InspectMetadataLayout.Padding.Top - InspectMetadataLayout.Padding.Bottom

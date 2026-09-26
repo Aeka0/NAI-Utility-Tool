@@ -290,6 +290,9 @@ public sealed partial class MainWindow
             if (idx >= 0) CboSize.SelectedIndex = idx;
 
             SwitchMode(AppMode.I2I);
+            if (meta != null)
+                ApplyImportedImageModel(meta, CurrentParams,
+                    _i2iEditMode == I2IEditMode.Denoise ? GenerationModels : I2IModels);
             MaskCanvas.InitializeCanvas(canvasW, canvasH);
             string? reloadPath = !string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath)
                 ? sourcePath
