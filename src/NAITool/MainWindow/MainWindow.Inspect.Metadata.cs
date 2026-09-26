@@ -177,7 +177,7 @@ public sealed partial class MainWindow
                 {
                     Text = meta.CharacterPrompts[i],
                     IsReadOnly = true, AcceptsReturn = true,
-                    TextWrapping = TextWrapping.Wrap, MaxHeight = 100,
+                    TextWrapping = TextWrapping.Wrap, MaxHeight = 160,
                 });
             }
         }
@@ -197,7 +197,7 @@ public sealed partial class MainWindow
                 {
                     Text = meta.CharacterNegativePrompts[i],
                     IsReadOnly = true, AcceptsReturn = true,
-                    TextWrapping = TextWrapping.Wrap, MaxHeight = 80,
+                    TextWrapping = TextWrapping.Wrap, MaxHeight = 120,
                 });
             }
         }

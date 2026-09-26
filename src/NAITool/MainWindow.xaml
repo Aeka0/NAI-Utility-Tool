@@ -1292,8 +1292,13 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel Padding="12" Spacing="10">
+                    <ScrollViewer x:Name="InspectMetadataScroller" Grid.Row="0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollMode="Disabled"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  HorizontalContentAlignment="Stretch"
+                                  SizeChanged="OnInspectPromptLayoutSizeChanged">
+                        <StackPanel x:Name="InspectMetadataLayout" Padding="12" Spacing="10">
                             <TextBlock x:Name="InspectPlaceholder"
                           Text=""
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
@@ -1307,13 +1312,15 @@
                                      TextWrapping="Wrap" FontFamily="Consolas" FontSize="11"
                                      MaxHeight="500"/>
 
-                            <StackPanel x:Name="InspectContent" Visibility="Collapsed" Spacing="10">
+                            <StackPanel x:Name="InspectContent" Visibility="Collapsed" Spacing="10"
+                                        SizeChanged="OnInspectPromptLayoutSizeChanged">
                         <TextBlock x:Name="TxtInspectPositiveLabel" Text=""
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            Style="{StaticResource CaptionTextBlockStyle}"/>
                                 <TextBox x:Name="TxtInspectPositive" IsReadOnly="True"
                                          AcceptsReturn="True" TextWrapping="Wrap"
-                                         MaxHeight="160"/>
+                                         Height="240" MinHeight="240"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
 
                                 <StackPanel x:Name="InspectCharPanel" Spacing="4" Visibility="Collapsed"/>
 
@@ -1322,7 +1329,8 @@
                                            Style="{StaticResource CaptionTextBlockStyle}"/>
                                 <TextBox x:Name="TxtInspectNegative" IsReadOnly="True"
                                          AcceptsReturn="True" TextWrapping="Wrap"
-                                         MaxHeight="120"/>
+                                         Height="160" MinHeight="160"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
 
                                 <StackPanel x:Name="InspectCharNegPanel" Spacing="4" Visibility="Collapsed"/>
 

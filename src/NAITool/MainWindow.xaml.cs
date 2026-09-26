@@ -275,10 +275,12 @@ public sealed partial class MainWindow : Window
     private int _superDropBackdropVersion;
 
     // ═══ 预览拖拽 ═══
-    private bool _imgDragging;
-    private Point _imgDragStart;
-    private double _imgDragStartH, _imgDragStartV;
+    private readonly PreviewPanState _previewPan = new();
     private ScrollViewer? _imgDragScroller;
+    private UIElement? _imgDragElement;
+    private Pointer? _imgDragPointer;
+    private bool _imgDragUsesMiddleButton;
+    private bool _previewPanFrameQueued;
 
     // ═══ 模型列表 ═══
     private static readonly string[] GenerationModels =
@@ -385,13 +387,16 @@ public sealed partial class MainWindow : Window
         }
         UpdateWorkspaceModeButtonTitleBarInset();
         SetupCloseConfirmation();
-        this.Activated += (_, _) =>
+        this.Activated += (_, args) =>
         {
+            if (args.WindowActivationState == WindowActivationState.Deactivated)
+                StopPreviewDrag();
             ApplyWindowChrome(this, IsDarkTheme(), null, null);
             UpdateWorkspaceModeButtonTitleBarInset();
         };
         Closed += (_, _) =>
         {
+            StopPreviewDrag();
             CloseAdvancedParamsWindow();
             _historyDateRefreshTimer?.Stop();
             DisposeHistory();

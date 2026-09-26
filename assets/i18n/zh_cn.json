@@ -600,7 +600,7 @@
     "action.open_containing_folder":  "打开所在文件夹",
     "action.send_to_i2i":  "发送到重绘",
     "action.send_to_post":  "发送到后期",
-    "action.send_to_inspect":  "发送到读取",
+    "action.send_to_inspect":  "发送到检视",
     "action.send_to_upscale":  "发送到超分",
     "action.use_parameters":  "使用参数",
     "action.use_parameters_no_seed":  "使用参数（不包含种子）",

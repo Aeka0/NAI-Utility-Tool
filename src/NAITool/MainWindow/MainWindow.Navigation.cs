@@ -65,6 +65,7 @@ public sealed partial class MainWindow
 
     private void SwitchMode(AppMode mode)
     {
+        StopPreviewDrag();
         MaskCanvas.CancelMaskMove();
         if (_continuousGenRunning) StopContinuousGeneration();
 

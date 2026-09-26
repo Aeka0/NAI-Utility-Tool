@@ -820,27 +820,17 @@ public sealed partial class MainWindow
         UpscalePreviewImage.AddHandler(UIElement.PointerWheelChangedEvent,
             new PointerEventHandler(OnPreviewWheelZoom), true);
 
-        GenPreviewImage.PointerPressed += OnPreviewDragStart;
-        GenPreviewImage.PointerMoved += OnPreviewDragMove;
-        GenPreviewImage.PointerReleased += OnPreviewDragEnd;
-        GenPreviewImage.PointerCanceled += OnPreviewDragEnd;
+        foreach (var image in new[] { GenPreviewImage, InspectPreviewImage, EffectsPreviewImage, UpscalePreviewImage })
+        {
+            image.PointerPressed += OnPreviewDragStart;
+            image.PointerMoved += OnPreviewDragMove;
+            image.PointerReleased += OnPreviewDragEnd;
+            image.PointerCanceled += OnPreviewDragCanceled;
+            image.PointerCaptureLost += OnPreviewDragCanceled;
+        }
+        EffectsOverlayCanvas.PointerCaptureLost += OnPreviewDragCanceled;
         GenPreviewImage.AddHandler(UIElement.PointerPressedEvent,
             new PointerEventHandler(OnGenPreviewPointerPressed), true);
-
-        InspectPreviewImage.PointerPressed += OnPreviewDragStart;
-        InspectPreviewImage.PointerMoved += OnPreviewDragMove;
-        InspectPreviewImage.PointerReleased += OnPreviewDragEnd;
-        InspectPreviewImage.PointerCanceled += OnPreviewDragEnd;
-
-        EffectsPreviewImage.PointerPressed += OnPreviewDragStart;
-        EffectsPreviewImage.PointerMoved += OnPreviewDragMove;
-        EffectsPreviewImage.PointerReleased += OnPreviewDragEnd;
-        EffectsPreviewImage.PointerCanceled += OnPreviewDragEnd;
-
-        UpscalePreviewImage.PointerPressed += OnPreviewDragStart;
-        UpscalePreviewImage.PointerMoved += OnPreviewDragMove;
-        UpscalePreviewImage.PointerReleased += OnPreviewDragEnd;
-        UpscalePreviewImage.PointerCanceled += OnPreviewDragEnd;
     }
 
     private void OnPreviewWheelZoom(object sender, PointerRoutedEventArgs e)
@@ -851,6 +841,7 @@ public sealed partial class MainWindow
         var point = e.GetCurrentPoint(sv);
         int delta = point.Properties.MouseWheelDelta;
         if (delta == 0) return;
+        StopPreviewDrag();
 
         float factor = delta > 0 ? 1.15f : (1f / 1.15f);
         float newZoom = Math.Clamp(sv.ZoomFactor * factor, sv.MinZoomFactor, sv.MaxZoomFactor);
@@ -871,7 +862,7 @@ public sealed partial class MainWindow
         if (sender is ScrollViewer sv) return sv;
         if (ReferenceEquals(sender, GenPreviewImage)) return GenImageScroller;
         if (ReferenceEquals(sender, InspectPreviewImage)) return InspectImageScroller;
-        if (ReferenceEquals(sender, EffectsPreviewContent) || ReferenceEquals(sender, EffectsOverlayCanvas))
+        if (ReferenceEquals(sender, EffectsPreviewImage) || ReferenceEquals(sender, EffectsPreviewContent) || ReferenceEquals(sender, EffectsOverlayCanvas))
             return EffectsImageScroller;
         if (ReferenceEquals(sender, UpscalePreviewImage)) return UpscaleImageScroller;
         return null;
@@ -879,51 +870,98 @@ public sealed partial class MainWindow
 
     private void OnPreviewDragStart(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is not UIElement el) return;
+        if (_previewPan.IsActive || sender is not UIElement el) return;
         var props = e.GetCurrentPoint(el).Properties;
-        if (!props.IsLeftButtonPressed) return;
+        bool useMiddle = props.IsMiddleButtonPressed &&
+            (ReferenceEquals(el, GenPreviewImage) || ReferenceEquals(el, InspectPreviewImage));
+        if (!useMiddle && !props.IsLeftButtonPressed) return;
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
             Windows.System.VirtualKey.Control);
-        if (ctrl.HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)) return;
-        var sv = el switch
-        {
-            var _ when el == GenPreviewImage => GenImageScroller,
-            var _ when el == InspectPreviewImage => InspectImageScroller,
-            var _ when el == EffectsPreviewImage || el == EffectsOverlayCanvas => EffectsImageScroller,
-            var _ when el == UpscalePreviewImage => UpscaleImageScroller,
-            _ => InspectImageScroller,
-        };
-        _imgDragging = true;
+        if (!useMiddle && ctrl.HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)) return;
+        var sv = GetPreviewScroller(el);
+        if (sv == null || !el.CapturePointer(e.Pointer)) return;
+        var start = e.GetCurrentPoint(sv).Position;
         _imgDragScroller = sv;
-        _imgDragStart = e.GetCurrentPoint(sv).Position;
-        _imgDragStartH = sv.HorizontalOffset;
-        _imgDragStartV = sv.VerticalOffset;
-        el.CapturePointer(e.Pointer);
+        _imgDragElement = el;
+        _imgDragPointer = e.Pointer;
+        _imgDragUsesMiddleButton = useMiddle;
+        _previewPan.Begin(start.X, start.Y, sv.HorizontalOffset, sv.VerticalOffset);
         e.Handled = true;
     }
 
     private void OnPreviewDragMove(object sender, PointerRoutedEventArgs e)
     {
-        if (!_imgDragging || _imgDragScroller == null) return;
-        var pos = e.GetCurrentPoint(_imgDragScroller).Position;
-        double dx = _imgDragStart.X - pos.X;
-        double dy = _imgDragStart.Y - pos.Y;
-        _imgDragScroller.ChangeView(_imgDragStartH + dx, _imgDragStartV + dy, null, true);
+        if (!_previewPan.IsActive || _imgDragScroller == null || _imgDragPointer?.PointerId != e.Pointer.PointerId) return;
+        var point = e.GetCurrentPoint(_imgDragScroller);
+        _previewPan.Move(point.Position.X, point.Position.Y);
+        if (!(_imgDragUsesMiddleButton ? point.Properties.IsMiddleButtonPressed : point.Properties.IsLeftButtonPressed))
+        {
+            StopPreviewDrag();
+            e.Handled = true;
+            return;
+        }
+        if (!_previewPanFrameQueued)
+        {
+            _previewPanFrameQueued = true;
+            CompositionTarget.Rendering += OnPreviewPanRendering;
+        }
         e.Handled = true;
     }
 
     private void OnPreviewDragEnd(object sender, PointerRoutedEventArgs e)
     {
-        if (!_imgDragging) return;
-        _imgDragging = false;
-        _imgDragScroller = null;
-        (sender as UIElement)?.ReleasePointerCapture(e.Pointer);
+        if (!_previewPan.IsActive || _imgDragScroller == null || _imgDragPointer?.PointerId != e.Pointer.PointerId) return;
+        var point = e.GetCurrentPoint(_imgDragScroller);
+        // Releasing another button must not interrupt the button that started the drag.
+        if (_imgDragUsesMiddleButton ? point.Properties.IsMiddleButtonPressed : point.Properties.IsLeftButtonPressed) return;
+        _previewPan.Move(point.Position.X, point.Position.Y);
+        StopPreviewDrag();
         e.Handled = true;
+    }
+
+    private void OnPreviewDragCanceled(object sender, PointerRoutedEventArgs e)
+    {
+        if (_imgDragPointer?.PointerId == e.Pointer.PointerId)
+            StopPreviewDrag();
+    }
+
+    private void OnPreviewPanRendering(object? sender, object e)
+    {
+        RemovePreviewPanRendering();
+        ApplyPendingPreviewPan();
+    }
+
+    private void ApplyPendingPreviewPan()
+    {
+        if (_imgDragScroller is { } scroller &&
+            _previewPan.TryTakeOffsets(scroller.ScrollableWidth, scroller.ScrollableHeight, out double horizontal, out double vertical))
+            scroller.ChangeView(horizontal, vertical, null, disableAnimation: true);
+    }
+
+    private void RemovePreviewPanRendering()
+    {
+        if (!_previewPanFrameQueued) return;
+        CompositionTarget.Rendering -= OnPreviewPanRendering;
+        _previewPanFrameQueued = false;
+    }
+
+    private void StopPreviewDrag()
+    {
+        RemovePreviewPanRendering();
+        ApplyPendingPreviewPan();
+        _previewPan.End();
+        var element = _imgDragElement;
+        var pointer = _imgDragPointer;
+        _imgDragScroller = null;
+        _imgDragElement = null;
+        _imgDragPointer = null;
+        if (pointer != null) element?.ReleasePointerCapture(pointer);
     }
 
     private async void OnGenPreviewPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         var pt = e.GetCurrentPoint(sender as UIElement);
+        if (_previewPan.IsActive) return;
         if (!pt.Properties.IsLeftButtonPressed) return;
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
             Windows.System.VirtualKey.Control);
