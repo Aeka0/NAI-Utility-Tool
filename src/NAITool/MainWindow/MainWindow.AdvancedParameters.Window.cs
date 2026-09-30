@@ -227,6 +227,15 @@ public sealed partial class MainWindow
         SuppressNumberBoxClearButton(_advNbMaxHeight);
 
         var sizeLabel = new TextBlock { Text = L("panel.size"), Margin = new Thickness(0, 0, 0, 8) };
+        var sizePresetButton = new Button
+        {
+            Content = L("size.presets.open"), HorizontalAlignment = HorizontalAlignment.Right,
+            Padding = new Thickness(8, 3, 8, 3), MinHeight = 26,
+        };
+        sizePresetButton.Click += OnOpenSizePresets;
+        var sizeHeader = new Grid();
+        sizeHeader.Children.Add(sizeLabel);
+        sizeHeader.Children.Add(sizePresetButton);
 
         _advMaxSizePanel = new Grid { Visibility = Visibility.Visible };
         _advMaxSizePanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -251,7 +260,7 @@ public sealed partial class MainWindow
         _advMaxSizePanel.Children.Add(_advNbMaxHeight);
 
         var sizeStack = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Bottom };
-        sizeStack.Children.Add(sizeLabel);
+        sizeStack.Children.Add(sizeHeader);
         sizeStack.Children.Add(_advCboSize);
         sizeStack.Children.Add(_advMaxSizePanel);
 

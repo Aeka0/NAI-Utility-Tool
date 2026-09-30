@@ -21,6 +21,9 @@ public sealed class PromptTextBox : UserControl
     private readonly Grid _root;
     private readonly Canvas _highlightCanvas;
     private readonly TextBox _editor;
+    private readonly Thumb _resizeGrip;
+    private readonly Grid _resizeGripHost;
+    private double _resizeHeight;
     private readonly List<PromptTextHighlight> _highlights = new();
     private readonly List<ScrollViewer> _editorScrollViewers = new();
     private bool _isHighlightRedrawQueued;
@@ -32,6 +35,9 @@ public sealed class PromptTextBox : UserControl
     public event TextChangedEventHandler? TextChanged;
     public event RoutedEventHandler? SelectionChanged;
     public event PointerEventHandler? EditorPointerWheelChanged;
+    public event Action<double>? ResizeHeightRequested;
+    public event Action? ResizeCompleted;
+    public event Action? AutoSizeRequested;
 
     public PromptTextBox()
     {
@@ -51,8 +57,38 @@ public sealed class PromptTextBox : UserControl
         _root = new Grid
         {
         };
+        _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        _root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _root.Children.Add(_editor);
         _root.Children.Add(_highlightCanvas);
+        var grip = new PromptResizeGrip { Height = 14, Visibility = Visibility.Collapsed };
+        _resizeGripHost = grip;
+        _resizeGrip = grip.Thumb;
+        Grid.SetRow(grip, 1);
+        _root.Children.Add(grip);
+        _resizeGrip.DragStarted += (_, _) => _resizeHeight = ActualHeight;
+        _resizeGrip.DragDelta += (_, args) =>
+        {
+            _resizeHeight = Math.Clamp(_resizeHeight + args.VerticalChange, 60, 4096);
+            ResizeHeightRequested?.Invoke(_resizeHeight);
+        };
+        _resizeGrip.DragCompleted += (_, _) => ResizeCompleted?.Invoke();
+        _resizeGrip.DoubleTapped += (_, args) => { AutoSizeRequested?.Invoke(); args.Handled = true; };
+        _resizeGrip.KeyDown += (_, args) =>
+        {
+            if (args.Key is Windows.System.VirtualKey.Up or Windows.System.VirtualKey.Down)
+            {
+                ResizeHeightRequested?.Invoke(Math.Clamp(ActualHeight +
+                    (args.Key == Windows.System.VirtualKey.Up ? -20 : 20), 60, 4096));
+                ResizeCompleted?.Invoke();
+                args.Handled = true;
+            }
+            else if (args.Key == Windows.System.VirtualKey.Home)
+            {
+                AutoSizeRequested?.Invoke();
+                args.Handled = true;
+            }
+        };
         Content = _root;
 
         _editor.TextChanged += OnEditorTextChanged;
@@ -77,6 +113,30 @@ public sealed class PromptTextBox : UserControl
             }),
             handledEventsToo: true);
         SizeChanged += (_, _) => SyncHighlightLayout();
+    }
+
+    public void EnableResizing(string helpText)
+    {
+        _resizeGripHost.Visibility = Visibility.Visible;
+        ToolTipService.SetToolTip(_resizeGrip, helpText);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_resizeGrip, helpText);
+    }
+
+    private sealed class PromptResizeGrip : Grid
+    {
+        public Thumb Thumb { get; } = new() { MinHeight = 0, IsTabStop = true };
+
+        public PromptResizeGrip()
+        {
+            ProtectedCursor = Microsoft.UI.Input.InputSystemCursor.Create(
+                Microsoft.UI.Input.InputSystemCursorShape.SizeNorthSouth);
+            Thumb.Template = (ControlTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(
+                "<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>" +
+                "<Grid Background='Transparent'><Border Width='32' Height='3' CornerRadius='1.5' " +
+                "VerticalAlignment='Center' HorizontalAlignment='Center' " +
+                "Background='{ThemeResource TextFillColorSecondaryBrush}' Opacity='0.6'/></Grid></ControlTemplate>");
+            Children.Add(Thumb);
+        }
     }
 
     public string Text
@@ -313,7 +373,11 @@ public sealed class PromptTextBox : UserControl
         double width = Math.Max(0, ActualWidth);
         double height = Math.Max(0, ActualHeight);
         _highlightCanvas.Width = width;
-        _highlightCanvas.Height = height;
+        _highlightCanvas.Height = Math.Max(0, _editor.ActualHeight);
+        _highlightCanvas.Clip = new RectangleGeometry
+        {
+            Rect = new Rect(0, 0, width, Math.Max(0, _editor.ActualHeight)),
+        };
         _root.Clip = new RectangleGeometry { Rect = new Rect(0, 0, width, height) };
         QueueHighlightRedraw();
     }

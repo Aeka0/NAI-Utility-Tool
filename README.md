@@ -18,9 +18,12 @@ The current project version is `1.2.0`. The project is still evolving quickly, a
 - Supports common samplers and schedulers, with incompatible options filtered according to the selected model.
 - Supports separate positive, negative, and style prompt inputs.
 - Supports NAI v4+ character prompts, character negative prompts, and character positions.
+- Supports up to 22 character prompts on V5, with a shared visual position editor.
+- Includes NovelAI's standard resolution presets and resizable prompt editors.
 - Supports seed management, Variety+, quality tags, UC presets, CFG Scale, CFG Rescale, steps, and other advanced parameters.
 - Supports post-generation preview, save, copy, delete, routing to other workspaces, and generation history management.
 - Includes continuous generation and duplicate-request protection.
+- Can alternate generation requests between two locally configured accounts without sharing bearer headers between concurrent requests.
 
 ### Image-to-Image and Mask Editing
 
@@ -63,6 +66,8 @@ The current project version is `1.2.0`. The project is still evolving quickly, a
 
 ### Local Upscaling
 
+- Image Enhance supports Magnitude or individual Strength/Noise controls, including the V5 Max option; paid image requests retain a confirmation step.
+- Official NovelAI Upscale is available as a separate provider alongside local ONNX upscaling.
 - Uses ONNX Runtime DirectML for local upscaling, with GPU/CPU preference configurable in settings.
 - Bundles anime-oriented upscaler models under `models/upscaler/`.
 - Supports slider or direct numeric target-scale input, multi-pass processing toward the target scale, and tiled inference to reduce memory pressure on large images.
@@ -71,6 +76,7 @@ The current project version is `1.2.0`. The project is still evolving quickly, a
 
 - Supports dragging in or opening images to inspect NovelAI metadata.
 - Can restore prompts, character prompts, parameters, and reference-image information back into generation or image-to-image workspaces.
+- Offers a metadata import preview with separate choices for prompts, characters, settings, size, seed, and references, plus original or randomized actual prompts.
 - Supports removing metadata on save and global metadata stripping.
 - Supports image obfuscation and de-obfuscation.
 - Can optionally configure a local ONNX reverse tagger model for image tag inference.

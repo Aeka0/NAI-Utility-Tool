@@ -36,8 +36,11 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
+    private const int MaxV5Characters = 22;
+
     private class CharacterEntry
     {
+        public double EditorHeight { get; set; }
         public string PositivePrompt { get; set; } = "";
         public string NegativePrompt { get; set; } = "";
         public double CenterX { get; set; } = 0.5;
@@ -59,10 +62,13 @@ public sealed partial class MainWindow
     private List<CharacterEntry> CurrentCharacterEntries =>
         _currentMode == AppMode.I2I ? _i2iCharacters : _genCharacters;
 
+    private int GetMaxCharactersForCurrentModel() =>
+        IsV5ModelKey(GetCurrentModelKey()) ? MaxV5Characters : MaxCharacters;
+
     private void OnAddCharacter(object sender, RoutedEventArgs e)
     {
         var characters = CurrentCharacterEntries;
-        if (characters.Count >= MaxCharacters) return;
+        if (characters.Count >= GetMaxCharactersForCurrentModel()) return;
         characters.Add(new CharacterEntry());
         RefreshCharacterPanel();
     }
@@ -72,6 +78,17 @@ public sealed partial class MainWindow
         SaveAllCharacterPrompts();
         var characters = CurrentCharacterEntries;
         CharacterContainer.Children.Clear();
+        if (characters.Any(character => !character.IsDisabled))
+        {
+            var layoutButton = new Button
+            {
+                Content = L("character.layout.open"),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 0, 6),
+            };
+            layoutButton.Click += async (_, _) => await ShowCharacterLayoutDialogAsync();
+            CharacterContainer.Children.Add(layoutButton);
+        }
         for (int i = 0; i < characters.Count; i++)
             CharacterContainer.Children.Add(BuildCharacterUI(characters[i], i));
         RefreshVibeTransferPanel();
@@ -174,15 +191,36 @@ public sealed partial class MainWindow
         Grid.SetColumn(delBtn, 5);
         headerGrid.Children.Add(delBtn);
 
-        var textGrid = new Grid { MinHeight = 50, MaxHeight = 120 };
+        double editorHeight = NormalizePromptHeight(entry.EditorHeight);
+        var textGrid = new Grid { MinHeight = 60, MaxHeight = editorHeight > 0 ? double.PositiveInfinity : 120 };
         var textBox = new PromptTextBox
         {
             AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
             IsSpellCheckEnabled = false,
             PlaceholderText = entry.IsPositiveTab ? L("character.prompt_positive_placeholder") : L("character.prompt_negative_placeholder"),
             Text = entry.IsPositiveTab ? entry.PositivePrompt : entry.NegativePrompt,
-            MinHeight = 50, MaxHeight = 120,
+            MinHeight = 60, MaxHeight = editorHeight > 0 ? double.PositiveInfinity : 120,
+            Height = editorHeight > 0 ? editorHeight : double.NaN,
             FontSize = 12,
+        };
+        textBox.EnableResizing(L("prompt.resize_help"));
+        textBox.ResizeHeightRequested += height =>
+        {
+            entry.EditorHeight = NormalizePromptHeight(height);
+            textGrid.MaxHeight = double.PositiveInfinity;
+            textBox.MaxHeight = double.PositiveInfinity;
+            textBox.Height = entry.EditorHeight;
+            QueuePromptAreaHeightUpdate();
+        };
+        textBox.ResizeCompleted += SavePromptEditorSizes;
+        textBox.AutoSizeRequested += () =>
+        {
+            entry.EditorHeight = 0;
+            textBox.Height = double.NaN;
+            textBox.MaxHeight = 120;
+            textGrid.MaxHeight = 120;
+            QueuePromptAreaHeightUpdate();
+            SavePromptEditorSizes();
         };
         textBox.TextChanged += (_, _) =>
         {
@@ -557,31 +595,54 @@ public sealed partial class MainWindow
         return result;
     }
 
-    private void SetGenCharactersFromMetadata(ImageMetadata meta)
+    private void SetGenCharactersFromMetadata(ImageMetadata meta, bool useActualPrompt = false)
     {
-        SetCharactersFromMetadata(_genCharacters, meta);
+        SetCharactersFromMetadata(_genCharacters, meta, GetMaxCharactersForCurrentModel(), useActualPrompt);
+    }
+
+    private int AppendGenCharactersFromMetadata(ImageMetadata meta, bool useActualPrompt)
+    {
+        int capacity = Math.Max(0, GetMaxCharactersForCurrentModel() - _genCharacters.Count);
+        var imported = BuildCharactersFromMetadata(meta, capacity, useActualPrompt);
+        _genCharacters.AddRange(imported);
+        return imported.Count;
     }
 
     private void SetI2ICharactersFromMetadata(ImageMetadata meta)
     {
-        SetCharactersFromMetadata(_i2iCharacters, meta);
+        SetCharactersFromMetadata(_i2iCharacters, meta, GetMaxCharactersForCurrentModel());
     }
 
-    private static void SetCharactersFromMetadata(List<CharacterEntry> target, ImageMetadata meta)
+    private static void SetCharactersFromMetadata(List<CharacterEntry> target, ImageMetadata meta,
+        int maxCharacters, bool useActualPrompt = false)
     {
         target.Clear();
-        int count = Math.Min(meta.CharacterPrompts.Count, MaxCharacters);
+        target.AddRange(BuildCharactersFromMetadata(meta, maxCharacters, useActualPrompt));
+    }
+
+    private static List<CharacterEntry> BuildCharactersFromMetadata(ImageMetadata meta,
+        int maxCharacters, bool useActualPrompt)
+    {
+        var result = new List<CharacterEntry>();
+        var positivePrompts = useActualPrompt &&
+            meta.ActualCharacterPrompts.Count == meta.CharacterPrompts.Count
+            ? meta.ActualCharacterPrompts : meta.CharacterPrompts;
+        var negativePrompts = useActualPrompt &&
+            meta.ActualCharacterNegativePrompts.Count == meta.CharacterNegativePrompts.Count
+            ? meta.ActualCharacterNegativePrompts : meta.CharacterNegativePrompts;
+        int count = Math.Min(positivePrompts.Count, maxCharacters);
         for (int i = 0; i < count; i++)
         {
             var entry = new CharacterEntry
             {
-                PositivePrompt = meta.CharacterPrompts[i],
-                NegativePrompt = i < meta.CharacterNegativePrompts.Count
-                    ? meta.CharacterNegativePrompts[i] : "",
+                PositivePrompt = positivePrompts[i],
+                NegativePrompt = i < negativePrompts.Count ? negativePrompts[i] : "",
                 CenterX = i < meta.CharacterCenters.Count ? meta.CharacterCenters[i].X : 0.5,
                 CenterY = i < meta.CharacterCenters.Count ? meta.CharacterCenters[i].Y : 0.5,
+                UseCustomPosition = meta.UseCharacterCoordinates == true,
             };
-            target.Add(entry);
+            result.Add(entry);
         }
+        return result;
     }
 }

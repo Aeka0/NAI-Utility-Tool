@@ -243,6 +243,26 @@ public sealed partial class MainWindow
             };
             var streamToggle = CreateLocalizedToggleSwitch(_settings.Settings.StreamGeneration);
             streamToggle.HorizontalAlignment = HorizontalAlignment.Right;
+            var rotationToggle = CreateLocalizedToggleSwitch(_settings.IsGenerationTokenRotationEnabled);
+            rotationToggle.HorizontalAlignment = HorizontalAlignment.Right;
+            var secondaryTokenBox = new PasswordBox { PlaceholderText = "账号 B 的 Persistent API Token", Password = _settings.GetSecondaryGenerationToken(), HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Center };
+            void SaveRotationSettings()
+            {
+                _settings.SetGenerationTokenRotation(rotationToggle.IsOn, secondaryTokenBox.Password);
+                RefreshGenerationAccountStatus();
+            }
+            rotationToggle.Toggled += (_, _) =>
+            {
+                SaveRotationSettings();
+                _ = RefreshAnlasInfoAsync(forceRefresh: true);
+            };
+            secondaryTokenBox.PasswordChanged += (_, _) =>
+            {
+                _accountBAnlasBalance = null;
+                _accountBV5UsagePercent = null;
+                SaveRotationSettings();
+            };
+            secondaryTokenBox.LostFocus += (_, _) => _ = RefreshAnlasInfoAsync(forceRefresh: true);
 
             string lastTestedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text);
             string lastTestedToken = tokenBox.Password.Trim();
@@ -400,6 +420,8 @@ public sealed partial class MainWindow
                     L("settings.hub.network.stream_generation"),
                     L("settings.hub.network.stream_generation_hint"),
                     streamToggle),
+                CreateSettingsHubLayer("\uE8D7", "生成账号轮换", "启用后，文生图、图生图和重绘的每个请求按账号 A（上方 API Token）与账号 B 交替发送。账号 B Token 使用 Windows DPAPI 加密保存。", rotationToggle),
+                CreateSettingsHubLayer("\uE8D7", "账号 B API Token", "填入第二个 NovelAI Persistent API Token；留空会自动关闭轮换。", secondaryTokenBox),
                 CreateSettingsHubLayer(
                     "\uE705",
                     L("settings.hub.network.use_proxy"),

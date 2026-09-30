@@ -2,10 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -48,12 +50,14 @@ public class NovelAIService : IDisposable
     private const string OfficialGenerateUrl = "https://image.novelai.net/ai/generate-image";
     private const string OfficialGenerateStreamUrl = "https://image.novelai.net/ai/generate-image-stream";
     private const string OfficialEncodeVibeUrl = "https://image.novelai.net/ai/encode-vibe";
+    private const string OfficialUpscaleUrl = "https://image.novelai.net/ai/upscale";
     private const string OfficialUserInfoUrl = "https://image.novelai.net/user/information";
     private const string OfficialUserDataUrl = "https://image.novelai.net/user/data";
     private const string OfficialTextChatCompletionUrl = "https://text.novelai.net/oa/v1/chat/completions";
     private static readonly TimeSpan DefaultHttpClientTimeout = TimeSpan.FromSeconds(300);
     private static readonly TimeSpan AccountInfoRequestTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ImageGenerationRequestTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan OfficialUpscaleRequestTimeout = TimeSpan.FromSeconds(120);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -66,6 +70,7 @@ public class NovelAIService : IDisposable
     };
 
     private readonly object _httpClientLock = new();
+    private readonly SemaphoreSlim[] _generationAccountSlots = [new(1, 1), new(1, 1)];
     private readonly List<HttpClient> _retiredHttpClients = [];
     private HttpClient? _httpClient;
     private string? _httpClientProxyKey;
@@ -115,7 +120,7 @@ public class NovelAIService : IDisposable
             OfficialTextChatCompletionUrl);
     }
 
-    private HttpClient GetOrCreateClient()
+    private HttpClient GetOrCreateClient(string? authorizationToken = null)
     {
         string proxyKey = _settings.Settings.UseProxy && !string.IsNullOrEmpty(_settings.Settings.ProxyPort)
             ? _settings.Settings.ProxyPort
@@ -139,12 +144,33 @@ public class NovelAIService : IDisposable
                 _httpClientProxyKey = proxyKey;
             }
 
-            if (!string.IsNullOrEmpty(_settings.Settings.ApiToken))
+            var token = authorizationToken ?? _settings.Settings.ApiToken;
+            if (!string.IsNullOrEmpty(token))
                 _httpClient.DefaultRequestHeaders.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _settings.Settings.ApiToken);
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
             return _httpClient;
         }
+    }
+    private HttpClient GetGenerationClient() => GetOrCreateClient(_settings.GetNextGenerationAccount().Token);
+
+    private async Task<(GenerationAccountSelection Account, SemaphoreSlim Slot)> AcquireGenerationAccountAsync(CancellationToken ct)
+    {
+        var preferred = _settings.GetNextGenerationAccount();
+        var preferredSlot = _generationAccountSlots[preferred.Index];
+        if (await preferredSlot.WaitAsync(0, ct))
+            return (preferred, preferredSlot);
+
+        if (_settings.IsGenerationTokenRotationEnabled)
+        {
+            int alternateIndex = preferred.Index == 0 ? 1 : 0;
+            var alternateSlot = _generationAccountSlots[alternateIndex];
+            if (await alternateSlot.WaitAsync(0, ct))
+                return (_settings.GetGenerationAccount(alternateIndex), alternateSlot);
+        }
+
+        await preferredSlot.WaitAsync(ct);
+        return (preferred, preferredSlot);
     }
 
     public async Task<(bool Success, string Message)> TestConnectionAsync(
@@ -255,11 +281,11 @@ public class NovelAIService : IDisposable
             using var requestTimeoutCts = CreateRequestTimeoutTokenSource(AccountInfoRequestTimeout, ct);
             var requestCt = requestTimeoutCts.Token;
             var client = GetOrCreateClient();
-            client.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
             var endpoints = GetApiEndpoints();
-            using var response = await client.GetAsync(endpoints.UserDataUrl, requestCt);
+            using var request = new HttpRequestMessage(HttpMethod.Get, endpoints.UserDataUrl);
+            request.Headers.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            using var response = await client.SendAsync(request, requestCt);
             if (!response.IsSuccessStatusCode)
             {
                 Debug.WriteLine($"[NAI] /user/data request failed: {(int)response.StatusCode}");
@@ -817,7 +843,8 @@ public class NovelAIService : IDisposable
                 sm: false, strength: IsV4PlusModel(naiParams.Model) ? naiParams.InpaintStrength : 1) > NovelAiAnlasCalculator.MaxBaseCost)
             return (null, Lf("api.error.generation_cost_limit", NovelAiAnlasCalculator.MaxBaseCost));
 
-        object seed = SeedValue.ToRequestValue(SeedValue.Resolve(naiParams.Seed));
+        string resolvedSeed = SeedValue.Resolve(naiParams.Seed);
+        object seed = SeedValue.ToRequestValue(resolvedSeed);
         bool isV4Plus = IsV4PlusModel(naiParams.Model);
         bool isV45 = IsV45Model(naiParams.Model);
         string effectivePrompt = ApplyQualityTags(prompt, naiParams.Model, naiParams.QualityToggle);
@@ -825,7 +852,7 @@ public class NovelAIService : IDisposable
 
         var parameters = new Dictionary<string, object?>
         {
-            ["params_version"] = 3,
+            ["params_version"] = 4,
             ["width"] = width,
             ["height"] = height,
             ["scale"] = naiParams.Scale,
@@ -943,7 +970,7 @@ public class NovelAIService : IDisposable
 
         try
         {
-            var client = GetOrCreateClient();
+            var client = GetGenerationClient();
             client.DefaultRequestHeaders.Accept.Clear();
             if (_settings.Settings.StreamGeneration)
                 client.DefaultRequestHeaders.Accept.Add(
@@ -1008,6 +1035,38 @@ public class NovelAIService : IDisposable
         }
     }
 
+    internal static string PrepareEnhancedImageBase64(byte[] imageBytes, int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+            throw new ArgumentOutOfRangeException(nameof(width), "Enhance dimensions must be positive.");
+
+        using var source = SKBitmap.Decode(imageBytes)
+            ?? throw new InvalidDataException("Unable to decode the source image for Enhance.");
+        using var resized = source.Width == width && source.Height == height
+            ? null
+            : source.Resize(new SKImageInfo(width, height, SKColorType.Bgra8888,
+                SKAlphaType.Premul), SKSamplingOptions.Default)
+                ?? throw new InvalidDataException("Unable to resize the source image for Enhance.");
+        using var pixmap = (resized ?? source).PeekPixels();
+        using var stream = new SKDynamicMemoryWStream();
+        if (!pixmap.Encode(stream,
+            new SKWebpEncoderOptions(SKWebpEncoderCompression.Lossless, 75)))
+            throw new InvalidDataException("Unable to encode the source image for Enhance.");
+        using var encoded = stream.DetachAsData();
+        return Convert.ToBase64String(encoded.ToArray());
+    }
+
+    private static string AddEnhancePromptHint(string prompt)
+    {
+        if (prompt.Contains("upscaled, blurry", StringComparison.OrdinalIgnoreCase))
+            return prompt;
+        const string hint = ", -2::upscaled, blurry::,";
+        int textIndex = prompt.LastIndexOf("Text:", StringComparison.OrdinalIgnoreCase);
+        return textIndex >= 0
+            ? prompt.Insert(textIndex, hint + " ")
+            : prompt + hint;
+    }
+
     public async Task<(byte[]? ImageBytes, string? Error)> ImageToImageAsync(
         string imageBase64,
         int width, int height,
@@ -1017,7 +1076,10 @@ public class NovelAIService : IDisposable
         List<PreciseReferenceInfo>? preciseReferences = null,
         IProgress<byte[]>? progress = null,
         CancellationToken ct = default,
-        NAIParameters? parametersOverride = null)
+        NAIParameters? parametersOverride = null,
+        Action<string>? accountSelected = null,
+        bool upscaledEnhance = false,
+        bool isEnhance = false)
     {
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
             return (null, L("api.error.token_missing_network"));
@@ -1028,15 +1090,19 @@ public class NovelAIService : IDisposable
                 sm: false, strength: naiParams.DenoiseStrength) > NovelAiAnlasCalculator.MaxBaseCost)
             return (null, Lf("api.error.generation_cost_limit", NovelAiAnlasCalculator.MaxBaseCost));
 
-        object seed = SeedValue.ToRequestValue(SeedValue.Resolve(naiParams.Seed));
+        string resolvedSeed = SeedValue.Resolve(naiParams.Seed);
+        object seed = SeedValue.ToRequestValue(resolvedSeed);
         bool isV4Plus = IsV4PlusModel(naiParams.Model);
         bool isV45 = IsV45Model(naiParams.Model);
         string effectivePrompt = ApplyQualityTags(prompt, naiParams.Model, naiParams.QualityToggle);
+        if (isEnhance && !upscaledEnhance &&
+            (IsV45Model(naiParams.Model) || IsV5Model(naiParams.Model)))
+            effectivePrompt = AddEnhancePromptHint(effectivePrompt);
         string effectiveNegativePrompt = ApplyUcPreset(negativePrompt, naiParams.Model, naiParams.UcPreset);
 
         var parameters = new Dictionary<string, object?>
         {
-            ["params_version"] = 3,
+            ["params_version"] = 4,
             ["width"] = width,
             ["height"] = height,
             ["scale"] = naiParams.Scale,
@@ -1053,6 +1119,10 @@ public class NovelAIService : IDisposable
             ["cfg_rescale"] = naiParams.CfgRescale,
             ["legacy"] = false,
             ["legacy_v3_extend"] = false,
+            ["add_original_image"] = true,
+            ["color_correct"] = false,
+            ["sm"] = false,
+            ["sm_dyn"] = false,
             ["dynamic_thresholding"] = naiParams.CfgRescale > 0,
             ["skip_cfg_above_sigma"] = null,
             ["strength"] = Math.Clamp(naiParams.DenoiseStrength, 0, 1),
@@ -1060,6 +1130,11 @@ public class NovelAIService : IDisposable
             ["qualityToggle"] = naiParams.QualityToggle,
             ["quality_toggle"] = naiParams.QualityToggle,
         };
+        if (BigInteger.TryParse(resolvedSeed, NumberStyles.AllowLeadingSign,
+            CultureInfo.InvariantCulture, out var numericSeed))
+            parameters["extra_noise_seed"] = SeedValue.ToRequestValue(
+                (numericSeed - 1).ToString(CultureInfo.InvariantCulture));
+        if (upscaledEnhance) parameters["upscaled_enhance"] = true;
         if (IsV5Model(naiParams.Model))
         {
             parameters["tag_hint_transparent_background"] = naiParams.TagHintTransparentBackground;
@@ -1122,7 +1197,7 @@ public class NovelAIService : IDisposable
                 },
                 ["use_coords"] = useCoords,
                 ["use_order"] = false,
-                ["legacy_uc"] = !isV45,
+                ["legacy_uc"] = !isV45 && !IsV5Model(naiParams.Model),
             };
         }
         else
@@ -1149,27 +1224,31 @@ public class NovelAIService : IDisposable
             ["parameters"] = parameters,
         };
         var stopwatch = Stopwatch.StartNew();
+        SemaphoreSlim? occupiedAccountSlot = null;
 
         try
         {
+            var allocation = await AcquireGenerationAccountAsync(ct);
+            var account = allocation.Account;
+            occupiedAccountSlot = allocation.Slot;
+            accountSelected?.Invoke(account.Label);
             var client = GetOrCreateClient();
-            client.DefaultRequestHeaders.Accept.Clear();
-            if (_settings.Settings.StreamGeneration)
-                client.DefaultRequestHeaders.Accept.Add(
-                    new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
-
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
             var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", account.Token);
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue(
+                _settings.Settings.StreamGeneration ? "text/event-stream" : "application/zip"));
             using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
             var requestCt = requestTimeoutCts.Token;
             using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
-                    new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
+                    request,
                     HttpCompletionOption.ResponseHeadersRead,
                     requestCt)
-                : await client.PostAsync(url, content, requestCt);
+                : await client.SendAsync(request, requestCt);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -1214,6 +1293,92 @@ public class NovelAIService : IDisposable
             WriteRequestLog("Image-to-image generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
             return (null, Lf("api.error.request_failed", ex.Message));
         }
+        finally
+        {
+            occupiedAccountSlot?.Release();
+        }
+    }
+
+    public async Task<(byte[]? ImageBytes, string? Error)> UpscaleImageAsync(
+        string imageBase64,
+        int width,
+        int height,
+        int scale,
+        Action<string>? accountSelected = null,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+            return (null, L("api.error.token_missing_network"));
+        if (width <= 0 || height <= 0 || width > 1024 || height > 1024)
+            return (null, "NovelAI 官方超分仅接受宽、高不超过 1024 像素的图片。");
+
+        scale = scale == 2 ? 2 : 4;
+        var payload = new Dictionary<string, object>
+        {
+            ["image"] = imageBase64,
+            ["width"] = width,
+            ["height"] = height,
+            ["scale"] = scale,
+        };
+        var stopwatch = Stopwatch.StartNew();
+        SemaphoreSlim? occupiedAccountSlot = null;
+
+        try
+        {
+            var allocation = await AcquireGenerationAccountAsync(ct);
+            var account = allocation.Account;
+            occupiedAccountSlot = allocation.Slot;
+            accountSelected?.Invoke(account.Label);
+
+            var client = GetOrCreateClient();
+            var json = JsonSerializer.Serialize(payload, JsonOptions);
+            using var request = new HttpRequestMessage(HttpMethod.Post, OfficialUpscaleUrl)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            };
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", account.Token);
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/zip"));
+
+            using var requestTimeoutCts = CreateRequestTimeoutTokenSource(OfficialUpscaleRequestTimeout, ct);
+            var requestCt = requestTimeoutCts.Token;
+            using var response = await client.SendAsync(request, requestCt);
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorText = await response.Content.ReadAsStringAsync(requestCt);
+                stopwatch.Stop();
+                WriteRequestLog("NovelAI upscale", payload, stopwatch.ElapsedMilliseconds, response, errorText);
+                return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
+            }
+
+            byte[]? imageBytes = await ReadGeneratedImageBytesAsync(response.Content, requestCt);
+            stopwatch.Stop();
+            WriteRequestLog("NovelAI upscale", payload, stopwatch.ElapsedMilliseconds, response, imageBytes: imageBytes);
+            return imageBytes == null
+                ? (null, L("api.error.empty_zip"))
+                : (imageBytes, null);
+        }
+        catch (TaskCanceledException ex)
+        {
+            stopwatch.Stop();
+            WriteRequestLog("NovelAI upscale", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, L("api.error.request_cancelled"));
+        }
+        catch (HttpRequestException ex)
+        {
+            stopwatch.Stop();
+            WriteRequestLog("NovelAI upscale", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, Lf("api.error.network_failed", ex.Message));
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            WriteRequestLog("NovelAI upscale", payload, stopwatch.ElapsedMilliseconds, exception: ex);
+            return (null, Lf("api.error.request_failed", ex.Message));
+        }
+        finally
+        {
+            occupiedAccountSlot?.Release();
+        }
     }
 
     public async Task<(byte[]? ImageBytes, string? Error)> GenerateAsync(
@@ -1223,14 +1388,16 @@ public class NovelAIService : IDisposable
         List<VibeTransferInfo>? vibeTransfers = null,
         List<PreciseReferenceInfo>? preciseReferences = null,
         IProgress<byte[]>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        NAIParameters? parametersOverride = null,
+        Action<string>? accountSelected = null)
     {
         LastGenerationErrorStatusCode = null;
 
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
             return (null, L("api.error.token_missing_network_api"));
 
-        var naiParams = _settings.Settings.GenParameters;
+        var naiParams = parametersOverride ?? _settings.Settings.GenParameters;
         string model = naiParams.Model;
         if (!_settings.Settings.UsesCustomApiBaseUrl &&
             NovelAiAnlasCalculator.PaidBaseCost(naiParams.Model, width, height, naiParams.Steps,
@@ -1245,7 +1412,7 @@ public class NovelAIService : IDisposable
 
         var parameters = new Dictionary<string, object?>
         {
-            ["params_version"] = 3,
+            ["params_version"] = 4,
             ["width"] = width,
             ["height"] = height,
             ["scale"] = naiParams.Scale,
@@ -1354,27 +1521,31 @@ public class NovelAIService : IDisposable
             ["parameters"] = parameters,
         };
         var stopwatch = Stopwatch.StartNew();
+        SemaphoreSlim? occupiedAccountSlot = null;
 
         try
         {
+            var allocation = await AcquireGenerationAccountAsync(ct);
+            var account = allocation.Account;
+            occupiedAccountSlot = allocation.Slot;
+            accountSelected?.Invoke(account.Label);
             var client = GetOrCreateClient();
-            client.DefaultRequestHeaders.Accept.Clear();
-            if (_settings.Settings.StreamGeneration)
-                client.DefaultRequestHeaders.Accept.Add(
-                    new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
-
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
             var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", account.Token);
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue(
+                _settings.Settings.StreamGeneration ? "text/event-stream" : "application/zip"));
             using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
             var requestCt = requestTimeoutCts.Token;
             using var response = _settings.Settings.StreamGeneration
                 ? await client.SendAsync(
-                    new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
+                    request,
                     HttpCompletionOption.ResponseHeadersRead,
                     requestCt)
-                : await client.PostAsync(url, content, requestCt);
+                : await client.SendAsync(request, requestCt);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -1421,6 +1592,10 @@ public class NovelAIService : IDisposable
             stopwatch.Stop();
             WriteRequestLog("Image generation", payload, stopwatch.ElapsedMilliseconds, exception: ex);
             return (null, Lf("api.error.request_failed", ex.Message));
+        }
+        finally
+        {
+            occupiedAccountSlot?.Release();
         }
     }
 

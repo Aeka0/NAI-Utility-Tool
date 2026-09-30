@@ -209,6 +209,9 @@ public sealed partial class MainWindow
 
         TxtModelLabel.Text = L("panel.model");
         TxtSizeLabel.Text = L("panel.size");
+        TxtPrompt.EnableResizing(L("prompt.resize_help"));
+        TxtStylePrompt.EnableResizing(L("prompt.resize_help"));
+        BtnSizePresets.Content = L("size.presets.open");
         TxtSeedLabel.Text = L("panel.seed");
         ToolTipService.SetToolTip(BtnSwapSizeDimensions, L("tooltip.swap_dimensions"));
         ToolTipService.SetToolTip(BtnSeedRandomize, L("tooltip.random_seed"));

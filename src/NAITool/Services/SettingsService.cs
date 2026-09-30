@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,6 +15,7 @@ namespace NAITool.Services;
 /// </summary>
 public class SettingsService
 {
+    private readonly object _generationTokenLock = new();
     private static string AppRootDir => AppPathResolver.AppRootDir;
 
     private static readonly string ConfigDir = Path.Combine(AppRootDir, "user", "config");
@@ -159,6 +160,77 @@ public class SettingsService
         }
     }
 
+    public bool IsGenerationTokenRotationEnabled => CachedApiConfig.EnableGenerationTokenRotation &&
+        !string.IsNullOrWhiteSpace(DecryptToken(CachedApiConfig.SecondaryEncryptedApiToken ?? string.Empty));
+    public string GetSecondaryGenerationToken() => DecryptToken(CachedApiConfig.SecondaryEncryptedApiToken ?? string.Empty) ?? string.Empty;
+    public int NextGenerationAccountIndex
+    {
+        get
+        {
+            lock (_generationTokenLock)
+                return IsGenerationTokenRotationEnabled ? Math.Abs(CachedApiConfig.NextGenerationAccountIndex % 2) : 0;
+        }
+    }
+
+    public int ToggleNextGenerationAccount()
+    {
+        lock (_generationTokenLock)
+        {
+            if (!IsGenerationTokenRotationEnabled)
+                return 0;
+            CachedApiConfig.NextGenerationAccountIndex = NextGenerationAccountIndex == 0 ? 1 : 0;
+            Save();
+            return CachedApiConfig.NextGenerationAccountIndex;
+        }
+    }
+
+    public GenerationAccountSelection GetNextGenerationAccount()
+    {
+        lock (_generationTokenLock)
+        {
+            var primary = Settings.ApiToken;
+            var secondary = DecryptToken(CachedApiConfig.SecondaryEncryptedApiToken ?? string.Empty);
+            if (!CachedApiConfig.EnableGenerationTokenRotation || string.IsNullOrWhiteSpace(primary) || string.IsNullOrWhiteSpace(secondary))
+                return new GenerationAccountSelection(primary, "账号 A", 0);
+            var useSecondary = CachedApiConfig.NextGenerationAccountIndex % 2 == 1;
+            CachedApiConfig.NextGenerationAccountIndex = (CachedApiConfig.NextGenerationAccountIndex + 1) % 2;
+            Save();
+            return useSecondary
+                ? new GenerationAccountSelection(secondary, "账号 B", 1)
+                : new GenerationAccountSelection(primary, "账号 A", 0);
+        }
+    }
+
+    public GenerationAccountSelection GetGenerationAccount(int index)
+    {
+        lock (_generationTokenLock)
+        {
+            var primary = Settings.ApiToken;
+            var secondary = DecryptToken(CachedApiConfig.SecondaryEncryptedApiToken ?? string.Empty);
+            if (index == 1 && IsGenerationTokenRotationEnabled)
+                return new GenerationAccountSelection(secondary, "账号 B", 1);
+            return new GenerationAccountSelection(primary, "账号 A", 0);
+        }
+    }
+    public void SetGenerationTokenRotation(bool enabled, string secondaryToken)
+    {
+        lock (_generationTokenLock)
+        {
+            var normalizedSecondaryToken = secondaryToken.Trim();
+            var previousSecondaryToken = DecryptToken(CachedApiConfig.SecondaryEncryptedApiToken ?? string.Empty) ?? string.Empty;
+            bool secondaryTokenChanged = !string.Equals(previousSecondaryToken, normalizedSecondaryToken, StringComparison.Ordinal);
+            CachedApiConfig.EnableGenerationTokenRotation = enabled;
+            CachedApiConfig.SecondaryEncryptedApiToken = string.IsNullOrWhiteSpace(normalizedSecondaryToken) ? null : EncryptToken(normalizedSecondaryToken);
+            CachedApiConfig.NextGenerationAccountIndex = 0;
+            if (secondaryTokenChanged)
+            {
+                CachedApiConfig.SecondaryCachedAnlas = null;
+                CachedApiConfig.SecondaryCachedV5UsagePercent = null;
+            }
+            Save();
+        }
+    }
+
     /// <summary>更新缓存的账户信息并写入 apiconfig.json</summary>
     public void UpdateCachedAccountInfo(
         int? anlas,
@@ -180,7 +252,16 @@ public class SettingsService
         CachedApiConfig.SubscriptionExpiresAt = expiresAt;
         Save();
     }
+
+    public void UpdateCachedSecondaryAccountInfo(int? anlas, int? v5UsagePercent)
+    {
+        CachedApiConfig.SecondaryCachedAnlas = anlas;
+        CachedApiConfig.SecondaryCachedV5UsagePercent = v5UsagePercent;
+        Save();
+    }
 }
+
+public sealed record GenerationAccountSelection(string? Token, string Label, int Index);
 
 /// <summary>API 凭证与账户缓存信息</summary>
 public class ApiConfig
@@ -188,6 +269,9 @@ public class ApiConfig
     // Changing the numbers here won't do anything that affects the your account, nice try though.
     public string? ApiToken { get; set; }
     public string? EncryptedApiToken { get; set; }
+    public string? SecondaryEncryptedApiToken { get; set; }
+    public bool EnableGenerationTokenRotation { get; set; }
+    public int NextGenerationAccountIndex { get; set; }
     public int? CachedAnlas { get; set; }
     public int? CachedV5UsagePercent { get; set; }
     public bool? CachedV5UsageIsNegative { get; set; }
@@ -196,6 +280,8 @@ public class ApiConfig
     public int? SubscriptionTierLevel { get; set; }
     public bool? SubscriptionActive { get; set; }
     public string? SubscriptionExpiresAt { get; set; }
+    public int? SecondaryCachedAnlas { get; set; }
+    public int? SecondaryCachedV5UsagePercent { get; set; }
 }
 
 public class AppSettings
@@ -237,6 +323,14 @@ public class AppSettings
     public string LanguageCode { get; set; } = "";
     public bool DevLogEnabled { get; set; }
     public bool StreamGeneration { get; set; }
+    public int EnhanceMagnitude { get; set; } = 3;
+    public bool EnhanceShowIndividualSettings { get; set; }
+    public double EnhanceStrength { get; set; } = 0.5;
+    public double EnhanceNoise { get; set; }
+    public double EnhanceUpscaleAmount { get; set; } = 1.5;
+    public bool EnhanceUseMaxUpscale { get; set; }
+    public bool UseNovelAiUpscale { get; set; }
+    public int NovelAiUpscaleScale { get; set; } = 4;
     public OnnxPerformanceSettings OnnxPerformance { get; set; } = null!;
     public PostEffectsPerformanceSettings PostEffectsPerformance { get; set; } = null!;
     public ReverseTaggerSettings ReverseTagger { get; set; } = new();
@@ -244,6 +338,8 @@ public class AppSettings
     public NAIParameters InpaintParameters { get; set; } = new() { Model = NAIParameters.DefaultInpaintModel };
     public NAIParameters I2IDenoiseParameters { get; set; } = new() { Model = NAIParameters.DefaultI2IDenoiseModel, DenoiseStrength = 0.7, DenoiseNoise = 0 };
     public RememberedPromptState RememberedPrompts { get; set; } = new();
+    public double PromptEditorHeight { get; set; }
+    public double StylePromptEditorHeight { get; set; }
     public int RememberedCustomWidth { get; set; } = 832;
     public int RememberedCustomHeight { get; set; } = 1216;
     public AutomationSettings Automation { get; set; } = new();
@@ -269,6 +365,16 @@ public class AppSettings
             "RecycleBin" or "PermanentDelete" => ImageDeleteBehavior,
             _ => "RecycleBin",
         };
+        EnhanceMagnitude = Math.Clamp(EnhanceMagnitude, 1, 5);
+        EnhanceStrength = Math.Clamp(EnhanceStrength, 0.01, 0.99);
+        EnhanceNoise = Math.Clamp(EnhanceNoise, 0, 0.99);
+        EnhanceUpscaleAmount = EnhanceUpscaleAmount switch
+        {
+            >= 1.75 => 2.0,
+            >= 1.25 => 1.5,
+            _ => 1.0,
+        };
+        NovelAiUpscaleScale = NovelAiUpscaleScale == 2 ? 2 : 4;
         OnnxPerformance ??= new()
         {
             UnloadModelAfterInference = ReverseTagger.UnloadModelAfterInference,
@@ -360,6 +466,7 @@ public class RememberedPromptState
 
 public class RememberedCharacterState
 {
+    public double EditorHeight { get; set; }
     public string PositivePrompt { get; set; } = "";
     public string NegativePrompt { get; set; } = "";
     public double CenterX { get; set; } = 0.5;

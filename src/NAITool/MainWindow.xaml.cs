@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
@@ -125,6 +125,12 @@ public sealed partial class MainWindow : Window
 
     // ═══ 生成 ═══
     private CancellationTokenSource? _generateCts;
+    private readonly SemaphoreSlim _generationSlots = new(2, 2);
+    private int _activeGenerationCount;
+    private int _accountAActiveCount;
+    private int _accountBActiveCount;
+    private int _accountACompletedCount;
+    private int _accountBCompletedCount;
     private byte[]? _lastGeneratedImageBytes;
     private string? _lastUsedSeed;
     private int _customWidth = 832;
@@ -171,6 +177,8 @@ public sealed partial class MainWindow : Window
     private int? _v5UsagePercent;
     private bool? _v5UsageIsNegative;
     private int? _v5UsageTimeUntilNextPercentSeconds;
+    private int? _accountBAnlasBalance;
+    private int? _accountBV5UsagePercent;
     private Flyout? _quotaSummaryFlyout;
     private TextBlock? _quotaSummaryAnlasLabel;
     private TextBlock? _quotaSummaryAnlasText;
@@ -453,6 +461,7 @@ public sealed partial class MainWindow : Window
         SetupThumbnailTimer();
 
         PopulateLeftSidebarControls();
+        SetupPromptResizing();
         BtnSplitPrompt.IsChecked = _isSplitPrompt;
         ApplyStaticMenuAndComboTypography();
         CboModel.SelectionChanged += (_, _) => UpdateModelDependentUI();
@@ -523,11 +532,57 @@ public sealed partial class MainWindow : Window
 
     private void SetGenerationRequestRunning(bool running)
     {
-        _generateRequestRunning = running;
-        if (running && _settings.Settings.EnableGenerationWaitingAnimation)
+        _activeGenerationCount = Math.Max(0, _activeGenerationCount + (running ? 1 : -1));
+        _generateRequestRunning = _activeGenerationCount > 0;
+        if (_generateRequestRunning && _settings.Settings.EnableGenerationWaitingAnimation)
             StartGenerationPreviewPulse();
         else
             StopGenerationPreviewPulse();
+    }
+
+    private void OnGenerationAccountStarted(string label)
+    {
+        if (label == "账号 B") _accountBActiveCount++;
+        else _accountAActiveCount++;
+        RefreshGenerationAccountStatus();
+    }
+
+    private void OnGenerationAccountFinished(string? label, bool completed)
+    {
+        if (label == "账号 B")
+        {
+            _accountBActiveCount = Math.Max(0, _accountBActiveCount - 1);
+            if (completed) _accountBCompletedCount++;
+        }
+        else if (label == "账号 A")
+        {
+            _accountAActiveCount = Math.Max(0, _accountAActiveCount - 1);
+            if (completed) _accountACompletedCount++;
+        }
+        RefreshGenerationAccountStatus();
+    }
+
+    private void RefreshGenerationAccountStatus()
+    {
+        static string FormatQuota(int? anlas, int? v5Usage) =>
+            $"{(anlas.HasValue ? anlas.Value.ToString("N0") : "--")}◇ · V5 {(v5Usage.HasValue ? $"{Math.Max(v5Usage.Value, 0)}%" : "--%")}";
+
+        bool rotationEnabled = _settings.IsGenerationTokenRotationEnabled;
+        TxtAccountAStatus.Text = $"A：{(_accountAActiveCount > 0 ? "生成中" : "空闲")} · 完成 {_accountACompletedCount} · {FormatQuota(_anlasBalance, _v5UsagePercent)}";
+        TxtAccountBStatus.Text = rotationEnabled
+            ? $"B：{(_accountBActiveCount > 0 ? "生成中" : "空闲")} · 完成 {_accountBCompletedCount} · {FormatQuota(_accountBAnlasBalance, _accountBV5UsagePercent)}"
+            : "B：未启用";
+        BtnSwapGenerationAccountOrder.Visibility = rotationEnabled ? Visibility.Visible : Visibility.Collapsed;
+        TxtGenerationAccountOrder.Text = _settings.NextGenerationAccountIndex == 0
+            ? "切换顺序 · 下次 A→B"
+            : "切换顺序 · 下次 B→A";
+    }
+
+    private void OnSwapGenerationAccountOrder(object sender, RoutedEventArgs e)
+    {
+        int nextIndex = _settings.ToggleNextGenerationAccount();
+        RefreshGenerationAccountStatus();
+        TxtStatus.Text = nextIndex == 0 ? "生成顺序已切换：下次优先账号 A。" : "生成顺序已切换：下次优先账号 B。";
     }
 
     private void StartGenerationPreviewPulse()

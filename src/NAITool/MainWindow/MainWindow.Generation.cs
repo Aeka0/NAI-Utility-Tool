@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -84,21 +84,35 @@ public sealed partial class MainWindow
 
     private async Task<bool> DoImageGenerationAsync(bool forceRandomSeed = false)
     {
+        int allowedConcurrency = _settings.IsGenerationTokenRotationEnabled ? 2 : 1;
+        if (_activeGenerationCount >= allowedConcurrency)
+        {
+            TxtStatus.Text = allowedConcurrency == 2
+                ? "账号 A 和 B 都在生成中；请等待其中一个完成。"
+                : "账号 A 正在生成中。";
+            return false;
+        }
+        if (!await _generationSlots.WaitAsync(0))
+        {
+            TxtStatus.Text = "账号 A 和 B 都在生成中；请等待其中一个完成。";
+            return false;
+        }
         _lastGenerationFailureStatusCode = null;
         var autoContext = _autoGenRunning ? _automationRunContext : null;
         var (w, h) = autoContext?.CurrentSizeOverride ?? GetSelectedSize();
         bool keepGenerateButtonInteractive = _autoGenRunning || _continuousGenRunning;
-        if (!keepGenerateButtonInteractive) BtnGenerate.IsEnabled = false;
+        if (!keepGenerateButtonInteractive) BtnGenerate.IsEnabled = _activeGenerationCount < 1;
         SetGenerationRequestRunning(true);
         UpdateBtnGenerateForApiKey();
         TxtStatus.Text = L("generate.status.generating");
-        var p = _settings.Settings.GenParameters;
+        var p = _settings.Settings.GenParameters.Clone();
         string restoreSeed = p.Seed;
         string? pendingHistoryId = null;
+        string? selectedAccountLabel = null;
+        bool requestCompleted = false;
 
         try
         {
-            _generateCts?.Cancel();
             _generateCts = new CancellationTokenSource();
             var ct = _generateCts.Token;
             SaveCurrentPromptToBuffer();
@@ -174,7 +188,7 @@ public sealed partial class MainWindow
             if (!_settings.Settings.PrivacyMode)
                 pendingHistoryId = AddPendingHistoryItem();
             DebugLog($"[Generate] Start | {w}x{h} | Model={p.Model} | Seed={actualSeed}");
-            IProgress<byte[]>? progress = _settings.Settings.StreamGeneration
+            IProgress<byte[]>? progress = _settings.Settings.StreamGeneration && !_settings.IsGenerationTokenRotationEnabled
                 ? new Progress<byte[]>(bytes =>
                 {
                     _currentGenImageBytes = bytes;
@@ -183,7 +197,13 @@ public sealed partial class MainWindow
                 : null;
             var (imageBytes, error) = await _naiService.GenerateAsync(
                 w, h, prompt, negPrompt,
-                chars, vibes, preciseReferences, progress, ct);
+                chars, vibes, preciseReferences, progress, ct,
+                parametersOverride: p,
+                accountSelected: label =>
+                {
+                    selectedAccountLabel = label;
+                    OnGenerationAccountStarted(label);
+                });
             _lastUsedSeed = actualSeed;
 
             if (error != null)
@@ -245,6 +265,7 @@ public sealed partial class MainWindow
                 : string.IsNullOrWhiteSpace(postSummary)
                 ? Lf("generate.status.completed_saved", finalSavedPath)
                 : Lf("generate.status.completed_post_saved", postSummary, finalSavedPath);
+            requestCompleted = true;
             return true;
         }
         catch (OperationCanceledException)
@@ -265,7 +286,9 @@ public sealed partial class MainWindow
         }
         finally
         {
+            OnGenerationAccountFinished(selectedAccountLabel, requestCompleted);
             SetGenerationRequestRunning(false);
+            _generationSlots.Release();
             UpdateBtnGenerateForApiKey();
             p.Seed = restoreSeed;
         }
@@ -331,6 +354,254 @@ public sealed partial class MainWindow
 
     // ═══ 生图模式浮动操作窗 ═══
 
+    private const long MaxEnhancePixels = 3L * 1024 * 1024;
+
+    private sealed record EnhanceOptions(
+        int Magnitude,
+        bool ShowIndividualSettings,
+        double Strength,
+        double Noise,
+        double UpscaleAmount,
+        bool UseMaxUpscale,
+        int OutputWidth,
+        int OutputHeight);
+
+    private static (double Strength, double Noise) GetEnhanceMagnitudeValues(int magnitude) =>
+        Math.Clamp(magnitude, 1, 5) switch
+        {
+            1 => (0.2, 0.0),
+            2 => (0.4, 0.0),
+            3 => (0.5, 0.0),
+            4 => (0.6, 0.0),
+            _ => (0.7, 0.1),
+        };
+
+    private static bool CanUseMaxEnhance(string model, int width, int height) =>
+        IsV5ModelKey(model) &&
+        width > 0 && height > 0 &&
+        (long)width * height < MaxEnhancePixels * 0.8;
+
+    private static (int Width, int Height) GetEnhanceOutputDimensions(
+        int width, int height, double amount, bool useMax = false)
+    {
+        if (useMax)
+        {
+            double scale = Math.Min(2, Math.Sqrt((double)MaxEnhancePixels / ((long)width * height)));
+            return ((int)Math.Floor(width * scale), (int)Math.Floor(height * scale));
+        }
+        if (amount <= 1.001)
+            return (width, height);
+        return ((int)Math.Floor(width * amount), (int)Math.Floor(height * amount));
+    }
+
+    private async Task<EnhanceOptions?> ShowGenEnhanceSettingsDialogAsync(int sourceWidth, int sourceHeight)
+    {
+        var settings = _settings.Settings;
+        string model = settings.GenParameters.Model;
+        var availableAmounts = new List<double> { 1.0 };
+        bool standardPortrait = sourceWidth == 832 && sourceHeight == 1216 ||
+            sourceWidth == 1216 && sourceHeight == 832;
+        foreach (double amount in standardPortrait ? new[] { 1.5 } : new[] { 1.5, 2.0 })
+        {
+            var dims = GetEnhanceOutputDimensions(sourceWidth, sourceHeight, amount);
+            if ((long)dims.Width * dims.Height <= MaxEnhancePixels &&
+                (standardPortrait || dims.Width % 64 == 0 && dims.Height % 64 == 0))
+                availableAmounts.Add(amount);
+        }
+        bool maxAvailable = CanUseMaxEnhance(model, sourceWidth, sourceHeight);
+
+        double selectedAmount = availableAmounts
+            .OrderBy(value => Math.Abs(value - settings.EnhanceUpscaleAmount))
+            .First();
+        int magnitude = Math.Clamp(settings.EnhanceMagnitude, 1, 5);
+        var magnitudeValues = GetEnhanceMagnitudeValues(magnitude);
+
+        var upscaleCombo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        foreach (double amount in availableAmounts)
+        {
+            var dims = GetEnhanceOutputDimensions(sourceWidth, sourceHeight, amount);
+            upscaleCombo.Items.Add(new ComboBoxItem
+            {
+                Content = $"{amount:0.0}×  ({dims.Width} × {dims.Height})",
+                Tag = amount,
+            });
+        }
+        if (maxAvailable)
+        {
+            var dims = GetEnhanceOutputDimensions(sourceWidth, sourceHeight, 1.0, useMax: true);
+            upscaleCombo.Items.Add(new ComboBoxItem
+            {
+                Content = $"最高  ({dims.Width} × {dims.Height})",
+                Tag = "max",
+            });
+        }
+        upscaleCombo.SelectedIndex = settings.EnhanceUseMaxUpscale && maxAvailable
+            ? upscaleCombo.Items.Count - 1
+            : availableAmounts.IndexOf(selectedAmount);
+
+        var magnitudeValueText = new TextBlock
+        {
+            Text = magnitude.ToString(CultureInfo.InvariantCulture),
+            MinWidth = 28,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var magnitudeSlider = new Slider
+        {
+            Minimum = 1,
+            Maximum = 5,
+            Value = magnitude,
+            StepFrequency = 1,
+            SmallChange = 1,
+            LargeChange = 1,
+        };
+        var magnitudeGrid = new Grid { ColumnSpacing = 10 };
+        magnitudeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        magnitudeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        magnitudeGrid.Children.Add(magnitudeSlider);
+        Grid.SetColumn(magnitudeValueText, 1);
+        magnitudeGrid.Children.Add(magnitudeValueText);
+        var magnitudePanel = new StackPanel { Spacing = 4 };
+        magnitudePanel.Children.Add(new TextBlock { Text = "Magnitude（增强幅度）" });
+        magnitudePanel.Children.Add(magnitudeGrid);
+
+        var strengthBox = new NumberBox
+        {
+            Header = "Strength",
+            Minimum = 0.01,
+            Maximum = 0.99,
+            SmallChange = 0.01,
+            Value = settings.EnhanceShowIndividualSettings ? settings.EnhanceStrength : magnitudeValues.Strength,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+        };
+        var noiseBox = new NumberBox
+        {
+            Header = "Noise",
+            Minimum = 0,
+            Maximum = 0.99,
+            SmallChange = 0.01,
+            Value = settings.EnhanceShowIndividualSettings ? settings.EnhanceNoise : magnitudeValues.Noise,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+        };
+        var individualGrid = new Grid { ColumnSpacing = 10 };
+        individualGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        individualGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        individualGrid.Children.Add(strengthBox);
+        Grid.SetColumn(noiseBox, 1);
+        individualGrid.Children.Add(noiseBox);
+
+        var individualToggle = new ToggleSwitch
+        {
+            Header = "显示单独设置",
+            OnContent = "已展开",
+            OffContent = "使用 Magnitude",
+            IsOn = settings.EnhanceShowIndividualSettings,
+        };
+        magnitudePanel.Visibility = individualToggle.IsOn ? Visibility.Collapsed : Visibility.Visible;
+        individualGrid.Visibility = individualToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+
+        var summary = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Opacity = 0.76,
+            FontSize = 12,
+        };
+        void RefreshSummary()
+        {
+            double amount = upscaleCombo.SelectedItem is ComboBoxItem item && item.Tag is double taggedAmount
+                ? taggedAmount
+                : 1.0;
+            bool useMax = upscaleCombo.SelectedItem is ComboBoxItem maxItem &&
+                maxItem.Tag is string maxTag && maxTag == "max";
+            int currentMagnitude = (int)Math.Round(magnitudeSlider.Value);
+            var mapped = GetEnhanceMagnitudeValues(currentMagnitude);
+            double strength = individualToggle.IsOn ? Math.Clamp(strengthBox.Value, 0.01, 0.99) : mapped.Strength;
+            double noise = individualToggle.IsOn ? Math.Clamp(noiseBox.Value, 0, 0.99) : mapped.Noise;
+            var dims = GetEnhanceOutputDimensions(sourceWidth, sourceHeight, amount, useMax);
+            int cost = EstimateGenEnhanceAnlasCost(dims.Width, dims.Height, strength, noise);
+            summary.Text = $"输出 {dims.Width} × {dims.Height}  ·  Strength {strength:0.00}  ·  Noise {noise:0.00}" +
+                           (cost > 0 ? $"  ·  预计 {cost:N0} Anlas" : "  ·  当前参数预计不消耗 Anlas");
+        }
+
+        magnitudeSlider.ValueChanged += (_, _) =>
+        {
+            int currentMagnitude = (int)Math.Round(magnitudeSlider.Value);
+            magnitudeValueText.Text = currentMagnitude.ToString(CultureInfo.InvariantCulture);
+            if (!individualToggle.IsOn)
+            {
+                var mapped = GetEnhanceMagnitudeValues(currentMagnitude);
+                strengthBox.Value = mapped.Strength;
+                noiseBox.Value = mapped.Noise;
+            }
+            RefreshSummary();
+        };
+        individualToggle.Toggled += (_, _) =>
+        {
+            magnitudePanel.Visibility = individualToggle.IsOn ? Visibility.Collapsed : Visibility.Visible;
+            individualGrid.Visibility = individualToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+            if (!individualToggle.IsOn)
+            {
+                var mapped = GetEnhanceMagnitudeValues((int)Math.Round(magnitudeSlider.Value));
+                strengthBox.Value = mapped.Strength;
+                noiseBox.Value = mapped.Noise;
+            }
+            RefreshSummary();
+        };
+        upscaleCombo.SelectionChanged += (_, _) => RefreshSummary();
+        strengthBox.ValueChanged += (_, _) => RefreshSummary();
+        noiseBox.ValueChanged += (_, _) => RefreshSummary();
+
+        var panel = new StackPanel { Spacing = 12, Width = 430 };
+        panel.Children.Add(new TextBlock { Text = "Upscale Amount（增强倍率）" });
+        panel.Children.Add(upscaleCombo);
+        panel.Children.Add(individualToggle);
+        panel.Children.Add(magnitudePanel);
+        panel.Children.Add(individualGrid);
+        panel.Children.Add(new Border
+        {
+            Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(10, 8, 10, 8),
+            Child = summary,
+        });
+        RefreshSummary();
+
+        var dialog = new ContentDialog
+        {
+            Title = "增强设置",
+            Content = panel,
+            PrimaryButtonText = "开始增强",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.Content.XamlRoot,
+            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
+        };
+        dialog.PrimaryButtonStyle = (Style)Application.Current.Resources["AccentButtonStyle"];
+        dialog.Resources["ContentDialogMaxWidth"] = 520.0;
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return null;
+
+        selectedAmount = upscaleCombo.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is double amountTag
+            ? amountTag
+            : selectedAmount;
+        bool selectedMax = upscaleCombo.SelectedItem is ComboBoxItem finalItem &&
+            finalItem.Tag is string finalTag && finalTag == "max";
+        magnitude = (int)Math.Round(magnitudeSlider.Value);
+        var finalMapped = GetEnhanceMagnitudeValues(magnitude);
+        double finalStrength = individualToggle.IsOn ? Math.Clamp(strengthBox.Value, 0.01, 0.99) : finalMapped.Strength;
+        double finalNoise = individualToggle.IsOn ? Math.Clamp(noiseBox.Value, 0, 0.99) : finalMapped.Noise;
+        var output = GetEnhanceOutputDimensions(sourceWidth, sourceHeight, selectedAmount, selectedMax);
+
+        settings.EnhanceMagnitude = magnitude;
+        settings.EnhanceShowIndividualSettings = individualToggle.IsOn;
+        settings.EnhanceStrength = finalStrength;
+        settings.EnhanceNoise = finalNoise;
+        settings.EnhanceUpscaleAmount = selectedAmount;
+        settings.EnhanceUseMaxUpscale = selectedMax;
+        return new EnhanceOptions(magnitude, individualToggle.IsOn, finalStrength, finalNoise,
+            selectedAmount, selectedMax, output.Width, output.Height);
+    }
+
     private async void OnEnhanceGenResult(object sender, RoutedEventArgs e)
     {
         if (_currentGenImageBytes == null)
@@ -357,12 +628,15 @@ public sealed partial class MainWindow
         }
 
         SyncPromptGenerationInputsToState();
-        if (!await ConfirmGenEnhanceSizeAsync(width, height))
+        var options = await ShowGenEnhanceSettingsDialogAsync(width, height);
+        if (options == null)
+            return false;
+        if (!await ConfirmGenEnhanceSizeAsync(options.OutputWidth, options.OutputHeight))
             return false;
 
         _settings.Save();
         SetGenResultBarRequested(false);
-        return await DoGenEnhanceAsync(imageBytes, imagePath, forceRandomSeed);
+        return await DoGenEnhanceAsync(imageBytes, imagePath, options, forceRandomSeed);
     }
 
     private async Task<bool> ConfirmGenEnhanceSizeAsync(int width, int height)
@@ -429,10 +703,18 @@ public sealed partial class MainWindow
         return false;
     }
 
-    private async Task<bool> DoGenEnhanceAsync(byte[] sourceImageBytes, string? sourceImagePath, bool forceRandomSeed = false)
+    private async Task<bool> DoGenEnhanceAsync(
+        byte[] sourceImageBytes,
+        string? sourceImagePath,
+        EnhanceOptions options,
+        bool forceRandomSeed = false)
     {
-        if (!TryGetImageDimensions(sourceImageBytes, out int width, out int height))
+        if (!TryGetImageDimensions(sourceImageBytes, out int sourceWidth, out int sourceHeight))
         { TxtStatus.Text = L("generate.error.empty_result"); return false; }
+        int outputWidth = options.OutputWidth;
+        int outputHeight = options.OutputHeight;
+        int requestWidth = options.UseMaxUpscale ? sourceWidth : outputWidth;
+        int requestHeight = options.UseMaxUpscale ? sourceHeight : outputHeight;
 
         BtnGenerate.IsEnabled = false;
         SetGenerationRequestRunning(true);
@@ -442,11 +724,16 @@ public sealed partial class MainWindow
 
         _currentGenImageBytes = sourceImageBytes;
         _currentGenImagePath = sourceImagePath;
-        await ShowGenPreviewAsync(sourceImageBytes, width, height);
+        await ShowGenPreviewAsync(sourceImageBytes, sourceWidth, sourceHeight);
 
-        var enhanceParams = CreateGenEnhanceParameters(_settings.Settings.GenParameters);
-        string requestedSeed = enhanceParams.Seed;
+        var enhanceParams = CreateGenEnhanceParameters(
+            _settings.Settings.GenParameters,
+            options.Strength,
+            options.Noise);
+        string requestedSeed = "0";
         string? pendingHistoryId = null;
+        string? selectedAccountLabel = null;
+        bool requestCompleted = false;
 
         try
         {
@@ -455,7 +742,8 @@ public sealed partial class MainWindow
             var ct = _generateCts.Token;
             SaveCurrentPromptToBuffer();
 
-            string imageBase64 = Convert.ToBase64String(sourceImageBytes);
+            string imageBase64 = await Task.Run(() => NovelAIService.PrepareEnhancedImageBase64(
+                sourceImageBytes, requestWidth, requestHeight), ct);
             string actualSeed;
             string prompt;
             string negPrompt;
@@ -491,8 +779,8 @@ public sealed partial class MainWindow
                 var signature = BuildI2IGenerationRequestSignature(
                     "gen-enhance",
                     enhanceParams,
-                    width,
-                    height,
+                    requestWidth,
+                    requestHeight,
                     actualSeed,
                     prompt,
                     negPrompt,
@@ -520,18 +808,25 @@ public sealed partial class MainWindow
                 ? new Progress<byte[]>(bytes =>
                 {
                     _currentGenImageBytes = bytes;
-                    _ = ShowGenPreviewAsync(bytes, width, height);
+                    _ = ShowGenPreviewAsync(bytes, outputWidth, outputHeight);
                 })
                 : null;
 
             if (!_settings.Settings.PrivacyMode)
                 pendingHistoryId = AddPendingHistoryItem();
-            DebugLog($"[Enhance] Start | {width}x{height} | Model={enhanceParams.Model} | Seed={actualSeed} | Strength=0.5");
+            DebugLog($"[Enhance] Start | Request={requestWidth}x{requestHeight} | Expected={outputWidth}x{outputHeight} | Model={enhanceParams.Model} | Seed={actualSeed} | Strength={options.Strength:0.00} | Noise={options.Noise:0.00} | Amount={(options.UseMaxUpscale ? "Max" : $"{options.UpscaleAmount:0.0}x")}");
             var (imageBytes, error) = await _naiService.ImageToImageAsync(
                 imageBase64,
-                width, height,
+                requestWidth, requestHeight,
                 prompt, negPrompt, chars, vibes, preciseReferences, progress, ct,
-                parametersOverride: enhanceParams);
+                parametersOverride: enhanceParams,
+                accountSelected: label =>
+                {
+                    selectedAccountLabel = label;
+                    OnGenerationAccountStarted(label);
+                },
+                upscaledEnhance: options.UseMaxUpscale,
+                isEnhance: true);
             _lastUsedSeed = actualSeed;
 
             if (error != null)
@@ -556,7 +851,14 @@ public sealed partial class MainWindow
             _currentGenImagePath = savedPath;
             ArmNewImageDeleteProtection(savedPath);
 
-            await ShowGenPreviewAsync(imageBytes, width, height);
+            int displayWidth = outputWidth;
+            int displayHeight = outputHeight;
+            if (TryGetImageDimensions(imageBytes, out int actualWidth, out int actualHeight))
+            {
+                displayWidth = actualWidth;
+                displayHeight = actualHeight;
+            }
+            await ShowGenPreviewAsync(imageBytes, displayWidth, displayHeight);
             if (savedPath != null)
             {
                 if (pendingHistoryId != null)
@@ -577,6 +879,7 @@ public sealed partial class MainWindow
             TxtStatus.Text = _settings.Settings.PrivacyMode
                 ? L("generate.status.completed_unsaved_privacy")
                 : Lf("generate.status.completed_saved", savedPath);
+            requestCompleted = true;
             return true;
         }
         catch (OperationCanceledException)
@@ -597,13 +900,17 @@ public sealed partial class MainWindow
         }
         finally
         {
+            OnGenerationAccountFinished(selectedAccountLabel, requestCompleted);
             SetGenerationRequestRunning(false);
             UpdateBtnGenerateForApiKey();
             UpdateGenEnhanceButtonWarning();
         }
     }
 
-    private static NAIParameters CreateGenEnhanceParameters(NAIParameters source) => new()
+    private static NAIParameters CreateGenEnhanceParameters(
+        NAIParameters source,
+        double strength,
+        double noise) => new()
     {
         Model = source.Model,
         Sampler = source.Sampler,
@@ -618,8 +925,8 @@ public sealed partial class MainWindow
         Steps = source.Steps,
         Seed = source.Seed,
         UcPreset = source.UcPreset,
-        DenoiseStrength = 0.5,
-        DenoiseNoise = 0,
+        DenoiseStrength = Math.Clamp(strength, 0.01, 0.99),
+        DenoiseNoise = Math.Clamp(noise, 0, 0.99),
     };
 
     private void OnSendToI2I(object sender, RoutedEventArgs e)
@@ -976,15 +1283,23 @@ public sealed partial class MainWindow
             return;
 
         var bytes = await File.ReadAllBytesAsync(file.Path);
-        await ApplyDroppedImageMetadata(bytes, file.Name);
+        await ApplyDroppedImageMetadata(bytes, file.Name, promptForOptions: true);
     }
 
-    private async Task ApplyDroppedImageMetadata(byte[] bytes, string fileName, bool skipSeed = false)
+    private async Task ApplyDroppedImageMetadata(byte[] bytes, string fileName,
+        bool skipSeed = false, bool promptForOptions = false)
     {
         var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
         if (meta == null || !meta.IsNaiParsed)
         {
             TxtStatus.Text = Lf("metadata.drop_no_nai_data", fileName);
+            return;
+        }
+
+        if (promptForOptions)
+        {
+            var selection = await ShowMetadataImportDialogAsync(meta);
+            if (selection != null) ApplyMetadataToGeneration(meta, selection);
             return;
         }
 
@@ -994,6 +1309,8 @@ public sealed partial class MainWindow
         var notes = new List<string>();
         var p = _settings.Settings.GenParameters;
         ApplyImportedImageModel(meta, p, GenerationModels);
+
+        ApplyGenerationModelFromMetadata(meta);
 
         var presetMatch = ExtractImportedPromptPresetMatch(meta.PositivePrompt, meta.NegativePrompt, p.Model);
         string positivePrompt = presetMatch.PositivePrompt;

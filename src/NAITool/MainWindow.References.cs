@@ -212,6 +212,13 @@ public sealed partial class MainWindow
         if (!IsPromptMode(_currentMode))
             return true;
 
+        if (SupportsCharacterFeature() &&
+            CurrentCharacterEntries.Count(character => !character.IsDisabled) > GetMaxCharactersForCurrentModel())
+        {
+            error = Lf("character.error.too_many_for_model", GetMaxCharactersForCurrentModel());
+            return false;
+        }
+
         int activeVibeCount = SupportsVibeTransferFeature() ? ActiveVibeTransferCount() : 0;
         int activePreciseCount = ActivePreciseReferenceCount();
 

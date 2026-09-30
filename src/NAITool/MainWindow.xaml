@@ -943,6 +943,25 @@
                                         </StackPanel>
                                     </Button>
                                 </Grid>
+                                <StackPanel Orientation="Vertical" Spacing="2">
+                                    <TextBlock x:Name="TxtAccountAStatus" Text="A：空闲 · 完成 0 · --◇ · V5 --%"
+                                               FontSize="12" Foreground="{ThemeResource SystemControlHighlightAccentBrush}"/>
+                                    <TextBlock x:Name="TxtAccountBStatus" Text="B：未启用"
+                                               FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <Button x:Name="BtnSwapGenerationAccountOrder"
+                                            Style="{StaticResource SubtleButtonStyle}"
+                                            Visibility="Collapsed"
+                                            HorizontalAlignment="Left"
+                                            Padding="4,1"
+                                            MinWidth="0"
+                                            MinHeight="0"
+                                            Click="OnSwapGenerationAccountOrder">
+                                        <TextBlock x:Name="TxtGenerationAccountOrder"
+                                                   Text="切换顺序 · 下次 A→B"
+                                                   FontSize="11"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    </Button>
+                                </StackPanel>
                                 <ComboBox x:Name="CboModel"
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
@@ -1191,8 +1210,12 @@
                             </Grid>
 
                             <StackPanel Spacing="4">
-                            <TextBlock x:Name="TxtSizeLabel" Text=""
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <Grid>
+                                    <TextBlock x:Name="TxtSizeLabel" Text="" VerticalAlignment="Center"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <Button x:Name="BtnSizePresets" HorizontalAlignment="Right"
+                                            Padding="8,3" MinHeight="26" Click="OnOpenSizePresets"/>
+                                </Grid>
                                 <Grid x:Name="MaxSizePanel" Visibility="Collapsed">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -1488,36 +1511,59 @@
 
                     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
                         <StackPanel Padding="12" Spacing="10">
-                        <TextBlock x:Name="TxtUpscaleModelLabel" Text=""
+                            <TextBlock Text="超分来源"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <ComboBox x:Name="CboUpscaleModel" HorizontalAlignment="Stretch"
-                                      SelectionChanged="OnUpscaleModelChanged"/>
+                            <ComboBox x:Name="CboUpscaleProvider" HorizontalAlignment="Stretch"
+                                      SelectionChanged="OnUpscaleProviderChanged">
+                                <ComboBoxItem Content="本地 ONNX（免费）" Tag="local"/>
+                                <ComboBoxItem Content="NovelAI 官方（可能消耗 Anlas）" Tag="novelai"/>
+                            </ComboBox>
 
-                            <TextBlock x:Name="TxtUpscaleScaleLabel" Text=""
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       Margin="0,8,0,0"/>
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Slider x:Name="SliderUpscaleScale" Grid.Column="0"
-                                        Minimum="1" Maximum="4" Value="2"
-                                        StepFrequency="0.1" SmallChange="0.1" LargeChange="0.5"
-                                        VerticalAlignment="Center"
-                                        ValueChanged="OnUpscaleScaleChanged"/>
-                                <TextBox x:Name="TxtUpscaleScaleValue" Grid.Column="1"
-                                         Text="2.0"
-                                         Width="58"
-                                         MinWidth="58"
-                                         HorizontalContentAlignment="Right"
-                                         VerticalContentAlignment="Center"
-                                         VerticalAlignment="Center"
-                                         InputScope="Number"
-                                         TextChanged="OnUpscaleScaleInputTextChanged"
-                                         LostFocus="OnUpscaleScaleInputLostFocus"
-                                         KeyDown="OnUpscaleScaleInputKeyDown"/>
-                            </Grid>
+                            <StackPanel x:Name="PanelLocalUpscaleOptions" Spacing="10">
+                                <TextBlock x:Name="TxtUpscaleModelLabel" Text=""
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <ComboBox x:Name="CboUpscaleModel" HorizontalAlignment="Stretch"
+                                          SelectionChanged="OnUpscaleModelChanged"/>
+
+                                <TextBlock x:Name="TxtUpscaleScaleLabel" Text=""
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Margin="0,8,0,0"/>
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="SliderUpscaleScale" Grid.Column="0"
+                                            Minimum="1" Maximum="4" Value="2"
+                                            StepFrequency="0.1" SmallChange="0.1" LargeChange="0.5"
+                                            VerticalAlignment="Center"
+                                            ValueChanged="OnUpscaleScaleChanged"/>
+                                    <TextBox x:Name="TxtUpscaleScaleValue" Grid.Column="1"
+                                             Text="2.0"
+                                             Width="58"
+                                             MinWidth="58"
+                                             HorizontalContentAlignment="Right"
+                                             VerticalContentAlignment="Center"
+                                             VerticalAlignment="Center"
+                                             InputScope="Number"
+                                             TextChanged="OnUpscaleScaleInputTextChanged"
+                                             LostFocus="OnUpscaleScaleInputLostFocus"
+                                             KeyDown="OnUpscaleScaleInputKeyDown"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <StackPanel x:Name="PanelNovelAiUpscaleOptions" Spacing="8" Visibility="Collapsed">
+                                <TextBlock Text="官方倍率"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <ComboBox x:Name="CboNovelAiUpscaleScale" HorizontalAlignment="Stretch"
+                                          SelectionChanged="OnNovelAiUpscaleScaleChanged">
+                                    <ComboBoxItem Content="2×" Tag="2"/>
+                                    <ComboBoxItem Content="4×" Tag="4"/>
+                                </ComboBox>
+                                <InfoBar Severity="Warning" IsOpen="True" IsClosable="False"
+                                         Title="付费服务"
+                                         Message="使用 NovelAI 官方接口；开始前会再次确认，实际扣费按账号订阅与图片尺寸决定。"/>
+                            </StackPanel>
 
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     CornerRadius="4" Padding="10,8">

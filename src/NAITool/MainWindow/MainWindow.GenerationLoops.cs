@@ -200,7 +200,13 @@ public sealed partial class MainWindow
             UpdateBtnGenerateForApiKey();
             try
             {
-                var accountInfo = await _naiService.GetAccountInfoAsync();
+                var primaryTask = _naiService.GetAccountInfoAsync(_settings.Settings.ApiToken);
+                Task<NovelAiAccountInfo?> secondaryTask = _settings.IsGenerationTokenRotationEnabled
+                    ? _naiService.GetAccountInfoAsync(_settings.GetSecondaryGenerationToken())
+                    : Task.FromResult<NovelAiAccountInfo?>(null);
+                await Task.WhenAll(primaryTask, secondaryTask);
+
+                var accountInfo = await primaryTask;
                 if (accountInfo != null)
                 {
                     _anlasBalance = accountInfo.AnlasBalance;
@@ -219,6 +225,16 @@ public sealed partial class MainWindow
                         accountInfo.ExpiresAt,
                         accountInfo.V5UsageTimeUntilNextPercentSeconds,
                         accountInfo.V5UsageIsNegative);
+                }
+
+                var secondaryAccountInfo = await secondaryTask;
+                if (secondaryAccountInfo != null)
+                {
+                    _accountBAnlasBalance = secondaryAccountInfo.AnlasBalance;
+                    _accountBV5UsagePercent = secondaryAccountInfo.V5UsagePercent;
+                    _settings.UpdateCachedSecondaryAccountInfo(
+                        secondaryAccountInfo.AnlasBalance,
+                        secondaryAccountInfo.V5UsagePercent);
                 }
             }
             finally
@@ -247,6 +263,10 @@ public sealed partial class MainWindow
             _isOpusSubscriber = cached.SubscriptionTierLevel.Value >= 3;
         if (cached.SubscriptionActive.HasValue)
             _hasActiveSubscription = cached.SubscriptionActive.Value;
+        if (cached.SecondaryCachedAnlas.HasValue)
+            _accountBAnlasBalance = cached.SecondaryCachedAnlas;
+        if (cached.SecondaryCachedV5UsagePercent.HasValue)
+            _accountBV5UsagePercent = Math.Max(cached.SecondaryCachedV5UsagePercent.Value, 0);
     }
 
     private void UpdateAnlasBalanceText()
@@ -257,6 +277,7 @@ public sealed partial class MainWindow
         bool visible = IsPromptMode(_currentMode) &&
                        !string.IsNullOrWhiteSpace(_settings.Settings.ApiToken);
         AnlasBalanceButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        RefreshGenerationAccountStatus();
         if (!visible)
             return;
 

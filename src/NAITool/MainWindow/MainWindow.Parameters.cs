@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -497,10 +497,11 @@ public sealed partial class MainWindow
     private static void LoadRememberedCharacters(List<CharacterEntry> target, List<RememberedCharacterState>? rememberedCharacters)
     {
         target.Clear();
-        foreach (var item in (rememberedCharacters ?? new List<RememberedCharacterState>()).Take(MaxCharacters))
+        foreach (var item in (rememberedCharacters ?? new List<RememberedCharacterState>()).Take(MaxV5Characters))
         {
             target.Add(new CharacterEntry
             {
+                EditorHeight = NormalizePromptHeight(item.EditorHeight),
                 PositivePrompt = item.PositivePrompt ?? "",
                 NegativePrompt = item.NegativePrompt ?? "",
                 CenterX = Math.Clamp(item.CenterX, 0, 1),
@@ -544,6 +545,7 @@ public sealed partial class MainWindow
 
     private static RememberedCharacterState CreateRememberedCharacterState(CharacterEntry entry) => new()
     {
+        EditorHeight = entry.EditorHeight,
         PositivePrompt = entry.PositivePrompt,
         NegativePrompt = entry.NegativePrompt,
         CenterX = entry.CenterX,

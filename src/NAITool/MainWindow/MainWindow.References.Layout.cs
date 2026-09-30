@@ -29,7 +29,8 @@ public sealed partial class MainWindow
         BtnAddCharacter.Visibility = SupportsCharacterFeature()
             ? Visibility.Visible
             : Visibility.Collapsed;
-        BtnAddCharacter.IsEnabled = SupportsCharacterFeature() && CurrentCharacterEntries.Count < MaxCharacters;
+        BtnAddCharacter.IsEnabled = SupportsCharacterFeature() &&
+            CurrentCharacterEntries.Count < GetMaxCharactersForCurrentModel();
 
         BtnAddVibeTransfer.Visibility = SupportsVibeTransferFeature() && ActivePreciseReferenceCount() == 0
             ? Visibility.Visible
@@ -150,14 +151,25 @@ public sealed partial class MainWindow
 
         double availableWidth = Math.Max(0, LeftPanelScrollViewer.ActualWidth - 24);
         var availableSize = new Windows.Foundation.Size(availableWidth, double.PositiveInfinity);
+        double manualHeight = NormalizePromptHeight(_settings.Settings.PromptEditorHeight);
+        bool showStyle = StylePromptGrid.Visibility == Visibility.Visible;
+        double styleHeight = MeasureVisibleHeight(StylePromptGrid, availableSize);
+        PromptAreaGrid.RowSpacing = showStyle ? 6 : 0;
+        double styleSpace = styleHeight + PromptAreaGrid.RowSpacing;
+        TxtPrompt.Height = manualHeight > 0 ? Math.Max(80, manualHeight) : double.NaN;
+        PromptAreaGrid.MinHeight = 80 + styleSpace;
+        if (manualHeight > 0)
+        {
+            PromptAreaGrid.Height = Math.Max(80, manualHeight) + styleSpace;
+            return;
+        }
         double modelH = MeasureVisibleHeight(ModelHeaderPanel, availableSize);
         double tabH = MeasureVisibleHeight(PromptTabRow, availableSize);
         double bottomH = MeasureVisibleHeight(BottomContentPanel, availableSize);
         const double overhead = 24 + 30; // Grid Padding (12*2) + RowSpacing (10*3)
 
         double desired = viewport - modelH - tabH - bottomH - overhead;
-        double height = Math.Max(80, desired);
-        PromptAreaGrid.MinHeight = 80;
+        double height = Math.Max(80 + styleSpace, desired);
         PromptAreaGrid.Height = height;
     }
 

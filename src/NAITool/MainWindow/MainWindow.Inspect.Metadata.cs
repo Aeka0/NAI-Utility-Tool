@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -447,26 +447,33 @@ public sealed partial class MainWindow
         }
 
         if (_inspectMetadata == null) return;
-        ApplyMetadataToGeneration(_inspectMetadata);
+        var selection = await ShowMetadataImportDialogAsync(_inspectMetadata);
+        if (selection != null)
+            ApplyMetadataToGeneration(_inspectMetadata, selection);
     }
 
-    private void ApplyMetadataToGeneration(ImageMetadata meta)
+    private void ApplyMetadataToGeneration(ImageMetadata meta, MetadataImportSelection? selection = null)
     {
+        var options = selection ?? new MetadataImportSelection();
         SwitchMode(AppMode.ImageGeneration);
+        if (options.Settings) ApplyGenerationModelFromMetadata(meta);
 
         bool blockOversizedSteps = IsAssetProtectionStepLimitEnabled();
         bool blockOversizedDimensions = IsAssetProtectionSizeLimitEnabled();
         var skipped = new List<string>();
         var notes = new List<string>();
 
-        string positivePrompt = meta.PositivePrompt;
-        string negativePrompt = meta.NegativePrompt;
+        string positivePrompt = options.ActualPrompt
+            ? meta.ActualPositivePrompt ?? meta.PositivePrompt : meta.PositivePrompt;
+        string negativePrompt = options.ActualPrompt
+            ? meta.ActualNegativePrompt ?? meta.NegativePrompt : meta.NegativePrompt;
 
         if (meta.IsSdFormat)
         {
             positivePrompt = ImageMetadataService.ConvertSdPromptToNai(positivePrompt);
             negativePrompt = ImageMetadataService.ConvertSdPromptToNai(negativePrompt);
-            notes.Add(L("metadata.note.sd_converted"));
+            if (options.Prompt || options.NegativePrompt)
+                notes.Add(L("metadata.note.sd_converted"));
         }
 
         var p = _settings.Settings.GenParameters;
@@ -475,14 +482,17 @@ public sealed partial class MainWindow
         positivePrompt = presetMatch.PositivePrompt;
         negativePrompt = presetMatch.NegativePrompt;
 
-        _genPositivePrompt = positivePrompt;
-        _genNegativePrompt = negativePrompt;
-        _genStylePrompt = "";
+        if (options.Prompt)
+        {
+            _genPositivePrompt = positivePrompt;
+            _genStylePrompt = "";
+        }
+        if (options.NegativePrompt) _genNegativePrompt = negativePrompt;
 
         if (meta.IsModelInference)
         {
-            _genCharacters.Clear();
-            ClearReferenceFeatures();
+            if (options.Characters) _genCharacters.Clear();
+            if (options.References) ClearReferenceFeatures();
             RefreshCharacterPanel();
             LoadPromptFromBuffer();
             UpdateSplitVisibility();
@@ -492,47 +502,68 @@ public sealed partial class MainWindow
             return;
         }
 
-        p.QualityToggle = presetMatch.QualityMatched;
-        p.UcPreset = presetMatch.UcPresetMatched ?? 2;
-
-        if (meta.Steps > 0)
+        if (options.Settings)
         {
-            if (blockOversizedSteps && meta.Steps > 28)
-                skipped.Add(Lf("metadata.skipped.steps", meta.Steps));
-            else
-                p.Steps = meta.Steps;
+            p.QualityToggle = meta.QualityToggle ?? presetMatch.QualityMatched;
+            p.UcPreset = meta.UcPreset ?? presetMatch.UcPresetMatched ?? 2;
+            if (meta.Steps > 0)
+            {
+                if (blockOversizedSteps && meta.Steps > 28)
+                    skipped.Add(Lf("metadata.skipped.steps", meta.Steps));
+                else
+                    p.Steps = meta.Steps;
+            }
+            if (meta.Scale > 0) p.Scale = meta.Scale;
+            if (!meta.IsSdFormat)
+            {
+                p.CfgRescale = meta.CfgRescale;
+                if (meta.TagHintTransparentBackground.HasValue) p.TagHintTransparentBackground = meta.TagHintTransparentBackground.Value;
+                if (meta.StraightAlpha.HasValue) p.StraightAlpha = meta.StraightAlpha.Value;
+            }
+            if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = NormalizeSamplerForModel(meta.Sampler, p.Model);
+            if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = NormalizeScheduleForModel(meta.NoiseSchedule, p.Model, p.Schedule);
+            if (!meta.IsSdFormat) p.Variety = meta.SmDyn || meta.Sm;
+            p.Sampler = NormalizeSamplerForModel(p.Sampler, p.Model);
+            p.Schedule = NormalizeScheduleForModel(p.Schedule, p.Model);
         }
-        if (!string.IsNullOrEmpty(meta.Seed)) p.Seed = meta.Seed;
-        if (meta.Scale > 0) p.Scale = meta.Scale;
-        if (!meta.IsSdFormat)
-        {
-            p.CfgRescale = meta.CfgRescale;
-            if (meta.TagHintTransparentBackground.HasValue) p.TagHintTransparentBackground = meta.TagHintTransparentBackground.Value;
-            if (meta.StraightAlpha.HasValue) p.StraightAlpha = meta.StraightAlpha.Value;
-        }
-        if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = NormalizeSamplerForModel(meta.Sampler, p.Model);
-        if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = NormalizeScheduleForModel(meta.NoiseSchedule, p.Model, p.Schedule);
-        if (!meta.IsSdFormat) p.Variety = meta.SmDyn || meta.Sm;
+        if (options.Seed && !SeedValue.IsRandom(meta.Seed)) p.Seed = meta.Seed!;
 
-        p.Sampler = NormalizeSamplerForModel(p.Sampler, p.Model);
-        p.Schedule = NormalizeScheduleForModel(p.Schedule, p.Model);
-
-        if (meta.Width > 0 && meta.Height > 0)
+        if (options.Size && meta.Width > 0 && meta.Height > 0)
         {
-            if (blockOversizedDimensions && (long)meta.Width * meta.Height > 1024L * 1024)
+            int width = SnapToMultipleOf64(meta.Width);
+            int height = SnapToMultipleOf64(meta.Height);
+            if (blockOversizedDimensions && (long)width * height > 1024L * 1024)
                 skipped.Add(Lf("metadata.skipped.size", meta.Width, meta.Height));
             else
             {
-                _customWidth = meta.Width;
-                _customHeight = meta.Height;
+                _customWidth = width;
+                _customHeight = height;
+                if (width != meta.Width || height != meta.Height)
+                    notes.Add(Lf("metadata.note.size_rounded", width, height));
             }
         }
 
-        if (meta.CharacterPrompts.Count > 0)
-            SetGenCharactersFromMetadata(meta);
-        else
-            _genCharacters.Clear();
-        ApplyReferenceDataFromMetadata(meta);
+        if (options.Characters)
+        {
+            int importedCount;
+            if (options.AppendCharacters)
+            {
+                SaveAllCharacterPrompts();
+                importedCount = AppendGenCharactersFromMetadata(meta, options.ActualPrompt);
+            }
+            else
+            {
+                SetGenCharactersFromMetadata(meta, options.ActualPrompt);
+                importedCount = _genCharacters.Count;
+            }
+            if (meta.CharacterPrompts.Count > 0)
+            {
+                notes.Add(Lf("metadata.note.characters_imported", importedCount));
+                if (importedCount < meta.CharacterPrompts.Count)
+                    notes.Add(Lf("metadata.note.characters_truncated", importedCount, meta.CharacterPrompts.Count));
+            }
+        }
+        if (options.References) ApplyReferenceDataFromMetadata(meta);
 
         RefreshCharacterPanel();
 
@@ -545,16 +576,24 @@ public sealed partial class MainWindow
         UpdateSplitVisibility();
         UpdateSizeWarningVisuals();
 
-        if (presetMatch.QualityMatched) notes.Add(L("metadata.note.quality_extracted"));
-        if (presetMatch.UcPresetMatched.HasValue)
+        if (options.Settings && presetMatch.QualityMatched) notes.Add(L("metadata.note.quality_extracted"));
+        if (options.Settings && presetMatch.UcPresetMatched.HasValue)
             notes.Add(Lf("metadata.note.negative_quality_extracted", GetUcPresetDisplayName(presetMatch.UcPresetMatched.Value)));
         if (skipped.Count > 0) notes.Add(Lf("metadata.note.incompatible_skipped", string.Join(", ", skipped)));
-        if (meta.CharacterPrompts.Count > 0) notes.Add(Lf("metadata.note.characters_imported", meta.CharacterPrompts.Count));
-        AppendReferenceImportNotes(meta, notes);
+        if (options.References) AppendReferenceImportNotes(meta, notes);
 
         TxtStatus.Text = notes.Count > 0
             ? Lf("inspect.sent_parameters_with_notes", string.Join("; ", notes))
             : L("inspect.sent_parameters_to_generate");
+    }
+
+    private void ApplyGenerationModelFromMetadata(ImageMetadata meta)
+    {
+        if (string.IsNullOrEmpty(meta.ModelKey)) return;
+        int modelIndex = Array.IndexOf(GenerationModels, meta.ModelKey);
+        if (modelIndex < 0) return;
+        _settings.Settings.GenParameters.Model = meta.ModelKey;
+        CboModel.SelectedIndex = modelIndex;
     }
 
     private void ApplyMetadataToI2I(ImageMetadata meta, string fileName)

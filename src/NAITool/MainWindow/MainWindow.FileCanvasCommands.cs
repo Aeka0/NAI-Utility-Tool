@@ -120,7 +120,10 @@ public sealed partial class MainWindow
                     var bytes = await File.ReadAllBytesAsync(file.Path);
                     var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
                     if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat || meta.IsModelInference))
-                        ApplyMetadataToGeneration(meta);
+                    {
+                        var selection = await ShowMetadataImportDialogAsync(meta);
+                        if (selection != null) ApplyMetadataToGeneration(meta, selection);
+                    }
                     else
                         TxtStatus.Text = Lf("metadata.no_usable_generation_metadata", file.Name);
                 }

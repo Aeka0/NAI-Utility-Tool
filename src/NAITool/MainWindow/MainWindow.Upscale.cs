@@ -44,6 +44,51 @@ public sealed partial class MainWindow
     private List<UpscaleService.UpscaleModelInfo> _upscaleModelInfos = new();
     private bool _updatingUpscaleScaleControls;
 
+    private bool IsNovelAiUpscaleSelected =>
+        CboUpscaleProvider?.SelectedItem is ComboBoxItem item &&
+        string.Equals(item.Tag?.ToString(), "novelai", StringComparison.Ordinal);
+
+    private int GetNovelAiUpscaleScale() =>
+        CboNovelAiUpscaleScale?.SelectedItem is ComboBoxItem item &&
+        int.TryParse(item.Tag?.ToString(), out int scale) && scale == 2 ? 2 : 4;
+
+    private void UpdateUpscaleStartButtonState()
+    {
+        if (BtnStartUpscale == null)
+            return;
+        bool providerReady = IsNovelAiUpscaleSelected || _upscaleModelInfos.Count > 0;
+        BtnStartUpscale.IsEnabled = !_upscaleRunning && _upscaleInputImageBytes is { Length: > 0 } && providerReady;
+    }
+
+    private void RefreshUpscaleProviderControls()
+    {
+        if (PanelLocalUpscaleOptions == null || PanelNovelAiUpscaleOptions == null)
+            return;
+        bool official = IsNovelAiUpscaleSelected;
+        PanelLocalUpscaleOptions.Visibility = official ? Visibility.Collapsed : Visibility.Visible;
+        PanelNovelAiUpscaleOptions.Visibility = official ? Visibility.Visible : Visibility.Collapsed;
+        _settings.Settings.UseNovelAiUpscale = official;
+        UpdateUpscaleResolutionDisplay();
+        UpdateUpscaleStartButtonState();
+    }
+
+    private void OnUpscaleProviderChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (PanelLocalUpscaleOptions == null)
+            return;
+        RefreshUpscaleProviderControls();
+        _settings.Save();
+    }
+
+    private void OnNovelAiUpscaleScaleChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TxtUpscaleInputRes == null)
+            return;
+        _settings.Settings.NovelAiUpscaleScale = GetNovelAiUpscaleScale();
+        UpdateUpscaleResolutionDisplay();
+        _settings.Save();
+    }
+
     private void PopulateUpscaleModelList()
     {
         CboUpscaleModel.Items.Clear();
@@ -55,17 +100,23 @@ public sealed partial class MainWindow
             CboUpscaleModel.Items.Add(CreateTextComboBoxItem(L("upscale.model_not_found")));
             CboUpscaleModel.SelectedIndex = 0;
             CboUpscaleModel.IsEnabled = false;
-            BtnStartUpscale.IsEnabled = false;
-            TxtStatus.Text = Lf("upscale.put_model_into_dir", modelsDir);
-            return;
+            if (!IsNovelAiUpscaleSelected)
+                TxtStatus.Text = Lf("upscale.put_model_into_dir", modelsDir);
+        }
+        else
+        {
+            CboUpscaleModel.IsEnabled = true;
+            foreach (var m in _upscaleModelInfos)
+                CboUpscaleModel.Items.Add(CreateTextComboBoxItem(m.DisplayName));
+            CboUpscaleModel.SelectedIndex = 0;
         }
 
-        CboUpscaleModel.IsEnabled = true;
-        foreach (var m in _upscaleModelInfos)
-            CboUpscaleModel.Items.Add(CreateTextComboBoxItem(m.DisplayName));
-
-        CboUpscaleModel.SelectedIndex = 0;
+        CboUpscaleProvider.SelectedIndex = _settings.Settings.UseNovelAiUpscale ? 1 : 0;
+        CboNovelAiUpscaleScale.SelectedIndex = _settings.Settings.NovelAiUpscaleScale == 2 ? 0 : 1;
         ApplyMenuTypography(CboUpscaleModel);
+        ApplyMenuTypography(CboUpscaleProvider);
+        ApplyMenuTypography(CboNovelAiUpscaleScale);
+        RefreshUpscaleProviderControls();
     }
 
     private void OnUpscaleModelChanged(object sender, SelectionChangedEventArgs e)
@@ -154,7 +205,7 @@ public sealed partial class MainWindow
 
     private void CommitUpscaleScaleInput()
     {
-        double scale = GetSelectedUpscaleScale();
+        double scale = IsNovelAiUpscaleSelected ? GetNovelAiUpscaleScale() : GetSelectedUpscaleScale();
         if (TryParseUpscaleScaleInput(TxtUpscaleScaleValue?.Text, out double parsed))
             scale = parsed;
 
@@ -230,7 +281,7 @@ public sealed partial class MainWindow
 
             await ShowUpscalePreviewAsync(bytes);
             UpdateUpscaleResolutionDisplay();
-            BtnStartUpscale.IsEnabled = _upscaleModelInfos.Count > 0;
+            UpdateUpscaleStartButtonState();
             if (preserveDirtyState)
                 _upscaleWorkspaceDirty = wasDirty;
             else
@@ -277,6 +328,67 @@ public sealed partial class MainWindow
         UpscaleImageScroller.ChangeView(0, 0, zoom);
     }
 
+    private async Task<bool> ConfirmNovelAiUpscaleAsync(int scale)
+    {
+        if (IsAssetProtectionPaidFeatureLimitEnabled())
+        {
+            TxtStatus.Text = "账号资产保护已禁止付费功能；请先在设置中解除限制。";
+            return false;
+        }
+        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+        {
+            OnNetworkSettings(this, new RoutedEventArgs());
+            return false;
+        }
+        if (_upscaleSourceWidth > 1024 || _upscaleSourceHeight > 1024)
+        {
+            var limitDialog = new ContentDialog
+            {
+                Title = "NovelAI 官方超分",
+                Content = new TextBlock
+                {
+                    Text = $"当前图片为 {_upscaleSourceWidth} × {_upscaleSourceHeight}。官方接口要求输入宽、高均不超过 1024 像素。",
+                    TextWrapping = TextWrapping.Wrap,
+                },
+                CloseButtonText = L("common.ok"),
+                XamlRoot = this.Content.XamlRoot,
+                RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
+            };
+            await limitDialog.ShowAsync();
+            return false;
+        }
+
+        int outWidth = _upscaleSourceWidth * scale;
+        int outHeight = _upscaleSourceHeight * scale;
+        var panel = new StackPanel { Spacing = 10 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "这会调用 NovelAI 官方付费超分接口，可能消耗 Image Anlas。实际扣费取决于账号订阅和输入尺寸。",
+            TextWrapping = TextWrapping.Wrap,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"{_upscaleSourceWidth} × {_upscaleSourceHeight}  →  {outWidth} × {outHeight}（{scale}×）\n将按当前 A/B 顺序选择空闲账号，实际使用账号会显示在左上角。",
+            TextWrapping = TextWrapping.Wrap,
+            Opacity = 0.75,
+            FontSize = 12,
+        });
+        var dialog = new ContentDialog
+        {
+            Title = "确认 NovelAI 官方超分",
+            Content = panel,
+            PrimaryButtonText = "确认并开始",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = this.Content.XamlRoot,
+            RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
+        };
+        dialog.PrimaryButtonStyle = (Style)Application.Current.Resources["AccentButtonStyle"];
+        ApplyGoldAccentResources(dialog.Resources);
+        dialog.Resources["ContentDialogMaxWidth"] = 520.0;
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+    }
+
     private async void OnStartUpscale(object sender, RoutedEventArgs e)
     {
         if (_upscaleInputImageBytes == null || _upscaleInputImageBytes.Length == 0)
@@ -287,44 +399,85 @@ public sealed partial class MainWindow
 
         if (_upscaleRunning) return;
 
-        CommitUpscaleScaleInput();
+        bool useNovelAi = IsNovelAiUpscaleSelected;
+        int novelAiScale = GetNovelAiUpscaleScale();
+        UpscaleService.UpscaleModelInfo? modelInfo = null;
+        double targetScale = novelAiScale;
+        if (useNovelAi)
+        {
+            if (!await ConfirmNovelAiUpscaleAsync(novelAiScale))
+                return;
+        }
+        else
+        {
+            CommitUpscaleScaleInput();
+            int modelIdx = CboUpscaleModel.SelectedIndex;
+            if (modelIdx < 0 || modelIdx >= _upscaleModelInfos.Count)
+                return;
+            modelInfo = _upscaleModelInfos[modelIdx];
+            targetScale = GetSelectedUpscaleScale();
+        }
 
-        int modelIdx = CboUpscaleModel.SelectedIndex;
-        if (modelIdx < 0 || modelIdx >= _upscaleModelInfos.Count) return;
-
-        var modelInfo = _upscaleModelInfos[modelIdx];
-        double targetScale = GetSelectedUpscaleScale();
         _upscaleRunning = true;
         BtnStartUpscale.IsEnabled = false;
+        CboUpscaleProvider.IsEnabled = false;
+        CboNovelAiUpscaleScale.IsEnabled = false;
+        CboUpscaleModel.IsEnabled = false;
         SliderUpscaleScale.IsEnabled = false;
         TxtUpscaleScaleValue.IsEnabled = false;
         SetUpscaleButtonText(L("button.upscaling"));
         UpscaleProgressBar.Visibility = Visibility.Visible;
-        TxtStatus.Text = L("status.upscale_loading_model");
-        bool shouldUnloadModel = ShouldUnloadOnnxModelsAfterInference;
+        TxtStatus.Text = useNovelAi ? "正在调用 NovelAI 官方超分…" : L("status.upscale_loading_model");
+        bool shouldUnloadModel = !useNovelAi && ShouldUnloadOnnxModelsAfterInference;
+        string? selectedAccountLabel = null;
+        bool requestCompleted = false;
 
         try
         {
-            _upscaleService ??= new UpscaleService();
             var inputBytes = _upscaleInputImageBytes;
-            bool preferCpu = PreferCpuForOnnxInference;
-
-            DebugLog($"[Upscale] Start | Model={modelInfo.DisplayName} | TargetScale={FormatUpscaleScale(targetScale)}x | Device={(preferCpu ? "CPU" : "Prefer GPU")} | Input={_upscaleSourceWidth}x{_upscaleSourceHeight}");
-
-            await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath, preferCpu));
-            DebugLog($"[Upscale] Model loaded | Provider={_upscaleService.ExecutionProvider} | NativeScale={_upscaleService.ModelScale}x");
-            TxtStatus.Text = L("status.upscale_running");
-
-            var progress = new Progress<double>(p =>
+            byte[] resultBytes;
+            string providerLabel;
+            if (useNovelAi)
             {
-                DispatcherQueue.TryEnqueue(() =>
+                DebugLog($"[Upscale] NovelAI start | Scale={novelAiScale}x | Input={_upscaleSourceWidth}x{_upscaleSourceHeight}");
+                var (officialBytes, error) = await _naiService.UpscaleImageAsync(
+                    Convert.ToBase64String(inputBytes),
+                    _upscaleSourceWidth,
+                    _upscaleSourceHeight,
+                    novelAiScale,
+                    accountSelected: label =>
+                    {
+                        selectedAccountLabel = label;
+                        OnGenerationAccountStarted(label);
+                    });
+                if (error != null)
+                    throw new InvalidOperationException(error);
+                if (officialBytes == null)
+                    throw new InvalidOperationException(L("generate.error.empty_result"));
+                resultBytes = officialBytes;
+                providerLabel = selectedAccountLabel == null
+                    ? "NovelAI 官方"
+                    : $"NovelAI 官方 · {selectedAccountLabel}";
+            }
+            else
+            {
+                _upscaleService ??= new UpscaleService();
+                bool preferCpu = PreferCpuForOnnxInference;
+                DebugLog($"[Upscale] Start | Model={modelInfo!.DisplayName} | TargetScale={FormatUpscaleScale(targetScale)}x | Device={(preferCpu ? "CPU" : "Prefer GPU")} | Input={_upscaleSourceWidth}x{_upscaleSourceHeight}");
+                await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath, preferCpu));
+                DebugLog($"[Upscale] Model loaded | Provider={_upscaleService.ExecutionProvider} | NativeScale={_upscaleService.ModelScale}x");
+                TxtStatus.Text = L("status.upscale_running");
+                var progress = new Progress<double>(p =>
                 {
-                    UpscaleProgressBar.IsIndeterminate = false;
-                    UpscaleProgressBar.Value = p * 100;
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        UpscaleProgressBar.IsIndeterminate = false;
+                        UpscaleProgressBar.Value = p * 100;
+                    });
                 });
-            });
-
-            var resultBytes = await _upscaleService.UpscaleAsync(inputBytes, targetScale, progress);
+                resultBytes = await _upscaleService.UpscaleAsync(inputBytes, targetScale, progress);
+                providerLabel = _upscaleService.ExecutionProvider;
+            }
 
             using var resultBitmap = SKBitmap.Decode(resultBytes);
             if (resultBitmap != null)
@@ -340,16 +493,19 @@ public sealed partial class MainWindow
             _upscaleWorkspaceDirty = true;
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
                 () => FitUpscalePreviewToScreen());
-            DebugLog($"[Upscale] Completed | Output={_upscaleSourceWidth}x{_upscaleSourceHeight} | Provider={_upscaleService.ExecutionProvider}");
-            TxtStatus.Text = Lf("upscale.completed", _upscaleSourceWidth, _upscaleSourceHeight, _upscaleService.ExecutionProvider);
+            DebugLog($"[Upscale] Completed | Output={_upscaleSourceWidth}x{_upscaleSourceHeight} | Provider={providerLabel}");
+            TxtStatus.Text = Lf("upscale.completed", _upscaleSourceWidth, _upscaleSourceHeight, providerLabel);
 
             if (shouldUnloadModel)
             {
-                _upscaleService.UnloadModel();
+                _upscaleService?.UnloadModel();
                 shouldUnloadModel = false;
             }
 
             await PromptSaveUpscaleResultAsync(resultBytes);
+            requestCompleted = true;
+            if (useNovelAi)
+                _ = RefreshAnlasInfoAsync(forceRefresh: true);
         }
         catch (Exception ex)
         {
@@ -358,12 +514,17 @@ public sealed partial class MainWindow
         }
         finally
         {
+            if (useNovelAi)
+                OnGenerationAccountFinished(selectedAccountLabel, requestCompleted);
             if (shouldUnloadModel)
                 _upscaleService?.UnloadModel();
             _upscaleRunning = false;
-            BtnStartUpscale.IsEnabled = true;
+            CboUpscaleProvider.IsEnabled = true;
+            CboNovelAiUpscaleScale.IsEnabled = true;
+            CboUpscaleModel.IsEnabled = _upscaleModelInfos.Count > 0;
             SliderUpscaleScale.IsEnabled = true;
             TxtUpscaleScaleValue.IsEnabled = true;
+            UpdateUpscaleStartButtonState();
             SetUpscaleButtonText(L("button.start_upscale"));
             UpscaleProgressBar.Visibility = Visibility.Collapsed;
             UpscaleProgressBar.IsIndeterminate = true;
@@ -425,7 +586,7 @@ public sealed partial class MainWindow
 
         await ShowUpscalePreviewAsync(bytes);
         UpdateUpscaleResolutionDisplay();
-        BtnStartUpscale.IsEnabled = _upscaleModelInfos.Count > 0;
+        UpdateUpscaleStartButtonState();
         MarkUpscaleWorkspaceClean();
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
             () => FitUpscalePreviewToScreen());

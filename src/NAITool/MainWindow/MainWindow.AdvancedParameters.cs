@@ -36,10 +36,29 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
-    private void OnPresetResolutionSelected(object sender, RoutedEventArgs e)
+    private async void OnPresetResolutionSelected(object sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem item && item.Tag is (int w, int h))
         {
+            if (IsAssetProtectionSizeLimitEnabled() && (long)w * h > 1024L * 1024)
+            {
+                TxtStatus.Text = L("size.presets.protection_hint");
+                return;
+            }
+            if (_currentMode == AppMode.I2I && MaskCanvas.HasMaskContent() &&
+                (MaskCanvas.CanvasW != w || MaskCanvas.CanvasH != h))
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = L("size.presets.resize_title"),
+                    Content = L("size.presets.resize_mask_warning"),
+                    PrimaryButtonText = L("common.apply"),
+                    CloseButtonText = L("common.cancel"),
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.Content.XamlRoot,
+                };
+                if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            }
             _isUpdatingMaxSize = true;
             try
             {
@@ -48,18 +67,18 @@ public sealed partial class MainWindow
                 NbMaxWidth.Value = w;
                 NbMaxHeight.Value = h;
                 int idx = Array.FindIndex(MaskCanvasControl.CanvasPresets, p => p.W == w && p.H == h);
-                if (idx >= 0) CboSize.SelectedIndex = idx;
+                CboSize.SelectedIndex = idx;
                 if (IsAdvancedWindowOpen)
                 {
                     _advNbMaxWidth.Value = w;
                     _advNbMaxHeight.Value = h;
-                    if (_advCboSize != null && idx >= 0) _advCboSize.SelectedIndex = idx;
+                    if (_advCboSize != null) _advCboSize.SelectedIndex = idx;
                 }
                 if (_currentMode == AppMode.I2I &&
                     (MaskCanvas.CanvasW != _customWidth || MaskCanvas.CanvasH != _customHeight))
                 {
                     MaskCanvas.InitializeCanvas(_customWidth, _customHeight);
-            MaskCanvas.FitToScreen();
+                    MaskCanvas.FitToScreen();
                 }
                 TxtStatus.Text = Lf("size.preset_applied", w, h);
                 UpdateSizeWarningVisuals();

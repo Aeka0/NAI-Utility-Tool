@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -295,12 +295,25 @@ public sealed partial class MainWindow
             return 0;
         }
 
-        return EstimateGenEnhanceAnlasCost(width, height);
+        bool useMax = _settings.Settings.EnhanceUseMaxUpscale &&
+            CanUseMaxEnhance(_settings.Settings.GenParameters.Model, width, height);
+        var output = GetEnhanceOutputDimensions(width, height,
+            _settings.Settings.EnhanceUpscaleAmount, useMax);
+        return EstimateGenEnhanceAnlasCost(output.Width, output.Height);
     }
 
     private int EstimateGenEnhanceAnlasCost(int width, int height)
     {
-        var parameters = CreateGenEnhanceParameters(_settings.Settings.GenParameters);
+        var current = _settings.Settings;
+        var values = current.EnhanceShowIndividualSettings
+            ? (current.EnhanceStrength, current.EnhanceNoise)
+            : GetEnhanceMagnitudeValues(current.EnhanceMagnitude);
+        return EstimateGenEnhanceAnlasCost(width, height, values.Item1, values.Item2);
+    }
+
+    private int EstimateGenEnhanceAnlasCost(int width, int height, double strength, double noise)
+    {
+        var parameters = CreateGenEnhanceParameters(_settings.Settings.GenParameters, strength, noise);
         return EstimatePromptRequestAnlasCost(parameters, parameters.Model, width, height, imageToImageOverride: true);
     }
 
@@ -425,7 +438,7 @@ public sealed partial class MainWindow
     private void UpdateBtnGenerateForApiKey()
     {
         if (IsAnyGenerateLoopRunning()) return;
-        BtnGenerate.IsEnabled = !_generateRequestRunning;
+        BtnGenerate.IsEnabled = _activeGenerationCount < (_settings.IsGenerationTokenRotationEnabled ? 2 : 1);
         bool hasKey = !string.IsNullOrEmpty(_settings.Settings.ApiToken);
         var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         if (hasKey && _anlasRefreshRunning && !_anlasInitialFetchDone)
@@ -438,7 +451,7 @@ public sealed partial class MainWindow
         }
 
         if (!IsAnyGenerateLoopRunning())
-            BtnGenerate.IsEnabled = !_generateRequestRunning;
+            BtnGenerate.IsEnabled = _activeGenerationCount < (_settings.IsGenerationTokenRotationEnabled ? 2 : 1);
 
         if (hasKey)
         {

@@ -26,4 +26,6 @@ public class NAIParameters
     public double InpaintNoise { get; set; }
     public double DenoiseStrength { get; set; } = 0.7;
     public double DenoiseNoise { get; set; } = 0;
+
+    public NAIParameters Clone() => (NAIParameters)MemberwiseClone();
 }

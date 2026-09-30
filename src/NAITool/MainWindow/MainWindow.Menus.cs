@@ -989,22 +989,7 @@ public sealed partial class MainWindow
             "preset_resolution",
             "menu.edit.preset_resolution",
             new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE740" });
-        foreach (var p in MaskCanvasControl.CanvasPresets)
-        {
-            string glyph = p.W == p.H
-                ? "\uF16B"
-                : p.W > p.H
-                    ? "\uF5A1"
-                    : "\uF599";
-            var item = new MenuFlyoutItem
-            {
-                Text = p.Label,
-                Tag = (p.W, p.H),
-                Icon = new FontIcon { FontFamily = SymbolFontFamily, Glyph = glyph },
-            };
-            item.Click += OnPresetResolutionSelected;
-            presetSub.Items.Add(item);
-        }
+        foreach (var group in CreateSizePresetGroups()) presetSub.Items.Add(group);
         return presetSub;
     }
 

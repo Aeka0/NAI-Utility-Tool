@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -16,9 +17,14 @@ public class ImageMetadata
     public string ModelDisplayName => !string.IsNullOrWhiteSpace(Model) ? Model : Source ?? "";
     public string PositivePrompt { get; set; } = "";
     public string NegativePrompt { get; set; } = "";
+    public string? ActualPositivePrompt { get; set; }
+    public string? ActualNegativePrompt { get; set; }
     public List<string> CharacterPrompts { get; set; } = new();
     public List<string> CharacterNegativePrompts { get; set; } = new();
+    public List<string> ActualCharacterPrompts { get; set; } = new();
+    public List<string> ActualCharacterNegativePrompts { get; set; } = new();
     public List<(double X, double Y)> CharacterCenters { get; set; } = new();
+    public bool? UseCharacterCoordinates { get; set; }
     public List<VibeTransferInfo> VibeTransfers { get; set; } = new();
     public List<PreciseReferenceInfo> PreciseReferences { get; set; } = new();
     public int Width { get; set; }
@@ -33,6 +39,7 @@ public class ImageMetadata
     public bool SmDyn { get; set; }
     public string? Software { get; set; }
     public string? Source { get; set; }
+    public string? ModelKey { get; set; }
     public Dictionary<string, string> TextChunks { get; set; } = new(StringComparer.Ordinal);
     public bool? QualityToggle { get; set; }
     public int? UcPreset { get; set; }
@@ -73,6 +80,8 @@ public static class ImageMetadataService
                 meta.IsNaiParsed = true;
                 meta.Software = textChunks.GetValueOrDefault("Software");
                 meta.Source = textChunks.GetValueOrDefault("Source") ?? meta.Source;
+                meta.ModelKey = InferModelFromSource(meta.Source);
+                FillMissingPngDimensions(meta, data);
                 meta.TextChunks = new Dictionary<string, string>(textChunks, StringComparer.Ordinal);
                 return meta;
             }
@@ -84,6 +93,7 @@ public static class ImageMetadataService
             {
                 sdMeta.Source = textChunks.GetValueOrDefault("Source");
                 sdMeta.TextChunks = new Dictionary<string, string>(textChunks, StringComparer.Ordinal);
+                FillMissingPngDimensions(sdMeta, data);
                 return sdMeta;
             }
         }
@@ -313,6 +323,46 @@ public static class ImageMetadataService
     }
 
     public static ImageMetadata? TryParseJson(string json) => ParseMetadataJson(json);
+
+    private static void FillMissingPngDimensions(ImageMetadata meta, byte[] data)
+    {
+        if ((meta.Width > 0 && meta.Height > 0) || data.Length < 24 ||
+            !data.AsSpan(0, PngSignature.Length).SequenceEqual(PngSignature))
+            return;
+
+        int width = BinaryPrimitives.ReadInt32BigEndian(data.AsSpan(16, 4));
+        int height = BinaryPrimitives.ReadInt32BigEndian(data.AsSpan(20, 4));
+        if (meta.Width <= 0 && width > 0) meta.Width = width;
+        if (meta.Height <= 0 && height > 0) meta.Height = height;
+    }
+
+    private static string? InferModelFromSource(string? source)
+    {
+        if (string.IsNullOrWhiteSpace(source)) return null;
+        if (source.Contains("NovelAI Diffusion V5", StringComparison.Ordinal))
+            return source is "NovelAI Diffusion V5 657484A5" or "NovelAI Diffusion V5 0ADF9AB7"
+                ? "nai-diffusion-5-full" : "nai-diffusion-5-curated";
+        if (source.Contains("V4.5", StringComparison.Ordinal) ||
+            source.Contains("DiffusionModelMetaName.NAIv4next", StringComparison.Ordinal))
+            return source.EndsWith("4BDE2A90", StringComparison.Ordinal) ||
+                   source.EndsWith("1229B44F", StringComparison.Ordinal) ||
+                   source.EndsWith("B9F340FD", StringComparison.Ordinal) ||
+                   source.EndsWith("F3D95188", StringComparison.Ordinal)
+                ? "nai-diffusion-4-5-full" : "nai-diffusion-4-5-curated";
+        if (source.Contains("NovelAI Diffusion V4", StringComparison.Ordinal))
+        {
+            if (source.EndsWith("5AB81C7C", StringComparison.Ordinal) ||
+                source.EndsWith("B5A2A797", StringComparison.Ordinal))
+                return "nai-diffusion-4-5-curated";
+            return source.EndsWith("37442FCA", StringComparison.Ordinal) ||
+                   source.EndsWith("4F49EC75", StringComparison.Ordinal) ||
+                   source.EndsWith("CA4B7203", StringComparison.Ordinal) ||
+                   source.EndsWith("79F47848", StringComparison.Ordinal) ||
+                   source.EndsWith("F6302A9D", StringComparison.Ordinal)
+                ? "nai-diffusion-4-full" : "nai-diffusion-4-curated-preview";
+        }
+        return null;
+    }
 
     public static string PrettyPrintJson(string json)
     {
@@ -657,10 +707,29 @@ public static class ImageMetadataService
                 straightAlpha.ValueKind is JsonValueKind.True or JsonValueKind.False)
                 meta.StraightAlpha = straightAlpha.GetBoolean();
 
+            if (root.TryGetProperty("actual_prompts", out var actualPrompts) &&
+                actualPrompts.ValueKind == JsonValueKind.Object)
+            {
+                ParseActualCaption(actualPrompts, "prompt", out string? actualPositive,
+                    meta.ActualCharacterPrompts);
+                ParseActualCaption(actualPrompts, "negative_prompt", out string? actualNegative,
+                    meta.ActualCharacterNegativePrompts);
+                meta.ActualPositivePrompt = actualPositive;
+                meta.ActualNegativePrompt = actualNegative;
+            }
+
+            if (root.TryGetProperty("use_coords", out var useCoords) &&
+                useCoords.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                meta.UseCharacterCoordinates = useCoords.GetBoolean();
+
             if (root.TryGetProperty("v4_prompt", out var v4p) &&
                 v4p.TryGetProperty("caption", out var v4Caption) &&
                 v4Caption.TryGetProperty("char_captions", out var charCaptions))
             {
+                if (v4p.TryGetProperty("use_coords", out var v4UseCoords) &&
+                    v4UseCoords.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    meta.UseCharacterCoordinates = v4UseCoords.GetBoolean();
+
                 foreach (var cc in charCaptions.EnumerateArray())
                 {
                     if (cc.TryGetProperty("char_caption", out var cap))
@@ -694,6 +763,33 @@ public static class ImageMetadataService
             return meta;
         }
         catch { return null; }
+    }
+
+    private static void ParseActualCaption(JsonElement actualPrompts, string key,
+        out string? baseCaption, List<string> characterCaptions)
+    {
+        baseCaption = null;
+        if (!actualPrompts.TryGetProperty(key, out var caption)) return;
+        if (caption.ValueKind == JsonValueKind.String)
+        {
+            baseCaption = caption.GetString();
+            return;
+        }
+        if (caption.ValueKind != JsonValueKind.Object) return;
+        if (caption.TryGetProperty("base_caption", out var baseValue) &&
+            baseValue.ValueKind == JsonValueKind.String)
+            baseCaption = baseValue.GetString();
+        if (!caption.TryGetProperty("char_captions", out var characters) ||
+            characters.ValueKind != JsonValueKind.Array) return;
+        foreach (var character in characters.EnumerateArray())
+        {
+            if (character.ValueKind == JsonValueKind.Object &&
+                character.TryGetProperty("char_caption", out var prompt) &&
+                prompt.ValueKind == JsonValueKind.String)
+                characterCaptions.Add(prompt.GetString() ?? "");
+            else
+                characterCaptions.Add("");
+        }
     }
 
     private static bool CanEncodeLatin1(string text)
