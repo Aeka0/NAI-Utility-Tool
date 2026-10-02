@@ -130,6 +130,64 @@ try
         throw new Exception("Canceled scan unexpectedly completed");
     }
     catch (OperationCanceledException) { checks++; }
+
+    var favoriteStorePath = Path.Combine(fixture.FullName, "config", "favorites.json");
+    var favorites = new HistoryFavoritesService(fixture.FullName, favoriteStorePath);
+    await favorites.LoadAsync();
+    Check(favorites.CapturePaths().Count == 0, "A missing favorites file starts empty");
+    Check(!favorites.CanFavorite(Path.Combine(fixture.FullName, "..", "outside.png")), "External images cannot enter the gallery favorites store");
+    await Task.WhenAll(favorites.SetFavoriteAsync(old, true), favorites.SetFavoriteAsync(recent, true));
+    Check(favorites.IsFavorite(old.ToUpperInvariant()) && favorites.IsFavorite(recent), "Concurrent favorite writes preserve both images and ignore path case");
+    var favoriteSnapshot = favorites.CapturePaths();
+    var favoriteIndex = new HistoryFileIndex(snapshot);
+    await favorites.SetFavoriteAsync(old, false);
+    Check(!favorites.IsFavorite(old), "Unfavorite changes the live star state");
+    var currentFavorites = favoriteIndex.Filter(favoriteSnapshot);
+    Check(currentFavorites.Count == 2 && currentFavorites.Contains(old), "Unfavoriting retains the image in the active snapshot");
+    var favoriteRows = new HistoryRowSource();
+    favoriteRows.Reset(currentFavorites, [], 1, 400, 320);
+    Check(favoriteRows.FindRow(old) >= 0, "Resizing the favorites view keeps the unstarred image");
+    Check(favoriteIndex.Filter(favorites.CapturePaths()).SequenceEqual([recent]), "Reloading favorites excludes the unstarred image");
+    Check(favoriteIndex.Filter(new HashSet<string>()).Count == 0, "An empty favorites selection has no dates or rows");
+
+    var savedKeys = System.Text.Json.JsonSerializer.Deserialize<string[]>(await File.ReadAllTextAsync(favoriteStorePath))!;
+    Check(savedKeys.SequenceEqual(["2026-09-18/recent.png"]), "Favorites persist relative portable paths only");
+    var reopenedFavorites = new HistoryFavoritesService(fixture.FullName, favoriteStorePath);
+    await reopenedFavorites.LoadAsync();
+    Check(reopenedFavorites.IsFavorite(recent) && !reopenedFavorites.IsFavorite(old), "Favorites survive reopening the application");
+    var relocatedRoot = Path.Combine(fixture.FullName, "relocated");
+    var relocatedFavorites = new HistoryFavoritesService(relocatedRoot, favoriteStorePath);
+    await relocatedFavorites.LoadAsync();
+    Check(relocatedFavorites.IsFavorite(Path.Combine(relocatedRoot, "2026-09-18", "recent.png")), "Moving the output root preserves favorites");
+
+    var sparseFavorites = files.Filter(new HashSet<string>([files[0], files[filesPerDay], files[^1]], StringComparer.OrdinalIgnoreCase));
+    Check(sparseFavorites.Count == 3 && sparseFavorites.Days.Count == 3 && sparseFavorites[2] == files[^1],
+        "Filtering 200000 images preserves date and image ordering without empty separator rows");
+
+    var invalidStorePath = Path.Combine(fixture.FullName, "config", "invalid-favorites.json");
+    await File.WriteAllTextAsync(invalidStorePath, "[\"../outside.png\",null,\"2026-09-18/old.png\",\"2026-09-18/OLD.PNG\"]");
+    var normalizedFavorites = new HistoryFavoritesService(fixture.FullName, invalidStorePath);
+    await normalizedFavorites.LoadAsync();
+    Check(normalizedFavorites.CapturePaths().Count == 1 && normalizedFavorites.IsFavorite(old), "Invalid and duplicate stored paths are discarded");
+    await File.WriteAllTextAsync(invalidStorePath, "invalid JSON");
+    try
+    {
+        await normalizedFavorites.LoadAsync();
+        throw new Exception("Invalid favorites JSON unexpectedly loaded");
+    }
+    catch (System.Text.Json.JsonException) { checks++; }
+    Check(normalizedFavorites.IsFavorite(old), "Failed reload does not discard previously loaded favorites");
+
+    var blockedStore = Directory.CreateDirectory(Path.Combine(fixture.FullName, "blocked-store"));
+    var failedFavorites = new HistoryFavoritesService(fixture.FullName, blockedStore.FullName);
+    try
+    {
+        await failedFavorites.SetFavoriteAsync(old, true);
+        throw new Exception("Writing favorites over a directory unexpectedly succeeded");
+    }
+    catch (IOException) { checks++; }
+    catch (UnauthorizedAccessException) { checks++; }
+    Check(!failedFavorites.IsFavorite(old), "A failed favorite save leaves the previous favorite state intact");
 }
 finally { fixture.Delete(recursive: true); }
 Console.WriteLine($"Passed {checks} history checks.");

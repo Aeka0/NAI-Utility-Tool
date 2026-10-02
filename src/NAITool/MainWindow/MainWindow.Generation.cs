@@ -487,6 +487,8 @@ public sealed partial class MainWindow
         {
             flyout.Items.Clear();
             bool hasImage = _currentGenImageBytes != null;
+            flyout.Items.Add(BuildHistoryFavoriteMenuItem(hasImage ? _currentGenImagePath : null));
+            flyout.Items.Add(new MenuFlyoutSeparator());
 
             var copyItem = new MenuFlyoutItem
             {

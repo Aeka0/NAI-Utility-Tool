@@ -22,6 +22,12 @@ public sealed partial class MainWindow
 
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
+        if (!_historyFavoriteWritesCompleted.IsCompleted)
+        {
+            args.Cancel = true;
+            _ = CloseAfterHistoryFavoriteWritesAsync();
+            return;
+        }
         if (_allowCloseWithUnsavedWorkspace || !HasUnsavedWorkspaceChanges(out _))
             return;
 

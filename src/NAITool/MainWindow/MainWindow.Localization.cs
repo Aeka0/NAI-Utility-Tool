@@ -271,6 +271,10 @@ public sealed partial class MainWindow
         TxtHistoryTitle.Text = L("history.title");
         ToolTipService.SetToolTip(HistoryResizeHandle, L("history.resize_sidebar"));
         HistoryDatePicker.PlaceholderText = L("history.select_date");
+        ToolTipService.SetToolTip(GalleryImageSizeControl, L("gallery.image_size"));
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(GalleryImageSizeSlider, L("gallery.image_size"));
+        ChkGalleryFavoritesOnly.Content = L("gallery.favorites_only");
+        RefreshHistoryFavoriteButtons();
 
         TxtI2IPreviewLabel.Text = L("inpaint.preview");
         TxtZoomInfo.Text = Lf("status.zoom", 100d);

@@ -10,5 +10,6 @@
     <Compile Include="../../src/NAITool/Models/HistoryListItem.cs" Link="HistoryListItem.cs" />
     <Compile Include="../../src/NAITool/Models/HistoryRowSource.cs" Link="HistoryRowSource.cs" />
     <Compile Include="../../src/NAITool/Services/HistoryCatalogScanner.cs" Link="HistoryCatalogScanner.cs" />
+    <Compile Include="../../src/NAITool/Services/HistoryFavoritesService.cs" Link="HistoryFavoritesService.cs" />
   </ItemGroup>
 </Project>

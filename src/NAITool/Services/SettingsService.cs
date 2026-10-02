@@ -203,8 +203,12 @@ public class AppSettings
     public const double DefaultHistorySidebarWidth = 260;
     public const double MinHistorySidebarWidth = 200;
     public const double MaxHistorySidebarWidth = 600;
+    public const double DefaultGalleryThumbnailHeight = 140;
+    public const double MinGalleryThumbnailHeight = 80;
+    public const double MaxGalleryThumbnailHeight = 320;
 
     public double HistorySidebarWidth { get; set; } = DefaultHistorySidebarWidth;
+    public double GalleryThumbnailHeight { get; set; } = DefaultGalleryThumbnailHeight;
     [JsonIgnore]
     public string? ApiToken { get; set; }
     public string ApiBaseUrl { get; set; } = "";
@@ -264,6 +268,9 @@ public class AppSettings
         HistorySidebarWidth = double.IsFinite(HistorySidebarWidth)
             ? Math.Clamp(HistorySidebarWidth, MinHistorySidebarWidth, MaxHistorySidebarWidth)
             : DefaultHistorySidebarWidth;
+        GalleryThumbnailHeight = double.IsFinite(GalleryThumbnailHeight)
+            ? Math.Clamp(GalleryThumbnailHeight, MinGalleryThumbnailHeight, MaxGalleryThumbnailHeight)
+            : DefaultGalleryThumbnailHeight;
         ApiBaseUrl = NormalizeApiBaseUrl(ApiBaseUrl);
         if (!string.IsNullOrWhiteSpace(LanguageCode))
             LanguageCode = LocalizationService.NormalizeLanguageCode(LanguageCode);

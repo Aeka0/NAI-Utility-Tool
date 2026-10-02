@@ -66,6 +66,7 @@ public sealed partial class MainWindow
 
             if (!preserveSelection || _selectedHistoryDate == null || !IsHistoryDateSelectable(_selectedHistoryDate))
                 _selectedHistoryDate = _historyAvailableDates.FirstOrDefault();
+            ReloadHistoryFavoriteSnapshot();
             BuildHistoryFileList();
             RefreshHistoryPanel(resetScroll: !preserveSelection);
             if (_selectedHistoryDate != null)
@@ -142,6 +143,8 @@ public sealed partial class MainWindow
         _historyFiles = _selectedHistoryDate == null ? HistoryFileIndex.Empty : new HistoryFileIndex(
             _historyAvailableDates.Where(date => IsHistoryDateVisibleForSelection(date, _selectedHistoryDate))
                 .Select(date => new KeyValuePair<string, string[]>(date, _historyByDate[date])));
+        if (IsShowingHistoryFavorites)
+            _historyFiles = _historyFavoriteSnapshot == null ? HistoryFileIndex.Empty : _historyFiles.Filter(_historyFavoriteSnapshot);
     }
 
     private static bool IsHistoryDateVisibleForSelection(string date, string? selectedDate) =>
@@ -245,6 +248,7 @@ public sealed partial class MainWindow
         if (!IsHistoryDateSelectable(dateStr)) return;
 
         _selectedHistoryDate = dateStr;
+        ReloadHistoryFavoriteSnapshot();
         BuildHistoryFileList();
         RefreshHistoryPanel(resetScroll: true);
     }
@@ -270,6 +274,8 @@ public sealed partial class MainWindow
     private MenuFlyout BuildHistoryContextFlyout(string filePath)
     {
         var menu = new MenuFlyout();
+        menu.Items.Add(BuildHistoryFavoriteMenuItem(filePath));
+        menu.Items.Add(new MenuFlyoutSeparator());
         var copyItem = new MenuFlyoutItem
         {
             Text = L("common.copy"), Tag = filePath,
@@ -374,6 +380,10 @@ public sealed partial class MainWindow
 
     private void OnHistoryItemClick(object sender, PointerRoutedEventArgs e)
     {
+        // The overlay star is its own action, including Ctrl-click and touch input.
+        for (var source = e.OriginalSource as DependencyObject; source != null && !ReferenceEquals(source, sender);
+             source = VisualTreeHelper.GetParent(source))
+            if (source is Microsoft.UI.Xaml.Controls.Primitives.ButtonBase) return;
         if (sender is Border border && border.Tag is string filePath)
         {
             var pt = e.GetCurrentPoint(border);

@@ -65,6 +65,7 @@ public sealed partial class MainWindow
 
     private void SwitchMode(AppMode mode)
     {
+        bool wasGallery = _currentMode == AppMode.Gallery;
         StopPreviewDrag();
         MaskCanvas.CancelMaskMove();
         if (_continuousGenRunning) StopContinuousGeneration();
@@ -108,6 +109,18 @@ public sealed partial class MainWindow
         PanelLeftInspect.Visibility = isReader ? Visibility.Visible : Visibility.Collapsed;
 
         PanelHistory.Visibility = (isGen || isGallery) ? Visibility.Visible : Visibility.Collapsed;
+        HistoryDatePicker.Width = isGallery ? 240 : double.NaN;
+        HistoryDatePicker.HorizontalAlignment = isGallery ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+        HistoryDateColumn.Width = isGallery ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
+        HistoryToolbarSpacer.Width = isGallery ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        GalleryImageSizeControl.Visibility = isGallery ? Visibility.Visible : Visibility.Collapsed;
+        ChkGalleryFavoritesOnly.Visibility = isGallery ? Visibility.Visible : Visibility.Collapsed;
+        if (wasGallery != isGallery)
+        {
+            ReloadHistoryFavoriteSnapshot();
+            BuildHistoryFileList();
+            RefreshHistoryPanel();
+        }
         Grid.SetColumn(PanelHistory, isGallery ? 0 : 3);
         Grid.SetColumnSpan(PanelHistory, isGallery ? 4 : 1);
         PanelHistory.BorderThickness = isGallery

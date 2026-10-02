@@ -21,6 +21,8 @@ The current project version is `1.2.0`. The project is still evolving quickly, a
 - Main, style, and character prompt boxes support custom heights through a bottom-right corner shown on hover. Drag to resize or double-click to restore automatic height. Main and style heights are saved automatically; character heights follow the remembered-character setting. Restore all default prompt heights with one click under Settings > Usage.
 - Supports seed management, Variety+, quality tags, UC presets, CFG Scale, CFG Rescale, steps, and other advanced parameters.
 - Supports post-generation preview, save, copy, delete, routing to other workspaces, and generation history management.
+- Favorite saved output images using the star in gallery/history thumbnails or the history/preview context menu. Stars follow the system accent color; favorites are retained across restarts.
+- The gallery provides a date picker, image-size slider, and Favorites only filter. Unfavoriting an image keeps it in the current filtered view until you reload favorites by toggling the filter, changing the date, or returning to the gallery.
 - Enhance supports upscale amounts, five magnitude levels, individual strength/noise settings, and V5 Max; its confirmation button shows the Anlas cost for the current settings.
 - Includes continuous generation and duplicate-request protection.
 

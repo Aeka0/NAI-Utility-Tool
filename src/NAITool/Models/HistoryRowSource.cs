@@ -22,15 +22,17 @@ public sealed class HistoryRowSource : IList, INotifyCollectionChanged
     private int _version;
     private int _columns = 1;
     private double _cellWidth = 220;
+    private double _cellHeight = 140;
     public int Count { get; private set; }
     public int CachedRowCount => _cache.Count;
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
-    public void Reset(HistoryFileIndex files, IEnumerable<HistoryListItem> pending, int columns, double cellWidth)
+    public void Reset(HistoryFileIndex files, IEnumerable<HistoryListItem> pending, int columns, double cellWidth, double cellHeight = 140)
     {
         _version++;
         _columns = Math.Max(1, columns);
         _cellWidth = Math.Max(24, cellWidth);
+        _cellHeight = Math.Max(24, cellHeight);
         _groups.Clear();
         _groupsByDate.Clear();
         _cache.Clear();
@@ -75,8 +77,8 @@ public sealed class HistoryRowSource : IList, INotifyCollectionChanged
             {
                 // Snapshot pending state so resizing never mutates items in still-realized old rows.
                 var item = i < group.Pending.Length
-                    ? HistoryListItem.CreatePending(group.Pending[i].PendingId!, group.Date, _cellWidth, 140)
-                    : HistoryListItem.CreateThumbnail(group.Files[i - group.Pending.Length], _cellWidth, 140);
+                    ? HistoryListItem.CreatePending(group.Pending[i].PendingId!, group.Date, _cellWidth, _cellHeight)
+                    : HistoryListItem.CreateThumbnail(group.Files[i - group.Pending.Length], _cellWidth, _cellHeight);
                 cells.Add(item);
             }
         }

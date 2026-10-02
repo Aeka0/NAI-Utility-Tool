@@ -367,6 +367,10 @@ public sealed partial class MainWindow : Window
         SetupGenerationPreviewPulse();
         HistoryListView.ItemsSource = _historyRows;
         HistoryListView.LayoutUpdated += OnHistoryLayoutUpdated;
+        GalleryImageSizeSlider.Maximum = AppSettings.MaxGalleryThumbnailHeight;
+        GalleryImageSizeSlider.Minimum = AppSettings.MinGalleryThumbnailHeight;
+        GalleryImageSizeSlider.Value = _settings.Settings.GalleryThumbnailHeight;
+        GalleryImageSizeSlider.ValueChanged += OnGalleryImageSizeChanged;
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
@@ -491,6 +495,7 @@ public sealed partial class MainWindow : Window
         RefreshEffectsPanel();
         SetupHistoryDateRefreshTimer();
         RefreshHistoryDatePickerRange();
+        _ = LoadHistoryFavoritesAsync();
         LoadHistoryAsync();
         QueueStartupOobe();
     }

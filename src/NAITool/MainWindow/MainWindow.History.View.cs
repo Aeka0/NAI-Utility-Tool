@@ -1,7 +1,9 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using NAITool.Services;
 using Windows.Foundation;
 
 namespace NAITool;
@@ -15,6 +17,7 @@ public sealed partial class MainWindow
     private bool _historyResetScrollRequested;
     private int _historyColumns = 1;
     private double _historyCellWidth = 220;
+    private double _historyCellHeight = 140;
     private HistoryAnchor? _historyPendingAnchor;
     private int _historyAnchorRow = -1;
     private bool _historyRestoringAnchor;
@@ -35,9 +38,9 @@ public sealed partial class MainWindow
             var anchor = reset ? new HistoryAnchor(null, null, null, 0, 0) : CaptureHistoryAnchor();
             _historyRestoringAnchor = false;
             _historyRows.Reset(_historyFiles, _historyPendingItems.Where(item =>
-                    item.DateKey != null && IsHistoryDateVisibleForSelection(item.DateKey, _selectedHistoryDate)),
-                _historyColumns, _historyCellWidth);
-            HistoryEmptyState.Text = L("history.empty");
+                    !IsShowingHistoryFavorites && item.DateKey != null && IsHistoryDateVisibleForSelection(item.DateKey, _selectedHistoryDate)),
+                _historyColumns, _historyCellWidth, _historyCellHeight);
+            HistoryEmptyState.Text = L(IsShowingHistoryFavorites ? "gallery.favorites_empty" : "history.empty");
             HistoryEmptyState.Visibility = _historyRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             HistoryListView.Visibility = _historyRows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
             _historyPendingAnchor = anchor;
@@ -48,17 +51,30 @@ public sealed partial class MainWindow
 
     private void OnHistoryListSizeChanged(object sender, SizeChangedEventArgs e) => UpdateHistoryLayout();
 
+    private void OnGalleryImageSizeChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        // Saved with the other preferences; dragging only queues a coalesced layout refresh.
+        _settings.Settings.GalleryThumbnailHeight = e.NewValue;
+        if (_currentMode == AppMode.Gallery) UpdateHistoryLayout();
+    }
+
     private void UpdateHistoryLayout()
     {
         if (HistoryListView == null) return;
         // Reserve the vertical scrollbar gutter. All sizes here are DIPs, including at high DPI.
         double width = Math.Max(80, HistoryListView.ActualWidth - 16);
-        int columns = _currentMode == AppMode.Gallery ? Math.Max(1, (int)(width / 200)) : 1;
+        bool isGallery = _currentMode == AppMode.Gallery;
+        double cellHeight = isGallery ? _settings.Settings.GalleryThumbnailHeight : 140;
+        // Preserve the original gallery density at the default size, scaling both dimensions.
+        double columnWidth = 200 * cellHeight / AppSettings.DefaultGalleryThumbnailHeight;
+        int columns = isGallery ? Math.Max(1, (int)(width / columnWidth)) : 1;
         double cellWidth = Math.Floor(width / columns) - 16;
-        if (columns == _historyColumns && Math.Abs(cellWidth - _historyCellWidth) < 1) return;
+        if (columns == _historyColumns && Math.Abs(cellWidth - _historyCellWidth) < 1 &&
+            Math.Abs(cellHeight - _historyCellHeight) < 1) return;
         _historyPendingAnchor ??= CaptureHistoryAnchor();
         _historyColumns = columns;
         _historyCellWidth = cellWidth;
+        _historyCellHeight = cellHeight;
         RefreshHistoryPanel();
     }
 

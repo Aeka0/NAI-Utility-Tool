@@ -52,6 +52,9 @@ public sealed class HistoryFileIndex : IReadOnlyList<string>
         return local < 0 ? -1 : day.Start + local;
     }
 
+    public HistoryFileIndex Filter(IReadOnlySet<string> paths) => paths.Count == 0 ? Empty : new(
+        Days.Select(day => new KeyValuePair<string, string[]>(day.Date, day.Files.Where(paths.Contains).ToArray())));
+
     public IEnumerator<string> GetEnumerator() => Days.SelectMany(day => day.Files).GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }

@@ -121,7 +121,7 @@ public sealed partial class MainWindow
         var wanted = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         double scale = HistoryListView.XamlRoot?.RasterizationScale ?? 1;
         int width = (int)Math.Clamp(Math.Ceiling(_historyCellWidth * scale), 1, 1024);
-        int height = (int)Math.Clamp(Math.Ceiling(140 * scale), 1, 1024);
+        int height = (int)Math.Clamp(Math.Ceiling(_historyCellHeight * scale), 1, 1024);
         if (PanelHistory.Visibility == Visibility.Visible)
         {
             foreach (var image in _historyRealizedImages)
