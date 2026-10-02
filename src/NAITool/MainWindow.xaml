@@ -1191,8 +1191,17 @@
                             </Grid>
 
                             <StackPanel Spacing="4">
-                            <TextBlock x:Name="TxtSizeLabel" Text=""
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="TxtSizeLabel" Text="" VerticalAlignment="Center"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <Button x:Name="BtnSizePresets" Grid.Column="1"
+                                            Style="{StaticResource SubtleButtonStyle}"
+                                            Padding="8,3" MinHeight="26" Click="OnOpenSizePresets"/>
+                                </Grid>
                                 <Grid x:Name="MaxSizePanel" Visibility="Collapsed">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>

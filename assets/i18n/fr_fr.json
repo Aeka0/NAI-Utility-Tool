@@ -1084,5 +1084,14 @@
   "oobe.done.description": "La configuration est terminée. Vous pouvez commencer à utiliser l'utilitaire NovelAI.",
   "oobe.status.completed": "Visite rapide terminée",
   "tooltip.move_mask": "Déplacer la sélection (M) : glisser le masque ; Maj contraint la direction, Échap annule",
-  "inpaint.error.move_mask_failed": "Échec du déplacement du masque : {0}"
+  "inpaint.error.move_mask_failed": "Échec du déplacement du masque : {0}",
+  "size.presets.open": "Préréglages ▾",
+  "size.presets.normal": "Standard",
+  "size.presets.large": "Grand",
+  "size.presets.wallpaper": "Fond d’écran",
+  "size.presets.small": "Petit",
+  "size.presets.extra": "Autres formats",
+  "size.presets.protection_hint": "Protection de taille : préréglages de plus de 1 048 576 pixels désactivés",
+  "size.presets.resize_title": "Changer la taille du canevas",
+  "size.presets.resize_mask_warning": "Changer la taille efface le masque actuel et l’historique d’annulation. L’image source est conservée. Appliquer ?"
 }

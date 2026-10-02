@@ -1084,5 +1084,14 @@
   "oobe.done.description": "Die Einrichtung ist abgeschlossen. Sie können mit der Verwendung des NovelAI Utility Tool beginnen.",
   "oobe.status.completed": "Kurztour abgeschlossen",
   "tooltip.move_mask": "Auswahl verschieben (M): Maske ziehen; Umschalt fixiert die Richtung, Esc bricht ab",
-  "inpaint.error.move_mask_failed": "Maske konnte nicht verschoben werden: {0}"
+  "inpaint.error.move_mask_failed": "Maske konnte nicht verschoben werden: {0}",
+  "size.presets.open": "Vorlagen ▾",
+  "size.presets.normal": "Normal",
+  "size.presets.large": "Groß",
+  "size.presets.wallpaper": "Hintergrundbild",
+  "size.presets.small": "Klein",
+  "size.presets.extra": "Weitere Seitenverhältnisse",
+  "size.presets.protection_hint": "Größenschutz: Vorlagen über 1.048.576 Pixel sind deaktiviert",
+  "size.presets.resize_title": "Leinwandgröße ändern",
+  "size.presets.resize_mask_warning": "Eine neue Leinwandgröße löscht die aktuelle Maske und den Rückgängig-Verlauf. Das Quellbild bleibt erhalten. Größe anwenden?"
 }

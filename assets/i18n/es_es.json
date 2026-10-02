@@ -1084,5 +1084,14 @@
   "oobe.done.description": "La configuración está completa. Puede comenzar a utilizar la herramienta de utilidad NovelAI.",
   "oobe.status.completed": "Tour rápido completado",
   "tooltip.move_mask": "Mover selección (M): arrastrar máscara; Mayús fija la dirección, Esc cancela",
-  "inpaint.error.move_mask_failed": "No se pudo mover la máscara: {0}"
+  "inpaint.error.move_mask_failed": "No se pudo mover la máscara: {0}",
+  "size.presets.open": "Preajustes ▾",
+  "size.presets.normal": "Normal",
+  "size.presets.large": "Grande",
+  "size.presets.wallpaper": "Fondo de pantalla",
+  "size.presets.small": "Pequeño",
+  "size.presets.extra": "Más proporciones",
+  "size.presets.protection_hint": "Protección de tamaño: preajustes de más de 1.048.576 píxeles desactivados",
+  "size.presets.resize_title": "Cambiar tamaño del lienzo",
+  "size.presets.resize_mask_warning": "Cambiar el tamaño borra la máscara actual y el historial de deshacer. Se conserva la imagen original. ¿Aplicar?"
 }

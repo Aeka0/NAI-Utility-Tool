@@ -1084,5 +1084,14 @@
   "oobe.done.description": "Institutio completa est. NovelAI Utility Tool uti incipere potes.",
   "oobe.status.completed": "Brevis ductus completus",
   "tooltip.move_mask": "Selectionem movere (M): personam trahe; Shift directionem figit, Esc revocat",
-  "inpaint.error.move_mask_failed": "Persona moveri non potuit: {0}"
+  "inpaint.error.move_mask_failed": "Persona moveri non potuit: {0}",
+  "size.presets.open": "Praefinita ▾",
+  "size.presets.normal": "Usitata",
+  "size.presets.large": "Magna",
+  "size.presets.wallpaper": "Imago fundi",
+  "size.presets.small": "Parva",
+  "size.presets.extra": "Aliae proportiones",
+  "size.presets.protection_hint": "Tutela magnitudinis: praefinita ultra 1 048 576 elementa prohibentur",
+  "size.presets.resize_title": "Magnitudinem tabulae mutare",
+  "size.presets.resize_mask_warning": "Mutata magnitudine tabulae, larva et historia revocationis delentur; imago originalis servatur. Adhibere?"
 }

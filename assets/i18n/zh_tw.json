@@ -1085,5 +1085,14 @@
     "oobe.done.description":  "現在可以開始使用 NovelAI Utility Tool。",
     "oobe.status.completed":  "快速導覽已完成",
     "tooltip.move_mask": "選區移動 (M)：拖曳遮罩，Shift 鎖定方向，Esc 取消",
-    "inpaint.error.move_mask_failed": "移動遮罩失敗：{0}"
+    "inpaint.error.move_mask_failed": "移動遮罩失敗：{0}",
+    "size.presets.open":  "預設 ▾",
+    "size.presets.normal":  "標準",
+    "size.presets.large":  "大型",
+    "size.presets.wallpaper":  "桌布",
+    "size.presets.small":  "小型",
+    "size.presets.extra":  "更多長寬比",
+    "size.presets.protection_hint":  "尺寸保護：已停用超過 1,048,576 像素的預設",
+    "size.presets.resize_title":  "變更畫布尺寸",
+    "size.presets.resize_mask_warning":  "變更畫布尺寸會清除目前的遮罩與復原記錄，並保留來源圖片。套用此尺寸？"
 }

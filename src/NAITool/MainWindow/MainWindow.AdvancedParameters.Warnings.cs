@@ -116,6 +116,7 @@ public sealed partial class MainWindow
         ApplyWarningStyle(NbMaxWidth, level);
         ApplyWarningStyle(NbMaxHeight, level);
         UpdateAdvSizeWarningVisuals();
+        RefreshSizePresetMenuStates();
         UpdateGenerateButtonWarning();
     }
 

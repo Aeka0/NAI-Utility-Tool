@@ -1084,5 +1084,14 @@
   "oobe.done.description": "Настройка завершена. Вы можете начать использовать NovelAI Utility Tool.",
   "oobe.status.completed": "Краткий обзор завершен",
   "tooltip.move_mask": "Перемещение выделения (M): перетащите маску; Shift фиксирует направление, Esc отменяет",
-  "inpaint.error.move_mask_failed": "Не удалось переместить маску: {0}"
+  "inpaint.error.move_mask_failed": "Не удалось переместить маску: {0}",
+  "size.presets.open": "Предустановки ▾",
+  "size.presets.normal": "Обычные",
+  "size.presets.large": "Большие",
+  "size.presets.wallpaper": "Обои",
+  "size.presets.small": "Маленькие",
+  "size.presets.extra": "Другие соотношения сторон",
+  "size.presets.protection_hint": "Защита размера: предустановки свыше 1 048 576 пикселей отключены",
+  "size.presets.resize_title": "Изменить размер холста",
+  "size.presets.resize_mask_warning": "Изменение размера холста удалит текущую маску и историю отмены. Исходное изображение сохранится. Применить размер?"
 }

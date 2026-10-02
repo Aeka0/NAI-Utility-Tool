@@ -1084,5 +1084,14 @@
     "oobe.done.description":  "NovelAI Utility Tool を使い始められます。",
     "oobe.status.completed":  "クイックツアーが完了しました",
     "tooltip.move_mask": "選択範囲を移動 (M)：マスクをドラッグ、Shift で方向固定、Esc でキャンセル",
-    "inpaint.error.move_mask_failed": "マスクの移動に失敗しました：{0}"
+    "inpaint.error.move_mask_failed": "マスクの移動に失敗しました：{0}",
+    "size.presets.open":  "プリセット ▾",
+    "size.presets.normal":  "標準",
+    "size.presets.large":  "大",
+    "size.presets.wallpaper":  "壁紙",
+    "size.presets.small":  "小",
+    "size.presets.extra":  "その他の縦横比",
+    "size.presets.protection_hint":  "サイズ保護：1,048,576ピクセルを超えるプリセットは無効です",
+    "size.presets.resize_title":  "キャンバスサイズを変更",
+    "size.presets.resize_mask_warning":  "キャンバスサイズを変更すると、現在のマスクと元に戻す履歴が消去されます。元画像は保持されます。適用しますか？"
 }

@@ -1084,5 +1084,14 @@
   "oobe.done.description": "설정이 완료되었습니다. NovelAI 유틸리티 도구를 사용하여 시작할 수 있습니다.",
   "oobe.status.completed": "둘러보기 완료",
   "tooltip.move_mask": "선택 영역 이동 (M): 마스크 드래그, Shift로 방향 고정, Esc로 취소",
-  "inpaint.error.move_mask_failed": "마스크 이동 실패: {0}"
+  "inpaint.error.move_mask_failed": "마스크 이동 실패: {0}",
+  "size.presets.open": "프리셋 ▾",
+  "size.presets.normal": "일반",
+  "size.presets.large": "크게",
+  "size.presets.wallpaper": "배경 화면",
+  "size.presets.small": "작게",
+  "size.presets.extra": "더 많은 종횡비",
+  "size.presets.protection_hint": "크기 보호: 1,048,576픽셀을 넘는 프리셋은 비활성화됩니다",
+  "size.presets.resize_title": "캔버스 크기 변경",
+  "size.presets.resize_mask_warning": "캔버스 크기를 바꾸면 현재 마스크와 실행 취소 기록이 지워집니다. 원본 이미지는 유지됩니다. 적용할까요?"
 }

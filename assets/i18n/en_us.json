@@ -1085,5 +1085,14 @@
   "oobe.done.description": "Setup is complete. You can start using NovelAI Utility Tool.",
   "oobe.status.completed": "Quick tour completed",
   "tooltip.move_mask": "Move selection (M): drag the mask; Shift constrains direction, Esc cancels",
-  "inpaint.error.move_mask_failed": "Failed to move mask: {0}"
+  "inpaint.error.move_mask_failed": "Failed to move mask: {0}",
+  "size.presets.open": "Presets ▾",
+  "size.presets.normal": "Normal",
+  "size.presets.large": "Large",
+  "size.presets.wallpaper": "Wallpaper",
+  "size.presets.small": "Small",
+  "size.presets.extra": "More aspect ratios",
+  "size.presets.protection_hint": "Size protection: presets above 1,048,576 pixels are disabled",
+  "size.presets.resize_title": "Change canvas size",
+  "size.presets.resize_mask_warning": "Changing the canvas size clears the current mask and undo history. The source image is kept. Apply this size?"
 }
