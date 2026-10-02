@@ -420,9 +420,6 @@
   "generate.duplicate_guard.message": "This generation uses exactly the same parameters as the previous one and will not change the generated result. Do you want to switch the seed to 0 (random) and continue?",
   "generate.duplicate_guard.note": "You can also continue generating with different parameters except the seed to get a different result.",
   "generate.duplicate_guard.cancelled": "Cancelled the duplicate generation request.",
-  "generate.enhance.oversized_confirm_message": "Enhancing this image will consume Anlas. Continue?",
-  "generate.enhance.oversized_confirm_message_with_cost": "Enhancing this image is estimated to consume {0} Anlas. Continue?",
-  "generate.enhance.oversized_confirm_size": "Image size: {0} x {1}",
   "generate.enhance.asset_protection_oversized_blocked": "This image is larger than 1024² pixels. Turn off \"Block oversized dimensions\" in Quota Management, or turn off Asset Protection Mode first.",
   "generate.enhance.cancelled": "Enhance cancelled.",
   "dialog.notify.title": "Notify",
@@ -1117,5 +1114,15 @@
   "settings.hub.usage.reset_prompt_heights": "Restore default prompt heights",
   "settings.hub.usage.reset_prompt_heights.description": "Restore default heights for main, style, and character prompt boxes in Generate and Img2Img.",
   "settings.hub.usage.reset_prompt_heights.action": "Restore defaults",
-  "status.prompt_heights_reset": "Default prompt heights restored"
+  "status.prompt_heights_reset": "Default prompt heights restored",
+  "enhance.max": "Max ({0} × {1})",
+  "enhance.magnitude": "Magnitude",
+  "enhance.individual": "Individual settings",
+  "enhance.use_magnitude": "Use magnitude",
+  "enhance.summary": "Output {0} × {1} · Strength {2:0.00} · Noise {3:0.00}",
+  "enhance.upscale_amount": "Upscale amount",
+  "enhance.title": "Enhance settings",
+  "enhance.start": "Start enhance",
+  "enhance.invalid_values": "Enter valid strength and noise values.",
+  "enhance.size_limit": "Enhance supports images up to 3 × 1024² pixels."
 }

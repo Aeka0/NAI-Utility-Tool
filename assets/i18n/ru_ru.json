@@ -420,9 +420,6 @@
   "generate.duplicate_guard.message": "Это поколение использует точно те же параметры, что и предыдущее, и не изменит сгенерированный результат. Хотите переключить начальное число на 0 (случайное) и продолжить?",
   "generate.duplicate_guard.note": "Вы также можете продолжить генерацию с другими параметрами, кроме начального числа, чтобы получить другой результат.",
   "generate.duplicate_guard.cancelled": "Отменен запрос на создание дубликата.",
-  "generate.enhance.oversized_confirm_message": "Улучшение этого изображения потребует Anlas. Продолжать?",
-  "generate.enhance.oversized_confirm_message_with_cost": "Enhancing this image is estimated to consume {0} Anlas. Continue?",
-  "generate.enhance.oversized_confirm_size": "Image size: {0} x {1}",
   "generate.enhance.asset_protection_oversized_blocked": "Размер этого изображения превышает 1024² пикселей. Отключите «Блокировать слишком большие размеры» в «Управлении квотами» или сначала отключите режим защиты активов.",
   "generate.enhance.cancelled": "Улучшение отменено.",
   "dialog.notify.title": "Уведомить",
@@ -1116,5 +1113,15 @@
   "settings.hub.usage.reset_prompt_heights": "Восстановить высоту полей промпта",
   "settings.hub.usage.reset_prompt_heights.description": "Восстанавливает высоту по умолчанию для основного промпта, стиля и промптов персонажей в генерации и Img2Img.",
   "settings.hub.usage.reset_prompt_heights.action": "Восстановить",
-  "status.prompt_heights_reset": "Высота полей промпта по умолчанию восстановлена"
+  "status.prompt_heights_reset": "Высота полей промпта по умолчанию восстановлена",
+  "enhance.max": "Максимум ({0} × {1})",
+  "enhance.magnitude": "Степень усиления",
+  "enhance.individual": "Отдельные параметры",
+  "enhance.use_magnitude": "Использовать степень усиления",
+  "enhance.summary": "Выход {0} × {1} · Сила {2:0.00} · Шум {3:0.00}",
+  "enhance.upscale_amount": "Коэффициент увеличения",
+  "enhance.title": "Настройки усиления",
+  "enhance.start": "Начать усиление",
+  "enhance.invalid_values": "Введите допустимые значения силы и шума.",
+  "enhance.size_limit": "Enhance поддерживает изображения размером до 3 × 1024² пикселей."
 }

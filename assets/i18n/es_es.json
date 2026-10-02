@@ -420,9 +420,6 @@
   "generate.duplicate_guard.message": "Esta generación utiliza exactamente los mismos parámetros que la anterior y no cambiará el resultado generado. ¿Quieres cambiar la semilla a 0 (aleatoria) y continuar?",
   "generate.duplicate_guard.note": "También puedes seguir generando con diferentes parámetros excepto la semilla para obtener un resultado diferente.",
   "generate.duplicate_guard.cancelled": "Cancelada la solicitud de generación de duplicados.",
-  "generate.enhance.oversized_confirm_message": "Mejorar esta imagen consumirá Anlas. ¿Continuar?",
-  "generate.enhance.oversized_confirm_message_with_cost": "Enhancing this image is estimated to consume {0} Anlas. Continue?",
-  "generate.enhance.oversized_confirm_size": "Image size: {0} x {1}",
   "generate.enhance.asset_protection_oversized_blocked": "Esta imagen tiene más de 1024² píxeles. Desactive \"Bloquear dimensiones de gran tamaño\" en Gestión de cuotas o desactive primero el Modo de protección de activos.",
   "generate.enhance.cancelled": "Mejora cancelada.",
   "dialog.notify.title": "Notificar",
@@ -1116,5 +1113,15 @@
   "settings.hub.usage.reset_prompt_heights": "Restaurar alturas de los prompts",
   "settings.hub.usage.reset_prompt_heights.description": "Restaura las alturas predeterminadas de los campos de prompt principal, de estilo y de personajes en Generar e Img2Img.",
   "settings.hub.usage.reset_prompt_heights.action": "Restaurar",
-  "status.prompt_heights_reset": "Alturas predeterminadas de los prompts restauradas"
+  "status.prompt_heights_reset": "Alturas predeterminadas de los prompts restauradas",
+  "enhance.max": "Máximo ({0} × {1})",
+  "enhance.magnitude": "Intensidad",
+  "enhance.individual": "Ajustes individuales",
+  "enhance.use_magnitude": "Usar intensidad",
+  "enhance.summary": "Salida {0} × {1} · Fuerza {2:0.00} · Ruido {3:0.00}",
+  "enhance.upscale_amount": "Factor de ampliación",
+  "enhance.title": "Ajustes de mejora",
+  "enhance.start": "Iniciar mejora",
+  "enhance.invalid_values": "Introduce valores válidos de fuerza y ruido.",
+  "enhance.size_limit": "Enhance admite imágenes de hasta 3 × 1024² píxeles."
 }

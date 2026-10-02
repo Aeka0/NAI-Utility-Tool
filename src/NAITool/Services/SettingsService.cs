@@ -239,6 +239,12 @@ public class AppSettings
     public string LanguageCode { get; set; } = "";
     public bool DevLogEnabled { get; set; }
     public bool StreamGeneration { get; set; }
+    public int EnhanceMagnitude { get; set; } = 3;
+    public bool EnhanceShowIndividualSettings { get; set; }
+    public double EnhanceStrength { get; set; } = 0.5;
+    public double EnhanceNoise { get; set; }
+    public double EnhanceUpscaleAmount { get; set; } = 1.5;
+    public bool EnhanceUseMaxUpscale { get; set; }
     public OnnxPerformanceSettings OnnxPerformance { get; set; } = null!;
     public PostEffectsPerformanceSettings PostEffectsPerformance { get; set; } = null!;
     public ReverseTaggerSettings ReverseTagger { get; set; } = new();
@@ -271,6 +277,15 @@ public class AppSettings
             "RecycleBin" or "PermanentDelete" => ImageDeleteBehavior,
             _ => "RecycleBin",
         };
+        EnhanceMagnitude = Math.Clamp(EnhanceMagnitude, 1, 5);
+        EnhanceStrength = double.IsFinite(EnhanceStrength) ? Math.Clamp(EnhanceStrength, 0.01, 0.99) : 0.5;
+        EnhanceNoise = double.IsFinite(EnhanceNoise) ? Math.Clamp(EnhanceNoise, 0, 0.99) : 0;
+        EnhanceUpscaleAmount = double.IsFinite(EnhanceUpscaleAmount) ? EnhanceUpscaleAmount switch
+        {
+            >= 1.75 => 2.0,
+            >= 1.25 => 1.5,
+            _ => 1.0,
+        } : 1.5;
         OnnxPerformance ??= new()
         {
             UnloadModelAfterInference = ReverseTagger.UnloadModelAfterInference,

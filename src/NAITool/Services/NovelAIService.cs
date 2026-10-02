@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -1008,6 +1010,35 @@ public class NovelAIService : IDisposable
         }
     }
 
+    internal static string PrepareEnhancedImageBase64(byte[] imageBytes, int width, int height)
+    {
+        if (width <= 0 || height <= 0 || (long)width * height > EnhanceRules.MaxPixels)
+            throw new ArgumentOutOfRangeException(nameof(width), "Enhance dimensions exceed the supported pixel range.");
+
+        using var source = SKBitmap.Decode(imageBytes)
+            ?? throw new InvalidDataException("Unable to decode the source image for Enhance.");
+        using var resized = source.Width == width && source.Height == height
+            ? null
+            : source.Resize(new SKImageInfo(width, height, SKColorType.Bgra8888,
+                SKAlphaType.Premul), SKSamplingOptions.Default)
+                ?? throw new InvalidDataException("Unable to resize the source image for Enhance.");
+        using var pixmap = (resized ?? source).PeekPixels();
+        using var stream = new SKDynamicMemoryWStream();
+        if (!pixmap.Encode(stream, new SKWebpEncoderOptions(SKWebpEncoderCompression.Lossless, 75)))
+            throw new InvalidDataException("Unable to encode the source image for Enhance.");
+        using var encoded = stream.DetachAsData();
+        return Convert.ToBase64String(encoded.ToArray());
+    }
+
+    private static string AddEnhancePromptHint(string prompt)
+    {
+        if (prompt.Contains("upscaled, blurry", StringComparison.OrdinalIgnoreCase))
+            return prompt;
+        const string hint = ", -2::upscaled, blurry::,";
+        int textIndex = prompt.LastIndexOf("Text:", StringComparison.OrdinalIgnoreCase);
+        return textIndex >= 0 ? prompt.Insert(textIndex, hint + " ") : prompt + hint;
+    }
+
     public async Task<(byte[]? ImageBytes, string? Error)> ImageToImageAsync(
         string imageBase64,
         int width, int height,
@@ -1017,21 +1048,33 @@ public class NovelAIService : IDisposable
         List<PreciseReferenceInfo>? preciseReferences = null,
         IProgress<byte[]>? progress = null,
         CancellationToken ct = default,
-        NAIParameters? parametersOverride = null)
+        NAIParameters? parametersOverride = null,
+        bool isEnhance = false,
+        bool upscaledEnhance = false)
     {
         if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
             return (null, L("api.error.token_missing_network"));
 
         var naiParams = parametersOverride ?? _settings.Settings.I2IDenoiseParameters;
+        if ((isEnhance && (width <= 0 || height <= 0 || (long)width * height > EnhanceRules.MaxPixels)) ||
+            (upscaledEnhance && (!isEnhance || !EnhanceRules.CanUseMax(naiParams.Model, width, height))))
+            return (null, L("enhance.size_limit"));
+
+        var pricedSize = upscaledEnhance
+            ? EnhanceRules.GetOutputDimensions(width, height, 1.0, useMax: true)
+            : (Width: width, Height: height);
         if (!_settings.Settings.UsesCustomApiBaseUrl &&
-            NovelAiAnlasCalculator.PaidBaseCost(naiParams.Model, width, height, naiParams.Steps,
+            NovelAiAnlasCalculator.PaidBaseCost(naiParams.Model, pricedSize.Width, pricedSize.Height, naiParams.Steps,
                 sm: false, strength: naiParams.DenoiseStrength) > NovelAiAnlasCalculator.MaxBaseCost)
             return (null, Lf("api.error.generation_cost_limit", NovelAiAnlasCalculator.MaxBaseCost));
 
-        object seed = SeedValue.ToRequestValue(SeedValue.Resolve(naiParams.Seed));
+        string resolvedSeed = SeedValue.Resolve(naiParams.Seed);
+        object seed = SeedValue.ToRequestValue(resolvedSeed);
         bool isV4Plus = IsV4PlusModel(naiParams.Model);
         bool isV45 = IsV45Model(naiParams.Model);
         string effectivePrompt = ApplyQualityTags(prompt, naiParams.Model, naiParams.QualityToggle);
+        if (isEnhance && !upscaledEnhance && (isV45 || IsV5Model(naiParams.Model)))
+            effectivePrompt = AddEnhancePromptHint(effectivePrompt);
         string effectiveNegativePrompt = ApplyUcPreset(negativePrompt, naiParams.Model, naiParams.UcPreset);
 
         var parameters = new Dictionary<string, object?>
@@ -1060,6 +1103,19 @@ public class NovelAIService : IDisposable
             ["qualityToggle"] = naiParams.QualityToggle,
             ["quality_toggle"] = naiParams.QualityToggle,
         };
+        if (isEnhance)
+        {
+            parameters["params_version"] = 4;
+            parameters["add_original_image"] = true;
+            parameters["color_correct"] = false;
+            parameters["sm"] = false;
+            parameters["sm_dyn"] = false;
+            if (BigInteger.TryParse(resolvedSeed, NumberStyles.AllowLeadingSign,
+                CultureInfo.InvariantCulture, out var numericSeed))
+                parameters["extra_noise_seed"] = SeedValue.ToRequestValue(
+                    (numericSeed - 1).ToString(CultureInfo.InvariantCulture));
+            if (upscaledEnhance) parameters["upscaled_enhance"] = true;
+        }
         if (IsV5Model(naiParams.Model))
         {
             parameters["tag_hint_transparent_background"] = naiParams.TagHintTransparentBackground;
@@ -1122,7 +1178,7 @@ public class NovelAIService : IDisposable
                 },
                 ["use_coords"] = useCoords,
                 ["use_order"] = false,
-                ["legacy_uc"] = !isV45,
+                ["legacy_uc"] = !isV45 && !(isEnhance && IsV5Model(naiParams.Model)),
             };
         }
         else

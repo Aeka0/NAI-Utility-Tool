@@ -420,9 +420,6 @@
   "generate.duplicate_guard.message": "Cette génération utilise exactement les mêmes paramètres que la précédente et ne modifiera pas le résultat généré. Voulez-vous passer la valeur de départ à 0 (aléatoire) et continuer ?",
   "generate.duplicate_guard.note": "Vous pouvez également continuer la génération avec des paramètres différents à l'exception de la graine pour obtenir un résultat différent.",
   "generate.duplicate_guard.cancelled": "Annulation de la demande de génération de doublons.",
-  "generate.enhance.oversized_confirm_message": "L'amélioration de cette image consommera Anlas. Continuer?",
-  "generate.enhance.oversized_confirm_message_with_cost": "Enhancing this image is estimated to consume {0} Anlas. Continue?",
-  "generate.enhance.oversized_confirm_size": "Image size: {0} x {1}",
   "generate.enhance.asset_protection_oversized_blocked": "Cette image est plus grande que 1024² pixels. Désactivez « Bloquer les dimensions surdimensionnées » dans la gestion des quotas ou désactivez d'abord le mode de protection des actifs.",
   "generate.enhance.cancelled": "Amélioration annulée.",
   "dialog.notify.title": "Notifier",
@@ -1116,5 +1113,15 @@
   "settings.hub.usage.reset_prompt_heights": "Rétablir les hauteurs des prompts",
   "settings.hub.usage.reset_prompt_heights.description": "Rétablit les hauteurs par défaut des champs de prompt principal, de style et de personnages dans Génération et Img2Img.",
   "settings.hub.usage.reset_prompt_heights.action": "Rétablir",
-  "status.prompt_heights_reset": "Hauteurs par défaut des prompts rétablies"
+  "status.prompt_heights_reset": "Hauteurs par défaut des prompts rétablies",
+  "enhance.max": "Maximum ({0} × {1})",
+  "enhance.magnitude": "Intensité",
+  "enhance.individual": "Réglages individuels",
+  "enhance.use_magnitude": "Utiliser l’intensité",
+  "enhance.summary": "Sortie {0} × {1} · Force {2:0.00} · Bruit {3:0.00}",
+  "enhance.upscale_amount": "Facteur d’agrandissement",
+  "enhance.title": "Réglages d’amélioration",
+  "enhance.start": "Lancer l’amélioration",
+  "enhance.invalid_values": "Saisissez des valeurs valides de force et de bruit.",
+  "enhance.size_limit": "Enhance prend en charge les images jusqu’à 3 × 1024² pixels."
 }

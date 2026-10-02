@@ -21,6 +21,7 @@ The current project version is `1.2.0`. The project is still evolving quickly, a
 - Main, style, and character prompt boxes support custom heights through a bottom-right corner shown on hover. Drag to resize or double-click to restore automatic height. Main and style heights are saved automatically; character heights follow the remembered-character setting. Restore all default prompt heights with one click under Settings > Usage.
 - Supports seed management, Variety+, quality tags, UC presets, CFG Scale, CFG Rescale, steps, and other advanced parameters.
 - Supports post-generation preview, save, copy, delete, routing to other workspaces, and generation history management.
+- Enhance supports upscale amounts, five magnitude levels, individual strength/noise settings, and V5 Max; its confirmation button shows the Anlas cost for the current settings.
 - Includes continuous generation and duplicate-request protection.
 
 ### Image-to-Image and Mask Editing

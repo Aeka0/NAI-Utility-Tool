@@ -420,9 +420,6 @@
   "generate.duplicate_guard.message": "Haec generatio iisdem prorsus parametribus ac prior utitur nec eventum mutabit. Visne semen ad 0 (fortuitum) mutare et pergere?",
   "generate.duplicate_guard.note": "Potes etiam cum aliis parametribus, praeter semen, pergere ut eventum diversum accipias.",
   "generate.duplicate_guard.cancelled": "Petitio generationis duplicatae abrogata.",
-  "generate.enhance.oversized_confirm_message": "Hanc imaginem meliorare Anlas consumet. Pergere?",
-  "generate.enhance.oversized_confirm_message_with_cost": "Hanc imaginem meliorare aestimatur {0} Anlas consumere. Pergere?",
-  "generate.enhance.oversized_confirm_size": "Magnitudo imaginis: {0} x {1}",
   "generate.enhance.asset_protection_oversized_blocked": "Haec imago maior est quam 1024² pixeli. \"Block oversized dimensions\" in Quota Management averte, vel Modum tutelae bonorum primum averte.",
   "generate.enhance.cancelled": "Melioratio abrogata.",
   "dialog.notify.title": "Nuntium",
@@ -1116,5 +1113,15 @@
   "settings.hub.usage.reset_prompt_heights": "Altitudines camporum restitue",
   "settings.hub.usage.reset_prompt_heights.description": "Altitudines praedefinitas camporum textus principalis, stili et personarum in generatione et Img2Img restituit.",
   "settings.hub.usage.reset_prompt_heights.action": "Restitue",
-  "status.prompt_heights_reset": "Altitudines praedefinitae camporum restitutae sunt"
+  "status.prompt_heights_reset": "Altitudines praedefinitae camporum restitutae sunt",
+  "enhance.max": "Maximum ({0} × {1})",
+  "enhance.magnitude": "Magnitudo",
+  "enhance.individual": "Optiones singulae",
+  "enhance.use_magnitude": "Magnitudine uti",
+  "enhance.summary": "Exitus {0} × {1} · Vis {2:0.00} · Strepitus {3:0.00}",
+  "enhance.upscale_amount": "Multiplicator amplificationis",
+  "enhance.title": "Optiones amplificationis",
+  "enhance.start": "Amplificationem incipere",
+  "enhance.invalid_values": "Valores validos vis et strepitus insere.",
+  "enhance.size_limit": "Enhance imagines usque ad 3 × 1024² elementa sustinet."
 }

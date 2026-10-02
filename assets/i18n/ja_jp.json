@@ -420,9 +420,6 @@
     "generate.duplicate_guard.message":  "今回の生成パラメータは前回送信したリクエストと完全に同じため、生成結果は変わりません。Seed を 0（ランダム）に変更して続行しますか？",
     "generate.duplicate_guard.note":  "Seed 以外のパラメータを変更して続行することでも、異なる結果を得られます。",
     "generate.duplicate_guard.cancelled":  "重複した生成リクエストの送信をキャンセルしました。",
-    "generate.enhance.oversized_confirm_message":  "この画像を Enhance すると Anlas を消費します。続行しますか？",
-    "generate.enhance.oversized_confirm_message_with_cost":  "この画像の Enhance は約 {0} Anlas を消費します。続行しますか？",
-    "generate.enhance.oversized_confirm_size":  "画像サイズ: {0} x {1}",
     "generate.enhance.asset_protection_oversized_blocked":  "この画像は 1024² ピクセルを超えています。クォータ管理で「過大なサイズをブロック」をオフにするか、資産保護モードをオフにしてください。",
     "generate.enhance.cancelled":  "Enhance をキャンセルしました。",
     "dialog.notify.title":  "Notify",
@@ -1116,5 +1113,15 @@
     "settings.hub.usage.reset_prompt_heights":  "プロンプト欄の高さを既定に戻す",
     "settings.hub.usage.reset_prompt_heights.description":  "メイン、スタイル、および画像生成・Img2Img のキャラクタープロンプト欄を既定の高さに戻します。",
     "settings.hub.usage.reset_prompt_heights.action":  "既定に戻す",
-    "status.prompt_heights_reset":  "プロンプト欄の高さを既定に戻しました"
+    "status.prompt_heights_reset":  "プロンプト欄の高さを既定に戻しました",
+    "enhance.max":  "最大（{0} × {1}）",
+    "enhance.magnitude":  "強調度",
+    "enhance.individual":  "個別設定",
+    "enhance.use_magnitude":  "強調度を使用",
+    "enhance.summary":  "出力 {0} × {1} · 強度 {2:0.00} · ノイズ {3:0.00}",
+    "enhance.upscale_amount":  "拡大倍率",
+    "enhance.title":  "強調設定",
+    "enhance.start":  "強調を開始",
+    "enhance.invalid_values":  "強度とノイズに有効な数値を入力してください。",
+    "enhance.size_limit":  "Enhance は 3 × 1024² ピクセル以下の画像に対応しています。"
 }

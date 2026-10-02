@@ -420,9 +420,6 @@
     "generate.duplicate_guard.message":  "本次生成參數與上次已傳送請求完全一致，生成結果不會改變。是否將種子改為 0（隨機）後繼續生成？",
     "generate.duplicate_guard.note":  "您也可以修改除種子外的參數後繼續生成以取得不同結果。",
     "generate.duplicate_guard.cancelled":  "已取消傳送重複生成請求。",
-    "generate.enhance.oversized_confirm_message":  "增強此圖片會消耗 Anlas，是否繼續？",
-    "generate.enhance.oversized_confirm_message_with_cost":  "增強此圖片預計會消耗 {0} Anlas，是否繼續？",
-    "generate.enhance.oversized_confirm_size":  "圖片尺寸：{0} x {1}",
     "generate.enhance.asset_protection_oversized_blocked":  "此圖片超過 1024² 像素。請先在額度管理裡關閉「阻止過大圖片」，或者關閉資產保護模式。",
     "generate.enhance.cancelled":  "已取消增強。",
     "dialog.notify.title":  "Notify",
@@ -1117,5 +1114,15 @@
     "settings.hub.usage.reset_prompt_heights":  "恢復預設提示詞區域高度",
     "settings.hub.usage.reset_prompt_heights.description":  "恢復主提示詞、風格提示詞及生圖和重繪角色提示詞框的預設高度。",
     "settings.hub.usage.reset_prompt_heights.action":  "恢復預設",
-    "status.prompt_heights_reset":  "已恢復預設提示詞區域高度"
+    "status.prompt_heights_reset":  "已恢復預設提示詞區域高度",
+    "enhance.max":  "最高（{0} × {1}）",
+    "enhance.magnitude":  "增強幅度",
+    "enhance.individual":  "個別設定",
+    "enhance.use_magnitude":  "使用增強幅度",
+    "enhance.summary":  "輸出 {0} × {1} · 強度 {2:0.00} · 雜訊 {3:0.00}",
+    "enhance.upscale_amount":  "增強倍率",
+    "enhance.title":  "增強設定",
+    "enhance.start":  "開始增強",
+    "enhance.invalid_values":  "請填寫有效的強度與雜訊數值。",
+    "enhance.size_limit":  "Enhance 僅支援不超過 3 × 1024² 像素的圖片。"
 }

@@ -420,9 +420,6 @@
   "generate.duplicate_guard.message": "Diese Generierung verwendet genau die gleichen Parameter wie die vorherige und ändert das generierte Ergebnis nicht. Möchten Sie den Startwert auf 0 (zufällig) ändern und fortfahren?",
   "generate.duplicate_guard.note": "Sie können die Generierung auch mit anderen Parametern außer dem Startwert fortsetzen, um ein anderes Ergebnis zu erhalten.",
   "generate.duplicate_guard.cancelled": "Die Anforderung zur Duplikatgenerierung wurde abgebrochen.",
-  "generate.enhance.oversized_confirm_message": "Das Verbessern dieses Bildes verbraucht Anlas. Weitermachen?",
-  "generate.enhance.oversized_confirm_message_with_cost": "Enhancing this image is estimated to consume {0} Anlas. Continue?",
-  "generate.enhance.oversized_confirm_size": "Image size: {0} x {1}",
   "generate.enhance.asset_protection_oversized_blocked": "Dieses Bild ist größer als 1024² Pixel. Deaktivieren Sie „Übergroße Abmessungen blockieren“ in der Kontingentverwaltung oder deaktivieren Sie zuerst den Asset-Schutzmodus.",
   "generate.enhance.cancelled": "Verbesserung abgebrochen.",
   "dialog.notify.title": "Benachrichtigen",
@@ -1116,5 +1113,15 @@
   "settings.hub.usage.reset_prompt_heights": "Standardhöhen der Promptfelder wiederherstellen",
   "settings.hub.usage.reset_prompt_heights.description": "Standardhöhen für Haupt-, Stil- und Charakter-Promptfelder in Generieren und Img2Img wiederherstellen.",
   "settings.hub.usage.reset_prompt_heights.action": "Zurücksetzen",
-  "status.prompt_heights_reset": "Standardhöhen der Promptfelder wiederhergestellt"
+  "status.prompt_heights_reset": "Standardhöhen der Promptfelder wiederhergestellt",
+  "enhance.max": "Maximum ({0} × {1})",
+  "enhance.magnitude": "Verstärkungsgrad",
+  "enhance.individual": "Einzelne Einstellungen",
+  "enhance.use_magnitude": "Verstärkungsgrad verwenden",
+  "enhance.summary": "Ausgabe {0} × {1} · Stärke {2:0.00} · Rauschen {3:0.00}",
+  "enhance.upscale_amount": "Vergrößerungsfaktor",
+  "enhance.title": "Verstärkungseinstellungen",
+  "enhance.start": "Verstärkung starten",
+  "enhance.invalid_values": "Gib gültige Werte für Stärke und Rauschen ein.",
+  "enhance.size_limit": "Enhance unterstützt Bilder mit bis zu 3 × 1024² Pixeln."
 }

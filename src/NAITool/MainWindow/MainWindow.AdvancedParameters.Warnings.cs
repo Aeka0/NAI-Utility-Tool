@@ -296,12 +296,21 @@ public sealed partial class MainWindow
             return 0;
         }
 
-        return EstimateGenEnhanceAnlasCost(width, height);
+        var current = _settings.Settings;
+        var amounts = EnhanceRules.GetAvailableAmounts(width, height);
+        if (amounts.Count == 0) return 0;
+        bool useMax = current.EnhanceUseMaxUpscale && EnhanceRules.CanUseMax(current.GenParameters.Model, width, height);
+        var output = EnhanceRules.GetOutputDimensions(width, height,
+            EnhanceRules.GetPreferredAmount(amounts, current.EnhanceUpscaleAmount), useMax);
+        var values = current.EnhanceShowIndividualSettings
+            ? (current.EnhanceStrength, current.EnhanceNoise)
+            : EnhanceRules.GetMagnitudeValues(current.EnhanceMagnitude);
+        return EstimateGenEnhanceAnlasCost(output.Width, output.Height, values.Item1, values.Item2);
     }
 
-    private int EstimateGenEnhanceAnlasCost(int width, int height)
+    private int EstimateGenEnhanceAnlasCost(int width, int height, double strength, double noise)
     {
-        var parameters = CreateGenEnhanceParameters(_settings.Settings.GenParameters);
+        var parameters = CreateGenEnhanceParameters(_settings.Settings.GenParameters, strength, noise);
         return EstimatePromptRequestAnlasCost(parameters, parameters.Model, width, height, imageToImageOverride: true);
     }
 

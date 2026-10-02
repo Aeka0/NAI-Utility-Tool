@@ -420,9 +420,6 @@
   "generate.duplicate_guard.message": "이 세대는 이전 세대와 정확히 동일한 매개변수를 사용하며 생성된 결과를 변경하지 않습니다. 시드를 0(임의)으로 전환하고 계속하시겠습니까?",
   "generate.duplicate_guard.note": "다른 결과를 얻기 위해 시드를 제외한 다른 매개변수를 사용하여 계속 생성할 수도 있습니다.",
   "generate.duplicate_guard.cancelled": "중복 생성 요청을 취소했습니다.",
-  "generate.enhance.oversized_confirm_message": "이 이미지를 개선하면 Anlas이(가) 소모됩니다. 계속하다?",
-  "generate.enhance.oversized_confirm_message_with_cost": "Enhancing this image is estimated to consume {0} Anlas. Continue?",
-  "generate.enhance.oversized_confirm_size": "Image size: {0} x {1}",
   "generate.enhance.asset_protection_oversized_blocked": "이 이미지는 1024²픽셀보다 큽니다. 할당량 관리에서 \"초과 크기 차단\"을 끄거나 먼저 자산 보호 모드를 끄십시오.",
   "generate.enhance.cancelled": "강화가 취소되었습니다.",
   "dialog.notify.title": "알림",
@@ -1116,5 +1113,15 @@
   "settings.hub.usage.reset_prompt_heights": "프롬프트 영역 높이 기본값 복원",
   "settings.hub.usage.reset_prompt_heights.description": "기본, 스타일 및 이미지 생성과 Img2Img의 캐릭터 프롬프트 상자를 기본 높이로 복원합니다.",
   "settings.hub.usage.reset_prompt_heights.action": "기본값 복원",
-  "status.prompt_heights_reset": "프롬프트 영역 높이를 기본값으로 복원했습니다"
+  "status.prompt_heights_reset": "프롬프트 영역 높이를 기본값으로 복원했습니다",
+  "enhance.max": "최대 ({0} × {1})",
+  "enhance.magnitude": "강화 정도",
+  "enhance.individual": "개별 설정",
+  "enhance.use_magnitude": "강화 정도 사용",
+  "enhance.summary": "출력 {0} × {1} · 강도 {2:0.00} · 노이즈 {3:0.00}",
+  "enhance.upscale_amount": "확대 배율",
+  "enhance.title": "강화 설정",
+  "enhance.start": "강화 시작",
+  "enhance.invalid_values": "올바른 강도와 노이즈 값을 입력하세요.",
+  "enhance.size_limit": "Enhance는 최대 3 × 1024² 픽셀의 이미지를 지원합니다."
 }
