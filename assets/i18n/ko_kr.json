@@ -1093,5 +1093,6 @@
   "size.presets.extra": "더 많은 종횡비",
   "size.presets.protection_hint": "크기 보호: 1,048,576픽셀을 넘는 프리셋은 비활성화됩니다",
   "size.presets.resize_title": "캔버스 크기 변경",
-  "size.presets.resize_mask_warning": "캔버스 크기를 바꾸면 현재 마스크와 실행 취소 기록이 지워집니다. 원본 이미지는 유지됩니다. 적용할까요?"
+  "size.presets.resize_mask_warning": "캔버스 크기를 바꾸면 현재 마스크와 실행 취소 기록이 지워집니다. 원본 이미지는 유지됩니다. 적용할까요?",
+  "character.error.too_many_for_model": "이 모델은 활성 캐릭터를 최대 {0}개 지원합니다. 초과 캐릭터를 비활성화하거나 V5를 선택하세요."
 }

@@ -497,14 +497,15 @@ public sealed partial class MainWindow
     private static void LoadRememberedCharacters(List<CharacterEntry> target, List<RememberedCharacterState>? rememberedCharacters)
     {
         target.Clear();
-        foreach (var item in (rememberedCharacters ?? new List<RememberedCharacterState>()).Take(MaxCharacters))
+        foreach (var item in (rememberedCharacters ?? new List<RememberedCharacterState>())
+            .Where(x => x != null).Take(CharacterPromptRules.MaxRetainedCount))
         {
             target.Add(new CharacterEntry
             {
                 PositivePrompt = item.PositivePrompt ?? "",
                 NegativePrompt = item.NegativePrompt ?? "",
-                CenterX = Math.Clamp(item.CenterX, 0, 1),
-                CenterY = Math.Clamp(item.CenterY, 0, 1),
+                CenterX = CharacterPromptRules.NormalizeCoordinate(item.CenterX),
+                CenterY = CharacterPromptRules.NormalizeCoordinate(item.CenterY),
                 IsPositiveTab = item.IsPositiveTab,
                 IsCollapsed = item.IsCollapsed,
                 IsDisabled = item.IsDisabled,

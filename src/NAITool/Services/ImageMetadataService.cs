@@ -19,6 +19,7 @@ public class ImageMetadata
     public List<string> CharacterPrompts { get; set; } = new();
     public List<string> CharacterNegativePrompts { get; set; } = new();
     public List<(double X, double Y)> CharacterCenters { get; set; } = new();
+    public bool? UseCharacterCoordinates { get; set; }
     public List<VibeTransferInfo> VibeTransfers { get; set; } = new();
     public List<PreciseReferenceInfo> PreciseReferences { get; set; } = new();
     public int Width { get; set; }
@@ -657,36 +658,21 @@ public static class ImageMetadataService
                 straightAlpha.ValueKind is JsonValueKind.True or JsonValueKind.False)
                 meta.StraightAlpha = straightAlpha.GetBoolean();
 
-            if (root.TryGetProperty("v4_prompt", out var v4p) &&
-                v4p.TryGetProperty("caption", out var v4Caption) &&
-                v4Caption.TryGetProperty("char_captions", out var charCaptions))
+            if (root.TryGetProperty("use_coords", out var useCoords) &&
+                useCoords.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                meta.UseCharacterCoordinates = useCoords.GetBoolean();
+
+            if (root.TryGetProperty("v4_prompt", out var v4p) && v4p.ValueKind == JsonValueKind.Object)
             {
-                foreach (var cc in charCaptions.EnumerateArray())
-                {
-                    if (cc.TryGetProperty("char_caption", out var cap))
-                        meta.CharacterPrompts.Add(cap.GetString() ?? "");
-                    double cx = 0.5, cy = 0.5;
-                    if (cc.TryGetProperty("centers", out var centers))
-                    {
-                        foreach (var c in centers.EnumerateArray())
-                        {
-                            if (c.TryGetProperty("x", out var xp)) cx = xp.GetDouble();
-                            if (c.TryGetProperty("y", out var yp)) cy = yp.GetDouble();
-                            break;
-                        }
-                    }
-                    meta.CharacterCenters.Add((cx, cy));
-                }
+                // The caption's explicit flag takes precedence, including false.
+                if (v4p.TryGetProperty("use_coords", out var promptUseCoords) &&
+                    promptUseCoords.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    meta.UseCharacterCoordinates = promptUseCoords.GetBoolean();
+                ReadCharacterCaptions(v4p, meta.CharacterPrompts, meta.CharacterCenters);
             }
 
-            if (root.TryGetProperty("v4_negative_prompt", out var v4np) &&
-                v4np.TryGetProperty("caption", out var v4NegCaption) &&
-                v4NegCaption.TryGetProperty("char_captions", out var charNegCaptions))
-            {
-                foreach (var cc in charNegCaptions.EnumerateArray())
-                    if (cc.TryGetProperty("char_caption", out var cap))
-                        meta.CharacterNegativePrompts.Add(cap.GetString() ?? "");
-            }
+            if (root.TryGetProperty("v4_negative_prompt", out var v4np))
+                ReadCharacterCaptions(v4np, meta.CharacterNegativePrompts);
 
             ParseVibeTransfers(root, meta);
             ParsePreciseReferences(root, meta);
@@ -695,6 +681,39 @@ public static class ImageMetadataService
         }
         catch { return null; }
     }
+
+    private static void ReadCharacterCaptions(JsonElement prompt, List<string> captions,
+        List<(double X, double Y)>? centers = null)
+    {
+        if (prompt.ValueKind != JsonValueKind.Object ||
+            !prompt.TryGetProperty("caption", out var caption) || caption.ValueKind != JsonValueKind.Object ||
+            !caption.TryGetProperty("char_captions", out var characters) || characters.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var character in characters.EnumerateArray())
+        {
+            // Keep empty entries so prompts, negatives and positions retain the same indexes.
+            bool isObject = character.ValueKind == JsonValueKind.Object;
+            captions.Add(isObject ? TryReadString(character, "char_caption") : "");
+            if (centers == null)
+                continue;
+
+            double x = 0.5, y = 0.5;
+            if (isObject && character.TryGetProperty("centers", out var positions) &&
+                positions.ValueKind == JsonValueKind.Array && positions.GetArrayLength() > 0 &&
+                positions[0].ValueKind == JsonValueKind.Object)
+            {
+                x = ReadCharacterCoordinate(positions[0], "x");
+                y = ReadCharacterCoordinate(positions[0], "y");
+            }
+            centers.Add((x, y));
+        }
+    }
+
+    private static double ReadCharacterCoordinate(JsonElement position, string axis) =>
+        position.TryGetProperty(axis, out var value) && value.ValueKind == JsonValueKind.Number &&
+        value.TryGetDouble(out double coordinate)
+            ? CharacterPromptRules.NormalizeCoordinate(coordinate) : 0.5;
 
     private static bool CanEncodeLatin1(string text)
     {

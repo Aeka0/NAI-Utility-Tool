@@ -1093,5 +1093,6 @@
   "size.presets.extra": "Autres formats",
   "size.presets.protection_hint": "Protection de taille : préréglages de plus de 1 048 576 pixels désactivés",
   "size.presets.resize_title": "Changer la taille du canevas",
-  "size.presets.resize_mask_warning": "Changer la taille efface le masque actuel et l’historique d’annulation. L’image source est conservée. Appliquer ?"
+  "size.presets.resize_mask_warning": "Changer la taille efface le masque actuel et l’historique d’annulation. L’image source est conservée. Appliquer ?",
+  "character.error.too_many_for_model": "Ce modèle accepte au plus {0} personnages actifs. Désactivez les autres ou choisissez V5."
 }

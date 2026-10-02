@@ -1094,5 +1094,6 @@
     "size.presets.extra":  "更多常用比例",
     "size.presets.protection_hint":  "尺寸保护：超过 1,048,576 像素的预设已禁用",
     "size.presets.resize_title":  "更改画布尺寸",
-    "size.presets.resize_mask_warning":  "更改画布尺寸会清空当前遮罩和撤销记录，原图会保留。是否应用这个尺寸？"
+    "size.presets.resize_mask_warning":  "更改画布尺寸会清空当前遮罩和撤销记录，原图会保留。是否应用这个尺寸？",
+    "character.error.too_many_for_model":  "当前模型最多支持 {0} 个启用的角色；请禁用多余角色或切换到 V5。"
 }

@@ -17,7 +17,7 @@ The current project version is `1.2.0`. The project is still evolving quickly, a
 - Supports NovelAI Diffusion 4.5, 4, and 3 model families.
 - Supports common samplers and schedulers, with incompatible options filtered according to the selected model.
 - Supports separate positive, negative, and style prompt inputs.
-- Supports NAI v4+ character prompts, character negative prompts, and character positions.
+- Supports NAI v4+ character prompts, character negative prompts, and character positions: up to 22 characters for V5 and 6 for V4/V4.5.
 - Supports seed management, Variety+, quality tags, UC presets, CFG Scale, CFG Rescale, steps, and other advanced parameters.
 - Supports post-generation preview, save, copy, delete, routing to other workspaces, and generation history management.
 - Includes continuous generation and duplicate-request protection.
@@ -70,7 +70,7 @@ The current project version is `1.2.0`. The project is still evolving quickly, a
 ### Inspection, Metadata, and Reverse Tagging
 
 - Supports dragging in or opening images to inspect NovelAI metadata.
-- Can restore prompts, character prompts, parameters, and reference-image information back into generation or image-to-image workspaces.
+- Can restore prompts, character prompts, character coordinates and custom-position settings, parameters, and reference-image information back into generation or image-to-image workspaces.
 - Supports removing metadata on save and global metadata stripping.
 - Supports image obfuscation and de-obfuscation.
 - Can optionally configure a local ONNX reverse tagger model for image tag inference.

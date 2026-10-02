@@ -357,6 +357,11 @@ public sealed partial class MainWindow
         }
 
         SyncPromptGenerationInputsToState();
+        if (!TryValidateCharacterCount(out string characterError))
+        {
+            TxtStatus.Text = characterError;
+            return false;
+        }
         if (!await ConfirmGenEnhanceSizeAsync(width, height))
             return false;
 

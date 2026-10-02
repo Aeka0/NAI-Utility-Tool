@@ -1093,5 +1093,6 @@
     "size.presets.extra":  "その他の縦横比",
     "size.presets.protection_hint":  "サイズ保護：1,048,576ピクセルを超えるプリセットは無効です",
     "size.presets.resize_title":  "キャンバスサイズを変更",
-    "size.presets.resize_mask_warning":  "キャンバスサイズを変更すると、現在のマスクと元に戻す履歴が消去されます。元画像は保持されます。適用しますか？"
+    "size.presets.resize_mask_warning":  "キャンバスサイズを変更すると、現在のマスクと元に戻す履歴が消去されます。元画像は保持されます。適用しますか？",
+    "character.error.too_many_for_model":  "このモデルでは最大 {0} 人のキャラクターを有効にできます。余分なキャラクターを無効にするか V5 を選択してください。"
 }

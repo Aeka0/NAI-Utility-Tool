@@ -212,6 +212,9 @@ public sealed partial class MainWindow
         if (!IsPromptMode(_currentMode))
             return true;
 
+        if (!TryValidateCharacterCount(out error))
+            return false;
+
         int activeVibeCount = SupportsVibeTransferFeature() ? ActiveVibeTransferCount() : 0;
         int activePreciseCount = ActivePreciseReferenceCount();
 

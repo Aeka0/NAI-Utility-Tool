@@ -1093,5 +1093,6 @@
   "size.presets.extra": "Más proporciones",
   "size.presets.protection_hint": "Protección de tamaño: preajustes de más de 1.048.576 píxeles desactivados",
   "size.presets.resize_title": "Cambiar tamaño del lienzo",
-  "size.presets.resize_mask_warning": "Cambiar el tamaño borra la máscara actual y el historial de deshacer. Se conserva la imagen original. ¿Aplicar?"
+  "size.presets.resize_mask_warning": "Cambiar el tamaño borra la máscara actual y el historial de deshacer. Se conserva la imagen original. ¿Aplicar?",
+  "character.error.too_many_for_model": "Este modelo admite como máximo {0} personajes activos. Desactiva los demás o elige V5."
 }

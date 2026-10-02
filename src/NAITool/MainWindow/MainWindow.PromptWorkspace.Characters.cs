@@ -59,10 +59,24 @@ public sealed partial class MainWindow
     private List<CharacterEntry> CurrentCharacterEntries =>
         _currentMode == AppMode.I2I ? _i2iCharacters : _genCharacters;
 
+    private int GetMaxCharactersForCurrentModel() => CharacterPromptRules.MaxForModel(GetCurrentModelKey());
+
+    private bool TryValidateCharacterCount(out string error)
+    {
+        error = "";
+        int limit = GetMaxCharactersForCurrentModel();
+        if (SupportsCharacterFeature() && CurrentCharacterEntries.Count(x => !x.IsDisabled) > limit)
+        {
+            error = Lf("character.error.too_many_for_model", limit);
+            return false;
+        }
+        return true;
+    }
+
     private void OnAddCharacter(object sender, RoutedEventArgs e)
     {
         var characters = CurrentCharacterEntries;
-        if (characters.Count >= MaxCharacters) return;
+        if (!SupportsCharacterFeature() || characters.Count >= GetMaxCharactersForCurrentModel()) return;
         characters.Add(new CharacterEntry());
         RefreshCharacterPanel();
     }
@@ -570,7 +584,7 @@ public sealed partial class MainWindow
     private static void SetCharactersFromMetadata(List<CharacterEntry> target, ImageMetadata meta)
     {
         target.Clear();
-        int count = Math.Min(meta.CharacterPrompts.Count, MaxCharacters);
+        int count = Math.Min(meta.CharacterPrompts.Count, CharacterPromptRules.MaxRetainedCount);
         for (int i = 0; i < count; i++)
         {
             var entry = new CharacterEntry
@@ -578,8 +592,11 @@ public sealed partial class MainWindow
                 PositivePrompt = meta.CharacterPrompts[i],
                 NegativePrompt = i < meta.CharacterNegativePrompts.Count
                     ? meta.CharacterNegativePrompts[i] : "",
-                CenterX = i < meta.CharacterCenters.Count ? meta.CharacterCenters[i].X : 0.5,
-                CenterY = i < meta.CharacterCenters.Count ? meta.CharacterCenters[i].Y : 0.5,
+                CenterX = i < meta.CharacterCenters.Count
+                    ? CharacterPromptRules.NormalizeCoordinate(meta.CharacterCenters[i].X) : 0.5,
+                CenterY = i < meta.CharacterCenters.Count
+                    ? CharacterPromptRules.NormalizeCoordinate(meta.CharacterCenters[i].Y) : 0.5,
+                UseCustomPosition = meta.UseCharacterCoordinates == true,
             };
             target.Add(entry);
         }

@@ -1094,5 +1094,6 @@
   "size.presets.extra": "More aspect ratios",
   "size.presets.protection_hint": "Size protection: presets above 1,048,576 pixels are disabled",
   "size.presets.resize_title": "Change canvas size",
-  "size.presets.resize_mask_warning": "Changing the canvas size clears the current mask and undo history. The source image is kept. Apply this size?"
+  "size.presets.resize_mask_warning": "Changing the canvas size clears the current mask and undo history. The source image is kept. Apply this size?",
+  "character.error.too_many_for_model": "This model supports at most {0} enabled characters. Disable extra characters or choose V5."
 }

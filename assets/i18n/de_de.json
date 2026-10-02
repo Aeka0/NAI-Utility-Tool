@@ -1093,5 +1093,6 @@
   "size.presets.extra": "Weitere Seitenverhältnisse",
   "size.presets.protection_hint": "Größenschutz: Vorlagen über 1.048.576 Pixel sind deaktiviert",
   "size.presets.resize_title": "Leinwandgröße ändern",
-  "size.presets.resize_mask_warning": "Eine neue Leinwandgröße löscht die aktuelle Maske und den Rückgängig-Verlauf. Das Quellbild bleibt erhalten. Größe anwenden?"
+  "size.presets.resize_mask_warning": "Eine neue Leinwandgröße löscht die aktuelle Maske und den Rückgängig-Verlauf. Das Quellbild bleibt erhalten. Größe anwenden?",
+  "character.error.too_many_for_model": "Dieses Modell unterstützt höchstens {0} aktive Figuren. Deaktiviere weitere Figuren oder wähle V5."
 }

@@ -1093,5 +1093,6 @@
   "size.presets.extra": "Aliae proportiones",
   "size.presets.protection_hint": "Tutela magnitudinis: praefinita ultra 1 048 576 elementa prohibentur",
   "size.presets.resize_title": "Magnitudinem tabulae mutare",
-  "size.presets.resize_mask_warning": "Mutata magnitudine tabulae, larva et historia revocationis delentur; imago originalis servatur. Adhibere?"
+  "size.presets.resize_mask_warning": "Mutata magnitudine tabulae, larva et historia revocationis delentur; imago originalis servatur. Adhibere?",
+  "character.error.too_many_for_model": "Hoc exemplar summum {0} personas activas sustinet. Ceteras inactiva aut V5 elige."
 }

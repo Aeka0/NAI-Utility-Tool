@@ -1094,5 +1094,6 @@
     "size.presets.extra":  "更多長寬比",
     "size.presets.protection_hint":  "尺寸保護：已停用超過 1,048,576 像素的預設",
     "size.presets.resize_title":  "變更畫布尺寸",
-    "size.presets.resize_mask_warning":  "變更畫布尺寸會清除目前的遮罩與復原記錄，並保留來源圖片。套用此尺寸？"
+    "size.presets.resize_mask_warning":  "變更畫布尺寸會清除目前的遮罩與復原記錄，並保留來源圖片。套用此尺寸？",
+    "character.error.too_many_for_model":  "此模型最多支援 {0} 個啟用中的角色。請停用多餘角色或選擇 V5。"
 }
