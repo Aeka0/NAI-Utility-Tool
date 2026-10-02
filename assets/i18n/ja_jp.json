@@ -1111,5 +1111,10 @@
     "inspect.action.infer_again":  "Tagger 推論を再実行",
     "inspect.action.import":  "インポート...",
     "metadata.import.send_to_generation":  "画像生成に送信",
-    "metadata.import.image_for_i2i":  "画像を再描画モードに読み込む"
+    "metadata.import.image_for_i2i":  "画像を再描画モードに読み込む",
+    "prompt.resize_help":  "ホバー時に右下隅をドラッグしてプロンプト欄の高さを調整します。ダブルクリックで自動高さに戻ります。上下キーで調整、Home キーでリセットします。",
+    "settings.hub.usage.reset_prompt_heights":  "プロンプト欄の高さを既定に戻す",
+    "settings.hub.usage.reset_prompt_heights.description":  "メイン、スタイル、および画像生成・Img2Img のキャラクタープロンプト欄を既定の高さに戻します。",
+    "settings.hub.usage.reset_prompt_heights.action":  "既定に戻す",
+    "status.prompt_heights_reset":  "プロンプト欄の高さを既定に戻しました"
 }

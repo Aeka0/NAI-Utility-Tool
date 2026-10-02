@@ -1111,5 +1111,10 @@
   "inspect.action.infer_again": "Повторить вывод Tagger",
   "inspect.action.import": "Импортировать...",
   "metadata.import.send_to_generation": "Отправить в генерацию",
-  "metadata.import.image_for_i2i": "Импортировать изображение в режим перерисовки"
+  "metadata.import.image_for_i2i": "Импортировать изображение в режим перерисовки",
+  "prompt.resize_help": "Наведите указатель и потяните правый нижний угол, чтобы изменить высоту поля. Двойной щелчок восстанавливает автоматическую высоту. Вверх/вниз изменяет высоту, Home сбрасывает.",
+  "settings.hub.usage.reset_prompt_heights": "Восстановить высоту полей промпта",
+  "settings.hub.usage.reset_prompt_heights.description": "Восстанавливает высоту по умолчанию для основного промпта, стиля и промптов персонажей в генерации и Img2Img.",
+  "settings.hub.usage.reset_prompt_heights.action": "Восстановить",
+  "status.prompt_heights_reset": "Высота полей промпта по умолчанию восстановлена"
 }

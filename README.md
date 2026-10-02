@@ -18,6 +18,7 @@ The current project version is `1.2.0`. The project is still evolving quickly, a
 - Supports common samplers and schedulers, with incompatible options filtered according to the selected model.
 - Supports separate positive, negative, and style prompt inputs.
 - Supports NAI v4+ character prompts, character negative prompts, and character positions: up to 22 characters for V5 and 6 for V4/V4.5.
+- Main, style, and character prompt boxes support custom heights through a bottom-right corner shown on hover. Drag to resize or double-click to restore automatic height. Main and style heights are saved automatically; character heights follow the remembered-character setting. Restore all default prompt heights with one click under Settings > Usage.
 - Supports seed management, Variety+, quality tags, UC presets, CFG Scale, CFG Rescale, steps, and other advanced parameters.
 - Supports post-generation preview, save, copy, delete, routing to other workspaces, and generation history management.
 - Includes continuous generation and duplicate-request protection.

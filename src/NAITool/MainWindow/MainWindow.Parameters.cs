@@ -502,6 +502,7 @@ public sealed partial class MainWindow
         {
             target.Add(new CharacterEntry
             {
+                EditorHeight = NormalizePromptHeight(item.EditorHeight),
                 PositivePrompt = item.PositivePrompt ?? "",
                 NegativePrompt = item.NegativePrompt ?? "",
                 CenterX = CharacterPromptRules.NormalizeCoordinate(item.CenterX),
@@ -545,6 +546,7 @@ public sealed partial class MainWindow
 
     private static RememberedCharacterState CreateRememberedCharacterState(CharacterEntry entry) => new()
     {
+        EditorHeight = entry.EditorHeight,
         PositivePrompt = entry.PositivePrompt,
         NegativePrompt = entry.NegativePrompt,
         CenterX = entry.CenterX,

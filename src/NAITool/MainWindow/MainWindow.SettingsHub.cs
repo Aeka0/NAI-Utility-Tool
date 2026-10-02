@@ -73,6 +73,13 @@ public sealed partial class MainWindow
 
         UIElement BuildUsageSection()
         {
+            var resetPromptHeightsButton = new Button
+            {
+                Content = L("settings.hub.usage.reset_prompt_heights.action"),
+                MinWidth = 96,
+            };
+            resetPromptHeightsButton.Click += (_, _) => ResetPromptEditorHeights();
+
             return CreateSettingsHubPage(
                 CreateSettingsHubLayer(
                     "\uEB50",
@@ -104,6 +111,11 @@ public sealed partial class MainWindow
                             _settings.Settings.WildcardsEnabled,
                             _settings.Settings.WildcardsRequireExplicitSyntax);
                     })),
+                CreateSettingsHubLayer(
+                    "\uF168",
+                    L("settings.hub.usage.reset_prompt_heights"),
+                    L("settings.hub.usage.reset_prompt_heights.description"),
+                    resetPromptHeightsButton),
                 CreateSettingsHubLayer(
                     "\uE74C",
                     L("settings.hub.usage.wildcards_enabled"),

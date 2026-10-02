@@ -1111,5 +1111,10 @@
   "inspect.action.infer_again": "Inferentiam Tagger iterum exsequi",
   "inspect.action.import": "Importare...",
   "metadata.import.send_to_generation": "Ad generationem mittere",
-  "metadata.import.image_for_i2i": "Imaginem in modum imaginis ex imagine importare"
+  "metadata.import.image_for_i2i": "Imaginem in modum imaginis ex imagine importare",
+  "prompt.resize_help": "Cursore superposito, angulum dextrum inferiorem trahe ad altitudinem campi mutandam. Bis preme ad altitudinem automaticam restituendam. Sagittae sursum/deorsum mutant; Home restituit.",
+  "settings.hub.usage.reset_prompt_heights": "Altitudines camporum restitue",
+  "settings.hub.usage.reset_prompt_heights.description": "Altitudines praedefinitas camporum textus principalis, stili et personarum in generatione et Img2Img restituit.",
+  "settings.hub.usage.reset_prompt_heights.action": "Restitue",
+  "status.prompt_heights_reset": "Altitudines praedefinitae camporum restitutae sunt"
 }

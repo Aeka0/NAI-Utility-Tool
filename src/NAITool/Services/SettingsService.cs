@@ -211,6 +211,8 @@ public class AppSettings
     public bool WeightHighlight { get; set; } = true;
     public bool AutoComplete { get; set; } = true;
     public bool RememberPromptAndParameters { get; set; } = true;
+    public double PromptEditorHeight { get; set; }
+    public double StylePromptEditorHeight { get; set; }
     public bool SuperDropEnabled { get; set; } = true;
     public bool ScrollHistoryToTopAfterGeneration { get; set; } = true;
     public bool NewImageDeleteProtection { get; set; } = true;
@@ -360,6 +362,7 @@ public class RememberedPromptState
 
 public class RememberedCharacterState
 {
+    public double EditorHeight { get; set; }
     public string PositivePrompt { get; set; } = "";
     public string NegativePrompt { get; set; } = "";
     public double CenterX { get; set; } = 0.5;

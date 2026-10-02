@@ -1112,5 +1112,10 @@
   "inspect.action.infer_again": "Run Tagger inference again",
   "inspect.action.import": "Import...",
   "metadata.import.send_to_generation": "Send to generation",
-  "metadata.import.image_for_i2i": "Import image into image-to-image mode"
+  "metadata.import.image_for_i2i": "Import image into image-to-image mode",
+  "prompt.resize_help": "Hover and drag the bottom-right corner to resize the prompt box. Double-click to restore automatic height. Up/Down resize; Home resets.",
+  "settings.hub.usage.reset_prompt_heights": "Restore default prompt heights",
+  "settings.hub.usage.reset_prompt_heights.description": "Restore default heights for main, style, and character prompt boxes in Generate and Img2Img.",
+  "settings.hub.usage.reset_prompt_heights.action": "Restore defaults",
+  "status.prompt_heights_reset": "Default prompt heights restored"
 }

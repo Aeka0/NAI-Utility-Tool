@@ -206,6 +206,8 @@ public sealed partial class MainWindow
         ToolTipService.SetToolTip(BtnSplitPrompt, L("tooltip.split_prompt"));
         TxtStylePrompt.PlaceholderText = L("prompt.style_placeholder");
         TxtPrompt.PlaceholderText = L("prompt.placeholder");
+        TxtPrompt.EnableResizing(L("prompt.resize_help"), minimumHeight: 80);
+        TxtStylePrompt.EnableResizing(L("prompt.resize_help"), minimumHeight: 34);
 
         TxtModelLabel.Text = L("panel.model");
         TxtSizeLabel.Text = L("panel.size");

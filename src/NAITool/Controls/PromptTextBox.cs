@@ -13,7 +13,7 @@ namespace NAITool.Controls;
 
 public readonly record struct PromptTextHighlight(int Start, int Length, Color Color);
 
-public sealed class PromptTextBox : UserControl
+public sealed partial class PromptTextBox : UserControl
 {
     private const double HighlightHorizontalOffset = 2.0;
     private const double HighlightVerticalInset = 3.0;
@@ -53,6 +53,7 @@ public sealed class PromptTextBox : UserControl
         };
         _root.Children.Add(_editor);
         _root.Children.Add(_highlightCanvas);
+        InitializeResizing();
         Content = _root;
 
         _editor.TextChanged += OnEditorTextChanged;

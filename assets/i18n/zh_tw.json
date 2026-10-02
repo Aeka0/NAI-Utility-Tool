@@ -1112,5 +1112,10 @@
     "inspect.action.infer_again":  "重新執行 Tagger 推理",
     "inspect.action.import":  "匯入...",
     "metadata.import.send_to_generation":  "傳送至生圖",
-    "metadata.import.image_for_i2i":  "匯入圖片至重繪模式"
+    "metadata.import.image_for_i2i":  "匯入圖片至重繪模式",
+    "prompt.resize_help":  "懸停時拖曳右下角調整提示詞框高度；按兩下恢復自動高度。上下方向鍵調整，Home 鍵重設。",
+    "settings.hub.usage.reset_prompt_heights":  "恢復預設提示詞區域高度",
+    "settings.hub.usage.reset_prompt_heights.description":  "恢復主提示詞、風格提示詞及生圖和重繪角色提示詞框的預設高度。",
+    "settings.hub.usage.reset_prompt_heights.action":  "恢復預設",
+    "status.prompt_heights_reset":  "已恢復預設提示詞區域高度"
 }

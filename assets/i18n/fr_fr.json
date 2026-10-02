@@ -1111,5 +1111,10 @@
   "inspect.action.infer_again": "Relancer l’inférence Tagger",
   "inspect.action.import": "Importer...",
   "metadata.import.send_to_generation": "Envoyer vers génération",
-  "metadata.import.image_for_i2i": "Importer l’image en mode image vers image"
+  "metadata.import.image_for_i2i": "Importer l’image en mode image vers image",
+  "prompt.resize_help": "Au survol, faites glisser le coin inférieur droit pour régler la hauteur du prompt. Un double-clic rétablit la hauteur automatique. Haut/Bas ajuste, Début réinitialise.",
+  "settings.hub.usage.reset_prompt_heights": "Rétablir les hauteurs des prompts",
+  "settings.hub.usage.reset_prompt_heights.description": "Rétablit les hauteurs par défaut des champs de prompt principal, de style et de personnages dans Génération et Img2Img.",
+  "settings.hub.usage.reset_prompt_heights.action": "Rétablir",
+  "status.prompt_heights_reset": "Hauteurs par défaut des prompts rétablies"
 }

@@ -361,6 +361,7 @@ public sealed partial class MainWindow
 
     private void OnPromptPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (sender is PromptTextBox { IsResizeCornerFocused: true }) return;
         if (sender is PromptTextBox promptTextBox && TryHandlePromptWeightShortcut(promptTextBox, e.Key))
         {
             e.Handled = true;
@@ -430,6 +431,7 @@ public sealed partial class MainWindow
 
     private void OnPromptKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (sender is PromptTextBox { IsResizeCornerFocused: true }) return;
         if (e.Key == Windows.System.VirtualKey.Enter)
         {
             var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(

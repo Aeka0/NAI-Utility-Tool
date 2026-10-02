@@ -1111,5 +1111,10 @@
   "inspect.action.infer_again": "Volver a ejecutar la inferencia de Tagger",
   "inspect.action.import": "Importar...",
   "metadata.import.send_to_generation": "Enviar a generación",
-  "metadata.import.image_for_i2i": "Importar imagen al modo de imagen a imagen"
+  "metadata.import.image_for_i2i": "Importar imagen al modo de imagen a imagen",
+  "prompt.resize_help": "Al pasar el cursor, arrastra la esquina inferior derecha para ajustar la altura. Doble clic restaura la altura automática. Arriba/Abajo ajustan; Inicio restablece.",
+  "settings.hub.usage.reset_prompt_heights": "Restaurar alturas de los prompts",
+  "settings.hub.usage.reset_prompt_heights.description": "Restaura las alturas predeterminadas de los campos de prompt principal, de estilo y de personajes en Generar e Img2Img.",
+  "settings.hub.usage.reset_prompt_heights.action": "Restaurar",
+  "status.prompt_heights_reset": "Alturas predeterminadas de los prompts restauradas"
 }

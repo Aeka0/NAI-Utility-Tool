@@ -454,6 +454,7 @@ public sealed partial class MainWindow : Window
         ApplyLocalization();
         RefreshEffectsPresetCombo();
         SetupPromptContextFlyouts();
+        SetupPromptResizing();
         SetupGenPreviewContextMenu();
         SetupPreviewScrollZoomAndDrag();
         SetupSidebarAdvancedSync();

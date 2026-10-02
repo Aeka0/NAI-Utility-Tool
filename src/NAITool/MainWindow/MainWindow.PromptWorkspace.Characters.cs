@@ -38,6 +38,7 @@ public sealed partial class MainWindow
 {
     private class CharacterEntry
     {
+        public double EditorHeight { get; set; }
         public string PositivePrompt { get; set; } = "";
         public string NegativePrompt { get; set; } = "";
         public double CenterX { get; set; } = 0.5;
@@ -188,15 +189,36 @@ public sealed partial class MainWindow
         Grid.SetColumn(delBtn, 5);
         headerGrid.Children.Add(delBtn);
 
-        var textGrid = new Grid { MinHeight = 50, MaxHeight = 120 };
+        double editorHeight = NormalizePromptHeight(entry.EditorHeight);
+        var textGrid = new Grid { MinHeight = 50, MaxHeight = editorHeight > 0 ? double.PositiveInfinity : 120 };
         var textBox = new PromptTextBox
         {
             AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
             IsSpellCheckEnabled = false,
             PlaceholderText = entry.IsPositiveTab ? L("character.prompt_positive_placeholder") : L("character.prompt_negative_placeholder"),
             Text = entry.IsPositiveTab ? entry.PositivePrompt : entry.NegativePrompt,
-            MinHeight = 50, MaxHeight = 120,
+            MinHeight = 50, MaxHeight = editorHeight > 0 ? double.PositiveInfinity : 120,
+            Height = editorHeight > 0 ? editorHeight : double.NaN,
             FontSize = 12,
+        };
+        textBox.EnableResizing(L("prompt.resize_help"), minimumHeight: 50);
+        textBox.ResizeHeightRequested += height =>
+        {
+            entry.EditorHeight = NormalizePromptHeight(height);
+            textGrid.MaxHeight = double.PositiveInfinity;
+            textBox.MaxHeight = double.PositiveInfinity;
+            textBox.Height = entry.EditorHeight;
+            QueuePromptAreaHeightUpdate();
+        };
+        textBox.ResizeCompleted += SavePromptEditorSizes;
+        textBox.AutoSizeRequested += () =>
+        {
+            entry.EditorHeight = 0;
+            textBox.Height = double.NaN;
+            textBox.MaxHeight = 120;
+            textGrid.MaxHeight = 120;
+            QueuePromptAreaHeightUpdate();
+            SavePromptEditorSizes();
         };
         textBox.TextChanged += (_, _) =>
         {

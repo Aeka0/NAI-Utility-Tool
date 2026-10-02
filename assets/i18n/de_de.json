@@ -1111,5 +1111,10 @@
   "inspect.action.infer_again": "Tagger-Inferenz erneut ausführen",
   "inspect.action.import": "Importieren...",
   "metadata.import.send_to_generation": "Zur Generierung senden",
-  "metadata.import.image_for_i2i": "Bild in den Bild-zu-Bild-Modus importieren"
+  "metadata.import.image_for_i2i": "Bild in den Bild-zu-Bild-Modus importieren",
+  "prompt.resize_help": "Beim Darüberfahren die rechte untere Ecke ziehen, um die Höhe des Promptfelds zu ändern. Doppelklick stellt die automatische Höhe wieder her. Auf/Ab ändert die Höhe, Pos1 setzt sie zurück.",
+  "settings.hub.usage.reset_prompt_heights": "Standardhöhen der Promptfelder wiederherstellen",
+  "settings.hub.usage.reset_prompt_heights.description": "Standardhöhen für Haupt-, Stil- und Charakter-Promptfelder in Generieren und Img2Img wiederherstellen.",
+  "settings.hub.usage.reset_prompt_heights.action": "Zurücksetzen",
+  "status.prompt_heights_reset": "Standardhöhen der Promptfelder wiederhergestellt"
 }

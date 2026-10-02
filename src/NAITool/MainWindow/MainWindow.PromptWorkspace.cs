@@ -162,6 +162,8 @@ public sealed partial class MainWindow
         StylePromptGrid.Visibility = showSplit ? Visibility.Visible : Visibility.Collapsed;
         BtnSplitPrompt.Visibility = _isPositiveTab ? Visibility.Visible : Visibility.Collapsed;
         UpdatePromptTabText();
+        UpdatePromptAreaHeight();
+        QueuePromptAreaHeightUpdate();
     }
 
     private void OnPromptTabRowSizeChanged(object sender, SizeChangedEventArgs e)
