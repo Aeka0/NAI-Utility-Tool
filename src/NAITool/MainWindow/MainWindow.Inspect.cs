@@ -40,24 +40,16 @@ public sealed partial class MainWindow
     //  检视模式
     // ═══════════════════════════════════════════════════════════
 
-    private void SetInspectPrimaryAction(InspectPrimaryAction action, bool isEnabled)
-    {
-        _inspectPrimaryAction = action;
-        BtnSendToGen.IsEnabled = isEnabled;
+    private bool HasImportableInspectContent => _inspectMetadata != null &&
+        (_inspectMetadata.IsNaiParsed || _inspectMetadata.IsSdFormat || _inspectMetadata.IsModelInference);
 
-        switch (action)
-        {
-            case InspectPrimaryAction.InferTags:
-                BtnSendToGenIcon.Symbol = Symbol.Tag;
-                BtnSendToGenText.Text = L("inspect.action.infer");
-                break;
-            case InspectPrimaryAction.DisabledSend:
-            case InspectPrimaryAction.SendMetadata:
-            default:
-                BtnSendToGenIcon.Symbol = Symbol.Send;
-                BtnSendToGenText.Text = L("inspect.action.send_metadata");
-                break;
-        }
+    private void UpdateInspectActions()
+    {
+        BtnInspectTagger.IsEnabled = _inspectImageBytes != null && !_inspectInferenceRunning;
+        TxtInspectTagger.Text = L(_inspectInferenceRunning ? "inspect.reverse.running_short"
+            : HasImportableInspectContent ? "inspect.action.infer_again" : "inspect.action.infer");
+        BtnInspectImport.IsEnabled = (_inspectImageBytes != null || HasImportableInspectContent) && !_inspectInferenceRunning;
+        TxtInspectImport.Text = L("inspect.action.import");
     }
 
     private static string FormatInspectValue(string? value)
@@ -257,27 +249,32 @@ public sealed partial class MainWindow
 
     private async Task RunInspectReverseTagAsync()
     {
+        if (_inspectInferenceRunning) return;
         if (_inspectImageBytes == null)
         {
             TxtStatus.Text = L("inspect.reverse.no_image");
             return;
         }
 
-        if (!await EnsureReverseTaggerModelAvailableAsync())
-            return;
-
-        SetInspectPrimaryAction(InspectPrimaryAction.InferTags, false);
-        BtnSendToGenText.Text = L("inspect.reverse.running_short");
-        TxtStatus.Text = L("inspect.reverse.running");
-        DebugLog($"[ReverseTagger] Start | Model={_settings.Settings.ReverseTagger.ModelPath}");
+        var imageBytes = _inspectImageBytes;
+        var sourceMetadata = _inspectMetadata;
+        _inspectInferenceRunning = true;
+        UpdateInspectActions();
 
         try
         {
+            if (!await EnsureReverseTaggerModelAvailableAsync() || !ReferenceEquals(imageBytes, _inspectImageBytes))
+                return;
+            TxtStatus.Text = L("inspect.reverse.running");
+            DebugLog($"[ReverseTagger] Start | Model={_settings.Settings.ReverseTagger.ModelPath}");
             var result = await _reverseTaggerService.InferAsync(
-                _inspectImageBytes,
+                imageBytes,
                 _settings.Settings.ReverseTagger,
                 PreferCpuForOnnxInference);
 
+            // Loading another image or editing its metadata must not receive an older inference result.
+            if (!ReferenceEquals(imageBytes, _inspectImageBytes) || !ReferenceEquals(sourceMetadata, _inspectMetadata))
+                return;
             _inspectMetadata = new ImageMetadata
             {
                 PositivePrompt = result.PositivePrompt,
@@ -300,11 +297,13 @@ public sealed partial class MainWindow
         catch (Exception ex)
         {
             DebugLog($"[ReverseTagger] Failed: {ex}");
-            SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
-            TxtStatus.Text = Lf("inspect.reverse.failed", ex.Message);
+            if (ReferenceEquals(imageBytes, _inspectImageBytes))
+                TxtStatus.Text = Lf("inspect.reverse.failed", ex.Message);
         }
         finally
         {
+            _inspectInferenceRunning = false;
+            UpdateInspectActions();
             if (ShouldUnloadOnnxModelsAfterInference)
                 _reverseTaggerService.UnloadModel();
         }

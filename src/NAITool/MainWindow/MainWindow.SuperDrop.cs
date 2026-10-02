@@ -517,7 +517,6 @@ public sealed partial class MainWindow
             switch (action)
             {
                 case SuperDropAction.GeneratePrompt:
-                    SwitchMode(AppMode.ImageGeneration);
                     await ApplySuperDropGenerationPromptAsync(file);
                     break;
                 case SuperDropAction.GenerateVibe:
@@ -529,13 +528,11 @@ public sealed partial class MainWindow
                     await AddDroppedPreciseReferenceAsync(file);
                     break;
                 case SuperDropAction.I2IPrompt:
-                    SwitchMode(AppMode.I2I);
                     await ApplySuperDropI2IPromptAsync(file);
                     break;
                 case SuperDropAction.I2IImportPrompt:
                     SwitchMode(AppMode.I2I);
                     await MaskCanvas.LoadImageAsync(file);
-                    await ApplySuperDropI2IPromptAsync(file);
                     break;
                 case SuperDropAction.I2IPrecise:
                     SwitchMode(AppMode.I2I);

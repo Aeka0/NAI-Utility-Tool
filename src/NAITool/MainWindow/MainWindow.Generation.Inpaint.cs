@@ -215,6 +215,11 @@ public sealed partial class MainWindow
 
     private async void SendImageToI2I(byte[] imageBytes, string? sourcePath = null)
     {
+        await SendImageToI2IAsync(imageBytes, sourcePath);
+    }
+
+    private async Task<bool> SendImageToI2IAsync(byte[] imageBytes, string? sourcePath = null, bool importMetadata = true)
+    {
         try
         {
             SaveCurrentPromptToBuffer();
@@ -231,7 +236,7 @@ public sealed partial class MainWindow
             _i2iApplyUndoStack.Clear();
             _i2iApplyRedoStack.Clear();
 
-            var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(imageBytes));
+            var meta = importMetadata ? await Task.Run(() => ImageMetadataService.ReadFromBytes(imageBytes)) : null;
 
             string sendPos, sendNeg, sendStyle;
             if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat))
@@ -272,9 +277,12 @@ public sealed partial class MainWindow
             int imgW = (int)bitmap.SizeInPixels.Width;
             int imgH = (int)bitmap.SizeInPixels.Height;
 
-            _i2iPositivePrompt = sendPos;
-            _i2iNegativePrompt = sendNeg;
-            _i2iStylePrompt = sendStyle;
+            if (importMetadata)
+            {
+                _i2iPositivePrompt = sendPos;
+                _i2iNegativePrompt = sendNeg;
+                _i2iStylePrompt = sendStyle;
+            }
 
             var importSize = MaskCanvasControl.ResolveImportCanvasSize(
                 imgW, imgH, IsAssetProtectionSizeLimitEnabled());
@@ -305,8 +313,13 @@ public sealed partial class MainWindow
             TxtStatus.Text = sizeApplied
                 ? Lf("i2i.sent_with_synced_size", imgW, imgH)
                 : Lf("i2i.sent_with_canvas_size", imgW, imgH, canvasW, canvasH);
+            return true;
         }
-        catch (Exception ex) { TxtStatus.Text = Lf("i2i.send_failed", ex.Message); }
+        catch (Exception ex)
+        {
+            TxtStatus.Text = Lf("i2i.send_failed", ex.Message);
+            return false;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════

@@ -52,7 +52,7 @@ public sealed partial class MainWindow
             _i2iApplyRedoStack.Clear();
             var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
             if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat))
-                ApplyMetadataToI2I(meta, Path.GetFileName(filePath));
+                await ImportMetadataAsync(meta, toI2I: true, fileName: Path.GetFileName(filePath));
         }
         catch { }
     }

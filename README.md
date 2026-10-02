@@ -71,6 +71,8 @@ The current project version is `1.2.0`. The project is still evolving quickly, a
 
 - Supports dragging in or opening images to inspect NovelAI metadata.
 - Can restore prompts, character prompts, character coordinates and custom-position settings, parameters, and reference-image information back into generation or image-to-image workspaces.
+- Image parameter imports let you select prompts, characters, model, generation settings, size, seed, and references independently. Seeds are unchecked by default. Characters can be replaced or appended, and recorded actual prompts can be imported.
+- The inspect page has separate Tagger and Import actions. The import dialog ends with Send to generation, Send to image-to-image, and Cancel buttons. The image import checkbox stays visible and only applies when sending to image-to-image. Leaving it unchecked preserves the canvas and imports only the selected parameters.
 - Supports removing metadata on save and global metadata stripping.
 - Supports image obfuscation and de-obfuscation.
 - Can optionally configure a local ONNX reverse tagger model for image tag inference.

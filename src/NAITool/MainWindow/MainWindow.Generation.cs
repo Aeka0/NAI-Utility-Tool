@@ -981,15 +981,21 @@ public sealed partial class MainWindow
             return;
 
         var bytes = await File.ReadAllBytesAsync(file.Path);
-        await ApplyDroppedImageMetadata(bytes, file.Name);
+        await ApplyDroppedImageMetadata(bytes, file.Name, promptForOptions: true);
     }
 
-    private async Task ApplyDroppedImageMetadata(byte[] bytes, string fileName, bool skipSeed = false)
+    private async Task ApplyDroppedImageMetadata(byte[] bytes, string fileName, bool skipSeed = false, bool promptForOptions = false)
     {
         var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
-        if (meta == null || !meta.IsNaiParsed)
+        if (meta == null || (!meta.IsNaiParsed && !(promptForOptions && meta.IsSdFormat)))
         {
             TxtStatus.Text = Lf("metadata.drop_no_nai_data", fileName);
+            return;
+        }
+
+        if (promptForOptions)
+        {
+            await ImportMetadataAsync(meta);
             return;
         }
 

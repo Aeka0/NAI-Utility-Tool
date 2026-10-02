@@ -230,7 +230,7 @@ public sealed partial class MainWindow : Window
     private string? _inspectImagePath;
     private bool _inspectRawModified;
     private MenuBarItem? _menuTools;
-    private InspectPrimaryAction _inspectPrimaryAction = InspectPrimaryAction.SendMetadata;
+    private bool _inspectInferenceRunning;
 
     // ═══ 效果模式 ═══
     private readonly List<EffectEntry> _effects = new();
@@ -313,13 +313,6 @@ public sealed partial class MainWindow : Window
     [
         "native", "karras", "exponential", "polyexponential",
     ];
-
-    private enum InspectPrimaryAction
-    {
-        SendMetadata,
-        InferTags,
-        DisabledSend,
-    }
 
     private static string AppRootDir => AppPathResolver.AppRootDir;
     private static string OutputBaseDir => Path.Combine(AppRootDir, "output");

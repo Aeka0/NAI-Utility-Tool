@@ -583,15 +583,22 @@ public sealed partial class MainWindow
 
     private static void SetCharactersFromMetadata(List<CharacterEntry> target, ImageMetadata meta)
     {
-        target.Clear();
-        int count = Math.Min(meta.CharacterPrompts.Count, CharacterPromptRules.MaxRetainedCount);
+        ImportCharactersFromMetadata(target, meta, new MetadataImportSelection());
+    }
+
+    private static int ImportCharactersFromMetadata(List<CharacterEntry> target, ImageMetadata meta, MetadataImportSelection selection)
+    {
+        if (!selection.AppendCharacters) target.Clear();
+        var positivePrompts = selection.CharacterPromptsFrom(meta);
+        var negativePrompts = selection.CharacterPromptsFrom(meta, negative: true);
+        int capacity = Math.Max(0, CharacterPromptRules.MaxRetainedCount - target.Count);
+        int count = Math.Min(positivePrompts.Count, capacity);
         for (int i = 0; i < count; i++)
         {
             var entry = new CharacterEntry
             {
-                PositivePrompt = meta.CharacterPrompts[i],
-                NegativePrompt = i < meta.CharacterNegativePrompts.Count
-                    ? meta.CharacterNegativePrompts[i] : "",
+                PositivePrompt = positivePrompts[i],
+                NegativePrompt = i < negativePrompts.Count ? negativePrompts[i] : "",
                 CenterX = i < meta.CharacterCenters.Count
                     ? CharacterPromptRules.NormalizeCoordinate(meta.CharacterCenters[i].X) : 0.5,
                 CenterY = i < meta.CharacterCenters.Count
@@ -600,5 +607,6 @@ public sealed partial class MainWindow
             };
             target.Add(entry);
         }
+        return count;
     }
 }

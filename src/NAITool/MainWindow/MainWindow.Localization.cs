@@ -41,7 +41,7 @@ public sealed partial class MainWindow
         byte[] bytes = await File.ReadAllBytesAsync(file.Path);
         var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
         if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat || meta.IsModelInference))
-            ApplyMetadataToGeneration(meta);
+            await ImportMetadataAsync(meta);
         else
             TxtStatus.Text = Lf("metadata.no_usable_generation_metadata", file.Name);
     }
@@ -51,7 +51,7 @@ public sealed partial class MainWindow
         byte[] bytes = await File.ReadAllBytesAsync(file.Path);
         var meta = await Task.Run(() => ImageMetadataService.ReadFromBytes(bytes));
         if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat))
-            ApplyMetadataToI2I(meta, file.Name);
+            await ImportMetadataAsync(meta, toI2I: true, fileName: file.Name);
         else
             TxtStatus.Text = Lf("metadata.no_usable_generation_metadata", file.Name);
     }
@@ -233,8 +233,7 @@ public sealed partial class MainWindow
         TxtInspectSamplerLabel.Text = L("panel.sampler");
         TxtInspectScheduleLabel.Text = L("panel.scheduler");
         TxtInspectSeedLabel.Text = L("panel.seed_short");
-        SetInspectPrimaryAction(_inspectPrimaryAction, BtnSendToGen.IsEnabled);
-        TxtSendInspectToI2I.Text = L("button.send_whole_to_i2i");
+        UpdateInspectActions();
 
         TxtUpscaleModelLabel.Text = L("upscale.model");
         TxtUpscaleScaleLabel.Text = L("upscale.scale");
@@ -369,7 +368,7 @@ public sealed partial class MainWindow
         }
 
         RefreshCharacterPanel();
-        SetInspectPrimaryAction(_inspectPrimaryAction, BtnSendToGen.IsEnabled);
+        UpdateInspectActions();
         SetUpscaleButtonText(_upscaleRunning ? L("button.upscaling") : L("button.start_upscale"));
         UpdatePromptTabText();
         UpdateWorkspaceModeButton();

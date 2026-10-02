@@ -1410,22 +1410,22 @@
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                             BorderThickness="0,1,0,0">
                         <StackPanel Spacing="6">
-                            <Button x:Name="BtnSendToGen" Click="OnSendMetadataToGen"
+                            <Button x:Name="BtnInspectTagger" Click="OnInspectTagger"
                                     IsEnabled="False"
                                     HorizontalAlignment="Stretch"
                                     Style="{StaticResource AccentButtonStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                    <SymbolIcon x:Name="BtnSendToGenIcon" Symbol="Send" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="BtnSendToGenText" Text="" VerticalAlignment="Center"/>
+                                    <SymbolIcon Symbol="Tag" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="TxtInspectTagger" Text="" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="BtnSendInspectToI2I" Click="OnSendInspectToI2I"
+                            <Button x:Name="BtnInspectImport" Click="OnInspectImport"
                                     IsEnabled="False"
                                 HorizontalAlignment="Stretch"
                                 Style="{StaticResource AccentButtonStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8B9;" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="TxtSendInspectToI2I" Text="" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="TxtInspectImport" Text="" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>

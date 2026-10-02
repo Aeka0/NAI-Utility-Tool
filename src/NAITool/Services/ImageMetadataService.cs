@@ -16,6 +16,10 @@ public class ImageMetadata
     public string ModelDisplayName => !string.IsNullOrWhiteSpace(Model) ? Model : Source ?? "";
     public string PositivePrompt { get; set; } = "";
     public string NegativePrompt { get; set; } = "";
+    public string? ActualPositivePrompt { get; set; }
+    public string? ActualNegativePrompt { get; set; }
+    public List<string?> ActualCharacterPrompts { get; set; } = new();
+    public List<string?> ActualCharacterNegativePrompts { get; set; } = new();
     public List<string> CharacterPrompts { get; set; } = new();
     public List<string> CharacterNegativePrompts { get; set; } = new();
     public List<(double X, double Y)> CharacterCenters { get; set; } = new();
@@ -658,6 +662,13 @@ public static class ImageMetadataService
                 straightAlpha.ValueKind is JsonValueKind.True or JsonValueKind.False)
                 meta.StraightAlpha = straightAlpha.GetBoolean();
 
+            if (root.TryGetProperty("actual_prompts", out var actualPrompts) &&
+                actualPrompts.ValueKind == JsonValueKind.Object)
+            {
+                meta.ActualPositivePrompt = ReadActualCaption(actualPrompts, "prompt", meta.ActualCharacterPrompts);
+                meta.ActualNegativePrompt = ReadActualCaption(actualPrompts, "negative_prompt", meta.ActualCharacterNegativePrompts);
+            }
+
             if (root.TryGetProperty("use_coords", out var useCoords) &&
                 useCoords.ValueKind is JsonValueKind.True or JsonValueKind.False)
                 meta.UseCharacterCoordinates = useCoords.GetBoolean();
@@ -680,6 +691,24 @@ public static class ImageMetadataService
             return meta;
         }
         catch { return null; }
+    }
+
+    private static string? ReadActualCaption(JsonElement actualPrompts, string key, List<string?> characters)
+    {
+        if (!actualPrompts.TryGetProperty(key, out var caption)) return null;
+        if (caption.ValueKind == JsonValueKind.String) return caption.GetString();
+        if (caption.ValueKind != JsonValueKind.Object) return null;
+
+        if (caption.TryGetProperty("char_captions", out var characterCaptions) &&
+            characterCaptions.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var character in characterCaptions.EnumerateArray())
+                characters.Add(character.ValueKind == JsonValueKind.Object &&
+                    character.TryGetProperty("char_caption", out var prompt) && prompt.ValueKind == JsonValueKind.String
+                        ? prompt.GetString() : null);
+        }
+        return caption.TryGetProperty("base_caption", out var baseCaption) && baseCaption.ValueKind == JsonValueKind.String
+            ? baseCaption.GetString() : null;
     }
 
     private static void ReadCharacterCaptions(JsonElement prompt, List<string> captions,

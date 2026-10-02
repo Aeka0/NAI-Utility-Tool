@@ -119,6 +119,7 @@ public sealed partial class MainWindow
 
     private void DisplayInspectMetadata(ImageMetadata? meta)
     {
+        UpdateInspectActions();
         TxtInspectModel.Text = meta == null || meta.IsModelInference ? "-" : FormatInspectValue(meta.ModelDisplayName);
         InspectModelPanel.Visibility = meta != null ? Visibility.Visible : Visibility.Collapsed;
         TxtInspectRawMeta.Visibility = Visibility.Collapsed;
@@ -142,8 +143,6 @@ public sealed partial class MainWindow
             InspectPlaceholder.Text = L("inspect.no_recognized_metadata");
             InspectPlaceholder.Visibility = Visibility.Visible;
             InspectContent.Visibility = Visibility.Collapsed;
-            SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
-            BtnSendInspectToI2I.IsEnabled = _inspectImageBytes != null;
             UpdateDynamicMenuStates();
             return;
         }
@@ -154,16 +153,12 @@ public sealed partial class MainWindow
             InspectContent.Visibility = Visibility.Collapsed;
             TxtInspectRawMeta.Visibility = Visibility.Visible;
             TxtInspectRawMeta.Text = meta.RawJson;
-            SetInspectPrimaryAction(InspectPrimaryAction.InferTags, _inspectImageBytes != null);
-            BtnSendInspectToI2I.IsEnabled = _inspectImageBytes != null;
             UpdateDynamicMenuStates();
             return;
         }
 
         InspectPlaceholder.Visibility = Visibility.Collapsed;
         InspectContent.Visibility = Visibility.Visible;
-        SetInspectPrimaryAction(InspectPrimaryAction.SendMetadata, true);
-        BtnSendInspectToI2I.IsEnabled = true;
 
         TxtInspectPositive.Text = FormatInspectValue(meta.PositivePrompt);
         TxtInspectNegative.Text = FormatInspectValue(meta.NegativePrompt);
@@ -283,6 +278,7 @@ public sealed partial class MainWindow
             var newMeta = ImageMetadataService.TryParseJson(compactJson);
             if (newMeta != null)
             {
+                newMeta.IsNaiParsed = true;
                 _inspectMetadata = newMeta;
                 _inspectRawModified = true;
                 DisplayInspectMetadata(newMeta);
@@ -416,221 +412,16 @@ public sealed partial class MainWindow
         InspectImageScroller.ChangeView(0, 0, zoom);
     }
 
-    private void OnSendInspectToI2I(object sender, RoutedEventArgs e)
+    private async void OnInspectTagger(object sender, RoutedEventArgs e)
     {
-        if (_inspectImageBytes == null) return;
-
-        var savedPos = _genPositivePrompt;
-        var savedNeg = _genNegativePrompt;
-        var savedStyle = _genStylePrompt;
-
-        if (_inspectMetadata != null)
-        {
-            _genPositivePrompt = _inspectMetadata.PositivePrompt;
-            _genNegativePrompt = _inspectMetadata.NegativePrompt;
-            _genStylePrompt = "";
-        }
-
-        SendImageToI2I(_inspectImageBytes, _inspectImagePath);
-
-        _genPositivePrompt = savedPos;
-        _genNegativePrompt = savedNeg;
-        _genStylePrompt = savedStyle;
+        await RunInspectReverseTagAsync();
     }
 
-    private async void OnSendMetadataToGen(object sender, RoutedEventArgs e)
+    private async void OnInspectImport(object sender, RoutedEventArgs e)
     {
-        if (_inspectPrimaryAction == InspectPrimaryAction.InferTags)
-        {
-            await RunInspectReverseTagAsync();
-            return;
-        }
-
-        if (_inspectMetadata == null) return;
-        ApplyMetadataToGeneration(_inspectMetadata);
-    }
-
-    private void ApplyMetadataToGeneration(ImageMetadata meta)
-    {
-        SwitchMode(AppMode.ImageGeneration);
-
-        bool blockOversizedSteps = IsAssetProtectionStepLimitEnabled();
-        bool blockOversizedDimensions = IsAssetProtectionSizeLimitEnabled();
-        var skipped = new List<string>();
-        var notes = new List<string>();
-
-        string positivePrompt = meta.PositivePrompt;
-        string negativePrompt = meta.NegativePrompt;
-
-        if (meta.IsSdFormat)
-        {
-            positivePrompt = ImageMetadataService.ConvertSdPromptToNai(positivePrompt);
-            negativePrompt = ImageMetadataService.ConvertSdPromptToNai(negativePrompt);
-            notes.Add(L("metadata.note.sd_converted"));
-        }
-
-        var p = _settings.Settings.GenParameters;
-        ApplyImportedImageModel(meta, p, GenerationModels);
-        var presetMatch = ExtractImportedPromptPresetMatch(positivePrompt, negativePrompt, p.Model);
-        positivePrompt = presetMatch.PositivePrompt;
-        negativePrompt = presetMatch.NegativePrompt;
-
-        _genPositivePrompt = positivePrompt;
-        _genNegativePrompt = negativePrompt;
-        _genStylePrompt = "";
-
-        if (meta.IsModelInference)
-        {
-            _genCharacters.Clear();
-            ClearReferenceFeatures();
-            RefreshCharacterPanel();
-            LoadPromptFromBuffer();
-            UpdateSplitVisibility();
-            UpdateSizeWarningVisuals();
-            if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();
-            TxtStatus.Text = L("inspect.sent_reverse_result_to_generate");
-            return;
-        }
-
-        p.QualityToggle = presetMatch.QualityMatched;
-        p.UcPreset = presetMatch.UcPresetMatched ?? 2;
-
-        if (meta.Steps > 0)
-        {
-            if (blockOversizedSteps && meta.Steps > 28)
-                skipped.Add(Lf("metadata.skipped.steps", meta.Steps));
-            else
-                p.Steps = meta.Steps;
-        }
-        if (!string.IsNullOrEmpty(meta.Seed)) p.Seed = meta.Seed;
-        if (meta.Scale > 0) p.Scale = meta.Scale;
-        if (!meta.IsSdFormat)
-        {
-            p.CfgRescale = meta.CfgRescale;
-            if (meta.TagHintTransparentBackground.HasValue) p.TagHintTransparentBackground = meta.TagHintTransparentBackground.Value;
-            if (meta.StraightAlpha.HasValue) p.StraightAlpha = meta.StraightAlpha.Value;
-        }
-        if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = NormalizeSamplerForModel(meta.Sampler, p.Model);
-        if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = NormalizeScheduleForModel(meta.NoiseSchedule, p.Model, p.Schedule);
-        if (!meta.IsSdFormat) p.Variety = meta.SmDyn || meta.Sm;
-
-        p.Sampler = NormalizeSamplerForModel(p.Sampler, p.Model);
-        p.Schedule = NormalizeScheduleForModel(p.Schedule, p.Model);
-
-        if (meta.Width > 0 && meta.Height > 0)
-        {
-            if (blockOversizedDimensions && (long)meta.Width * meta.Height > 1024L * 1024)
-                skipped.Add(Lf("metadata.skipped.size", meta.Width, meta.Height));
-            else
-            {
-                _customWidth = meta.Width;
-                _customHeight = meta.Height;
-            }
-        }
-
-        if (meta.CharacterPrompts.Count > 0)
-            SetGenCharactersFromMetadata(meta);
-        else
-            _genCharacters.Clear();
-        ApplyReferenceDataFromMetadata(meta);
-
-        RefreshCharacterPanel();
-
-        SetSizeInputsSilently(_customWidth, _customHeight);
-        NbSeed.Value = p.Seed;
-        ChkVariety.IsChecked = p.Variety;
-        if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();
-
-        LoadPromptFromBuffer();
-        UpdateSplitVisibility();
-        UpdateSizeWarningVisuals();
-
-        if (presetMatch.QualityMatched) notes.Add(L("metadata.note.quality_extracted"));
-        if (presetMatch.UcPresetMatched.HasValue)
-            notes.Add(Lf("metadata.note.negative_quality_extracted", GetUcPresetDisplayName(presetMatch.UcPresetMatched.Value)));
-        if (skipped.Count > 0) notes.Add(Lf("metadata.note.incompatible_skipped", string.Join(", ", skipped)));
-        if (meta.CharacterPrompts.Count > 0) notes.Add(Lf("metadata.note.characters_imported", meta.CharacterPrompts.Count));
-        AppendReferenceImportNotes(meta, notes);
-
-        TxtStatus.Text = notes.Count > 0
-            ? Lf("inspect.sent_parameters_with_notes", string.Join("; ", notes))
-            : L("inspect.sent_parameters_to_generate");
-    }
-
-    private void ApplyMetadataToI2I(ImageMetadata meta, string fileName)
-    {
-        var notes = new List<string>();
-        var skipped = new List<string>();
-        bool blockOversizedSteps = IsAssetProtectionStepLimitEnabled();
-
-        string positivePrompt = meta.PositivePrompt;
-        string negativePrompt = meta.NegativePrompt;
-
-        if (meta.IsSdFormat)
-        {
-            positivePrompt = ImageMetadataService.ConvertSdPromptToNai(positivePrompt);
-            negativePrompt = ImageMetadataService.ConvertSdPromptToNai(negativePrompt);
-            notes.Add(L("metadata.note.sd_converted"));
-        }
-
-        var p = ImageRequestParameters;
-        ApplyImportedImageModel(meta, p, _i2iEditMode == I2IEditMode.Denoise ? GenerationModels : I2IModels);
-        var presetMatch = ExtractImportedPromptPresetMatch(positivePrompt, negativePrompt, p.Model);
-        positivePrompt = presetMatch.PositivePrompt;
-        negativePrompt = presetMatch.NegativePrompt;
-
-        _i2iPositivePrompt = positivePrompt;
-        _i2iNegativePrompt = negativePrompt;
-        _i2iStylePrompt = "";
-
-        p.QualityToggle = presetMatch.QualityMatched;
-        p.UcPreset = presetMatch.UcPresetMatched ?? 2;
-
-        if (meta.Steps > 0)
-        {
-            if (blockOversizedSteps && meta.Steps > 28)
-                skipped.Add(Lf("metadata.skipped.steps", meta.Steps));
-            else
-                p.Steps = meta.Steps;
-        }
-        if (!string.IsNullOrEmpty(meta.Seed)) p.Seed = meta.Seed;
-        if (meta.Scale > 0) p.Scale = meta.Scale;
-        if (!meta.IsSdFormat) p.CfgRescale = meta.CfgRescale;
-        if (!string.IsNullOrEmpty(meta.Sampler)) p.Sampler = NormalizeSamplerForModel(meta.Sampler, p.Model);
-        if (!string.IsNullOrEmpty(meta.NoiseSchedule)) p.Schedule = NormalizeScheduleForModel(meta.NoiseSchedule, p.Model, p.Schedule);
-        if (!meta.IsSdFormat) p.Variety = meta.SmDyn || meta.Sm;
-
-        p.Sampler = NormalizeSamplerForModel(p.Sampler, p.Model);
-        p.Schedule = NormalizeScheduleForModel(p.Schedule, p.Model);
-
-        NbSeed.Value = p.Seed;
-        ChkVariety.IsChecked = p.Variety;
-
-        if (meta.IsNaiParsed)
-        {
-            if (meta.CharacterPrompts.Count > 0)
-                SetI2ICharactersFromMetadata(meta);
-            else
-                _i2iCharacters.Clear();
-            ApplyReferenceDataFromMetadata(meta, AppMode.I2I);
-        }
-
-        RefreshCharacterPanel();
-        LoadPromptFromBuffer();
-        UpdateSplitVisibility();
-        if (IsAdvancedWindowOpen) SyncSidebarToAdvanced();
-
-        if (presetMatch.QualityMatched) notes.Add(L("metadata.note.quality_extracted"));
-        if (presetMatch.UcPresetMatched.HasValue)
-            notes.Add(Lf("metadata.note.negative_quality_extracted", GetUcPresetDisplayName(presetMatch.UcPresetMatched.Value)));
-        if (skipped.Count > 0) notes.Add(Lf("metadata.note.skipped", string.Join(", ", skipped)));
-        if (meta.IsNaiParsed && meta.CharacterPrompts.Count > 0)
-            notes.Add(Lf("metadata.note.characters_imported", meta.CharacterPrompts.Count));
-        AppendReferenceImportNotes(meta, notes);
-
-        TxtStatus.Text = notes.Count > 0
-            ? Lf("metadata.applied_with_notes", fileName, string.Join("; ", notes))
-            : Lf("metadata.applied", fileName);
+        if ((_inspectImageBytes == null && !HasImportableInspectContent) || _inspectInferenceRunning) return;
+        await ImportMetadataAsync(_inspectMetadata ?? new ImageMetadata(), fileName: _inspectImagePath == null ? L("image.preview_label") : Path.GetFileName(_inspectImagePath),
+            chooseTarget: true, sourceImage: _inspectImageBytes, sourcePath: _inspectImagePath);
     }
 
 }
