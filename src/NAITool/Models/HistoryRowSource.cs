@@ -7,7 +7,7 @@ public sealed record HistoryRow(int Version, int Index, string DateLabel, bool I
 
 /// <summary>
 /// Random-access data virtualization for the single shared ListView. Only requested rows are
-/// materialized; Count covers the whole catalog, so dragging the thumb can jump to any date.
+/// materialized; Count covers the loaded prefix and TotalCount covers the catalog.
 /// The gallery uses several cells per virtualized row, keeping full-width date separators.
 /// All mutation and access is owned by the UI thread.
 /// </summary>
@@ -24,10 +24,13 @@ public sealed class HistoryRowSource : IList, INotifyCollectionChanged
     private double _cellWidth = 220;
     private double _cellHeight = 140;
     public int Count { get; private set; }
+    public int TotalCount { get; private set; }
+    public bool HasMore => Count < TotalCount;
     public int CachedRowCount => _cache.Count;
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
-    public void Reset(HistoryFileIndex files, IEnumerable<HistoryListItem> pending, int columns, double cellWidth, double cellHeight = 140)
+    public void Reset(HistoryFileIndex files, IEnumerable<HistoryListItem> pending, int columns, double cellWidth, double cellHeight = 140,
+        int loadedRows = int.MaxValue)
     {
         _version++;
         _columns = Math.Max(1, columns);
@@ -38,6 +41,7 @@ public sealed class HistoryRowSource : IList, INotifyCollectionChanged
         _cache.Clear();
         _cacheOrder.Clear();
         Count = 0;
+        TotalCount = 0;
         var pendingByDate = pending.GroupBy(item => item.DateKey!).ToDictionary(group => group.Key, group => group.ToArray());
         var filesByDate = files.Days.ToDictionary(day => day.Date, day => day.Files);
         var dates = filesByDate.Keys.Union(pendingByDate.Keys).OrderByDescending(date => date, StringComparer.Ordinal);
@@ -47,12 +51,33 @@ public sealed class HistoryRowSource : IList, INotifyCollectionChanged
             var waiting = pendingByDate.GetValueOrDefault(date) ?? [];
             int items = checked(paths.Length + waiting.Length);
             int rows = 1 + (items - 1) / _columns;
-            var group = new Group(date, paths, waiting, Count, rows + 1);
+            var group = new Group(date, paths, waiting, TotalCount, rows + 1);
             _groups.Add(group);
             _groupsByDate.Add(date, group);
-            Count = checked(Count + group.Count);
+            TotalCount = checked(TotalCount + group.Count);
         }
+        Count = Math.Clamp(loadedRows, 0, TotalCount);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    public void ResizeCells(double width, double height)
+    {
+        _cellWidth = Math.Max(24, width);
+        _cellHeight = Math.Max(24, height);
+        foreach (var row in _cache.Values)
+            foreach (var item in row.Items) item.Resize(_cellWidth, _cellHeight);
+    }
+
+    public void LoadMore(int rows)
+    {
+        int target = (int)Math.Min(TotalCount, (long)Count + Math.Max(0, rows));
+        while (Count < target)
+        {
+            int index = Count++;
+            // Individual additions are supported by WinUI's collection adapter; no Reset
+            // or range notification that could recycle the already displayed images.
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, GetRow(index), index));
+        }
     }
 
     public HistoryRow GetRow(int index)
@@ -108,7 +133,7 @@ public sealed class HistoryRowSource : IList, INotifyCollectionChanged
     public int IndexOf(object? value) => value is HistoryRow row && row.Version == _version ? row.Index : -1;
     public bool Contains(object? value) => IndexOf(value) >= 0;
     public bool IsReadOnly => true;
-    public bool IsFixedSize => true;
+    public bool IsFixedSize => false;
     public bool IsSynchronized => false;
     public object SyncRoot => this;
     public IEnumerator GetEnumerator() { for (int i = 0; i < Count; i++) yield return GetRow(i); }

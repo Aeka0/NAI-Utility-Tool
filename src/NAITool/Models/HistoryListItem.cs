@@ -1,13 +1,31 @@
+using System.ComponentModel;
+
 namespace NAITool;
 
-/// <summary>An immutable cell in a realized history row. Separators belong to the row source.</summary>
-public sealed record HistoryListItem(
-    string? FilePath,
-    string? PendingId,
-    string? DateKey,
-    double ThumbnailWidth,
-    double ThumbnailHeight)
+/// <summary>Stable cell identity with independently observable layout dimensions.</summary>
+public sealed class HistoryListItem(string? filePath, string? pendingId, string? dateKey, double width, double height) : INotifyPropertyChanged
 {
+    public string? FilePath { get; } = filePath;
+    public string? PendingId { get; } = pendingId;
+    public string? DateKey { get; } = dateKey;
+    public double ThumbnailWidth { get; private set; } = width;
+    public double ThumbnailHeight { get; private set; } = height;
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void Resize(double width, double height)
+    {
+        if (ThumbnailWidth != width)
+        {
+            ThumbnailWidth = width;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ThumbnailWidth)));
+        }
+        if (ThumbnailHeight != height)
+        {
+            ThumbnailHeight = height;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ThumbnailHeight)));
+        }
+    }
+
     public static HistoryListItem CreateThumbnail(string filePath, double thumbnailWidth, double thumbnailHeight) =>
         new(filePath, null, null, thumbnailWidth, thumbnailHeight);
 

@@ -76,6 +76,8 @@ public sealed partial class MainWindow
         _historyResizePointerId = null;
         HistoryResizeHandle.ReleasePointerCaptures();
         HistoryResizeGrip.Opacity = 0.45;
+        QueueHistoryThumbnailPump();
+        QueueHistoryLoadMore();
         // Persist once per gesture, never on each pointer move or automatic window-size adjustment.
         if (Math.Abs(_settings.Settings.HistorySidebarWidth - _historyResizeSavedWidth) >= 0.5)
             _settings.Save();

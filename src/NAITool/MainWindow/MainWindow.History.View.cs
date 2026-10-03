@@ -10,6 +10,7 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
+    private const int HistoryPageRows = 64;
     private readonly HistoryRowSource _historyRows = new();
     private ScrollViewer? _historyListScrollViewer;
     private XamlRoot? _historyXamlRoot;
@@ -21,7 +22,8 @@ public sealed partial class MainWindow
     private HistoryAnchor? _historyPendingAnchor;
     private int _historyAnchorRow = -1;
     private bool _historyRestoringAnchor;
-    private sealed record HistoryAnchor(string? Path, string? PendingId, string? Date, int Row, double Top);
+    private sealed record HistoryAnchor(string? Path, string? PendingId, string? Date, int Row, double ViewportY, double RowFraction = 0);
+    private bool _historyLoadMoreQueued;
 
     private void RefreshHistoryPanel(bool resetScroll = false)
     {
@@ -39,7 +41,8 @@ public sealed partial class MainWindow
             _historyRestoringAnchor = false;
             _historyRows.Reset(_historyFiles, _historyPendingItems.Where(item =>
                     !IsShowingHistoryFavorites && item.DateKey != null && IsHistoryDateVisibleForSelection(item.DateKey, _selectedHistoryDate)),
-                _historyColumns, _historyCellWidth, _historyCellHeight);
+                _historyColumns, _historyCellWidth, _historyCellHeight,
+                reset ? HistoryPageRows : Math.Max(HistoryPageRows, _historyRows.Count));
             HistoryEmptyState.Text = L(IsShowingHistoryFavorites ? "gallery.favorites_empty" : "history.empty");
             HistoryEmptyState.Visibility = _historyRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             HistoryListView.Visibility = _historyRows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -64,7 +67,8 @@ public sealed partial class MainWindow
         // Reserve the vertical scrollbar gutter. All sizes here are DIPs, including at high DPI.
         double width = Math.Max(80, HistoryListView.ActualWidth - 16);
         bool isGallery = _currentMode == AppMode.Gallery;
-        double cellHeight = isGallery ? _settings.Settings.GalleryThumbnailHeight : 140;
+        double cellHeight = isGallery ? _settings.Settings.GalleryThumbnailHeight
+            : 140 * (width - 16) / (AppSettings.DefaultHistorySidebarWidth - 32);
         // Preserve the original gallery density at the default size, scaling both dimensions.
         double columnWidth = 200 * cellHeight / AppSettings.DefaultGalleryThumbnailHeight;
         int columns = isGallery ? Math.Max(1, (int)(width / columnWidth)) : 1;
@@ -72,10 +76,20 @@ public sealed partial class MainWindow
         if (columns == _historyColumns && Math.Abs(cellWidth - _historyCellWidth) < 1 &&
             Math.Abs(cellHeight - _historyCellHeight) < 1) return;
         _historyPendingAnchor ??= CaptureHistoryAnchor();
+        bool regroup = columns != _historyColumns;
         _historyColumns = columns;
         _historyCellWidth = cellWidth;
         _historyCellHeight = cellHeight;
-        RefreshHistoryPanel();
+        if (regroup) RefreshHistoryPanel();
+        else
+        {
+            _historyRows.ResizeCells(cellWidth, cellHeight);
+            // Realized rows can outlive the bounded row cache.
+            foreach (var image in _historyRealizedImages)
+                if (image.DataContext is HistoryListItem item) item.Resize(cellWidth, cellHeight);
+            RestoreHistoryAnchor(scrollIntoView: false);
+            QueueHistoryThumbnailPump();
+        }
     }
 
     private HistoryAnchor? CaptureHistoryAnchor()
@@ -86,14 +100,15 @@ public sealed partial class MainWindow
         return HistoryListView.ItemsPanelRoot.Children.OfType<ListViewItem>()
             .Select(container => (Container: container, Top: container.TransformToVisual(viewport).TransformPoint(new Point()).Y))
             .Where(entry => entry.Top + entry.Container.ActualHeight > 0 && entry.Top < viewport.ViewportHeight)
-            .OrderBy(entry => entry.Top)
+            .OrderBy(entry => Math.Abs(entry.Top + entry.Container.ActualHeight / 2 - viewport.ViewportHeight / 2))
             .Select(entry => entry.Container.Content is HistoryRow row
                 ? new HistoryAnchor(row.Items.FirstOrDefault()?.FilePath, row.Items.FirstOrDefault()?.PendingId,
-                    row.DateLabel, row.Index, entry.Top)
+                    row.DateLabel, row.Index, viewport.ViewportHeight / 2,
+                    Math.Clamp((viewport.ViewportHeight / 2 - entry.Top) / Math.Max(1, entry.Container.ActualHeight), 0, 1))
                 : null).FirstOrDefault(anchor => anchor != null);
     }
 
-    private void RestoreHistoryAnchor()
+    private void RestoreHistoryAnchor(bool scrollIntoView = true)
     {
         if (_historyRows.Count == 0 || _historyPendingAnchor == null)
         {
@@ -102,13 +117,16 @@ public sealed partial class MainWindow
         }
         var anchor = _historyPendingAnchor;
         int row = _historyRows.FindRow(anchor.Path, anchor.PendingId, anchor.Date);
+        if (row >= _historyRows.Count) _historyRows.LoadMore(row - _historyRows.Count + 1);
         _historyAnchorRow = row < 0 ? Math.Clamp(anchor.Row, 0, _historyRows.Count - 1) : row;
         _historyRestoringAnchor = true;
-        HistoryListView.ScrollIntoView(_historyRows.GetRow(_historyAnchorRow), ScrollIntoViewAlignment.Leading);
+        if (scrollIntoView || HistoryListView.ContainerFromIndex(_historyAnchorRow) == null)
+            HistoryListView.ScrollIntoView(_historyRows.GetRow(_historyAnchorRow), ScrollIntoViewAlignment.Leading);
     }
 
     private void OnHistoryLayoutUpdated(object? sender, object e)
     {
+        QueueHistoryLoadMore();
         if (!_historyRestoringAnchor || _historyRefreshQueued || _historyPendingAnchor == null ||
             _historyListScrollViewer == null || HistoryListView.ContainerFromIndex(_historyAnchorRow) is not ListViewItem container ||
             _historyRows.IndexOf(container.Content) != _historyAnchorRow)
@@ -119,7 +137,8 @@ public sealed partial class MainWindow
         _historyRestoringAnchor = false;
         _historyPendingAnchor = null;
         _historyListScrollViewer.ChangeView(null,
-            Math.Max(0, _historyListScrollViewer.VerticalOffset + top - anchor.Top), null, disableAnimation: true);
+            Math.Max(0, _historyListScrollViewer.VerticalOffset + top + container.ActualHeight * anchor.RowFraction - anchor.ViewportY),
+            null, disableAnimation: true);
     }
 
     private void OnHistoryListViewLoaded(object sender, RoutedEventArgs e)
@@ -147,7 +166,26 @@ public sealed partial class MainWindow
         CancelHistoryThumbnailRequests();
     }
 
-    private void OnHistoryThumbnailViewportChanged(object? sender, ScrollViewerViewChangedEventArgs e) => QueueHistoryThumbnailPump();
+    private void OnHistoryThumbnailViewportChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+    {
+        QueueHistoryThumbnailPump();
+        if (!e.IsIntermediate) QueueHistoryLoadMore();
+    }
+
+    private void QueueHistoryLoadMore()
+    {
+        if (_historyLoadMoreQueued || _historyClosed || !_historyRows.HasMore || _historyRestoringAnchor ||
+            _historyRefreshQueued || _historyResizePointerId != null || PanelHistory.Visibility != Visibility.Visible) return;
+        _historyLoadMoreQueued = true;
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            _historyLoadMoreQueued = false;
+            if (_historyClosed || _historyRestoringAnchor || _historyRefreshQueued || _historyResizePointerId != null ||
+                PanelHistory.Visibility != Visibility.Visible || _historyListScrollViewer is not { ViewportHeight: > 0 } viewer) return;
+            if (viewer.ScrollableHeight - viewer.VerticalOffset <= viewer.ViewportHeight * 2)
+                _historyRows.LoadMore(HistoryPageRows);
+        });
+    }
 
     private void OnHistoryXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => QueueHistoryThumbnailPump();
 

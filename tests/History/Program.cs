@@ -100,6 +100,44 @@ Check(rows.FindRow(generated) == -1, "Newer file cannot scroll into excluded dat
 Check(resets == 8, "Exactly one collection notification for each reset");
 Console.WriteLine($"200000-file index and random-access checks: {watch.ElapsedMilliseconds} ms; reset allocation: {indexBytes:N0} bytes.");
 
+// A loaded prefix defines the scrollbar extent; virtualization/cache eviction do not shrink it.
+var pagedRows = new HistoryRowSource();
+pagedRows.Reset(files, [], 1, 228, 140, loadedRows: 64);
+Check(pagedRows.Count == 64 && pagedRows.TotalCount == 200_100 && pagedRows.HasMore,
+    "Initial scrollbar covers the first batch, not the complete catalog");
+Check(pagedRows.CachedRowCount == 0, "Loading a page does not eagerly create all cells");
+var stableRow = pagedRows.GetRow(1);
+var stableCell = stableRow.Items[0];
+var resizedProperties = new List<string?>();
+stableCell.PropertyChanged += (_, args) => resizedProperties.Add(args.PropertyName);
+int addedRows = 0;
+pagedRows.CollectionChanged += (_, args) =>
+{
+    Check(args.Action == NotifyCollectionChangedAction.Add, "Resize and append must not reset displayed history");
+    Check(args.NewStartingIndex == 64 + addedRows && args.NewItems?.Count == 1, "Append is an ordered single-row notification");
+    addedRows++;
+};
+pagedRows.ResizeCells(456, 280);
+Check(ReferenceEquals(pagedRows.GetRow(1), stableRow) && ReferenceEquals(pagedRows.GetRow(1).Items[0], stableCell),
+    "Resizing retains row and cell identities, so images are not recycled");
+Check(stableCell.ThumbnailWidth == 456 && stableCell.ThumbnailHeight == 280 && resizedProperties.Count == 2,
+    "Existing cells notify both dimensions for proportional resizing");
+pagedRows.ResizeCells(456, 280);
+Check(resizedProperties.Count == 2 && addedRows == 0, "Unchanged dimensions do not issue collection or property notifications");
+Check(pagedRows.GetRow(2).Items[0].ThumbnailHeight == 280, "Newly realized cells use the resized dimensions");
+pagedRows.LoadMore(64);
+Check(addedRows == 64 && pagedRows.Count == 128 && ReferenceEquals(pagedRows.GetRow(1), stableRow),
+    "Appending extends the loaded range while retaining the browsed row");
+ThrowsOutOfRange(() => pagedRows.GetRow(128));
+pagedRows.LoadMore(-1);
+Check(pagedRows.Count == 128, "Invalid page count cannot shrink the loaded extent");
+var shortPage = new HistoryRowSource();
+shortPage.Reset(new HistoryFileIndex(new[] { new KeyValuePair<string, string[]>("2026-09-18", files.Take(9).ToArray()) }),
+    [], 1, 228, loadedRows: 2);
+shortPage.LoadMore(int.MaxValue);
+Check(shortPage.Count == 10 && !shortPage.HasMore && shortPage.GetRow(9).Items[0].FilePath == files[8],
+    "Final partial page is bounded and remains reachable without overflow");
+
 // Isolated temporary directory: never scan, modify, or remove real user history.
 var fixture = Directory.CreateTempSubdirectory("NAITool-history-tests-");
 try

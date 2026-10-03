@@ -72,12 +72,20 @@ public sealed partial class MainWindow
 
     private void UpdateHistoryThumbnailImage(Image image)
     {
+        string? path = (image.DataContext as HistoryListItem)?.FilePath;
+        if (path != null && string.Equals(image.Tag as string, path, StringComparison.OrdinalIgnoreCase) && image.Source != null)
+            return;
         _historyImageSources.Remove(image);
         Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(image).StopAnimation("Opacity");
-        image.Tag = (image.DataContext as HistoryListItem)?.FilePath;
+        image.Tag = path;
         image.Source = null;
         image.Opacity = 1;
         SetHistoryThumbnailPlaceholder(image, loading: true);
+        if (path != null && _historyThumbnailCache.TryGetValue(path, out var cached))
+        {
+            TouchHistoryThumbnailCacheEntry(path);
+            SetHistoryThumbnailSource(image, cached);
+        }
         QueueHistoryThumbnailPump();
     }
 
@@ -111,7 +119,7 @@ public sealed partial class MainWindow
     {
         if (_historyListScrollViewer == null || image.XamlRoot == null) return double.MaxValue;
         double y = image.TransformToVisual(_historyListScrollViewer).TransformPoint(new Point()).Y;
-        return Math.Abs(y + 70 - _historyListScrollViewer.ViewportHeight / 2);
+        return Math.Abs(y + image.ActualHeight / 2 - _historyListScrollViewer.ViewportHeight / 2);
     }
 
     private void PumpHistoryThumbnails()
@@ -120,8 +128,9 @@ public sealed partial class MainWindow
         // Scan the bounded realized set, never the entire catalog.
         var wanted = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         double scale = HistoryListView.XamlRoot?.RasterizationScale ?? 1;
-        int width = (int)Math.Clamp(Math.Ceiling(_historyCellWidth * scale), 1, 1024);
-        int height = (int)Math.Clamp(Math.Ceiling(_historyCellHeight * scale), 1, 1024);
+        // Decode in size buckets, not once for every DIP during a resize.
+        int width = (int)Math.Clamp(Math.Ceiling(_historyCellWidth * scale / 64) * 64, 64, 1024);
+        int height = (int)Math.Clamp(Math.Ceiling(_historyCellHeight * scale / 64) * 64, 64, 1024);
         if (PanelHistory.Visibility == Visibility.Visible)
         {
             foreach (var image in _historyRealizedImages)
@@ -129,15 +138,18 @@ public sealed partial class MainWindow
                 if (!image.IsLoaded || image.Tag is not string path) continue;
                 if (_historyImageSources.TryGetValue(image, out var source) && source.Width >= width && source.Height >= height)
                     continue;
-                if (_historyThumbnailCache.TryGetValue(path, out var cached) && cached.Width >= width && cached.Height >= height)
+                if (_historyThumbnailCache.TryGetValue(path, out var cached))
                 {
                     TouchHistoryThumbnailCacheEntry(path);
                     SetHistoryThumbnailSource(image, cached);
-                    continue;
+                    if (cached.Width >= width && cached.Height >= height) continue;
                 }
+                // Keep stretching the existing bitmap during the gesture. Upgrade quality
+                // once it ends without replacing the image with a loading placeholder.
+                if (_historyResizePointerId != null && image.Source != null) continue;
                 if (_historyThumbnailFailures.Contains(path))
                 {
-                    SetHistoryThumbnailPlaceholder(image, loading: false, failed: true);
+                    if (image.Source == null) SetHistoryThumbnailPlaceholder(image, loading: false, failed: true);
                     continue;
                 }
                 double priority = GetHistoryThumbnailPriority(image);
@@ -146,7 +158,7 @@ public sealed partial class MainWindow
         }
 
         foreach (var pair in _historyThumbnailRequests)
-            if (!wanted.ContainsKey(pair.Key) || pair.Value.Width < width || pair.Value.Height < height)
+            if (!wanted.ContainsKey(pair.Key))
                 pair.Value.Cancellation.Cancel();
 
         foreach (var pair in wanted.OrderBy(pair => pair.Value))
@@ -225,6 +237,12 @@ public sealed partial class MainWindow
         _historyThumbnailFailures.Remove(path);
         _historyThumbnailRevealPendingPaths.Remove(path);
         if (_historyThumbnailRequests.TryGetValue(path, out var request)) request.Cancellation.Cancel();
+        foreach (var image in _historyRealizedImages)
+            if (string.Equals(image.Tag as string, path, StringComparison.OrdinalIgnoreCase))
+            {
+                _historyImageSources.Remove(image);
+                image.Source = null;
+            }
     }
 
     private void CancelHistoryThumbnailRequests()

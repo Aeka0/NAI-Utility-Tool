@@ -153,7 +153,7 @@
                         CornerRadius="4"
                         Padding="2"
                         Margin="8,2,8,2"
-                        Width="{x:Bind ThumbnailWidth}"
+                        Width="{x:Bind ThumbnailWidth, Mode=OneWay}"
                         Tag="{x:Bind FilePath, Mode=OneWay}"
                         PointerPressed="OnHistoryItemClick"
                         PointerEntered="OnHistoryThumbnailPointerEntered"
@@ -196,12 +196,16 @@
                         <Button Width="28" Height="28" MinWidth="0" MinHeight="0"
                                 Padding="0" Margin="4" CornerRadius="6"
                                 HorizontalAlignment="Right" VerticalAlignment="Top"
-                                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                Background="Transparent" BorderBrush="Transparent"
                                 Opacity="0" IsHitTestVisible="False"
                                 Loaded="OnHistoryFavoriteLoaded" Unloaded="OnHistoryFavoriteUnloaded"
                                 DataContextChanged="OnHistoryFavoriteDataContextChanged"
                                 GotFocus="OnHistoryFavoriteFocusChanged" LostFocus="OnHistoryFavoriteFocusChanged"
                                 Click="OnHistoryFavoriteClick">
+                            <Button.Resources>
+                                <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="Transparent"/>
+                                <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="Transparent"/>
+                            </Button.Resources>
                             <FontIcon Style="{StaticResource HistoryFavoriteIconStyle}" Glyph="&#xE734;"/>
                         </Button>
                     </Grid>
