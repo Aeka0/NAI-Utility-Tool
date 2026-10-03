@@ -153,49 +153,63 @@ public sealed class UpscaleService : IDisposable
                     throw new InvalidOperationException(L("upscale.error.model_not_loaded"));
             }
 
-            using var sourceBitmap = SKBitmap.Decode(imageBytes)
-                ?? throw new InvalidOperationException(L("upscale.error.decode_failed"));
-
-            var srcW = sourceBitmap.Width;
-            var srcH = sourceBitmap.Height;
+            using var sourceBitmap = UpscaleAlpha.DecodeStraight(imageBytes);
+            using var alphaBitmap = UpscaleAlpha.Split(sourceBitmap, ct);
             targetScale = NormalizeTargetScale(targetScale);
 
             int modelScale;
             lock (_sync) modelScale = Math.Max(1, _modelScale);
             int passCount = GetRequiredPassCount(modelScale, targetScale);
 
-            SKBitmap? currentBitmap = null;
-            try
+            int targetW = Math.Max(1, (int)Math.Round(sourceBitmap.Width * targetScale, MidpointRounding.AwayFromZero));
+            int targetH = Math.Max(1, (int)Math.Round(sourceBitmap.Height * targetScale, MidpointRounding.AwayFromZero));
+            int channels = alphaBitmap == null ? 1 : 2;
+
+            // Reuse the loaded model and tile pipeline sequentially, avoiding two concurrent
+            // GPU inference buffers. RGB and alpha are resized separately before merging.
+            using var rgb = RunUpscalePasses(sourceBitmap, passCount, targetW, targetH,
+                CreatePassProgress(progress, 0, channels), ct);
+            byte[] result;
+            if (alphaBitmap != null)
             {
-                for (int pass = 0; pass < passCount; pass++)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    var inputBitmap = currentBitmap ?? sourceBitmap;
-                    var passProgress = CreatePassProgress(progress, pass, passCount);
-                    var passBitmap = RunNativeUpscale(inputBitmap, passProgress, ct);
-                    currentBitmap?.Dispose();
-                    currentBitmap = passBitmap;
-                }
-
-                currentBitmap ??= sourceBitmap.Copy();
-
-                int targetW = Math.Max(1, (int)Math.Round(srcW * targetScale, MidpointRounding.AwayFromZero));
-                int targetH = Math.Max(1, (int)Math.Round(srcH * targetScale, MidpointRounding.AwayFromZero));
-                if (currentBitmap.Width != targetW || currentBitmap.Height != targetH)
-                {
-                    using var resized = ResizeBitmap(currentBitmap, targetW, targetH);
-                    progress?.Report(1.0);
-                    return EncodePng(resized);
-                }
-
-                progress?.Report(1.0);
-                return EncodePng(currentBitmap);
+                using var alpha = RunUpscalePasses(alphaBitmap, passCount, targetW, targetH,
+                    CreatePassProgress(progress, 1, channels), ct);
+                using var rgba = UpscaleAlpha.Merge(rgb, alpha, ct);
+                result = EncodePng(rgba);
             }
-            finally
-            {
-                currentBitmap?.Dispose();
-            }
+            else result = EncodePng(rgb);
+            ct.ThrowIfCancellationRequested();
+            progress?.Report(1.0);
+            return result;
         }, ct);
+    }
+
+    private SKBitmap RunUpscalePasses(SKBitmap source, int passCount, int targetW, int targetH,
+        IProgress<double>? progress, CancellationToken ct)
+    {
+        SKBitmap? current = null;
+        try
+        {
+            for (int pass = 0; pass < passCount; pass++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var next = RunNativeUpscale(current ?? source, CreatePassProgress(progress, pass, passCount), ct);
+                current?.Dispose();
+                current = next;
+            }
+            ct.ThrowIfCancellationRequested();
+            current ??= source.Copy();
+            if (current.Width != targetW || current.Height != targetH)
+            {
+                var resized = ResizeBitmap(current, targetW, targetH);
+                current.Dispose();
+                current = resized;
+            }
+            var result = current;
+            current = null; // Ownership transfers to the caller.
+            return result;
+        }
+        finally { current?.Dispose(); }
     }
 
     private static int GetRequiredPassCount(int modelScale, double targetScale)
@@ -403,8 +417,7 @@ public sealed class UpscaleService : IDisposable
 
     private static byte[] EncodePng(SKBitmap bitmap)
     {
-        using var image = SKImage.FromBitmap(bitmap);
-        using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var encoded = bitmap.Encode(SKEncodedImageFormat.Png, 100);
         return encoded.ToArray();
     }
 
