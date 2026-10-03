@@ -249,6 +249,7 @@ public class AppSettings
     public double EnhanceNoise { get; set; }
     public double EnhanceUpscaleAmount { get; set; } = 1.5;
     public bool EnhanceUseMaxUpscale { get; set; }
+    public bool UseNovelAiUpscale { get; set; }
     public OnnxPerformanceSettings OnnxPerformance { get; set; } = null!;
     public PostEffectsPerformanceSettings PostEffectsPerformance { get; set; } = null!;
     public ReverseTaggerSettings ReverseTagger { get; set; } = new();

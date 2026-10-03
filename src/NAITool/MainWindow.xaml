@@ -1515,36 +1515,51 @@
 
                     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
                         <StackPanel Padding="12" Spacing="10">
-                        <TextBlock x:Name="TxtUpscaleModelLabel" Text=""
+                            <TextBlock x:Name="TxtUpscaleProviderLabel"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                            <ComboBox x:Name="CboUpscaleModel" HorizontalAlignment="Stretch"
-                                      SelectionChanged="OnUpscaleModelChanged"/>
+                            <ComboBox x:Name="CboUpscaleProvider" HorizontalAlignment="Stretch"
+                                      SelectionChanged="OnUpscaleProviderChanged">
+                                <ComboBoxItem x:Name="UpscaleProviderLocalItem" Tag="local"/>
+                                <ComboBoxItem x:Name="UpscaleProviderOfficialItem" Tag="novelai"/>
+                            </ComboBox>
+                            <StackPanel x:Name="PanelLocalUpscaleOptions" Spacing="10">
+                                <TextBlock x:Name="TxtUpscaleModelLabel" Text=""
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                <ComboBox x:Name="CboUpscaleModel" HorizontalAlignment="Stretch"
+                                          SelectionChanged="OnUpscaleModelChanged"/>
 
-                            <TextBlock x:Name="TxtUpscaleScaleLabel" Text=""
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       Margin="0,8,0,0"/>
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Slider x:Name="SliderUpscaleScale" Grid.Column="0"
-                                        Minimum="1" Maximum="4" Value="2"
-                                        StepFrequency="0.1" SmallChange="0.1" LargeChange="0.5"
-                                        VerticalAlignment="Center"
-                                        ValueChanged="OnUpscaleScaleChanged"/>
-                                <TextBox x:Name="TxtUpscaleScaleValue" Grid.Column="1"
-                                         Text="2.0"
-                                         Width="58"
-                                         MinWidth="58"
-                                         HorizontalContentAlignment="Right"
-                                         VerticalContentAlignment="Center"
-                                         VerticalAlignment="Center"
-                                         InputScope="Number"
-                                         TextChanged="OnUpscaleScaleInputTextChanged"
-                                         LostFocus="OnUpscaleScaleInputLostFocus"
-                                         KeyDown="OnUpscaleScaleInputKeyDown"/>
-                            </Grid>
+                                <TextBlock x:Name="TxtUpscaleScaleLabel" Text=""
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Margin="0,8,0,0"/>
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="SliderUpscaleScale" Grid.Column="0"
+                                            Minimum="1" Maximum="4" Value="2"
+                                            StepFrequency="0.1" SmallChange="0.1" LargeChange="0.5"
+                                            VerticalAlignment="Center"
+                                            ValueChanged="OnUpscaleScaleChanged"/>
+                                    <TextBox x:Name="TxtUpscaleScaleValue" Grid.Column="1"
+                                             Text="2.0"
+                                             Width="58"
+                                             MinWidth="58"
+                                             HorizontalContentAlignment="Right"
+                                             VerticalContentAlignment="Center"
+                                             VerticalAlignment="Center"
+                                             InputScope="Number"
+                                             TextChanged="OnUpscaleScaleInputTextChanged"
+                                             LostFocus="OnUpscaleScaleInputLostFocus"
+                                             KeyDown="OnUpscaleScaleInputKeyDown"/>
+                                </Grid>
+                            </StackPanel>
+                            <TextBlock x:Name="TxtOfficialUpscaleScale" Text="2×"
+                                       Visibility="Collapsed"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock x:Name="TxtUpscaleValidation" Visibility="Collapsed"
+                                       TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     CornerRadius="4" Padding="10,8">

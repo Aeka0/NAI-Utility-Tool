@@ -45,7 +45,7 @@ public class NovelAiAccountInfo
 /// <summary>
 /// NovelAI API 服务。
 /// </summary>
-public class NovelAIService : IDisposable
+public partial class NovelAIService : IDisposable
 {
     private const string OfficialGenerateUrl = "https://image.novelai.net/ai/generate-image";
     private const string OfficialGenerateStreamUrl = "https://image.novelai.net/ai/generate-image-stream";
@@ -728,7 +728,7 @@ public class NovelAIService : IDisposable
         }
     }
 
-    private static async Task<byte[]?> ReadGeneratedImageBytesAsync(HttpContent content, CancellationToken ct)
+    private static async Task<byte[]?> ReadGeneratedImageBytesAsync(HttpContent content, CancellationToken ct, bool findImageEntry = false)
     {
         var responseBytes = await content.ReadAsByteArrayAsync(ct);
         if (IsPngOrWebp(responseBytes))
@@ -745,7 +745,11 @@ public class NovelAIService : IDisposable
                 return null;
             }
 
-            var entry = archive.Entries[0];
+            var entry = findImageEntry
+                ? archive.Entries.FirstOrDefault(e => e.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                    e.Name.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
+                : archive.Entries[0];
+            if (entry == null) return null;
             using var entryStream = entry.Open();
             using var imageStream = new MemoryStream();
             await entryStream.CopyToAsync(imageStream, ct);

@@ -380,6 +380,7 @@ public sealed partial class MainWindow
 
     private void UpdateGenerateButtonWarning()
     {
+        UpdateUpscaleStartButtonState();
         if (IsAnyGenerateLoopRunning() || BtnGenerate == null || this.Content == null) return;
         UpdateBtnGenerateForApiKey();
         bool warn = EstimateCurrentRequestAnlasCost() > 0;

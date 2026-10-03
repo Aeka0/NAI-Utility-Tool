@@ -237,6 +237,10 @@ public sealed partial class MainWindow
         TxtInspectSeedLabel.Text = L("panel.seed_short");
         UpdateInspectActions();
 
+        TxtUpscaleProviderLabel.Text = L("upscale.provider");
+        UpscaleProviderLocalItem.Content = L("upscale.provider.local");
+        UpscaleProviderOfficialItem.Content = L("upscale.official.name");
+        TxtOfficialUpscaleScale.Text = L("upscale.official.scale");
         TxtUpscaleModelLabel.Text = L("upscale.model");
         TxtUpscaleScaleLabel.Text = L("upscale.scale");
         TxtUpscaleBeforeLabel.Text = L("upscale.before");
@@ -375,7 +379,7 @@ public sealed partial class MainWindow
 
         RefreshCharacterPanel();
         UpdateInspectActions();
-        SetUpscaleButtonText(_upscaleRunning ? L("button.upscaling") : L("button.start_upscale"));
+        RefreshUpscaleProviderControls();
         UpdatePromptTabText();
         UpdateWorkspaceModeButton();
         UpdateAutoGenUI();

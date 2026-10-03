@@ -44,8 +44,64 @@ public sealed partial class MainWindow
     private List<UpscaleService.UpscaleModelInfo> _upscaleModelInfos = new();
     private bool _updatingUpscaleScaleControls;
 
+    private bool _upscaleLoading;
+    private bool _updatingUpscaleProvider;
+
+    private bool IsNovelAiUpscaleSelected => _settings.Settings.UseNovelAiUpscale;
+
+    private void UpdateUpscaleStartButtonState()
+    {
+        if (BtnStartUpscale == null || TxtUpscaleValidation == null || this.Content == null) return;
+        bool official = IsNovelAiUpscaleSelected;
+        bool busy = _upscaleRunning || _upscaleLoading;
+        bool hasImage = _upscaleInputImageBytes is { Length: > 0 };
+        int? cost = hasImage ? NovelAiUpscaleRules.EstimateAnlas(_upscaleSourceWidth, _upscaleSourceHeight) : null;
+        string? error = official && IsAssetProtectionPaidFeatureLimitEnabled()
+            ? L("upscale.official.protection_blocked")
+            : official && hasImage && cost == null ? L("upscale.official.size_limit") : null;
+        TxtUpscaleValidation.Text = error ?? "";
+        TxtUpscaleValidation.Visibility = error == null ? Visibility.Collapsed : Visibility.Visible;
+        BtnStartUpscale.IsEnabled = !busy && hasImage && error == null && (official || _upscaleModelInfos.Count > 0);
+        CboUpscaleProvider.IsEnabled = !busy;
+        CboUpscaleModel.IsEnabled = !busy && _upscaleModelInfos.Count > 0;
+        SliderUpscaleScale.IsEnabled = !busy;
+        TxtUpscaleScaleValue.IsEnabled = !busy;
+
+        if (official && cost is > 0)
+        {
+            BtnStartUpscale.Content = CreateAnlasActionButtonContent(
+                L(_upscaleRunning ? "button.upscaling" : "button.start_upscale"), cost.Value);
+            ApplyGoldAccentButtonStyle(BtnStartUpscale);
+        }
+        else
+        {
+            SetUpscaleButtonText(L(_upscaleRunning ? "button.upscaling" : "button.start_upscale"));
+            ClearGoldAccentButtonStyle(BtnStartUpscale);
+        }
+    }
+
+    private void RefreshUpscaleProviderControls()
+    {
+        if (PanelLocalUpscaleOptions == null || TxtOfficialUpscaleScale == null) return;
+        PanelLocalUpscaleOptions.Visibility = IsNovelAiUpscaleSelected ? Visibility.Collapsed : Visibility.Visible;
+        TxtOfficialUpscaleScale.Visibility = IsNovelAiUpscaleSelected ? Visibility.Visible : Visibility.Collapsed;
+        UpdateUpscaleResolutionDisplay();
+    }
+
+    private void OnUpscaleProviderChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingUpscaleProvider || PanelLocalUpscaleOptions == null || TxtUpscaleOutputRes == null) return;
+        _settings.Settings.UseNovelAiUpscale = CboUpscaleProvider.SelectedIndex == 1;
+        RefreshUpscaleProviderControls();
+        _settings.Save();
+    }
+
     private void PopulateUpscaleModelList()
     {
+        if (_upscaleRunning || _upscaleLoading) return;
+        _updatingUpscaleProvider = true;
+        try { CboUpscaleProvider.SelectedIndex = IsNovelAiUpscaleSelected ? 1 : 0; }
+        finally { _updatingUpscaleProvider = false; }
         CboUpscaleModel.Items.Clear();
         var modelsDir = Path.Combine(ModelsDir, "upscaler");
         _upscaleModelInfos = UpscaleService.ScanModels(modelsDir);
@@ -53,19 +109,17 @@ public sealed partial class MainWindow
         if (_upscaleModelInfos.Count == 0)
         {
             CboUpscaleModel.Items.Add(CreateTextComboBoxItem(L("upscale.model_not_found")));
-            CboUpscaleModel.SelectedIndex = 0;
-            CboUpscaleModel.IsEnabled = false;
-            BtnStartUpscale.IsEnabled = false;
-            TxtStatus.Text = Lf("upscale.put_model_into_dir", modelsDir);
-            return;
+            if (!IsNovelAiUpscaleSelected) TxtStatus.Text = Lf("upscale.put_model_into_dir", modelsDir);
         }
-
-        CboUpscaleModel.IsEnabled = true;
-        foreach (var m in _upscaleModelInfos)
-            CboUpscaleModel.Items.Add(CreateTextComboBoxItem(m.DisplayName));
-
+        else
+        {
+            foreach (var model in _upscaleModelInfos)
+                CboUpscaleModel.Items.Add(CreateTextComboBoxItem(model.DisplayName));
+        }
         CboUpscaleModel.SelectedIndex = 0;
         ApplyMenuTypography(CboUpscaleModel);
+        ApplyMenuTypography(CboUpscaleProvider);
+        RefreshUpscaleProviderControls();
     }
 
     private void OnUpscaleModelChanged(object sender, SelectionChangedEventArgs e)
@@ -175,6 +229,7 @@ public sealed partial class MainWindow
     private void UpdateUpscaleResolutionDisplay()
     {
         UpdateUpscaleScaleValueDisplay();
+        UpdateUpscaleStartButtonState();
         if (_upscaleSourceWidth <= 0 || _upscaleSourceHeight <= 0)
         {
             TxtUpscaleInputRes.Text = "—";
@@ -183,7 +238,7 @@ public sealed partial class MainWindow
         }
 
         TxtUpscaleInputRes.Text = $"{_upscaleSourceWidth} × {_upscaleSourceHeight}";
-        double scale = GetSelectedUpscaleScale();
+        double scale = IsNovelAiUpscaleSelected ? NovelAiUpscaleRules.Scale : GetSelectedUpscaleScale();
         int outW = Math.Max(1, (int)Math.Round(_upscaleSourceWidth * scale, MidpointRounding.AwayFromZero));
         int outH = Math.Max(1, (int)Math.Round(_upscaleSourceHeight * scale, MidpointRounding.AwayFromZero));
         TxtUpscaleOutputRes.Text = $"{outW} × {outH}";
@@ -211,40 +266,48 @@ public sealed partial class MainWindow
 
     private async Task LoadUpscaleImageAsync(string filePath, bool preserveDirtyState = false)
     {
+        if (_upscaleRunning || _upscaleLoading) return;
+        _upscaleLoading = true;
+        UpdateUpscaleStartButtonState();
         try
         {
             bool wasDirty = _upscaleWorkspaceDirty;
             var bytes = await File.ReadAllBytesAsync(filePath);
-            _upscaleInputImageBytes = bytes;
-            _upscaleImagePath = filePath;
-
-            using var bitmap = SKBitmap.Decode(bytes);
-            if (bitmap == null)
-            {
-                TxtStatus.Text = L("upscale.error.decode_failed");
-                return;
-            }
-
-            _upscaleSourceWidth = bitmap.Width;
-            _upscaleSourceHeight = bitmap.Height;
-
-            await ShowUpscalePreviewAsync(bytes);
-            UpdateUpscaleResolutionDisplay();
-            BtnStartUpscale.IsEnabled = _upscaleModelInfos.Count > 0;
-            if (preserveDirtyState)
-                _upscaleWorkspaceDirty = wasDirty;
-            else
-                MarkUpscaleWorkspaceClean();
-            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                () => FitUpscalePreviewToScreen());
+            if (!await SetUpscaleImageAsync(bytes, filePath)) return;
+            if (preserveDirtyState) _upscaleWorkspaceDirty = wasDirty;
+            else MarkUpscaleWorkspaceClean();
             TxtStatus.Text = preserveDirtyState
                 ? Lf("image.reload.loaded", Path.GetFileName(filePath), _upscaleSourceWidth, _upscaleSourceHeight)
                 : Lf("upscale.loaded", Path.GetFileName(filePath), _upscaleSourceWidth, _upscaleSourceHeight);
         }
-        catch (Exception ex)
+        catch (Exception ex) { TxtStatus.Text = Lf("common.load_failed", ex.Message); }
+        finally
         {
-            TxtStatus.Text = Lf("common.load_failed", ex.Message);
+            _upscaleLoading = false;
+            UpdateUpscaleStartButtonState();
         }
+    }
+
+    private async Task<bool> SetUpscaleImageAsync(byte[] bytes, string? sourcePath)
+    {
+        var dimensions = await Task.Run(() =>
+        {
+            bool valid = TryGetImageDimensions(bytes, out int width, out int height);
+            return (Valid: valid, Width: width, Height: height);
+        });
+        if (!dimensions.Valid)
+        {
+            TxtStatus.Text = L("upscale.error.decode_failed");
+            return false;
+        }
+        await ShowUpscalePreviewAsync(bytes);
+        _upscaleInputImageBytes = bytes;
+        _upscaleImagePath = sourcePath;
+        _upscaleSourceWidth = dimensions.Width;
+        _upscaleSourceHeight = dimensions.Height;
+        UpdateUpscaleResolutionDisplay();
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, FitUpscalePreviewToScreen);
+        return true;
     }
 
     private async Task ShowUpscalePreviewAsync(byte[] bytes)
@@ -279,76 +342,78 @@ public sealed partial class MainWindow
 
     private async void OnStartUpscale(object sender, RoutedEventArgs e)
     {
-        if (_upscaleInputImageBytes == null || _upscaleInputImageBytes.Length == 0)
+        if (_upscaleRunning || _upscaleLoading) return;
+        if (_upscaleInputImageBytes is not { Length: > 0 })
         {
             TxtStatus.Text = L("upscale.drop_image_first");
             return;
         }
-
-        if (_upscaleRunning) return;
-
-        CommitUpscaleScaleInput();
+        bool official = IsNovelAiUpscaleSelected;
+        if (official)
+        {
+            if (IsAssetProtectionPaidFeatureLimitEnabled())
+            { TxtStatus.Text = L("upscale.official.protection_blocked"); return; }
+            if (NovelAiUpscaleRules.EstimateAnlas(_upscaleSourceWidth, _upscaleSourceHeight) == null)
+            { TxtStatus.Text = L("upscale.official.size_limit"); return; }
+            if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+            { OnNetworkSettings(this, new RoutedEventArgs()); return; }
+        }
+        else CommitUpscaleScaleInput();
 
         int modelIdx = CboUpscaleModel.SelectedIndex;
-        if (modelIdx < 0 || modelIdx >= _upscaleModelInfos.Count) return;
-
-        var modelInfo = _upscaleModelInfos[modelIdx];
-        double targetScale = GetSelectedUpscaleScale();
+        if (!official && (modelIdx < 0 || modelIdx >= _upscaleModelInfos.Count)) return;
+        var modelInfo = official ? null : _upscaleModelInfos[modelIdx];
+        var inputBytes = _upscaleInputImageBytes;
+        double targetScale = official ? NovelAiUpscaleRules.Scale : GetSelectedUpscaleScale();
         _upscaleRunning = true;
-        BtnStartUpscale.IsEnabled = false;
-        SliderUpscaleScale.IsEnabled = false;
-        TxtUpscaleScaleValue.IsEnabled = false;
-        SetUpscaleButtonText(L("button.upscaling"));
+        UpdateUpscaleStartButtonState();
         UpscaleProgressBar.Visibility = Visibility.Visible;
-        TxtStatus.Text = L("status.upscale_loading_model");
-        bool shouldUnloadModel = ShouldUnloadOnnxModelsAfterInference;
+        TxtStatus.Text = L(official ? "upscale.official.running" : "status.upscale_loading_model");
+        bool shouldUnloadModel = !official && ShouldUnloadOnnxModelsAfterInference;
 
         try
         {
-            _upscaleService ??= new UpscaleService();
-            var inputBytes = _upscaleInputImageBytes;
-            bool preferCpu = PreferCpuForOnnxInference;
-
-            DebugLog($"[Upscale] Start | Model={modelInfo.DisplayName} | TargetScale={FormatUpscaleScale(targetScale)}x | Device={(preferCpu ? "CPU" : "Prefer GPU")} | Input={_upscaleSourceWidth}x{_upscaleSourceHeight}");
-
-            await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath, preferCpu));
-            DebugLog($"[Upscale] Model loaded | Provider={_upscaleService.ExecutionProvider} | NativeScale={_upscaleService.ModelScale}x");
-            TxtStatus.Text = L("status.upscale_running");
-
-            var progress = new Progress<double>(p =>
+            byte[] resultBytes;
+            string provider;
+            if (official)
             {
-                DispatcherQueue.TryEnqueue(() =>
+                DebugLog($"[Upscale] Start | Provider=NovelAI | Input={_upscaleSourceWidth}x{_upscaleSourceHeight}");
+                var result = await _naiService.UpscaleImageAsync(inputBytes);
+                if (result.ImageBytes == null)
+                { TxtStatus.Text = Lf("upscale.failed", result.Error ?? L("api.error.empty_zip")); return; }
+                resultBytes = result.ImageBytes;
+                provider = L("upscale.official.name");
+            }
+            else
+            {
+                _upscaleService ??= new UpscaleService();
+                bool preferCpu = PreferCpuForOnnxInference;
+                DebugLog($"[Upscale] Start | Model={modelInfo!.DisplayName} | TargetScale={FormatUpscaleScale(targetScale)}x | Device={(preferCpu ? "CPU" : "Prefer GPU")} | Input={_upscaleSourceWidth}x{_upscaleSourceHeight}");
+                await Task.Run(() => _upscaleService.LoadModel(modelInfo.FilePath, preferCpu));
+                DebugLog($"[Upscale] Model loaded | Provider={_upscaleService.ExecutionProvider} | NativeScale={_upscaleService.ModelScale}x");
+                TxtStatus.Text = L("status.upscale_running");
+                var progress = new Progress<double>(p =>
                 {
-                    UpscaleProgressBar.IsIndeterminate = false;
-                    UpscaleProgressBar.Value = p * 100;
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        if (!_upscaleRunning) return;
+                        UpscaleProgressBar.IsIndeterminate = false;
+                        UpscaleProgressBar.Value = p * 100;
+                    });
                 });
-            });
-
-            var resultBytes = await _upscaleService.UpscaleAsync(inputBytes, targetScale, progress);
-
-            using var resultBitmap = SKBitmap.Decode(resultBytes);
-            if (resultBitmap != null)
-            {
-                _upscaleSourceWidth = resultBitmap.Width;
-                _upscaleSourceHeight = resultBitmap.Height;
-                _upscaleInputImageBytes = resultBytes;
-                _upscaleImagePath = null;
+                resultBytes = await _upscaleService.UpscaleAsync(inputBytes, targetScale, progress);
+                provider = _upscaleService.ExecutionProvider;
             }
 
-            await ShowUpscalePreviewAsync(resultBytes);
-            UpdateUpscaleResolutionDisplay();
+            if (!await SetUpscaleImageAsync(resultBytes, null)) return;
             _upscaleWorkspaceDirty = true;
-            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-                () => FitUpscalePreviewToScreen());
-            DebugLog($"[Upscale] Completed | Output={_upscaleSourceWidth}x{_upscaleSourceHeight} | Provider={_upscaleService.ExecutionProvider}");
-            TxtStatus.Text = Lf("upscale.completed", _upscaleSourceWidth, _upscaleSourceHeight, _upscaleService.ExecutionProvider);
-
+            DebugLog($"[Upscale] Completed | Output={_upscaleSourceWidth}x{_upscaleSourceHeight} | Provider={provider}");
+            TxtStatus.Text = Lf("upscale.completed", _upscaleSourceWidth, _upscaleSourceHeight, provider);
             if (shouldUnloadModel)
             {
-                _upscaleService.UnloadModel();
+                _upscaleService?.UnloadModel();
                 shouldUnloadModel = false;
             }
-
             await PromptSaveUpscaleResultAsync(resultBytes);
         }
         catch (Exception ex)
@@ -358,16 +423,14 @@ public sealed partial class MainWindow
         }
         finally
         {
-            if (shouldUnloadModel)
-                _upscaleService?.UnloadModel();
+            if (shouldUnloadModel) _upscaleService?.UnloadModel();
             _upscaleRunning = false;
-            BtnStartUpscale.IsEnabled = true;
-            SliderUpscaleScale.IsEnabled = true;
-            TxtUpscaleScaleValue.IsEnabled = true;
-            SetUpscaleButtonText(L("button.start_upscale"));
+            UpdateUpscaleStartButtonState();
             UpscaleProgressBar.Visibility = Visibility.Collapsed;
             UpscaleProgressBar.IsIndeterminate = true;
             UpscaleProgressBar.Value = 0;
+            if (official) _ = RefreshAnlasInfoAsync(forceRefresh: true);
+            UpdateDynamicMenuStates();
         }
     }
 
@@ -410,28 +473,24 @@ public sealed partial class MainWindow
 
     private async Task SendBytesToUpscaleAsync(byte[] bytes, string? sourcePath = null)
     {
+        if (_upscaleRunning || _upscaleLoading) return;
         SwitchMode(AppMode.Upscale);
-
-        _upscaleInputImageBytes = bytes;
-        _upscaleImagePath = !string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath)
-            ? sourcePath
-            : null;
-        using var bitmap = SKBitmap.Decode(bytes);
-        if (bitmap != null)
+        _upscaleLoading = true;
+        UpdateUpscaleStartButtonState();
+        try
         {
-            _upscaleSourceWidth = bitmap.Width;
-            _upscaleSourceHeight = bitmap.Height;
+            string? path = !string.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath) ? sourcePath : null;
+            if (!await SetUpscaleImageAsync(bytes, path)) return;
+            MarkUpscaleWorkspaceClean();
+            TxtStatus.Text = sourcePath != null
+                ? Lf("upscale.sent_with_name", Path.GetFileName(sourcePath)) : L("upscale.sent");
         }
-
-        await ShowUpscalePreviewAsync(bytes);
-        UpdateUpscaleResolutionDisplay();
-        BtnStartUpscale.IsEnabled = _upscaleModelInfos.Count > 0;
-        MarkUpscaleWorkspaceClean();
-        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-            () => FitUpscalePreviewToScreen());
-        TxtStatus.Text = sourcePath != null
-            ? Lf("upscale.sent_with_name", Path.GetFileName(sourcePath))
-            : L("upscale.sent");
+        catch (Exception ex) { TxtStatus.Text = Lf("upscale.send_failed", ex.Message); }
+        finally
+        {
+            _upscaleLoading = false;
+            UpdateUpscaleStartButtonState();
+        }
     }
 
     private async void OnSendToUpscaleFromGen(object sender, RoutedEventArgs e)
