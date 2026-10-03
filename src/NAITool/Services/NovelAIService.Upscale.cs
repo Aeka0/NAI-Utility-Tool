@@ -14,8 +14,7 @@ public partial class NovelAIService
     public async Task<(byte[]? ImageBytes, string? Error)> UpscaleImageAsync(
         byte[] imageBytes, CancellationToken ct = default)
     {
-        string? token = _settings.Settings.ApiToken;
-        if (string.IsNullOrWhiteSpace(token))
+        if (!_settings.HasApiTokens)
             return (null, L("api.error.token_missing_network"));
         if (_settings.Settings.AccountAssetProtectionMode &&
             _settings.Settings.AccountAssetProtectionDisablePaidFeatures)
@@ -36,10 +35,12 @@ public partial class NovelAIService
                 Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json"),
             };
             // Explicitly target the official service, independently of a custom generation URL.
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/zip"));
+            var account = await SelectAccountAsync(
+                new ApiRequestCost(false, NovelAiUpscaleRules.EstimateAnlas(prepared.Width, prepared.Height)!.Value), ct);
             using var timeout = CreateRequestTimeoutTokenSource(OfficialUpscaleRequestTimeout, ct);
-            using var response = await GetOrCreateClient().SendAsync(request, timeout.Token);
+            using var response = await SendAccountRequestAsync(request, account,
+                System.Net.Http.HttpCompletionOption.ResponseContentRead, timeout.Token);
             if (!response.IsSuccessStatusCode)
             {
                 string error = await response.Content.ReadAsStringAsync(timeout.Token);

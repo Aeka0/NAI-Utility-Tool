@@ -921,9 +921,9 @@ public sealed partial class MainWindow
 
     private async void OnRedoGenerate(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+        if (!_settings.HasApiTokens)
         {
-            OnNetworkSettings(sender, e);
+            OnApiSettings(sender, e);
             return;
         }
 

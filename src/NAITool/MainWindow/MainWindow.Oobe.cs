@@ -100,7 +100,7 @@ public sealed partial class MainWindow
             string detectedLanguageDisplayName = _loc.GetLanguageDisplayName(selectedLanguageCode);
 
             var pageSlideTransform = new TranslateTransform();
-            string apiTokenValue = _settings.Settings.ApiToken ?? "";
+            string apiTokenValue = _settings.Accounts.FirstOrDefault()?.Token ?? "";
             string reversePathValue = _settings.Settings.ReverseTagger.ModelPath ?? "";
             bool assetProtectionModeValue = _settings.Settings.AccountAssetProtectionMode;
             CancellationTokenSource? apiTokenTestCts = null;
@@ -552,9 +552,6 @@ public sealed partial class MainWindow
                         if (ct.IsCancellationRequested || serial != apiTokenTestSerial)
                             return;
 
-                        if (accountInfo != null)
-                            ApplyAccountInfo(accountInfo, save: false);
-
                         statusBlock.Text = accountInfo != null
                             ? L("oobe.api.test.valid")
                             : L("oobe.api.test.invalid");
@@ -619,7 +616,8 @@ public sealed partial class MainWindow
                     CreateTitle(L("oobe.api.title"), "\uE8D7"),
                     CreateRaisedLayer(
                         tokenBox,
-                        tokenStatus),
+                        tokenStatus,
+                        CreateBodyText(L("oobe.api.settings_hint"))),
                     CreateRaisedLayer(
                         assetProtectionToggle,
                         CreateBodyText(L("oobe.asset_protection.description"))),
@@ -757,7 +755,7 @@ public sealed partial class MainWindow
             async Task SaveOobeSettingsAsync()
             {
                 _settings.Settings.LanguageCode = selectedLanguageCode;
-                _settings.Settings.ApiToken = apiTokenValue.Trim();
+                _settings.SetApiTokens([apiTokenValue.Trim(), .. _settings.Accounts.Skip(1).Select(a => a.Token)]);
                 _settings.Settings.ReverseTagger.ModelPath = reversePathValue.Trim();
                 bool oldSizeLimitEnabled = IsAssetProtectionSizeLimitEnabled();
                 bool oldStepLimitEnabled = IsAssetProtectionStepLimitEnabled();
@@ -781,7 +779,7 @@ public sealed partial class MainWindow
                     RefreshPromptModeUiForAccountModeChange();
                 }
 
-                if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+                if (!_settings.HasApiTokens)
                 {
                     ClearAccountApiState(save: true);
                 }

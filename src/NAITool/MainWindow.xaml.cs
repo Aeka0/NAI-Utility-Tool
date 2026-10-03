@@ -166,10 +166,8 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _continuousGenCts;
     private int _continuousGenRemaining;
     private bool _continuousStopRequested;
-    private int? _anlasBalance;
-    private int? _v5UsagePercent;
-    private bool? _v5UsageIsNegative;
-    private int? _v5UsageTimeUntilNextPercentSeconds;
+    private long? _anlasBalance;
+    private long? _v5UsagePercent;
     private Flyout? _quotaSummaryFlyout;
     private TextBlock? _quotaSummaryAnlasLabel;
     private TextBlock? _quotaSummaryAnlasText;
@@ -180,7 +178,6 @@ public sealed partial class MainWindow : Window
     private ProgressBar? _quotaSummaryV5UsageProgress;
     private TextBlock? _quotaSummaryV5UsageEstimateText;
     private TextBlock? _quotaSummaryV5UsageRecoveryText;
-    private bool _isOpusSubscriber;
     private bool _hasActiveSubscription;
     private bool _anlasRefreshRunning;
     private bool _anlasRefreshPending;
@@ -466,8 +463,7 @@ public sealed partial class MainWindow : Window
         UpdateBtnGenerateForApiKey();
         if (_settings.ApiTokenDecryptFailed)
             DispatcherQueue.TryEnqueue(() => NotifyApiTokenDecryptFailed());
-        else
-            _ = RefreshAnlasInfoAsync();
+        _ = RefreshAnlasInfoAsync();
 
         _ = LoadTagServiceAsync();
 

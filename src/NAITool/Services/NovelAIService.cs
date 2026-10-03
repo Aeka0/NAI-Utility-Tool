@@ -28,20 +28,6 @@ public class CharacterPromptInfo
     public bool UseCustomPosition { get; set; }
 }
 
-public class NovelAiAccountInfo
-{
-    public int? AnlasBalance { get; init; }
-    public int? V5UsagePercent { get; init; }
-    public bool? V5UsageIsNegative { get; init; }
-    public int? V5UsageTimeUntilNextPercentSeconds { get; init; }
-    public string TierName { get; init; } = "";
-    public bool IsOpus { get; init; }
-    public bool HasActiveSubscription { get; init; }
-    public int? TierLevel { get; init; }
-    public string? ExpiresAt { get; init; }
-    public bool IsAccountInfoAvailable { get; init; } = true;
-}
-
 /// <summary>
 /// NovelAI API 服务。
 /// </summary>
@@ -141,10 +127,6 @@ public partial class NovelAIService : IDisposable
                 _httpClientProxyKey = proxyKey;
             }
 
-            if (!string.IsNullOrEmpty(_settings.Settings.ApiToken))
-                _httpClient.DefaultRequestHeaders.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _settings.Settings.ApiToken);
-
             return _httpClient;
         }
     }
@@ -158,10 +140,15 @@ public partial class NovelAIService : IDisposable
         try
         {
             var client = GetOrCreateClient();
-            client.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-            var endpoints = GetApiEndpoints();
-            using var response = await client.GetAsync(endpoints.UserInfoUrl, ct);
+            using var timeout = CreateRequestTimeoutTokenSource(AccountInfoRequestTimeout, ct);
+            using var request = CreateAuthorizedRequest(HttpMethod.Get, OfficialUserInfoUrl, token);
+            using var response = await client.SendAsync(request, timeout.Token);
+            if (response.StatusCode is HttpStatusCode.OK or HttpStatusCode.Unauthorized)
+                foreach (var account in _settings.Accounts.Where(a => a.Token == token))
+                {
+                    account.IsTokenValid = response.StatusCode == HttpStatusCode.OK;
+                    if (account.IsTokenValid == false) account.Info = null;
+                }
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => (true, L("settings.network.test.success")),
@@ -236,14 +223,6 @@ public partial class NovelAIService : IDisposable
     /// tier: 0=Paper, 1=Tablet, 2=Scroll, 3=Opus
     /// trainingStepsLeft: Anlas 余额 (整数 或 { fixedTrainingStepsLeft, purchasedTrainingSteps })
     /// </summary>
-    public async Task<NovelAiAccountInfo?> GetAccountInfoAsync(CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
-            return null;
-
-        return await GetAccountInfoAsync(_settings.Settings.ApiToken, ct);
-    }
-
     public async Task<NovelAiAccountInfo?> GetAccountInfoAsync(string token, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(token))
@@ -257,13 +236,16 @@ public partial class NovelAIService : IDisposable
             using var requestTimeoutCts = CreateRequestTimeoutTokenSource(AccountInfoRequestTimeout, ct);
             var requestCt = requestTimeoutCts.Token;
             var client = GetOrCreateClient();
-            client.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
-            var endpoints = GetApiEndpoints();
-            using var response = await client.GetAsync(endpoints.UserDataUrl, requestCt);
+            using var request = CreateAuthorizedRequest(HttpMethod.Get, OfficialUserDataUrl, token);
+            using var response = await client.SendAsync(request, requestCt);
             if (!response.IsSuccessStatusCode)
             {
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                    foreach (var account in _settings.Accounts.Where(a => a.Token == token))
+                    {
+                        account.IsTokenValid = false;
+                        account.Info = null;
+                    }
                 Debug.WriteLine($"[NAI] /user/data request failed: {(int)response.StatusCode}");
                 return UsesCustomApiBaseUrl && response.StatusCode != HttpStatusCode.Unauthorized
                     ? UnavailableAccountInfo()
@@ -814,9 +796,10 @@ public partial class NovelAIService : IDisposable
         IProgress<byte[]>? progress = null,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+        if (!_settings.HasApiTokens)
             return (null, L("api.error.token_missing_network"));
 
+        bool streamGeneration = _settings.Settings.StreamGeneration;
         var naiParams = _settings.Settings.InpaintParameters;
         if (!_settings.Settings.UsesCustomApiBaseUrl &&
             NovelAiAnlasCalculator.PaidBaseCost(naiParams.Model, width, height, naiParams.Steps,
@@ -865,7 +848,7 @@ public partial class NovelAIService : IDisposable
         }
 
         if (naiParams.Variety) parameters["variety"] = true;
-        if (_settings.Settings.StreamGeneration) parameters["stream"] = "sse";
+        if (streamGeneration) parameters["stream"] = "sse";
 
         if (naiParams.Sampler == "k_euler_ancestral" && naiParams.Schedule != "native")
         {
@@ -949,24 +932,22 @@ public partial class NovelAIService : IDisposable
 
         try
         {
-            var client = GetOrCreateClient();
-            client.DefaultRequestHeaders.Accept.Clear();
-            if (_settings.Settings.StreamGeneration)
-                client.DefaultRequestHeaders.Accept.Add(
-                    new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
-
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
-            var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            var url = streamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            var account = await SelectAccountAsync(ApiRequestCost.Image(naiParams.Model, width, height, naiParams.Steps,
+                    strength: IsV4PlusModel(naiParams.Model) ? naiParams.InpaintStrength : 1,
+                    referenceAnlas: GenerationReferenceAnlas(naiParams.Model, vibeTransfers, preciseReferences)), ct);
             using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
             var requestCt = requestTimeoutCts.Token;
-            using var response = _settings.Settings.StreamGeneration
-                ? await client.SendAsync(
-                    new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
-                    HttpCompletionOption.ResponseHeadersRead,
-                    requestCt)
-                : await client.PostAsync(url, content, requestCt);
+            using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+            if (streamGeneration)
+                request.Headers.Accept.ParseAdd("text/event-stream");
+            using var response = await SendAccountRequestAsync(request,
+                account,
+                streamGeneration ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead,
+                requestCt);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -976,7 +957,7 @@ public partial class NovelAIService : IDisposable
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
-            byte[]? imageBytes = _settings.Settings.StreamGeneration
+            byte[]? imageBytes = streamGeneration
                 ? await ReadGeneratedImageStreamAsync(response.Content, progress, requestCt)
                 : await ReadGeneratedImageBytesAsync(response.Content, requestCt);
             if (imageBytes == null)
@@ -1056,9 +1037,10 @@ public partial class NovelAIService : IDisposable
         bool isEnhance = false,
         bool upscaledEnhance = false)
     {
-        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+        if (!_settings.HasApiTokens)
             return (null, L("api.error.token_missing_network"));
 
+        bool streamGeneration = _settings.Settings.StreamGeneration;
         var naiParams = parametersOverride ?? _settings.Settings.I2IDenoiseParameters;
         if ((isEnhance && (width <= 0 || height <= 0 || (long)width * height > EnhanceRules.MaxPixels)) ||
             (upscaledEnhance && (!isEnhance || !EnhanceRules.CanUseMax(naiParams.Model, width, height))))
@@ -1128,7 +1110,7 @@ public partial class NovelAIService : IDisposable
         }
 
         if (naiParams.Variety) parameters["variety"] = true;
-        if (_settings.Settings.StreamGeneration) parameters["stream"] = "sse";
+        if (streamGeneration) parameters["stream"] = "sse";
 
         if (naiParams.Sampler == "k_euler_ancestral" && naiParams.Schedule != "native")
         {
@@ -1212,24 +1194,22 @@ public partial class NovelAIService : IDisposable
 
         try
         {
-            var client = GetOrCreateClient();
-            client.DefaultRequestHeaders.Accept.Clear();
-            if (_settings.Settings.StreamGeneration)
-                client.DefaultRequestHeaders.Accept.Add(
-                    new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
-
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
-            var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            var url = streamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            var account = await SelectAccountAsync(ApiRequestCost.Image(naiParams.Model, pricedSize.Width, pricedSize.Height, naiParams.Steps,
+                    strength: naiParams.DenoiseStrength,
+                    referenceAnlas: GenerationReferenceAnlas(naiParams.Model, vibeTransfers, preciseReferences)), ct);
             using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
             var requestCt = requestTimeoutCts.Token;
-            using var response = _settings.Settings.StreamGeneration
-                ? await client.SendAsync(
-                    new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
-                    HttpCompletionOption.ResponseHeadersRead,
-                    requestCt)
-                : await client.PostAsync(url, content, requestCt);
+            using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+            if (streamGeneration)
+                request.Headers.Accept.ParseAdd("text/event-stream");
+            using var response = await SendAccountRequestAsync(request,
+                account,
+                streamGeneration ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead,
+                requestCt);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -1239,7 +1219,7 @@ public partial class NovelAIService : IDisposable
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
-            byte[]? imageBytes = _settings.Settings.StreamGeneration
+            byte[]? imageBytes = streamGeneration
                 ? await ReadGeneratedImageStreamAsync(response.Content, progress, requestCt)
                 : await ReadGeneratedImageBytesAsync(response.Content, requestCt);
             if (imageBytes == null)
@@ -1287,9 +1267,10 @@ public partial class NovelAIService : IDisposable
     {
         LastGenerationErrorStatusCode = null;
 
-        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+        if (!_settings.HasApiTokens)
             return (null, L("api.error.token_missing_network_api"));
 
+        bool streamGeneration = _settings.Settings.StreamGeneration;
         var naiParams = _settings.Settings.GenParameters;
         string model = naiParams.Model;
         if (!_settings.Settings.UsesCustomApiBaseUrl &&
@@ -1334,7 +1315,7 @@ public partial class NovelAIService : IDisposable
         }
 
         if (naiParams.Variety) parameters["variety"] = true;
-        if (_settings.Settings.StreamGeneration) parameters["stream"] = "sse";
+        if (streamGeneration) parameters["stream"] = "sse";
 
         if (naiParams.Sampler == "k_euler_ancestral" && naiParams.Schedule != "native")
         {
@@ -1417,24 +1398,21 @@ public partial class NovelAIService : IDisposable
 
         try
         {
-            var client = GetOrCreateClient();
-            client.DefaultRequestHeaders.Accept.Clear();
-            if (_settings.Settings.StreamGeneration)
-                client.DefaultRequestHeaders.Accept.Add(
-                    new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
-
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
-            var url = _settings.Settings.StreamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            var url = streamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
+            var account = await SelectAccountAsync(ApiRequestCost.Image(model, width, height, naiParams.Steps, sm: naiParams.Sm,
+                    referenceAnlas: GenerationReferenceAnlas(model, vibeTransfers, preciseReferences)), ct);
             using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
             var requestCt = requestTimeoutCts.Token;
-            using var response = _settings.Settings.StreamGeneration
-                ? await client.SendAsync(
-                    new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
-                    HttpCompletionOption.ResponseHeadersRead,
-                    requestCt)
-                : await client.PostAsync(url, content, requestCt);
+            using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+            if (streamGeneration)
+                request.Headers.Accept.ParseAdd("text/event-stream");
+            using var response = await SendAccountRequestAsync(request,
+                account,
+                streamGeneration ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead,
+                requestCt);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -1445,7 +1423,7 @@ public partial class NovelAIService : IDisposable
                 return (null, Lf("api.error.status", (int)response.StatusCode, errorText));
             }
 
-            byte[]? imageBytes = _settings.Settings.StreamGeneration
+            byte[]? imageBytes = streamGeneration
                 ? await ReadGeneratedImageStreamAsync(response.Content, progress, requestCt)
                 : await ReadGeneratedImageBytesAsync(response.Content, requestCt);
 
@@ -1535,7 +1513,7 @@ public partial class NovelAIService : IDisposable
         string imageBase64, string model, double informationExtracted,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+        if (!_settings.HasApiTokens)
             return (null, L("api.error.token_missing_network_api"));
 
         var payload = new Dictionary<string, object>
@@ -1551,13 +1529,13 @@ public partial class NovelAIService : IDisposable
 
         try
         {
-            var client = GetOrCreateClient();
-            client.DefaultRequestHeaders.Accept.Clear();
-
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
-            var response = await client.PostAsync(endpoints.EncodeVibeUrl, content, ct);
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoints.EncodeVibeUrl) { Content = content };
+            var account = await SelectAccountAsync(new ApiRequestCost(false, 2), ct);
+            using var response = await SendAccountRequestAsync(request, account,
+                HttpCompletionOption.ResponseContentRead, ct);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -1636,7 +1614,7 @@ public partial class NovelAIService : IDisposable
     public async Task<(string? Text, string? Error)> GeneratePromptTextAsync(
         string instruction, string model, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+        if (!_settings.HasApiTokens)
             return (null, L("api.error.token_missing_network_api"));
 
         var messages = new[]
@@ -1656,17 +1634,16 @@ public partial class NovelAIService : IDisposable
 
         try
         {
-            var client = GetOrCreateClient();
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(
-                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
-
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var endpoints = GetApiEndpoints();
             using var request = new HttpRequestMessage(HttpMethod.Post, endpoints.TextChatCompletionUrl) { Content = content };
-            var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            request.Headers.Accept.ParseAdd("text/event-stream");
+            var account = await SelectAccountAsync(
+                new ApiRequestCost(false, 0, RequiresSubscription: true, RequiresOpus: model == "xialong-v1"), ct);
+            using var response = await SendAccountRequestAsync(request, account,
+                HttpCompletionOption.ResponseHeadersRead, ct);
 
             if (!response.IsSuccessStatusCode)
             {

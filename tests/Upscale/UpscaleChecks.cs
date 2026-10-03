@@ -60,7 +60,7 @@ internal static class UpscaleChecks
     private static async Task CheckTransportAsync()
     {
         var settings = new SettingsService(); // Do not load or save the user's settings.
-        settings.Settings.ApiToken = "upscale-test-token";
+        settings.SetApiTokens(["upscale-test-token"]);
         settings.Settings.ApiBaseUrl = "https://unused.invalid/custom-generation";
         settings.Settings.UseProxy = false;
         using var handler = new CaptureHandler();
@@ -97,10 +97,10 @@ internal static class UpscaleChecks
         Check(result.Error != null && handler.Count == before, "Oversized input rejected before HTTP.");
         result = await service.UpscaleImageAsync([1, 2, 3]);
         Check(result.Error != null && handler.Count == before, "Undecodable image rejected before HTTP.");
-        settings.Settings.ApiToken = " ";
+        settings.SetApiTokens([" "]);
         result = await service.UpscaleImageAsync(input);
         Check(result.Error != null && handler.Count == before, "Blank token rejected before HTTP.");
-        settings.Settings.ApiToken = "upscale-test-token";
+        settings.SetApiTokens(["upscale-test-token"]);
         settings.Settings.AccountAssetProtectionMode = true;
         settings.Settings.AccountAssetProtectionDisablePaidFeatures = true;
         result = await service.UpscaleImageAsync(input);

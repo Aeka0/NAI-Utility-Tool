@@ -45,9 +45,9 @@ public sealed partial class MainWindow
         if (_autoGenRunning) { StopAutoGeneration(); return; }
         if (_continuousGenRunning) { StopContinuousGeneration(); return; }
 
-        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+        if (!_settings.HasApiTokens)
         {
-            OnNetworkSettings(sender, e);
+            OnApiSettings(sender, e);
             return;
         }
 

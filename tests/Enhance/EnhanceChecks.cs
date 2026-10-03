@@ -85,7 +85,7 @@ internal static class EnhanceChecks
     private static async Task CheckRequestsAsync()
     {
         var settings = new SettingsService(); // Never load or save real account settings.
-        settings.Settings.ApiToken = "enhance-test-token";
+        settings.SetApiTokens(["enhance-test-token"]);
         settings.Settings.UseProxy = false;
         using var handler = new CaptureHandler();
         using var client = new HttpClient(handler);
@@ -138,6 +138,11 @@ internal static class EnhanceChecks
         public JsonElement Payload { get; private set; }
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
+            if (request.Method == HttpMethod.Get)
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"subscription":{"tier":3,"active":true,"trainingStepsLeft":1000,"usage":{"percent":100,"isNegative":false}}}"""),
+                };
             using var json = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
             Payload = json.RootElement.Clone();
             Count++;

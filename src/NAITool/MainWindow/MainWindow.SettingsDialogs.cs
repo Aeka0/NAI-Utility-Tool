@@ -40,6 +40,7 @@ public sealed partial class MainWindow
     {
         Usage,
         Network,
+        Api,
         LocalStorage,
         Performance,
         Appearance,
@@ -191,77 +192,6 @@ public sealed partial class MainWindow
         _loc.SetLanguage(_settings.Settings.LanguageCode);
         _settings.Save();
         ApplyLanguageSelectionChecks();
-    }
-
-    private async Task SaveNetworkSettingsAsync(
-        string apiBaseUrl,
-        string apiToken,
-        bool streamGeneration,
-        bool useProxy,
-        string proxyPort,
-        bool testConnection)
-    {
-        _settings.Settings.ApiBaseUrl = AppSettings.NormalizeApiBaseUrl(apiBaseUrl);
-        _settings.Settings.ApiToken = apiToken;
-        _settings.Settings.StreamGeneration = streamGeneration;
-        _settings.Settings.UseProxy = useProxy;
-        _settings.Settings.ProxyPort = proxyPort;
-        _settings.Save();
-        UpdateBtnGenerateForApiKey();
-
-        TxtStatus.Text = L("settings.network.testing");
-        if (_settings.Settings.UsesCustomApiBaseUrl)
-        {
-            if (!AppSettings.IsValidApiBaseUrl(_settings.Settings.ApiBaseUrl))
-            {
-                TxtStatus.Text = L("settings.network.invalid_api_or_network");
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(apiToken))
-            {
-                ClearAccountApiState(save: true);
-                TxtStatus.Text = testConnection
-                    ? L("settings.network.invalid_api_or_network")
-                    : L("settings.network.saved");
-                return;
-            }
-
-            _anlasBalance = null;
-            _v5UsagePercent = null;
-            _v5UsageIsNegative = null;
-            _v5UsageTimeUntilNextPercentSeconds = null;
-            _isOpusSubscriber = false;
-            _hasActiveSubscription = false;
-            _anlasInitialFetchDone = true;
-            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null, null, null);
-            UpdateAnlasBalanceText();
-            UpdateBtnGenerateForApiKey();
-            UpdateGenerateButtonWarning();
-            UpdateDynamicMenuStates();
-
-            TxtStatus.Text = testConnection
-                ? L("settings.network.custom_endpoint_token_unverified")
-                : L("settings.network.saved");
-            return;
-        }
-
-        if (testConnection)
-        {
-            bool valid = !string.IsNullOrWhiteSpace(apiToken) && await ValidateSavedApiTokenAsync();
-            if (string.IsNullOrWhiteSpace(apiToken))
-                ClearAccountApiState(save: true);
-
-            TxtStatus.Text = valid
-                ? L("settings.network.test.success")
-                : L("settings.network.invalid_api_or_network");
-            return;
-        }
-
-        bool saveValid = await ValidateSavedApiTokenAsync();
-        TxtStatus.Text = saveValid
-            ? L("settings.network.saved")
-            : L("settings.network.invalid_api_or_network");
     }
 
     private void AutoDetectTaggerModel()
@@ -578,7 +508,24 @@ public sealed partial class MainWindow
         NovelAiAccountInfo? latestAccountInfo = null;
         using var dialogLifetimeCts = new CancellationTokenSource();
 
-        var cachedAccountInfo = _settings.CachedApiConfig;
+        var accounts = _settings.Accounts.ToArray();
+        ApiAccount? selectedAccount = accounts.FirstOrDefault();
+        var cachedAccountInfo = selectedAccount?.Info;
+        var accountSelector = new NumberBox
+        {
+            Minimum = 1, Maximum = Math.Max(1, accounts.Length), Value = 1,
+            SmallChange = 1, LargeChange = 1,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
+            NumberFormatter = new Windows.Globalization.NumberFormatting.DecimalFormatter { FractionDigits = 0 },
+            IsEnabled = accounts.Length > 0, Width = 120,
+            FontSize = 14,
+            FontWeight = Microsoft.UI.Text.FontWeights.Normal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(accountSelector, L("settings.api.select_account"));
+        var recoveryText = new TextBlock { FontSize = 12, Foreground = hintBrush, TextWrapping = TextWrapping.Wrap };
+        CancellationTokenSource? selectionCts = null;
+        int refreshVersion = 0;
         string notAvailable = L("settings.quota.account.not_available");
 
         static string? ReadDisplayString(string? value) =>
@@ -587,10 +534,10 @@ public sealed partial class MainWindow
         string ResolveTierLabel()
         {
             string? tier = ReadDisplayString(latestAccountInfo?.TierName) ??
-                           ReadDisplayString(cachedAccountInfo.SubscriptionTier);
+                           ReadDisplayString(cachedAccountInfo?.TierName);
             if (string.IsNullOrWhiteSpace(tier))
             {
-                int? level = latestAccountInfo?.TierLevel ?? cachedAccountInfo.SubscriptionTierLevel;
+                int? level = latestAccountInfo?.TierLevel ?? cachedAccountInfo?.TierLevel;
                 tier = level switch
                 {
                     3 => "Opus",
@@ -605,14 +552,14 @@ public sealed partial class MainWindow
                 return notAvailable;
 
             bool isActive = latestAccountInfo?.HasActiveSubscription ??
-                            cachedAccountInfo.SubscriptionActive == true;
+                            cachedAccountInfo?.HasActiveSubscription == true;
             return isActive ? tier : $"{tier} ({L("settings.quota.account.inactive")})";
         }
 
         string ResolveExpiryLabel()
         {
             string? value = ReadDisplayString(latestAccountInfo?.ExpiresAt) ??
-                            ReadDisplayString(cachedAccountInfo.SubscriptionExpiresAt);
+                            ReadDisplayString(cachedAccountInfo?.ExpiresAt);
             if (string.IsNullOrWhiteSpace(value))
                 return notAvailable;
 
@@ -655,8 +602,7 @@ public sealed partial class MainWindow
         string ResolveAnlasLabel()
         {
             int? accountAnlas = latestAccountInfo?.AnlasBalance ??
-                                _anlasBalance ??
-                                cachedAccountInfo.CachedAnlas;
+                                cachedAccountInfo?.AnlasBalance;
             return accountAnlas.HasValue
                 ? accountAnlas.Value.ToString("N0")
                 : notAvailable;
@@ -665,8 +611,7 @@ public sealed partial class MainWindow
         string ResolveV5UsageLabel()
         {
             int? usagePercent = latestAccountInfo?.V5UsagePercent ??
-                                _v5UsagePercent ??
-                                cachedAccountInfo.CachedV5UsagePercent;
+                                cachedAccountInfo?.V5UsagePercent;
             return usagePercent.HasValue
                 ? $"{Math.Max(usagePercent.Value, 0)}%"
                 : notAvailable;
@@ -731,6 +676,13 @@ public sealed partial class MainWindow
             accountV5UsageTextBlock.Text = ResolveV5UsageLabel();
             accountTierTextBlock.Text = ResolveTierLabel();
             accountExpiryTextBlock.Text = ResolveExpiryLabel();
+            var info = latestAccountInfo ?? cachedAccountInfo;
+            recoveryText.Text = info?.V5UsagePercent is int percent
+                ? percent > 100 ? L("settings.quota.summary.v5_overage")
+                    : percent == 100 ? L("settings.quota.summary.v5_full")
+                    : info.V5UsageTimeUntilNextPercentSeconds is int seconds
+                        ? FormatV5UsageRecoveryTime(percent, seconds) : ""
+                : "";
         }
 
         var refreshRotateTransform = new RotateTransform();
@@ -772,51 +724,56 @@ public sealed partial class MainWindow
         refreshSpinTimer.Tick += (_, _) => refreshRotateTransform.Angle = (refreshRotateTransform.Angle + 18) % 360;
         async Task RefreshAccountInfoAsync(bool showProgress)
         {
-            if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken) ||
-                _anlasRefreshRunning ||
-                dialogLifetimeCts.IsCancellationRequested)
-                return;
-
-            _anlasRefreshRunning = true;
+            if (selectedAccount == null || string.IsNullOrWhiteSpace(selectedAccount.Token) ||
+                dialogLifetimeCts.IsCancellationRequested) return;
+            int version = ++refreshVersion;
+            var account = selectedAccount;
+            selectionCts?.Cancel();
+            using var requestCts = CancellationTokenSource.CreateLinkedTokenSource(dialogLifetimeCts.Token);
+            selectionCts = requestCts;
             refreshButton.IsEnabled = false;
-            if (showProgress)
-                refreshSpinTimer.Start();
+            if (showProgress) refreshSpinTimer.Start();
             try
             {
-                latestAccountInfo = await _naiService.GetAccountInfoAsync(dialogLifetimeCts.Token);
-                if (latestAccountInfo != null)
-                {
-                    _anlasBalance = latestAccountInfo.AnlasBalance;
-                    _v5UsagePercent = latestAccountInfo.V5UsagePercent;
-                    _v5UsageIsNegative = latestAccountInfo.V5UsageIsNegative;
-                    _v5UsageTimeUntilNextPercentSeconds = latestAccountInfo.V5UsageTimeUntilNextPercentSeconds;
-                    _isOpusSubscriber = latestAccountInfo.IsOpus;
-                    _hasActiveSubscription = latestAccountInfo.HasActiveSubscription;
-                    _anlasInitialFetchDone = true;
-                    _settings.UpdateCachedAccountInfo(
-                        latestAccountInfo.AnlasBalance,
-                        latestAccountInfo.V5UsagePercent,
-                        latestAccountInfo.TierName,
-                        latestAccountInfo.TierLevel,
-                        latestAccountInfo.HasActiveSubscription,
-                        latestAccountInfo.ExpiresAt,
-                        latestAccountInfo.V5UsageTimeUntilNextPercentSeconds,
-                        latestAccountInfo.V5UsageIsNegative);
-                    UpdateAnlasBalanceText();
-                    RefreshAccountTextBlocks();
-                }
+                var info = await _naiService.RefreshAccountAsync(account, requestCts.Token);
+                if (version != refreshVersion || requestCts.IsCancellationRequested) return;
+                latestAccountInfo = info;
+                cachedAccountInfo = account.Info;
+                _settings.Save();
+                UpdateAccountUi();
+                RefreshAccountTextBlocks();
+                if (info == null) recoveryText.Text = L("settings.network.invalid_api_or_network");
             }
+            catch (OperationCanceledException) { }
             finally
             {
-                if (showProgress)
+                if (version == refreshVersion)
                 {
+                    selectionCts = null;
                     refreshSpinTimer.Stop();
                     refreshRotateTransform.Angle = 0;
+                    refreshButton.IsEnabled = true;
                 }
-                refreshButton.IsEnabled = true;
-                _anlasRefreshRunning = false;
             }
         }
+
+        bool normalizingIndex = false;
+        accountSelector.ValueChanged += async (_, _) =>
+        {
+            if (normalizingIndex) return;
+            double value = double.IsFinite(accountSelector.Value) ? accountSelector.Value : 1;
+            int index = (int)Math.Clamp(Math.Round(value), 1, Math.Max(1, accounts.Length));
+            normalizingIndex = true;
+            accountSelector.Value = index;
+            normalizingIndex = false;
+            selectionCts?.Cancel();
+            selectedAccount = accounts.ElementAtOrDefault(index - 1);
+            latestAccountInfo = null;
+            cachedAccountInfo = selectedAccount?.Info;
+            RefreshAccountTextBlocks();
+            await RefreshAccountInfoAsync(showProgress: true);
+        };
+        RefreshAccountTextBlocks();
 
         refreshButton.Click += async (_, _) => await RefreshAccountInfoAsync(showProgress: true);
 
@@ -830,6 +787,7 @@ public sealed partial class MainWindow
         accountHeader.Children.Add(refreshButton);
         accountPanel.Children.Add(accountHeader);
         accountPanel.Children.Add(primaryInfoGrid);
+        accountPanel.Children.Add(recoveryText);
         accountPanel.Children.Add(secondaryInfoBorder);
 
         var accountCard = new Border
@@ -913,9 +871,38 @@ public sealed partial class MainWindow
         panel.Children.Add(masterHint);
         panel.Children.Add(detailCard);
 
+        var titleRow = new Grid { Width = panel.MinWidth, ColumnSpacing = 16 };
+        titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        titleRow.Children.Add(new TextBlock
+        {
+            Text = L("settings.quota.title"),
+            VerticalAlignment = VerticalAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        var accountPicker = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        accountPicker.Children.Add(new TextBlock
+        {
+            Text = L("settings.api.select_account"),
+            FontSize = 12,
+            FontWeight = Microsoft.UI.Text.FontWeights.Normal,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        accountPicker.Children.Add(accountSelector);
+        Grid.SetColumn(accountPicker, 1);
+        titleRow.Children.Add(accountPicker);
+        // WinUI's title presenter is left-aligned; follow the actual content width to keep the picker at the right edge.
+        panel.SizeChanged += (_, args) => titleRow.Width = args.NewSize.Width;
+
         var dialog = new ContentDialog
         {
-            Title = L("settings.quota.title"),
+            Title = titleRow,
             Content = panel,
             PrimaryButtonText = L("common.save"),
             CloseButtonText = L("common.cancel"),
@@ -970,7 +957,7 @@ public sealed partial class MainWindow
     private async void NotifyApiTokenDecryptFailed()
     {
         TxtStatus.Text = L("settings.network.token_decrypt_failed");
-        ClearAccountApiState(save: false);
+        UpdateAccountUi();
 
         var dialog = new ContentDialog
         {
@@ -993,118 +980,29 @@ public sealed partial class MainWindow
     private async void OnNetworkSettings(object sender, RoutedEventArgs e)
         => await ShowSettingsHubDialogAsync(SettingsHubSection.Network);
 
+    private async void OnApiSettings(object sender, RoutedEventArgs e)
+        => await ShowSettingsHubDialogAsync(SettingsHubSection.Api);
+
     private async Task<bool> ValidateSavedApiTokenAsync()
     {
-        if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
-        {
-            ClearAccountApiState(save: true);
-            return true;
-        }
-
-        if (!AppSettings.IsValidApiBaseUrl(_settings.Settings.ApiBaseUrl))
-            return false;
-
-        if (_settings.Settings.UsesCustomApiBaseUrl)
-        {
-            _anlasBalance = null;
-            _v5UsagePercent = null;
-            _v5UsageIsNegative = null;
-            _v5UsageTimeUntilNextPercentSeconds = null;
-            _isOpusSubscriber = false;
-            _hasActiveSubscription = false;
-            _anlasInitialFetchDone = true;
-            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null, null, null);
-            UpdateAnlasBalanceText();
-            UpdateBtnGenerateForApiKey();
-            UpdateGenerateButtonWarning();
-            UpdateDynamicMenuStates();
-            return true;
-        }
-
-        _anlasRefreshRunning = true;
-        _anlasInitialFetchDone = false;
-        UpdateBtnGenerateForApiKey();
-
-        NovelAiAccountInfo? accountInfo = null;
-        try
-        {
-            accountInfo = await _naiService.GetAccountInfoAsync();
-        }
-        finally
-        {
-            _anlasRefreshRunning = false;
-        }
-
-        if (accountInfo == null)
-        {
-            ClearAccountApiState(save: true);
-            return false;
-        }
-
-        if (!accountInfo.IsAccountInfoAvailable && _settings.Settings.UsesCustomApiBaseUrl)
-        {
-            _anlasBalance = null;
-            _v5UsagePercent = null;
-            _v5UsageIsNegative = null;
-            _v5UsageTimeUntilNextPercentSeconds = null;
-            _isOpusSubscriber = false;
-            _hasActiveSubscription = false;
-            _anlasInitialFetchDone = true;
-            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null, null, null);
-            UpdateAnlasBalanceText();
-            UpdateBtnGenerateForApiKey();
-            UpdateGenerateButtonWarning();
-            UpdateDynamicMenuStates();
-            return true;
-        }
-
-        ApplyAccountInfo(accountInfo, save: true);
-        return true;
+        if (!AppSettings.IsValidApiBaseUrl(_settings.Settings.ApiBaseUrl)) return false;
+        await RefreshAnlasInfoAsync(forceRefresh: true);
+        return _settings.Accounts.Any(a => a.Token.Length > 0 &&
+            (_settings.Settings.UsesCustomApiBaseUrl || a.IsTokenValid == true));
     }
 
     private void ClearAccountApiState(bool save)
     {
-        _settings.Settings.ApiToken = null;
-        _anlasBalance = null;
-        _v5UsagePercent = null;
-        _v5UsageIsNegative = null;
-        _v5UsageTimeUntilNextPercentSeconds = null;
-        _isOpusSubscriber = false;
-        _hasActiveSubscription = false;
+        _settings.SetApiTokens([]);
+        ApplyCachedAccountInfo();
         _anlasInitialFetchDone = false;
-
-        if (save)
-            _settings.UpdateCachedAccountInfo(null, null, null, null, null, null, null, null);
-
-        UpdateAnlasBalanceText();
-        UpdateBtnGenerateForApiKey();
-        UpdateGenerateButtonWarning();
-        UpdateDynamicMenuStates();
+        if (save) _settings.Save();
+        UpdateAccountUi();
     }
 
-    private void ApplyAccountInfo(NovelAiAccountInfo accountInfo, bool save)
+    private void UpdateAccountUi()
     {
-        _anlasBalance = accountInfo.AnlasBalance;
-        _v5UsagePercent = accountInfo.V5UsagePercent;
-        _v5UsageIsNegative = accountInfo.V5UsageIsNegative;
-        _v5UsageTimeUntilNextPercentSeconds = accountInfo.V5UsageTimeUntilNextPercentSeconds;
-        _isOpusSubscriber = accountInfo.IsOpus;
-        _hasActiveSubscription = accountInfo.HasActiveSubscription;
-        _anlasInitialFetchDone = true;
-
-        if (save)
-        {
-            _settings.UpdateCachedAccountInfo(
-                accountInfo.AnlasBalance,
-                accountInfo.V5UsagePercent,
-                accountInfo.TierName,
-                accountInfo.TierLevel,
-                accountInfo.HasActiveSubscription,
-                accountInfo.ExpiresAt,
-                accountInfo.V5UsageTimeUntilNextPercentSeconds,
-                accountInfo.V5UsageIsNegative);
-        }
-
+        ApplyCachedAccountInfo();
         UpdateAnlasBalanceText();
         UpdateBtnGenerateForApiKey();
         UpdateGenerateButtonWarning();

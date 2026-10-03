@@ -141,7 +141,7 @@ public sealed partial class MainWindow
 
     private int EstimateCurrentRequestAnlasCost()
     {
-        if (!IsPromptMode(_currentMode) || string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+        if (!IsPromptMode(_currentMode) || (!_settings.HasApiTokens))
             return 0;
 
         var parameters = CurrentParams;
@@ -169,14 +169,13 @@ public sealed partial class MainWindow
         int? stepOverride = null,
         bool? imageToImageOverride = null)
     {
-        if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+        if (!_settings.HasApiTokens)
             return 0;
 
         int steps = stepOverride ?? parameters.Steps;
         bool imageToImage = imageToImageOverride ??
             (_currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Denoise);
-        int baseCost = NovelAiAnlasCalculator.BaseCost(model, width, height, steps,
-            _isOpusSubscriber && _hasActiveSubscription, _v5UsageIsNegative,
+        var cost = ApiRequestCost.Image(model, width, height, steps,
             sm: parameters.Sm && !imageToImage && _currentMode != AppMode.I2I,
             strength: imageToImage ? parameters.DenoiseStrength
                 : _currentMode == AppMode.I2I && IsV4PlusModelKey(model) ? parameters.InpaintStrength : 1);
@@ -200,7 +199,7 @@ public sealed partial class MainWindow
             refCost += NovelAiAnlasCalculator.ReferenceCost(0, 0, activePreciseCount);
         }
 
-        return (int)Math.Min((long)baseCost + refCost, int.MaxValue);
+        return _naiService.EstimateAnlas(cost with { ReferenceAnlas = refCost });
     }
 
     private bool CurrentRequestUsesAnlas() => EstimateCurrentRequestAnlasCost() > 0;

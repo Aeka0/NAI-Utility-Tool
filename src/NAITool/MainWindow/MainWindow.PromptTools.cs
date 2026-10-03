@@ -56,7 +56,8 @@ public sealed partial class MainWindow
         new(@"\*{4}\s*(.*?)\s*\*{4}", RegexOptions.Singleline | RegexOptions.Compiled);
 
     private bool IsKnownOpusSubscriber() =>
-        _isOpusSubscriber || (_settings.CachedApiConfig.SubscriptionTierLevel ?? -1) >= 3;
+        _settings.Accounts.Any(a => a.Token.Length > 0 && a.IsTokenValid != false &&
+            a.Info is { IsOpus: true, HasActiveSubscription: true });
 
     private static string ExtractGeneratedPromptText(string responseText)
     {
@@ -210,7 +211,7 @@ public sealed partial class MainWindow
 
             generateBtn.Click += async (_, _) =>
             {
-                if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+                if (!_settings.HasApiTokens)
                 {
                     statusBlock.Text = L("api.error.token_missing_network_api");
                     return;
@@ -226,27 +227,7 @@ public sealed partial class MainWindow
                 string instruction = BuildPromptGeneratorInstruction(inputBox.Text, outputMode);
                 if (!_anlasInitialFetchDone)
                 {
-                    var accountInfo = await _naiService.GetAccountInfoAsync();
-                    if (accountInfo != null)
-                    {
-                        _anlasBalance = accountInfo.AnlasBalance;
-                        _v5UsagePercent = accountInfo.V5UsagePercent;
-                        _v5UsageIsNegative = accountInfo.V5UsageIsNegative;
-                        _v5UsageTimeUntilNextPercentSeconds = accountInfo.V5UsageTimeUntilNextPercentSeconds;
-                        _isOpusSubscriber = accountInfo.IsOpus;
-                        _hasActiveSubscription = accountInfo.HasActiveSubscription;
-                        _anlasInitialFetchDone = true;
-                        _settings.UpdateCachedAccountInfo(
-                            accountInfo.AnlasBalance,
-                            accountInfo.V5UsagePercent,
-                            accountInfo.TierName,
-                            accountInfo.TierLevel,
-                            accountInfo.HasActiveSubscription,
-                            accountInfo.ExpiresAt,
-                            accountInfo.V5UsageTimeUntilNextPercentSeconds,
-                            accountInfo.V5UsageIsNegative);
-                        UpdateAnlasBalanceText();
-                    }
+                    await RefreshAnlasInfoAsync();
                 }
 
                 if (!_hasActiveSubscription)

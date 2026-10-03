@@ -355,8 +355,8 @@ public sealed partial class MainWindow
             { TxtStatus.Text = L("upscale.official.protection_blocked"); return; }
             if (NovelAiUpscaleRules.EstimateAnlas(_upscaleSourceWidth, _upscaleSourceHeight) == null)
             { TxtStatus.Text = L("upscale.official.size_limit"); return; }
-            if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
-            { OnNetworkSettings(this, new RoutedEventArgs()); return; }
+            if (!_settings.HasApiTokens)
+            { OnApiSettings(this, new RoutedEventArgs()); return; }
         }
         else CommitUpscaleScaleInput();
 

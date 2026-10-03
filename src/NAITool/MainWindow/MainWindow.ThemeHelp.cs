@@ -215,6 +215,10 @@ public sealed partial class MainWindow
         var pages = new (string Title, string Body)[]
         {
             (
+                L("help.highlights.multi_api.title"),
+                L("help.highlights.multi_api.body")
+            ),
+            (
                 L("help.highlights.automation.title"),
                 L("help.highlights.automation.body")
             ),

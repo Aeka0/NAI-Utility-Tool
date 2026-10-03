@@ -276,9 +276,9 @@ public sealed partial class MainWindow
         if (_generateRequestRunning)
             return false;
 
-        if (string.IsNullOrEmpty(_settings.Settings.ApiToken))
+        if (!_settings.HasApiTokens)
         {
-            OnNetworkSettings(this, new RoutedEventArgs());
+            OnApiSettings(this, new RoutedEventArgs());
             return false;
         }
 

@@ -115,7 +115,7 @@ public sealed partial class MainWindow
             bool canStart = !_autoGenRunning &&
                             !_continuousGenRunning &&
                             _currentMode == AppMode.ImageGeneration &&
-                            !string.IsNullOrWhiteSpace(_settings.Settings.ApiToken);
+                            _settings.HasApiTokens;
             foreach (var button in buttons)
                 button.IsEnabled = canStart;
             hintText.Text = canStart
@@ -165,19 +165,10 @@ public sealed partial class MainWindow
         if (TxtAnlasBalance == null || TxtV5UsagePercent == null)
             return;
 
-        if (string.IsNullOrWhiteSpace(_settings.Settings.ApiToken))
+        if (!_settings.HasApiTokens)
         {
-            _anlasBalance = null;
-            _v5UsagePercent = null;
-            _v5UsageIsNegative = null;
-            _v5UsageTimeUntilNextPercentSeconds = null;
-            _isOpusSubscriber = false;
-            _hasActiveSubscription = false;
             _anlasInitialFetchDone = false;
-            UpdateAnlasBalanceText();
-            UpdateBtnGenerateForApiKey();
-            UpdateGenerateButtonWarning();
-            UpdateDynamicMenuStates();
+            UpdateAccountUi();
             return;
         }
 
@@ -200,26 +191,9 @@ public sealed partial class MainWindow
             UpdateBtnGenerateForApiKey();
             try
             {
-                var accountInfo = await _naiService.GetAccountInfoAsync();
-                if (accountInfo != null)
-                {
-                    _anlasBalance = accountInfo.AnlasBalance;
-                    _v5UsagePercent = accountInfo.V5UsagePercent;
-                    _v5UsageIsNegative = accountInfo.V5UsageIsNegative;
-                    _v5UsageTimeUntilNextPercentSeconds = accountInfo.V5UsageTimeUntilNextPercentSeconds;
-                    _isOpusSubscriber = accountInfo.IsOpus;
-                    _hasActiveSubscription = accountInfo.HasActiveSubscription;
-                    _anlasInitialFetchDone = true;
-                    _settings.UpdateCachedAccountInfo(
-                        accountInfo.AnlasBalance,
-                        accountInfo.V5UsagePercent,
-                        accountInfo.TierName,
-                        accountInfo.TierLevel,
-                        accountInfo.HasActiveSubscription,
-                        accountInfo.ExpiresAt,
-                        accountInfo.V5UsageTimeUntilNextPercentSeconds,
-                        accountInfo.V5UsageIsNegative);
-                }
+                await _naiService.RefreshAccountsAsync();
+                _anlasInitialFetchDone = true;
+                ApplyCachedAccountInfo();
             }
             finally
             {
@@ -235,18 +209,12 @@ public sealed partial class MainWindow
 
     private void ApplyCachedAccountInfo()
     {
-        var cached = _settings.CachedApiConfig;
-        _v5UsageIsNegative = cached.CachedV5UsageIsNegative;
-        if (cached.CachedAnlas.HasValue)
-            _anlasBalance = cached.CachedAnlas;
-        if (cached.CachedV5UsagePercent.HasValue)
-            _v5UsagePercent = Math.Max(cached.CachedV5UsagePercent.Value, 0);
-        if (cached.CachedV5UsageTimeUntilNextPercentSeconds.HasValue)
-            _v5UsageTimeUntilNextPercentSeconds = Math.Max(cached.CachedV5UsageTimeUntilNextPercentSeconds.Value, 0);
-        if (cached.SubscriptionTierLevel.HasValue)
-            _isOpusSubscriber = cached.SubscriptionTierLevel.Value >= 3;
-        if (cached.SubscriptionActive.HasValue)
-            _hasActiveSubscription = cached.SubscriptionActive.Value;
+        var totals = _settings.Settings.UsesCustomApiBaseUrl
+            ? default : ApiQuotaTotals.From(_settings.Accounts);
+        _anlasBalance = totals.Anlas;
+        _v5UsagePercent = totals.V5Percent;
+        _hasActiveSubscription = _settings.Accounts.Any(a => a.Token.Length > 0 &&
+            a.IsTokenValid != false && a.Info?.HasActiveSubscription == true);
     }
 
     private void UpdateAnlasBalanceText()
@@ -255,7 +223,7 @@ public sealed partial class MainWindow
             return;
 
         bool visible = IsPromptMode(_currentMode) &&
-                       !string.IsNullOrWhiteSpace(_settings.Settings.ApiToken);
+                       _settings.HasApiTokens;
         AnlasBalanceButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         if (!visible)
             return;
@@ -437,20 +405,19 @@ public sealed partial class MainWindow
             _quotaSummaryV5UsageRecoveryText == null)
             return;
 
-        int? anlas = _anlasBalance ?? _settings.CachedApiConfig.CachedAnlas;
-        int? v5Usage = _v5UsagePercent ?? _settings.CachedApiConfig.CachedV5UsagePercent;
-        int? v5TimeUntilNextPercentSeconds = _v5UsageTimeUntilNextPercentSeconds ??
-                                              _settings.CachedApiConfig.CachedV5UsageTimeUntilNextPercentSeconds;
+        long? anlas = _anlasBalance;
+        long? v5Usage = _v5UsagePercent;
+        var totals = ApiQuotaTotals.From(_settings.Accounts);
         bool isDark = this.Content is FrameworkElement root && root.ActualTheme == ElementTheme.Dark;
         var summaryTextBrush = new SolidColorBrush(isDark
             ? Windows.UI.Color.FromArgb(255, 245, 245, 245)
             : Windows.UI.Color.FromArgb(255, 32, 32, 32));
 
-        _quotaSummaryAnlasLabel.Text = L("settings.quota.account.current_anlas");
+        _quotaSummaryAnlasLabel.Text = L("settings.api.total_anlas");
         _quotaSummaryAnlasText.Text = anlas?.ToString("N0") ?? "--";
-        _quotaSummaryAnlasProgress.Maximum = 10_000;
+        _quotaSummaryAnlasProgress.Maximum = Math.Max(10_000L * Math.Max(1, totals.AccountCount), anlas ?? 0);
         _quotaSummaryAnlasProgress.Value = anlas.HasValue
-            ? Math.Clamp(anlas.Value, 0, 10_000)
+            ? Math.Max(anlas.Value, 0)
             : 0;
         _quotaSummaryAnlasProgress.Opacity = anlas.HasValue ? 1 : 0.45;
         int currentAnlasCost = EstimateCurrentRequestAnlasCost();
@@ -461,12 +428,12 @@ public sealed partial class MainWindow
                 : "--";
         _quotaSummaryAnlasEstimateText.Text = Lf("settings.quota.summary.anlas_estimate", anlasImageCount);
 
-        _quotaSummaryV5UsageLabel.Text = L("settings.quota.account.v5_usage");
+        _quotaSummaryV5UsageLabel.Text = L("settings.api.total_v5");
         _quotaSummaryV5UsageText.Text = v5Usage.HasValue
             ? $"{Math.Max(v5Usage.Value, 0)}%"
             : "--%";
         _quotaSummaryV5UsageProgress.Maximum = v5Usage.HasValue
-            ? Math.Max(100, v5Usage.Value)
+            ? Math.Max(100L * Math.Max(1, totals.AccountCount), v5Usage.Value)
             : 100;
         _quotaSummaryV5UsageProgress.Value = v5Usage.HasValue
             ? Math.Max(v5Usage.Value, 0)
@@ -476,13 +443,7 @@ public sealed partial class MainWindow
             ? Math.Floor(1_730d * Math.Max(v5Usage.Value, 0) / 100).ToString("N0")
             : "--";
         _quotaSummaryV5UsageEstimateText.Text = Lf("settings.quota.summary.v5_estimate", v5ImageCount);
-        _quotaSummaryV5UsageRecoveryText.Text = v5Usage.HasValue && v5Usage.Value > 100
-            ? L("settings.quota.summary.v5_overage")
-            : v5Usage.HasValue && v5Usage.Value >= 100
-                ? L("settings.quota.summary.v5_full")
-            : v5Usage.HasValue && v5TimeUntilNextPercentSeconds.HasValue
-                ? FormatV5UsageRecoveryTime(v5Usage.Value, v5TimeUntilNextPercentSeconds.Value)
-                : Lf("settings.quota.summary.v5_recovery", "--", "--");
+        _quotaSummaryV5UsageRecoveryText.Text = Lf("settings.api.total_hint", totals.KnownCount, totals.AccountCount);
 
         _quotaSummaryAnlasLabel.Foreground = summaryTextBrush;
         _quotaSummaryAnlasText.Foreground = summaryTextBrush;

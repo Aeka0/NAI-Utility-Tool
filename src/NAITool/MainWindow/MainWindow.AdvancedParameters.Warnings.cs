@@ -437,7 +437,7 @@ public sealed partial class MainWindow
     {
         if (IsAnyGenerateLoopRunning()) return;
         BtnGenerate.IsEnabled = !_generateRequestRunning;
-        bool hasKey = !string.IsNullOrEmpty(_settings.Settings.ApiToken);
+        bool hasKey = _settings.HasApiTokens;
         var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         if (hasKey && _anlasRefreshRunning && !_anlasInitialFetchDone)
         {

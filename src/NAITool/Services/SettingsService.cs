@@ -29,6 +29,30 @@ public class SettingsService
 
     public AppSettings Settings { get; private set; } = new();
     public ApiConfig CachedApiConfig { get; private set; } = new();
+    public IReadOnlyList<ApiAccount> Accounts => CachedApiConfig.Accounts;
+    public bool HasApiTokens => Accounts.Any(a => !string.IsNullOrWhiteSpace(a.Token));
+    private readonly object _saveLock = new();
+
+    // Retain cache by credential identity, never by editable row index.
+    public void SetApiTokens(IEnumerable<string> tokens)
+    {
+        lock (_saveLock)
+        {
+            var existing = Accounts.Where(a => a.Token.Length > 0)
+                .GroupBy(a => a.Token, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First());
+            CachedApiConfig.Accounts = tokens.Select(token =>
+            {
+                string trimmed = token.Trim();
+                if (!existing.TryGetValue(trimmed, out var account))
+                {
+                    account = new ApiAccount { Token = trimmed };
+                    if (trimmed.Length > 0) existing.Add(trimmed, account);
+                }
+                return account;
+            }).ToList();
+        }
+    }
+
     public bool ApiTokenDecryptFailed { get; private set; }
 
     public static bool SettingsFileExists => File.Exists(SettingsFilePath);
@@ -90,29 +114,55 @@ public class SettingsService
             if (File.Exists(ApiConfigFilePath))
             {
                 var json = File.ReadAllText(ApiConfigFilePath);
-                var apiCfg = JsonSerializer.Deserialize<ApiConfig>(json, JsonOptions);
-                if (apiCfg != null)
+                using var document = JsonDocument.Parse(json);
+                if (document.RootElement.TryGetProperty(nameof(ApiConfig.Accounts), out _))
                 {
-                    CachedApiConfig = apiCfg;
-
-                    if (!string.IsNullOrWhiteSpace(apiCfg.EncryptedApiToken))
+                    CachedApiConfig = JsonSerializer.Deserialize<ApiConfig>(json, JsonOptions) ?? new();
+                    CachedApiConfig.Accounts ??= [];
+                    CachedApiConfig.Accounts = CachedApiConfig.Accounts.Where(a => a != null).ToList();
+                    foreach (var account in Accounts)
                     {
-                        var decrypted = DecryptToken(apiCfg.EncryptedApiToken);
-                        if (decrypted != null)
-                        {
-                            Settings.ApiToken = decrypted;
-                        }
-                        else
-                        {
-                            ApiTokenDecryptFailed = true;
-                            Settings.ApiToken = null;
-                            System.Diagnostics.Debug.WriteLine("[ApiConfig] API Token 解密失败：密钥可能来自其他机器或用户");
-                        }
+                        if (string.IsNullOrWhiteSpace(account.EncryptedApiToken)) continue;
+                        account.Token = DecryptToken(account.EncryptedApiToken)?.Trim() ?? "";
+                        ApiTokenDecryptFailed |= account.Token.Length == 0;
                     }
-                    else if (!string.IsNullOrWhiteSpace(apiCfg.ApiToken))
+                    var canonical = new Dictionary<string, ApiAccount>(StringComparer.Ordinal);
+                    for (int i = 0; i < CachedApiConfig.Accounts.Count; i++)
                     {
-                        Settings.ApiToken = apiCfg.ApiToken;
-                        System.Diagnostics.Debug.WriteLine("[ApiConfig] 检测到明文 API Token，将在下次保存时自动加密");
+                        var account = CachedApiConfig.Accounts[i];
+                        if (account.Token.Length == 0) continue;
+                        if (canonical.TryGetValue(account.Token, out var first))
+                        {
+                            first.Info ??= account.Info;
+                            CachedApiConfig.Accounts[i] = first;
+                        }
+                        else canonical.Add(account.Token, account);
+                    }
+                }
+                else
+                {
+                    // One-time import of the released single-account configuration.
+                    var legacy = JsonSerializer.Deserialize<LegacyApiConfig>(json, JsonOptions);
+                    if (legacy != null)
+                    {
+                        string token = !string.IsNullOrWhiteSpace(legacy.EncryptedApiToken)
+                            ? DecryptToken(legacy.EncryptedApiToken) ?? "" : legacy.ApiToken ?? "";
+                        ApiTokenDecryptFailed = token.Length == 0 && !string.IsNullOrEmpty(legacy.EncryptedApiToken);
+                        CachedApiConfig.Accounts = [new ApiAccount
+                        {
+                            Token = token.Trim(), EncryptedApiToken = legacy.EncryptedApiToken,
+                            Info = new NovelAiAccountInfo
+                            {
+                                AnlasBalance = legacy.CachedAnlas,
+                                V5UsagePercent = legacy.CachedV5UsagePercent,
+                                V5UsageIsNegative = legacy.CachedV5UsageIsNegative,
+                                V5UsageTimeUntilNextPercentSeconds = legacy.CachedV5UsageTimeUntilNextPercentSeconds,
+                                TierName = legacy.SubscriptionTier ?? "", TierLevel = legacy.SubscriptionTierLevel,
+                                IsOpus = legacy.SubscriptionTierLevel >= 3,
+                                HasActiveSubscription = legacy.SubscriptionActive == true,
+                                ExpiresAt = legacy.SubscriptionExpiresAt,
+                            },
+                        }];
                     }
                 }
             }
@@ -126,26 +176,19 @@ public class SettingsService
     /// <summary>保存设置到磁盘（通用设置与 API 凭证分别写入）</summary>
     public bool Save()
     {
+        lock (_saveLock)
         try
         {
             Directory.CreateDirectory(ConfigDir);
             Settings.Normalize();
 
-            var token = Settings.ApiToken;
-            Settings.ApiToken = null;
             var settingsJson = JsonSerializer.Serialize(Settings, JsonOptions);
-            Settings.ApiToken = token;
             File.WriteAllText(SettingsFilePath, settingsJson);
 
-            if (!string.IsNullOrWhiteSpace(token))
+            foreach (var account in Accounts)
             {
-                CachedApiConfig.EncryptedApiToken = EncryptToken(token);
-                CachedApiConfig.ApiToken = null;
-            }
-            else
-            {
-                CachedApiConfig.EncryptedApiToken = null;
-                CachedApiConfig.ApiToken = null;
+                if (!string.IsNullOrWhiteSpace(account.Token) && account.EncryptedApiToken == null)
+                    account.EncryptedApiToken = EncryptToken(account.Token);
             }
             var apiJson = JsonSerializer.Serialize(CachedApiConfig, JsonOptions);
             File.WriteAllText(ApiConfigFilePath, apiJson);
@@ -159,43 +202,20 @@ public class SettingsService
         }
     }
 
-    /// <summary>更新缓存的账户信息并写入 apiconfig.json</summary>
-    public void UpdateCachedAccountInfo(
-        int? anlas,
-        int? v5UsagePercent,
-        string? tier,
-        int? tierLevel,
-        bool? active,
-        string? expiresAt,
-        int? v5UsageTimeUntilNextPercentSeconds,
-        bool? v5UsageIsNegative)
+    private sealed class LegacyApiConfig
     {
-        CachedApiConfig.CachedAnlas = anlas;
-        CachedApiConfig.CachedV5UsagePercent = v5UsagePercent;
-        CachedApiConfig.CachedV5UsageIsNegative = v5UsageIsNegative;
-        CachedApiConfig.CachedV5UsageTimeUntilNextPercentSeconds = v5UsageTimeUntilNextPercentSeconds;
-        CachedApiConfig.SubscriptionTier = tier;
-        CachedApiConfig.SubscriptionTierLevel = tierLevel;
-        CachedApiConfig.SubscriptionActive = active;
-        CachedApiConfig.SubscriptionExpiresAt = expiresAt;
-        Save();
+        public LegacyApiConfig() { }
+        public string? ApiToken { get; set; }
+        public string? EncryptedApiToken { get; set; }
+        public int? CachedAnlas { get; set; }
+        public int? CachedV5UsagePercent { get; set; }
+        public bool? CachedV5UsageIsNegative { get; set; }
+        public int? CachedV5UsageTimeUntilNextPercentSeconds { get; set; }
+        public string? SubscriptionTier { get; set; }
+        public int? SubscriptionTierLevel { get; set; }
+        public bool? SubscriptionActive { get; set; }
+        public string? SubscriptionExpiresAt { get; set; }
     }
-}
-
-/// <summary>API 凭证与账户缓存信息</summary>
-public class ApiConfig
-{
-    // Changing the numbers here won't do anything that affects the your account, nice try though.
-    public string? ApiToken { get; set; }
-    public string? EncryptedApiToken { get; set; }
-    public int? CachedAnlas { get; set; }
-    public int? CachedV5UsagePercent { get; set; }
-    public bool? CachedV5UsageIsNegative { get; set; }
-    public int? CachedV5UsageTimeUntilNextPercentSeconds { get; set; }
-    public string? SubscriptionTier { get; set; }
-    public int? SubscriptionTierLevel { get; set; }
-    public bool? SubscriptionActive { get; set; }
-    public string? SubscriptionExpiresAt { get; set; }
 }
 
 public class AppSettings
@@ -209,8 +229,7 @@ public class AppSettings
 
     public double HistorySidebarWidth { get; set; } = DefaultHistorySidebarWidth;
     public double GalleryThumbnailHeight { get; set; } = DefaultGalleryThumbnailHeight;
-    [JsonIgnore]
-    public string? ApiToken { get; set; }
+    public ApiCallMode ApiCallMode { get; set; } = ApiCallMode.RoundRobin;
     public string ApiBaseUrl { get; set; } = "";
     public bool WeightHighlight { get; set; } = true;
     public bool AutoComplete { get; set; } = true;
@@ -273,6 +292,7 @@ public class AppSettings
             ? Math.Clamp(GalleryThumbnailHeight, MinGalleryThumbnailHeight, MaxGalleryThumbnailHeight)
             : DefaultGalleryThumbnailHeight;
         ApiBaseUrl = NormalizeApiBaseUrl(ApiBaseUrl);
+        if (!Enum.IsDefined(ApiCallMode)) ApiCallMode = ApiCallMode.RoundRobin;
         if (!string.IsNullOrWhiteSpace(LanguageCode))
             LanguageCode = LocalizationService.NormalizeLanguageCode(LanguageCode);
         AppearanceTransparency = AppearanceTransparency switch

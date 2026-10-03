@@ -43,6 +43,7 @@ public sealed partial class MainWindow
         };
 
         var usageItem = CreateSettingsHubNavItem(SettingsHubSection.Usage, L("settings.hub.usage.title"), "\uE713");
+        var apiItem = CreateSettingsHubNavItem(SettingsHubSection.Api, L("settings.api.title"), "\uE8D7");
         var networkItem = CreateSettingsHubNavItem(SettingsHubSection.Network, L("settings.hub.network.title"), "\uE774");
         var localStorageItem = CreateSettingsHubNavItem(SettingsHubSection.LocalStorage, L("settings.hub.local_storage.title"), "\uEDA2");
         var performanceItem = CreateSettingsHubNavItem(SettingsHubSection.Performance, L("settings.hub.performance.title"), "\uE9D9");
@@ -52,6 +53,7 @@ public sealed partial class MainWindow
 
         navigationView.MenuItems.Add(usageItem);
         navigationView.MenuItems.Add(networkItem);
+        navigationView.MenuItems.Add(apiItem);
         navigationView.MenuItems.Add(localStorageItem);
         navigationView.MenuItems.Add(performanceItem);
         navigationView.MenuItems.Add(appearanceItem);
@@ -62,6 +64,7 @@ public sealed partial class MainWindow
         {
             [SettingsHubSection.Usage] = usageItem,
             [SettingsHubSection.Network] = networkItem,
+            [SettingsHubSection.Api] = apiItem,
             [SettingsHubSection.LocalStorage] = localStorageItem,
             [SettingsHubSection.Performance] = performanceItem,
             [SettingsHubSection.Appearance] = appearanceItem,
@@ -196,227 +199,35 @@ public sealed partial class MainWindow
 
         UIElement BuildNetworkSection()
         {
-            void ApplyNetworkSettingsRealtime(string baseUrlValue, string tokenValue, bool useProxy, string proxyPort, bool streamGeneration)
-            {
-                string normalizedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlValue);
-                string trimmedToken = tokenValue.Trim();
-                _settings.Settings.ApiBaseUrl = normalizedBaseUrl;
-                _settings.Settings.StreamGeneration = streamGeneration;
-                _settings.Settings.UseProxy = useProxy;
-                _settings.Settings.ProxyPort = proxyPort;
-
-                if (string.IsNullOrWhiteSpace(trimmedToken))
-                {
-                    ClearAccountApiState(save: true);
-                    _settings.Settings.ApiBaseUrl = normalizedBaseUrl;
-                    _settings.Settings.StreamGeneration = streamGeneration;
-                    _settings.Settings.UseProxy = useProxy;
-                    _settings.Settings.ProxyPort = proxyPort;
-                    _settings.Save();
-                    return;
-                }
-
-                _settings.Settings.ApiToken = trimmedToken;
-                _settings.Save();
-                UpdateBtnGenerateForApiKey();
-            }
-
-            var baseUrlBox = new TextBox
-            {
-                PlaceholderText = L("settings.hub.network.base_url_placeholder"),
-                Text = _settings.Settings.ApiBaseUrl,
-                Width = SettingsHubControlColumnWidth,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            var tokenBox = new PasswordBox
-            {
-                PlaceholderText = L("settings.hub.network.api_token_placeholder"),
-                Password = _settings.Settings.ApiToken ?? "",
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            var testButton = new Button
-            {
-                Content = L("settings.hub.network.test_connection"),
-                MinWidth = 96,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
             var proxyToggle = CreateLocalizedToggleSwitch(_settings.Settings.UseProxy);
-            proxyToggle.VerticalAlignment = VerticalAlignment.Center;
             var proxyPortBox = new TextBox
             {
                 PlaceholderText = L("settings.hub.network.proxy_port_placeholder"),
                 Text = _settings.Settings.ProxyPort,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Center,
                 IsEnabled = _settings.Settings.UseProxy,
+                Width = 200,
             };
-            var streamToggle = CreateLocalizedToggleSwitch(_settings.Settings.StreamGeneration);
-            streamToggle.HorizontalAlignment = HorizontalAlignment.Right;
-
-            string lastTestedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text);
-            string lastTestedToken = tokenBox.Password.Trim();
-            bool endpointOrTokenEditedSinceLastTest = false;
-            bool networkActionRunning = false;
-
-            async Task RunNetworkActionAsync(bool testConnection)
-            {
-                if (networkActionRunning)
-                    return;
-
-                networkActionRunning = true;
-                testButton.IsEnabled = false;
-                try
-                {
-                    string normalizedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text);
-                    string trimmedToken = tokenBox.Password.Trim();
-                    await SaveNetworkSettingsAsync(
-                        normalizedBaseUrl,
-                        trimmedToken,
-                        _settings.Settings.StreamGeneration,
-                        _settings.Settings.UseProxy,
-                        _settings.Settings.ProxyPort,
-                        testConnection);
-                    if (testConnection)
-                    {
-                        lastTestedBaseUrl = normalizedBaseUrl;
-                        lastTestedToken = trimmedToken;
-                        endpointOrTokenEditedSinceLastTest = false;
-                    }
-                }
-                finally
-                {
-                    networkActionRunning = false;
-                    testButton.IsEnabled = true;
-                }
-            }
-
-            async Task TestTokenAfterEditingAsync()
-            {
-                string normalizedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text);
-                string trimmedToken = tokenBox.Password.Trim();
-                if (string.IsNullOrWhiteSpace(trimmedToken) ||
-                    !endpointOrTokenEditedSinceLastTest ||
-                    (string.Equals(normalizedBaseUrl, lastTestedBaseUrl, StringComparison.OrdinalIgnoreCase) &&
-                     string.Equals(trimmedToken, lastTestedToken, StringComparison.Ordinal)))
-                {
-                    return;
-                }
-
-                await RunNetworkActionAsync(true);
-            }
-
-            testButton.Click += async (_, _) => await RunNetworkActionAsync(true);
-            baseUrlBox.TextChanged += (_, _) =>
-            {
-                string normalizedBaseUrl = AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text);
-                endpointOrTokenEditedSinceLastTest =
-                    !string.Equals(normalizedBaseUrl, lastTestedBaseUrl, StringComparison.OrdinalIgnoreCase) ||
-                    !string.Equals(tokenBox.Password.Trim(), lastTestedToken, StringComparison.Ordinal);
-                ApplyNetworkSettingsRealtime(
-                    baseUrlBox.Text,
-                    tokenBox.Password,
-                    proxyToggle.IsOn,
-                    proxyPortBox.Text,
-                    streamToggle.IsOn);
-            };
-            baseUrlBox.LostFocus += async (_, _) => await TestTokenAfterEditingAsync();
-            baseUrlBox.KeyDown += async (_, args) =>
-            {
-                if (args.Key == Windows.System.VirtualKey.Enter)
-                    await TestTokenAfterEditingAsync();
-            };
-            tokenBox.PasswordChanged += (_, _) =>
-            {
-                string trimmedToken = tokenBox.Password.Trim();
-                endpointOrTokenEditedSinceLastTest =
-                    !string.Equals(AppSettings.NormalizeApiBaseUrl(baseUrlBox.Text), lastTestedBaseUrl, StringComparison.OrdinalIgnoreCase) ||
-                    !string.Equals(trimmedToken, lastTestedToken, StringComparison.Ordinal);
-                ApplyNetworkSettingsRealtime(
-                    baseUrlBox.Text,
-                    tokenBox.Password,
-                    proxyToggle.IsOn,
-                    proxyPortBox.Text,
-                    streamToggle.IsOn);
-            };
-            tokenBox.LostFocus += async (_, _) => await TestTokenAfterEditingAsync();
-            tokenBox.KeyDown += async (_, args) =>
-            {
-                if (args.Key == Windows.System.VirtualKey.Enter)
-                    await TestTokenAfterEditingAsync();
-            };
-            streamToggle.Toggled += (_, _) => ApplyNetworkSettingsRealtime(
-                baseUrlBox.Text,
-                tokenBox.Password,
-                proxyToggle.IsOn,
-                proxyPortBox.Text,
-                streamToggle.IsOn);
+            var proxyRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+            proxyRow.Children.Add(proxyPortBox);
+            proxyRow.Children.Add(proxyToggle);
             proxyToggle.Toggled += (_, _) =>
             {
                 proxyPortBox.IsEnabled = proxyToggle.IsOn;
-                ApplyNetworkSettingsRealtime(
-                    baseUrlBox.Text,
-                    tokenBox.Password,
-                    proxyToggle.IsOn,
-                    proxyPortBox.Text,
-                    streamToggle.IsOn);
+                _settings.Settings.UseProxy = proxyToggle.IsOn;
+                _settings.Save();
             };
-            proxyPortBox.TextChanged += (_, _) => ApplyNetworkSettingsRealtime(
-                baseUrlBox.Text,
-                tokenBox.Password,
-                proxyToggle.IsOn,
-                proxyPortBox.Text,
-                streamToggle.IsOn);
-
-            var tokenActions = new Grid
-            {
-                ColumnSpacing = 8,
-                Width = SettingsHubControlColumnWidth,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            tokenActions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            tokenActions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            Grid.SetColumn(tokenBox, 0);
-            Grid.SetColumn(testButton, 1);
-            tokenActions.Children.Add(tokenBox);
-            tokenActions.Children.Add(testButton);
-
-            var proxyRow = new Grid
-            {
-                ColumnSpacing = 10,
-                Width = SettingsHubControlColumnWidth,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            proxyRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            proxyRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            Grid.SetColumn(proxyPortBox, 0);
-            Grid.SetColumn(proxyToggle, 1);
-            proxyRow.Children.Add(proxyPortBox);
-            proxyRow.Children.Add(proxyToggle);
-
+            proxyPortBox.TextChanged += (_, _) => _settings.Settings.ProxyPort = proxyPortBox.Text;
+            proxyPortBox.LostFocus += (_, _) => _settings.Save();
             return CreateSettingsHubPage(
-                CreateSettingsHubLayer(
-                    "\uE71B",
-                    L("settings.hub.network.base_url"),
-                    L("settings.hub.network.base_url_hint"),
-                    baseUrlBox),
-                CreateSettingsHubLayer(
-                    "\uE8D7",
-                    L("settings.hub.network.api_token"),
-                    L("settings.hub.network.description"),
-                    tokenActions),
-                CreateSettingsHubLayer(
-                    "\uE93E",
-                    L("settings.hub.network.stream_generation"),
+                CreateSettingsHubLayer("\uE93E", L("settings.hub.network.stream_generation"),
                     L("settings.hub.network.stream_generation_hint"),
-                    streamToggle),
-                CreateSettingsHubLayer(
-                    "\uE705",
-                    L("settings.hub.network.use_proxy"),
-                    L("settings.hub.network.proxy_hint"),
-                    proxyRow));
+                    CreateSettingsHubToggleSwitch(_settings.Settings.StreamGeneration, value =>
+                    {
+                        _settings.Settings.StreamGeneration = value;
+                        _settings.Save();
+                    })),
+                CreateSettingsHubLayer("\uE705", L("settings.hub.network.use_proxy"),
+                    L("settings.hub.network.proxy_hint"), proxyRow));
         }
 
         UIElement BuildLocalStorageSection()
@@ -611,6 +422,7 @@ public sealed partial class MainWindow
         UIElement BuildSectionContent(SettingsHubSection section, Action refresh) => section switch
         {
             SettingsHubSection.Network => BuildNetworkSection(),
+            SettingsHubSection.Api => BuildApiSettingsPage(),
             SettingsHubSection.LocalStorage => BuildLocalStorageSection(),
             SettingsHubSection.Performance => BuildPerformanceSection(),
             SettingsHubSection.Appearance => BuildAppearanceSection(refresh),
@@ -633,6 +445,7 @@ public sealed partial class MainWindow
             navigationView.FontFamily = UiTextFontFamily;
 
             SetSettingsHubNavItemLabel(usageItem, L("settings.hub.usage.title"));
+            SetSettingsHubNavItemLabel(apiItem, L("settings.api.title"));
             SetSettingsHubNavItemLabel(networkItem, L("settings.hub.network.title"));
             SetSettingsHubNavItemLabel(localStorageItem, L("settings.hub.local_storage.title"));
             SetSettingsHubNavItemLabel(performanceItem, L("settings.hub.performance.title"));
@@ -743,7 +556,7 @@ public sealed partial class MainWindow
         };
     }
 
-    private UIElement CreateSettingsHubLayer(string glyph, string title, string description, FrameworkElement control)
+    private UIElement CreateSettingsHubLayer(string glyph, string title, string description, FrameworkElement control, bool expanded = false)
     {
         bool isDark = IsSettingsHubDarkTheme();
         var backgroundBrush = new SolidColorBrush(isDark
@@ -810,6 +623,18 @@ public sealed partial class MainWindow
         grid.Children.Add(iconHost);
         grid.Children.Add(textPanel);
         grid.Children.Add(controlHost);
+        if (expanded)
+        {
+            grid.RowSpacing = 16;
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.ColumnDefinitions[2].Width = new GridLength(0);
+            controlHost.Width = double.NaN;
+            control.HorizontalAlignment = HorizontalAlignment.Stretch;
+            Grid.SetColumn(controlHost, 0);
+            Grid.SetColumnSpan(controlHost, 3);
+            Grid.SetRow(controlHost, 1);
+        }
 
         return new Border
         {
