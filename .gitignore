@@ -59,3 +59,4 @@ Desktop.ini
 
 # Local design/source assets not used by builds
 .local/
+tests

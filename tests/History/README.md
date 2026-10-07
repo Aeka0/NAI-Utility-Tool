@@ -29,5 +29,10 @@ ScrollViewer layout, pointer input, frame rate, or pixel-offset restoration.
   Verify the viewport does not jump to the beginning. With it enabled, verify generation returns to top.
 - Change dates and switch workspaces while thumbnails are loading; verify no recycled cell shows
   another image and corrupt files stop displaying a loading spinner.
+- Let thumbnails finish loading on date A, switch to date B, then return to A while its thumbnails
+  remain cached. Repeat with a mix of previously viewed and uncached images, including portrait
+  and landscape images. Once each image appears, its glass placeholder and loading ring must
+  disappear completely, including the empty space around an aspect-fitted image. Pending
+  generation items must retain their placeholder until a result arrives or the request ends.
 - Repeat in light/dark themes and at 100%, 150%, and 200% display scaling, including moving between
   monitors with different DPI. Verify uncropped thumbnails and an unobstructed vertical scrollbar.
