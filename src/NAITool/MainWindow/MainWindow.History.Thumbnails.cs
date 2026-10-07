@@ -74,7 +74,12 @@ public sealed partial class MainWindow
     {
         string? path = (image.DataContext as HistoryListItem)?.FilePath;
         if (path != null && string.Equals(image.Tag as string, path, StringComparison.OrdinalIgnoreCase) && image.Source != null)
+        {
+            // A cache hit can precede attachment to the template Grid. Reconcile the
+            // placeholder when Loaded calls us again with the parent available.
+            SetHistoryThumbnailPlaceholder(image, loading: false);
             return;
+        }
         _historyImageSources.Remove(image);
         Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(image).StopAnimation("Opacity");
         image.Tag = path;
@@ -207,10 +212,11 @@ public sealed partial class MainWindow
 
     private void SetHistoryThumbnailSource(Image image, HistoryThumbnailCacheEntry entry)
     {
+        // Reusing the bitmap must still synchronize the surrounding loading state.
+        SetHistoryThumbnailPlaceholder(image, loading: false);
         if (ReferenceEquals(image.Source, entry.Bitmap)) return;
         _historyImageSources[image] = entry;
         image.Source = entry.Bitmap;
-        SetHistoryThumbnailPlaceholder(image, loading: false);
         if (image.Tag is string path && _historyThumbnailRevealPendingPaths.Remove(path))
         {
             // Composition animation belongs to this realized element; it does not alter row height.
