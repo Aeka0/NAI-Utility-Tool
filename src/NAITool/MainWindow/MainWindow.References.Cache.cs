@@ -27,32 +27,33 @@ public sealed partial class MainWindow
 
         foreach (var entry in _genVibeTransfers)
         {
-            if (entry.OriginalImageHash == null)
+            if (entry.OriginalImageHash == null && entry.ImportedVibe == null)
                 continue;
 
-            string? cachedEncoding = VibeCacheService.TryGetCachedVibeByLookup(
+            string? cachedEncoding = entry.ImportedVibe?.FindEncoding(currentModel, entry.InformationExtracted)?.Base64;
+            cachedEncoding ??= entry.OriginalImageHash == null ? null : VibeCacheService.TryGetCachedVibeByLookup(
                 cacheDir,
                 entry.OriginalImageHash,
                 entry.InformationExtracted,
                 currentModel);
 
             bool wasCached = entry.IsCachedEncoding;
+            bool wasEncoded = entry.IsEncodedFile;
 
             if (cachedEncoding != null)
             {
                 entry.ImageBase64 = cachedEncoding;
                 entry.IsEncodedFile = true;
-                entry.IsCachedEncoding = true;
+                entry.IsCachedEncoding = entry.OriginalImageHash != null;
             }
             else
             {
-                if (entry.OriginalImageBase64 != null)
-                    entry.ImageBase64 = entry.OriginalImageBase64;
+                entry.ImageBase64 = entry.OriginalImageBase64 ?? "";
                 entry.IsEncodedFile = false;
                 entry.IsCachedEncoding = false;
             }
 
-            if (wasCached != entry.IsCachedEncoding)
+            if (wasCached != entry.IsCachedEncoding || wasEncoded != entry.IsEncodedFile)
                 anyChanged = true;
         }
 

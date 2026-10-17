@@ -24,6 +24,8 @@ public sealed partial class MainWindow
 
     private readonly List<VibeTransferEntry> _genVibeTransfers = new();
     private readonly List<PreciseReferenceEntry> _genPreciseReferences = new();
+    private int _referenceImportVersion;
+    private int _pendingReferenceImports;
 
     private sealed class VibeTransferEntry
     {
@@ -34,9 +36,10 @@ public sealed partial class MainWindow
         public bool IsEncodedFile { get; set; }
         public bool IsCollapsed { get; set; }
         public bool IsDisabled { get; set; }
-        /// <summary>原始图片 SHA256 前缀（仅原始图片条目）</summary>
+        public VibeFileService.Document? ImportedVibe { get; set; }
+        /// <summary>原始图片 SHA256 前缀（包括 vibe 内嵌原图）</summary>
         public string? OriginalImageHash { get; set; }
-        /// <summary>缩略图 SHA256 前缀（仅原始图片条目）</summary>
+        /// <summary>规范缩略图 SHA256 前缀</summary>
         public string? OriginalThumbnailHash { get; set; }
         /// <summary>原始图片 Base64（缓存失效时回退）</summary>
         public string? OriginalImageBase64 { get; set; }
@@ -211,6 +214,12 @@ public sealed partial class MainWindow
         if (!IsPromptMode(_currentMode))
             return true;
 
+        if (_pendingReferenceImports > 0)
+        {
+            error = L("references.status.restoring");
+            return false;
+        }
+
         if (!TryValidateCharacterCount(out error))
             return false;
 
@@ -233,6 +242,13 @@ public sealed partial class MainWindow
             return false;
         }
 
+        if (activeVibeCount > 0 && _genVibeTransfers.Any(x => !x.IsDisabled && x.ImportedVibe != null &&
+            !x.IsEncodedFile && x.OriginalImageBase64 == null))
+        {
+            error = L("references.error.vibe_encoding_unavailable");
+            return false;
+        }
+
         if (IsAssetProtectionPaidFeatureLimitEnabled() &&
             activeVibeCount > AssetProtectionFreeVibeLimit)
         {
@@ -245,37 +261,64 @@ public sealed partial class MainWindow
 
     private void ClearReferenceFeatures()
     {
+        _referenceImportVersion++;
         _genVibeTransfers.Clear();
         _genPreciseReferences.Clear();
     }
 
-    private void ApplyReferenceDataFromMetadata(ImageMetadata? meta, AppMode? targetMode = null)
+    private async Task ApplyReferenceDataFromMetadataAsync(ImageMetadata? meta, AppMode? targetMode = null)
     {
-        _genVibeTransfers.Clear();
-        _genPreciseReferences.Clear();
+        _pendingReferenceImports++;
+        try { await RestoreReferenceDataFromMetadataAsync(meta, targetMode); }
+        finally { _pendingReferenceImports--; }
+    }
+
+    private async Task RestoreReferenceDataFromMetadataAsync(ImageMetadata? meta, AppMode? targetMode)
+    {
+        int version = ++_referenceImportVersion;
+        var restoredVibes = new List<VibeTransferEntry>();
 
         if (meta == null)
+        {
+            ClearReferenceFeatures();
             return;
+        }
 
         AppMode mode = targetMode ?? _currentMode;
 
         if (SupportsVibeTransferFeature(mode))
         {
+            string currentModel = GetCurrentModelKey();
+            string sourceModel = ImportedImageModel.ResolveForTarget(meta.Model, GenerationModels)
+                ?? ImportedImageModel.ResolveForTarget(meta.Source, GenerationModels) ?? currentModel;
+            string cacheDir = VibeCacheService.GetCacheDir(AppRootDir);
             foreach (var vibe in meta.VibeTransfers.Take(GetMaxAllowedVibeTransfers()))
             {
-                if (string.IsNullOrWhiteSpace(vibe.ImageBase64))
+                if (vibe.MetadataSource == null && string.IsNullOrWhiteSpace(vibe.ImageBase64))
                     continue;
-
-                _genVibeTransfers.Add(new VibeTransferEntry
+                try
                 {
-                    FileName = string.IsNullOrWhiteSpace(vibe.FileName) ? L("references.imported.vibe_label") : vibe.FileName,
-                    ImageBase64 = vibe.ImageBase64,
-                    Strength = Math.Clamp(vibe.Strength, 0, 1),
-                    InformationExtracted = Math.Clamp(vibe.InformationExtracted, 0, 1),
-                    IsEncodedFile = true,
-                });
+                    var source = vibe.MetadataSource ?? new VibeMetadataReference(
+                        System.Text.Json.JsonSerializer.SerializeToElement(vibe.ImageBase64),
+                        vibe.Strength, vibe.InformationExtracted);
+                    var prepared = await Task.Run(() =>
+                        VibeImportService.PrepareMetadata(source, sourceModel, currentModel, cacheDir));
+                    if (version != _referenceImportVersion || mode != _currentMode) return;
+                    string name = string.IsNullOrWhiteSpace(vibe.FileName) ? L("references.imported.vibe_label") : vibe.FileName;
+                    restoredVibes.Add(CreateVibeTransferEntry(ToVibePickResult(name, prepared))!);
+                }
+                catch (Exception ex)
+                {
+                    DebugLog($"[VibeMetadataImport] {ex.Message}");
+                }
             }
+            if (version != _referenceImportVersion || mode != _currentMode) return;
         }
+
+        _genVibeTransfers.Clear();
+        _genVibeTransfers.AddRange(restoredVibes);
+        _genPreciseReferences.Clear();
+        RecheckVibeTransferCacheState(refreshPanel: false);
 
         if (SupportsPreciseReferenceFeature(mode))
         {
@@ -340,7 +383,7 @@ public sealed partial class MainWindow
                     VibeCacheService.CreateCanonicalThumbnail(originalBytes));
                 VibeCacheService.SaveVibe(
                     cacheDir, originalBytes, originalBytes, vibeData, entry.InformationExtracted, model,
-                    originalImagePath: entry.OriginalImagePath);
+                    strength: entry.Strength);
                 if (_settings.Settings.AutoCopyVibeOriginalsToWorkspace &&
                     !string.IsNullOrWhiteSpace(entry.OriginalImagePath))
                 {

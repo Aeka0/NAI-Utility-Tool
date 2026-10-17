@@ -251,7 +251,7 @@ public sealed partial class MainWindow
                         SetI2ICharactersFromMetadata(meta);
                     else
                         _i2iCharacters.Clear();
-                    ApplyReferenceDataFromMetadata(meta, AppMode.I2I);
+                    await ApplyReferenceDataFromMetadataAsync(meta, AppMode.I2I);
                 }
             }
             else

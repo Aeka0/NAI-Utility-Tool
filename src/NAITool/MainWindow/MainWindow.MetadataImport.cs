@@ -27,10 +27,10 @@ public sealed partial class MainWindow
                     !await SendImageToI2IAsync(sourceImage, sourcePath, importMetadata: false))
                     return;
                 if (_currentMode != AppMode.I2I) SwitchMode(AppMode.I2I);
-                ApplyMetadataToI2I(meta, fileName, selection);
+                await ApplyMetadataToI2IAsync(meta, fileName, selection);
             }
             else
-                ApplyMetadataToGeneration(meta, selection);
+                await ApplyMetadataToGenerationAsync(meta, selection);
         }
         finally
         {

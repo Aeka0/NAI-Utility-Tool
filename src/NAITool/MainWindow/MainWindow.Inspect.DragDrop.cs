@@ -64,6 +64,7 @@ public sealed partial class MainWindow
 
     private async void OnInspectDrop(object sender, DragEventArgs e)
     {
+        if (await TryHandleVibeDropAsync(e)) return;
         if (IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
             return;
 
@@ -84,6 +85,7 @@ public sealed partial class MainWindow
 
     private async void OnEffectsDrop(object sender, DragEventArgs e)
     {
+        if (await TryHandleVibeDropAsync(e)) return;
         if (IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
             return;
 

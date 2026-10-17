@@ -249,6 +249,8 @@
   "references.compact.character": "Personaje",
   "references.compact.precise": "Prec. Árbitro",
   "references.compact.vibe": "Vibe",
+  "references.status.restoring": "Restaurando imágenes de referencia. Espere un momento.",
+  "references.error.vibe_encoding_unavailable": "No hay una codificación para este modelo y nivel de información, ni una imagen de origen disponible.",
   "references.error.cannot_read_encoded_vibe": "Unable to read encoded vibe file: {0}",
   "references.error.cannot_read_reference_image": "Unable to read reference image: {0}",
   "references.error.asset_protection_requires_encoded_vibe": "El modo de protección de activos de la cuenta está activado. Los modelos V4 y posteriores solo permiten archivos .naiv4vibe codificados.",

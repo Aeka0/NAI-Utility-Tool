@@ -369,6 +369,8 @@
     "references.compact.character":  "キャラ",
     "references.compact.precise":  "精密",
     "references.compact.vibe":  "Vibe",
+    "references.status.restoring": "参照画像を復元しています。しばらくお待ちください。",
+    "references.error.vibe_encoding_unavailable": "現在のモデルと情報抽出量に一致するエンコードがなく、元画像もありません。",
     "references.error.cannot_read_encoded_vibe":  "エンコード済み Vibe ファイルを読み取れません: {0}",
     "references.error.cannot_read_reference_image":  "参照画像を読み取れません: {0}",
     "references.error.asset_protection_requires_encoded_vibe":  "アカウント資産保護モードがオンです。V4 以降のモデルはエンコード済み .naiv4vibe ファイルのみ使用できます。",

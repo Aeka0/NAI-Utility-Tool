@@ -249,6 +249,8 @@
   "references.compact.character": "Персонаж",
   "references.compact.precise": "Пред. Ссылка",
   "references.compact.vibe": "Vibe",
+  "references.status.restoring": "Восстановление референсных изображений. Подождите.",
+  "references.error.vibe_encoding_unavailable": "Нет кодировки для этой модели и уровня извлечения информации, исходное изображение также недоступно.",
   "references.error.cannot_read_encoded_vibe": "Unable to read encoded vibe file: {0}",
   "references.error.cannot_read_reference_image": "Unable to read reference image: {0}",
   "references.error.asset_protection_requires_encoded_vibe": "Режим защиты активов учетной записи включен. Модели V4 и более поздних версий поддерживают только закодированные файлы .naiv4vibe.",

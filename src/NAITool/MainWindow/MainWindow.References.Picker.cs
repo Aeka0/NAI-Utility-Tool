@@ -38,6 +38,8 @@ public sealed partial class MainWindow
         }
 
         _genVibeTransfers.Add(newEntry);
+        _referenceImportVersion++;
+        RecheckVibeTransferCacheState(refreshPanel: false);
         RefreshReferencePanels();
         UpdateGenerateButtonWarning();
         TxtStatus.Text = Lf("references.status.added_vibe", newEntry.FileName);
@@ -85,6 +87,9 @@ public sealed partial class MainWindow
             OriginalImageBase64 = picked.OriginalBase64,
             OriginalImagePath = picked.OriginalImagePath,
             IsCachedEncoding = picked.IsCachedHit,
+            ImportedVibe = picked.Document,
+            InformationExtracted = picked.InformationExtracted,
+            Strength = picked.Strength,
         };
     }
 
@@ -137,7 +142,15 @@ public sealed partial class MainWindow
         string? ThumbnailHash = null,
         string? OriginalBase64 = null,
         bool IsCachedHit = false,
-        string? OriginalImagePath = null);
+        string? OriginalImagePath = null,
+        VibeFileService.Document? Document = null,
+        double InformationExtracted = 1.0,
+        double Strength = 0.6);
+
+    private static VibePickResult ToVibePickResult(string fileName, VibeImportService.Prepared prepared) =>
+        new(fileName, prepared.ImageBase64, prepared.IsEncoded, prepared.ImageHash, prepared.ThumbnailHash,
+            prepared.OriginalBase64, prepared.IsEncoded && prepared.ImageHash != null, prepared.OriginalPath,
+            prepared.Document, prepared.InformationExtracted, prepared.Strength);
 
     private async Task<VibePickResult?> PickVibeTransferSourceAsync()
     {
@@ -170,14 +183,24 @@ public sealed partial class MainWindow
     {
         if (file.FileType.Equals(".naiv4vibe", StringComparison.OrdinalIgnoreCase))
         {
-            byte[] bytes = await File.ReadAllBytesAsync(file.Path);
-            if (bytes.Length == 0)
+            try
             {
+                if (new FileInfo(file.Path).Length > VibeFileService.MaxFileBytes)
+                    throw new InvalidDataException("Vibe file too large.");
+                string model = GetCurrentModelKey();
+                string cache = VibeCacheService.GetCacheDir(AppRootDir);
+                return await Task.Run(async () =>
+                {
+                    byte[] bytes = await File.ReadAllBytesAsync(file.Path);
+                    return ToVibePickResult(file.Name, VibeImportService.PrepareFile(bytes, model, cache));
+                });
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[VibeImport] {ex.Message}");
                 TxtStatus.Text = Lf("references.error.cannot_read_encoded_vibe", file.Name);
                 return null;
             }
-
-            return new VibePickResult(file.Name, Convert.ToBase64String(bytes), IsEncodedFile: true);
         }
 
         if (RequiresEncodedVibeFileOnly())
@@ -282,6 +305,11 @@ public sealed partial class MainWindow
 
     private async Task AddDroppedVibeTransferAsync(StorageFile file)
     {
+        if (IsVibeFile(file))
+        {
+            await ImportDroppedVibeFileAsync(file);
+            return;
+        }
         int maxVibeTransfers = GetMaxAllowedVibeTransfers();
         if (TryReportVibeTransferUnavailable(maxVibeTransfers))
             return;
@@ -298,9 +326,54 @@ public sealed partial class MainWindow
         }
 
         _genVibeTransfers.Add(newEntry);
+        _referenceImportVersion++;
+        RecheckVibeTransferCacheState(refreshPanel: false);
         RefreshReferencePanels();
         UpdateGenerateButtonWarning();
         TxtStatus.Text = Lf("references.status.added_vibe", newEntry.FileName);
+    }
+
+    private async Task ImportDroppedVibeFileAsync(StorageFile file)
+    {
+        // Validate the source before changing workspace or model. V5 must be allowed here
+        // so that an encoded V4/V4.5 file can select its supported model automatically.
+        var mode = _currentMode;
+        string model = GetCurrentModelKey();
+        int version = _referenceImportVersion;
+        var picked = await CreateVibeTransferPickResultAsync(file);
+        if (picked?.Document == null || mode != _currentMode || model != GetCurrentModelKey() ||
+            version != _referenceImportVersion) return;
+
+        string? targetModel = VibeImportService.SelectCompatibleModel(picked.Document,
+            mode == AppMode.ImageGeneration ? model : _settings.Settings.GenParameters.Model, GenerationModels);
+        if (targetModel == null)
+        {
+            TxtStatus.Text = L("references.error.vibe_unsupported_model");
+            return;
+        }
+        if (ActivePreciseReferenceCount() > 0)
+        {
+            TxtStatus.Text = L("references.validation.mixed_reference_types");
+            return;
+        }
+        int maxVibeTransfers = GetMaxAllowedVibeTransfers();
+        if (ActiveVibeTransferCount() >= maxVibeTransfers)
+        {
+            TxtStatus.Text = IsAssetProtectionPaidFeatureLimitEnabled()
+                ? Lf("references.error.asset_protection_vibe_count_limit", maxVibeTransfers)
+                : Lf("references.error.vibe_count_limit", maxVibeTransfers);
+            return;
+        }
+
+        if (_currentMode != AppMode.ImageGeneration) SwitchMode(AppMode.ImageGeneration);
+        if (GetCurrentModelKey() != targetModel)
+            ApplyImportedImageModel(new ImageMetadata { Model = targetModel }, CurrentParams, GenerationModels);
+        _genVibeTransfers.Add(CreateVibeTransferEntry(picked)!);
+        _referenceImportVersion++;
+        RecheckVibeTransferCacheState(refreshPanel: false);
+        RefreshReferencePanels();
+        UpdateGenerateButtonWarning();
+        TxtStatus.Text = Lf("references.status.added_vibe", file.Name);
     }
 
     private async Task AddDroppedPreciseReferenceAsync(StorageFile file)

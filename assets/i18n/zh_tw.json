@@ -369,6 +369,8 @@
     "references.compact.character":  "角色",
     "references.compact.precise":  "精確",
     "references.compact.vibe":  "氛圍",
+    "references.status.restoring": "正在還原參考影像，請稍候。",
+    "references.error.vibe_encoding_unavailable": "沒有符合目前模型和資訊提取強度的編碼，也沒有可用原圖。",
     "references.error.cannot_read_encoded_vibe":  "無法讀取已編碼氛圍檔案：{0}",
     "references.error.cannot_read_reference_image":  "無法讀取參考圖像：{0}",
     "references.error.asset_protection_requires_encoded_vibe":  "帳號資產保護模式已開啟，V4 及以上模型僅允許匯入已編碼的 .naiv4vibe 檔案。",

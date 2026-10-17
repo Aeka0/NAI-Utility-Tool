@@ -5,7 +5,7 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
-    private void ApplyMetadataToGeneration(ImageMetadata meta, MetadataImportSelection options)
+    private async System.Threading.Tasks.Task ApplyMetadataToGenerationAsync(ImageMetadata meta, MetadataImportSelection options)
     {
         if (!options.HasSelection) return;
         SwitchMode(AppMode.ImageGeneration);
@@ -81,7 +81,7 @@ public sealed partial class MainWindow
         }
 
         ImportSelectedCharacters(meta, options, toI2I: false, notes);
-        if (options.References) ApplyReferenceDataFromMetadata(meta);
+        if (options.References) await ApplyReferenceDataFromMetadataAsync(meta);
 
         RefreshCharacterPanel();
 
@@ -105,7 +105,7 @@ public sealed partial class MainWindow
             : L("inspect.sent_parameters_to_generate");
     }
 
-    private void ApplyMetadataToI2I(ImageMetadata meta, string fileName, MetadataImportSelection options)
+    private async System.Threading.Tasks.Task ApplyMetadataToI2IAsync(ImageMetadata meta, string fileName, MetadataImportSelection options)
     {
         if (!options.HasSelection) return;
         SaveCurrentPromptToBuffer();
@@ -169,7 +169,7 @@ public sealed partial class MainWindow
         if (meta.IsNaiParsed)
         {
             ImportSelectedCharacters(meta, options, toI2I: true, notes);
-            if (options.References) ApplyReferenceDataFromMetadata(meta, AppMode.I2I);
+            if (options.References) await ApplyReferenceDataFromMetadataAsync(meta, AppMode.I2I);
         }
 
         RefreshCharacterPanel();

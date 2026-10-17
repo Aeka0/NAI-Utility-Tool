@@ -1116,29 +1116,41 @@ public static class ImageMetadataService
 
     private static void ParseVibeTransfers(JsonElement root, ImageMetadata meta)
     {
-        if (root.TryGetProperty("reference_image_multiple", out var imageArray) &&
-            root.TryGetProperty("reference_information_extracted_multiple", out var infoArray))
-        {
-            var strengthValues = TryReadDoubleArray(root, "reference_strength_multiple");
-            int index = 0;
-            foreach (var item in imageArray.EnumerateArray())
-            {
-                string imageBase64 = item.GetString() ?? "";
-                if (string.IsNullOrWhiteSpace(imageBase64))
-                {
-                    index++;
-                    continue;
-                }
+        static double? UnitValue(JsonElement value) => value.ValueKind == JsonValueKind.Number &&
+            value.TryGetDouble(out double number) && double.IsFinite(number) && number >= 0 && number <= 1
+                ? number : null;
+        static double? ArrayValue(JsonElement root, string key, int index) =>
+            root.TryGetProperty(key, out var array) && array.ValueKind == JsonValueKind.Array && index < array.GetArrayLength()
+                ? UnitValue(array[index]) : null;
+        static double? PropertyValue(JsonElement root, string key) =>
+            root.TryGetProperty(key, out var value) ? UnitValue(value) : null;
 
-                double info = TryReadDoubleAt(infoArray, index, 1.0);
-                double strength = index < strengthValues.Count ? strengthValues[index] : 0.6;
-                meta.VibeTransfers.Add(new VibeTransferInfo
-                {
-                    ImageBase64 = imageBase64,
-                    Strength = strength,
-                    InformationExtracted = info,
-                    FileName = LocalizationService.Instance.Format("references.imported.vibe_numbered", index + 1),
-                });
+        void Add(JsonElement payload, int index, double? strength, double? information)
+        {
+            if (payload.ValueKind is not (JsonValueKind.Object or JsonValueKind.String)) return;
+            string text = payload.ValueKind == JsonValueKind.String ? payload.GetString() ?? "" : "";
+            if (payload.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(text)) return;
+            meta.VibeTransfers.Add(new VibeTransferInfo
+            {
+                ImageBase64 = text,
+                Strength = strength ?? 0.6,
+                InformationExtracted = information ?? 1.0,
+                FileName = LocalizationService.Instance.Format("references.imported.vibe_numbered", index + 1),
+                MetadataSource = new VibeMetadataReference(payload.Clone(), strength, information),
+            });
+        }
+
+        if (root.TryGetProperty("reference_image_multiple", out var imageArray) &&
+            imageArray.ValueKind == JsonValueKind.Array &&
+            (root.TryGetProperty("reference_information_extracted_multiple", out _) ||
+                (!root.TryGetProperty("reference_type_multiple", out _) &&
+                 !root.TryGetProperty("reference_fidelity_multiple", out _))))
+        {
+            int index = 0;
+            foreach (var item in imageArray.EnumerateArray().Take(16))
+            {
+                Add(item, index, ArrayValue(root, "reference_strength_multiple", index),
+                    ArrayValue(root, "reference_information_extracted_multiple", index));
                 index++;
             }
 
@@ -1147,17 +1159,8 @@ public static class ImageMetadataService
 
         if (root.TryGetProperty("reference_image", out var singleImage))
         {
-            string imageBase64 = singleImage.GetString() ?? "";
-            if (!string.IsNullOrWhiteSpace(imageBase64))
-            {
-                meta.VibeTransfers.Add(new VibeTransferInfo
-                {
-                    ImageBase64 = imageBase64,
-                    Strength = TryReadDouble(root, "reference_strength", 0.6),
-                    InformationExtracted = TryReadDouble(root, "reference_information_extracted", 1.0),
-                    FileName = LocalizationService.Instance.Format("references.imported.vibe_numbered", 1),
-                });
-            }
+            Add(singleImage, 0, PropertyValue(root, "reference_strength"),
+                PropertyValue(root, "reference_information_extracted"));
         }
     }
 

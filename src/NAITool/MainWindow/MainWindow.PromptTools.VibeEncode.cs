@@ -233,8 +233,7 @@ public sealed partial class MainWindow
                 if (vibeData != null && vibeData.Length > 0)
                 {
                     string savePath = VibeCacheService.SaveVibe(
-                        cacheDir, selectedImageBytes, selectedImageBytes, vibeData, ie, model,
-                        originalImagePath: selectedImagePath);
+                        cacheDir, selectedImageBytes, selectedImageBytes, vibeData, ie, model);
                     if (_settings.Settings.AutoCopyVibeOriginalsToWorkspace &&
                         !string.IsNullOrWhiteSpace(selectedImagePath))
                     {

@@ -65,6 +65,7 @@ public sealed partial class MainWindow
             onDelete: () =>
             {
                 _genVibeTransfers.Remove(entry);
+                _referenceImportVersion++;
                 RefreshReferencePanels();
                 UpdateGenerateButtonWarning();
             },
@@ -76,6 +77,7 @@ public sealed partial class MainWindow
             onToggleDisabled: () =>
             {
                 entry.IsDisabled = !entry.IsDisabled;
+                _referenceImportVersion++;
                 RefreshReferencePanels();
                 UpdateGenerateButtonWarning();
             });
@@ -123,34 +125,18 @@ public sealed partial class MainWindow
             };
             rightCol.Children.Add(fileNameBlock);
 
-            if (entry.IsCachedEncoding)
+            var encodingStatus = new TextBlock { FontSize = 11, TextWrapping = TextWrapping.Wrap };
+            void UpdateEncodingStatus()
             {
-                rightCol.Children.Add(new TextBlock
-                {
-                    Text = Lf("references.vibe.cached_badge", GetCurrentModelKey()),
-                    FontSize = 11,
-                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 80, 200, 120)),
-                    Opacity = 0.85,
-                });
+                encodingStatus.Text = entry.IsCachedEncoding
+                    ? Lf("references.vibe.cached_badge", GetCurrentModelKey())
+                    : L(entry.IsEncodedFile ? "references.vibe.encoded_file"
+                        : entry.ImportedVibe != null && entry.OriginalImageBase64 == null
+                            ? "references.error.vibe_encoding_unavailable" : "references.vibe.unencoded_cost");
+                encodingStatus.Opacity = entry.IsCachedEncoding ? 0.85 : 0.5;
             }
-            else if (entry.IsEncodedFile && entry.OriginalImageHash == null)
-            {
-                rightCol.Children.Add(new TextBlock
-                {
-                    Text = L("references.vibe.encoded_file"),
-                    FontSize = 11,
-                    Opacity = 0.5,
-                });
-            }
-            else
-            {
-                rightCol.Children.Add(new TextBlock
-                {
-                    Text = L("references.vibe.unencoded_cost"),
-                    FontSize = 11,
-                    Opacity = 0.5,
-                });
-            }
+            UpdateEncodingStatus();
+            rightCol.Children.Add(encodingStatus);
 
             var replaceBtn = new Button
             {
@@ -165,6 +151,7 @@ public sealed partial class MainWindow
             {
                 var picked = await PickVibeTransferSourceAsync();
                 if (picked == null) return;
+                _referenceImportVersion++;
                 entry.FileName = picked.FileName;
                 entry.ImageBase64 = picked.ImageBase64;
                 entry.IsEncodedFile = picked.IsEncodedFile;
@@ -172,6 +159,11 @@ public sealed partial class MainWindow
                 entry.OriginalThumbnailHash = picked.ThumbnailHash;
                 entry.OriginalImageBase64 = picked.OriginalBase64;
                 entry.IsCachedEncoding = picked.IsCachedHit;
+                entry.OriginalImagePath = picked.OriginalImagePath;
+                entry.ImportedVibe = picked.Document;
+                entry.InformationExtracted = picked.InformationExtracted;
+                entry.Strength = picked.Strength;
+                RecheckVibeTransferCacheState(refreshPanel: false);
                 RefreshVibeTransferPanel();
                 UpdateGenerateButtonWarning();
                 TxtStatus.Text = Lf("references.vibe.updated", entry.FileName);
@@ -188,21 +180,30 @@ public sealed partial class MainWindow
             var strengthRow = BuildReferenceSliderRow(
                 L("references.vibe.reference_strength"),
                 0, 1, entry.Strength,
-                value => entry.Strength = Math.Round(value, 2));
+                value =>
+                {
+                    _referenceImportVersion++;
+                    entry.Strength = Math.Round(value, 2);
+                });
             strengthRow.IsHitTestVisible = canEdit;
             strengthRow.Opacity = canEdit ? 1.0 : 0.72;
             root.Children.Add(strengthRow);
 
+            bool canChangeInformation = canEdit && (entry.OriginalImageBase64 != null ||
+                entry.ImportedVibe == null || entry.ImportedVibe.Encodings
+                    .Select(x => x.InformationExtracted).Distinct().Skip(1).Any());
             var infoRow = BuildReferenceSliderRow(
                 L("references.vibe.info_extracted"),
                 0, 1, entry.InformationExtracted,
                 value =>
                 {
                     entry.InformationExtracted = Math.Round(value, 2);
+                    _referenceImportVersion++;
                     RecheckVibeTransferCacheState(refreshPanel: false);
-                });
-            infoRow.IsHitTestVisible = canEdit;
-            infoRow.Opacity = canEdit ? 1.0 : 0.72;
+                    UpdateEncodingStatus();
+                }, isEnabled: canChangeInformation);
+            infoRow.IsHitTestVisible = canChangeInformation;
+            infoRow.Opacity = canChangeInformation ? 1.0 : 0.72;
             root.Children.Add(infoRow);
         }
 
@@ -218,7 +219,11 @@ public sealed partial class MainWindow
         {
             byte[]? thumbBytes = null;
 
-            if (entry.OriginalImageBase64 != null)
+            if (entry.ImportedVibe?.ThumbnailPng != null)
+            {
+                thumbBytes = entry.ImportedVibe.ThumbnailPng;
+            }
+            else if (entry.OriginalImageBase64 != null)
             {
                 thumbBytes = Convert.FromBase64String(entry.OriginalImageBase64);
             }
@@ -233,7 +238,7 @@ public sealed partial class MainWindow
 
             if (thumbBytes != null && thumbBytes.Length > 0)
             {
-                var bmp = new BitmapImage();
+                var bmp = new BitmapImage { DecodePixelWidth = (int)Math.Ceiling(64 * (target.XamlRoot?.RasterizationScale ?? 1)) };
                 using var ms = new MemoryStream(thumbBytes);
                 await bmp.SetSourceAsync(ms.AsRandomAccessStream());
                 target.Source = bmp;
@@ -506,7 +511,8 @@ public sealed partial class MainWindow
         double min,
         double max,
         double value,
-        Action<double> onValueChanged)
+        Action<double> onValueChanged,
+        bool isEnabled = true)
     {
         value = Math.Clamp(value, min, max);
 
@@ -523,6 +529,7 @@ public sealed partial class MainWindow
             Maximum = max,
             StepFrequency = 0.01,
             Value = value,
+            IsEnabled = isEnabled,
             VerticalAlignment = VerticalAlignment.Center,
         };
         var valueText = new TextBlock
@@ -553,6 +560,7 @@ public sealed partial class MainWindow
     {
         int newIndex = index + direction;
         if (newIndex < 0 || newIndex >= _genVibeTransfers.Count) return;
+        _referenceImportVersion++;
         var entry = _genVibeTransfers[index];
         _genVibeTransfers.RemoveAt(index);
         _genVibeTransfers.Insert(newIndex, entry);

@@ -118,6 +118,8 @@ public sealed partial class MainWindow
         OriginalImageHash = x.OriginalImageHash,
         OriginalThumbnailHash = x.OriginalThumbnailHash,
         OriginalImageBase64 = x.OriginalImageBase64,
+        OriginalImagePath = x.OriginalImagePath,
+        ImportedVibe = x.ImportedVibe,
         IsCachedEncoding = x.IsCachedEncoding,
     };
 

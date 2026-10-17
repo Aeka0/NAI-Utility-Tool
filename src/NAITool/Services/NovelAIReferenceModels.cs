@@ -1,5 +1,9 @@
 namespace NAITool.Services;
 
+/// <summary>Deferred metadata payload: inspecting a PNG must not decode all reference images.</summary>
+public sealed record VibeMetadataReference(System.Text.Json.JsonElement Payload,
+    double? Strength, double? InformationExtracted);
+
 public enum PreciseReferenceType
 {
     CharacterAndStyle,
@@ -14,6 +18,9 @@ public sealed class VibeTransferInfo
     public double InformationExtracted { get; set; } = 1.0;
     public string FileName { get; set; } = "";
     public bool IsEncoded { get; set; }
+    /// <summary>Import-only metadata. API requests use only the resolved ImageBase64 payload.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public VibeMetadataReference? MetadataSource { get; set; }
 }
 
 public sealed class PreciseReferenceInfo

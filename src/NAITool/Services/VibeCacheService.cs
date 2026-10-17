@@ -19,6 +19,7 @@ public static class VibeCacheService
     private const string EncodedDirName = "encoded";
     private const string ThumbnailDirName = "thumb";
     private const string OriginDirName = "origin";
+    private static readonly object CacheWriteGate = new();
 
     public sealed class VibeCacheLookupEntry
     {
@@ -132,7 +133,7 @@ public static class VibeCacheService
     }
 
     private static string NormalizeInfoExtractedKey(double infoExtracted) =>
-        Math.Round(infoExtracted, 2).ToString("0.00");
+        Math.Round(infoExtracted, 2).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
     private static string NormalizeModelKey(string model)
     {
@@ -189,7 +190,10 @@ public static class VibeCacheService
     private static void SaveLookup(string cacheDir, VibeCacheLookupData data)
     {
         string json = JsonSerializer.Serialize(data, JsonOptions);
-        File.WriteAllText(GetLookupPath(cacheDir), json);
+        string path = GetLookupPath(cacheDir);
+        string temporary = path + ".tmp";
+        File.WriteAllText(temporary, json);
+        File.Move(temporary, path, overwrite: true);
     }
 
     /// <summary>
@@ -209,6 +213,13 @@ public static class VibeCacheService
     /// 通过预计算参数严格匹配缓存编码。必须同时命中图片哈希、模型和信息提取强度。
     /// </summary>
     public static string? TryGetCachedVibeByLookup(
+        string cacheDir, string imageHash, double infoExtracted, string model)
+    {
+        lock (CacheWriteGate)
+            return TryGetCachedVibeByLookupCore(cacheDir, imageHash, infoExtracted, model);
+    }
+
+    private static string? TryGetCachedVibeByLookupCore(
         string cacheDir, string imageHash, double infoExtracted, string model)
     {
         if (!Directory.Exists(cacheDir))
@@ -318,7 +329,16 @@ public static class VibeCacheService
         byte[] vibeData,
         double infoExtracted,
         string model,
-        string? originalImagePath = null)
+        byte[]? sourceFileBytes = null,
+        double strength = 0.6)
+    {
+        lock (CacheWriteGate)
+            return SaveVibeCore(cacheDir, imageBytes, thumbnailBytes, vibeData, infoExtracted,
+                model, sourceFileBytes, strength);
+    }
+
+    private static string SaveVibeCore(string cacheDir, byte[] imageBytes, byte[] thumbnailBytes,
+        byte[] vibeData, double infoExtracted, string model, byte[]? sourceFileBytes, double strength)
     {
         Directory.CreateDirectory(cacheDir);
         Directory.CreateDirectory(GetEncodedDir(cacheDir));
@@ -332,27 +352,31 @@ public static class VibeCacheService
         string vibeFileName = $"{imageHash}_th{thumbnailHash}_m{modelKey}_ie{ieKey}.naiv4vibe";
         string vibePath = Path.Combine(GetEncodedDir(cacheDir), vibeFileName);
 
-        string vibeBase64 = Convert.ToBase64String(vibeData);
-        var vibeJson = new
+        // Keep one source per image across model/IE variants. Export embeds it on demand.
+        Directory.CreateDirectory(GetOriginDir(cacheDir));
+        string extension = ".png";
+        if (sourceFileBytes != null)
         {
-            importInfo = new { model },
-            encodings = new
-            {
-                v4full = new
-                {
-                    _0 = new
-                    {
-                        encoding = vibeBase64,
-                        @params = new { information_extracted = infoExtracted },
-                    },
-                },
-            },
-        };
-
-        string json = JsonSerializer.Serialize(vibeJson, JsonOptions);
-        // JsonSerializer 将 _0 序列化为 "_0"，需要手动修正为 "0"
-        json = json.Replace("\"_0\"", "\"0\"");
-        File.WriteAllText(vibePath, json);
+            using var sourceStream = new SKMemoryStream(sourceFileBytes);
+            using var codec = SKCodec.Create(sourceStream);
+            if (codec != null) extension = "." + codec.EncodedFormat.ToString().ToLowerInvariant();
+        }
+        string originPath = GetOriginPath(cacheDir, imageHash, extension);
+        var lookup = LoadLookup(cacheDir);
+        if (sourceFileBytes == null)
+        {
+            string? existingPath = lookup.Entries.Where(e => e.ImageHash == imageHash)
+                .Select(e => ResolveOriginalPath(cacheDir, e.OriginalImagePath))
+                .FirstOrDefault(p => p != null && File.Exists(p) &&
+                    string.Equals(Path.GetDirectoryName(p), Path.GetFullPath(GetOriginDir(cacheDir)),
+                        StringComparison.OrdinalIgnoreCase));
+            if (existingPath != null) originPath = existingPath;
+        }
+        if (!File.Exists(originPath) || sourceFileBytes != null)
+            File.WriteAllBytes(originPath, sourceFileBytes ?? imageBytes);
+        string originalImagePath = GetCacheRelativePath(cacheDir, originPath);
+        File.WriteAllBytes(vibePath, VibeFileService.Serialize(
+            new VibeFileService.Encoding(model, infoExtracted, Convert.ToBase64String(vibeData)), null, null, strength));
 
         string thumbPath = Path.Combine(GetThumbnailDir(cacheDir), $"{imageHash}_{thumbnailHash}_thumb.png");
         if (!File.Exists(thumbPath))
@@ -363,7 +387,8 @@ public static class VibeCacheService
 
         try
         {
-            var lookup = LoadLookup(cacheDir);
+            foreach (var existing in lookup.Entries.Where(e => e.ImageHash == imageHash))
+                existing.OriginalImagePath = originalImagePath;
             lookup.Entries.RemoveAll(x =>
                 string.Equals(x.ImageHash, imageHash, StringComparison.Ordinal) &&
                 string.Equals(x.Model, model, StringComparison.OrdinalIgnoreCase) &&
@@ -386,6 +411,49 @@ public static class VibeCacheService
         }
 
         return vibePath;
+    }
+
+    public static string? ImportDocument(string cacheDir, VibeFileService.Document document)
+    {
+        if (document.OriginalPng == null) return null;
+        byte[]? sourceBytes = document.OriginalBytes;
+        foreach (var encoding in document.Encodings)
+        {
+            SaveVibe(cacheDir, document.OriginalPng, document.OriginalPng,
+                Convert.FromBase64String(encoding.Base64), encoding.InformationExtracted, encoding.Model,
+                sourceFileBytes: sourceBytes, strength: document.Strength);
+            sourceBytes = null;
+        }
+        string hash = ComputeImageHash(document.OriginalPng);
+        return LoadLookup(cacheDir).Entries.First(e => e.ImageHash == hash).OriginalImagePath;
+    }
+
+    public static byte[] CreateExport(string cacheDir, VibeCacheLookupEntry entry)
+    {
+        byte[] source = File.ReadAllBytes(GetVibeFilePath(cacheDir, entry));
+        var document = VibeFileService.Parse(source);
+        if (!double.TryParse(entry.InformationExtractedKey,
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double ie))
+            return source;
+        var encoding = document.FindEncoding(entry.Model, ie);
+        if (encoding == null) return source;
+        byte[]? original = document.OriginalBytes;
+        string? path = ResolveOriginalPath(cacheDir, entry.OriginalImagePath);
+        if (original == null && path != null && File.Exists(path))
+        {
+            byte[] raw = File.ReadAllBytes(path);
+            using var bitmap = SKBitmap.Decode(raw);
+            if (bitmap != null)
+            {
+                using var image = SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                byte[]? png = data?.ToArray();
+                // A relocated/replaced file must never silently become this vibe's source.
+                if (png != null && ComputeImageHash(png) == entry.ImageHash) original = raw;
+            }
+        }
+        byte[]? thumbnail = original != null ? CreateCanonicalThumbnail(original) : document.ThumbnailPng;
+        return VibeFileService.Serialize(encoding, original, thumbnail, document.Strength);
     }
 
     /// <summary>
@@ -545,6 +613,11 @@ public static class VibeCacheService
     /// </summary>
     public static bool DeleteEntry(string cacheDir, VibeCacheLookupEntry entry, bool deletePhysicalFile)
     {
+        lock (CacheWriteGate) return DeleteEntryCore(cacheDir, entry, deletePhysicalFile);
+    }
+
+    private static bool DeleteEntryCore(string cacheDir, VibeCacheLookupEntry entry, bool deletePhysicalFile)
+    {
         if (!Directory.Exists(cacheDir) || entry == null)
             return false;
 
@@ -574,6 +647,11 @@ public static class VibeCacheService
     /// 删除某原图下的所有索引条目，可选删除对应 .naiv4vibe 与缩略图物理文件。
     /// </summary>
     public static bool DeleteGroup(string cacheDir, string imageHash, bool deletePhysicalFiles)
+    {
+        lock (CacheWriteGate) return DeleteGroupCore(cacheDir, imageHash, deletePhysicalFiles);
+    }
+
+    private static bool DeleteGroupCore(string cacheDir, string imageHash, bool deletePhysicalFiles)
     {
         if (!Directory.Exists(cacheDir) || string.IsNullOrWhiteSpace(imageHash))
             return false;
@@ -622,6 +700,11 @@ public static class VibeCacheService
     /// 重新为某原图分组设置原始文件路径（用于管理器中的"重新定位原图"）。
     /// </summary>
     public static bool UpdateOriginalPath(string cacheDir, string imageHash, string? newPath)
+    {
+        lock (CacheWriteGate) return UpdateOriginalPathCore(cacheDir, imageHash, newPath);
+    }
+
+    private static bool UpdateOriginalPathCore(string cacheDir, string imageHash, string? newPath)
     {
         if (!Directory.Exists(cacheDir) || string.IsNullOrWhiteSpace(imageHash))
             return false;
@@ -709,6 +792,11 @@ public static class VibeCacheService
     /// 清理编码文件已丢失的索引条目；返回被清理的数量。
     /// </summary>
     public static int PruneMissingEntries(string cacheDir)
+    {
+        lock (CacheWriteGate) return PruneMissingEntriesCore(cacheDir);
+    }
+
+    private static int PruneMissingEntriesCore(string cacheDir)
     {
         if (!Directory.Exists(cacheDir))
             return 0;

@@ -682,6 +682,7 @@ public sealed partial class MainWindow
 
     private async void OnGenPreviewDrop(object sender, DragEventArgs e)
     {
+        if (await TryHandleVibeDropAsync(e)) return;
         var file = await GetFirstDroppedImageFileAsync(e, includeBmp: false);
         if (file == null)
             return;
@@ -758,7 +759,7 @@ public sealed partial class MainWindow
             SetGenCharactersFromMetadata(meta);
         else
             _genCharacters.Clear();
-        ApplyReferenceDataFromMetadata(meta);
+        await ApplyReferenceDataFromMetadataAsync(meta);
         RefreshCharacterPanel();
 
         LoadPromptFromBuffer();

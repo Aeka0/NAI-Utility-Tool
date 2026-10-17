@@ -369,6 +369,8 @@
     "references.compact.character":  "角色",
     "references.compact.precise":  "精确",
     "references.compact.vibe":  "氛围",
+    "references.status.restoring": "正在恢复参考图像，请稍候。",
+    "references.error.vibe_encoding_unavailable": "没有匹配当前模型和信息提取强度的编码，也没有可用原图。",
     "references.error.cannot_read_encoded_vibe":  "无法读取已编码氛围文件：{0}",
     "references.error.cannot_read_reference_image":  "无法读取参考图像：{0}",
     "references.error.asset_protection_requires_encoded_vibe":  "账号资产保护模式已开启，V4 及以上模型仅允许导入已编码的 .naiv4vibe 文件。",

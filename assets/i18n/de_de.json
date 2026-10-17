@@ -249,6 +249,8 @@
   "references.compact.character": "Charakter",
   "references.compact.precise": "Präz. Ref",
   "references.compact.vibe": "Vibe",
+  "references.status.restoring": "Referenzbilder werden wiederhergestellt. Bitte warten.",
+  "references.error.vibe_encoding_unavailable": "Keine Kodierung passt zu diesem Modell und Informationsgrad; kein Quellbild verfügbar.",
   "references.error.cannot_read_encoded_vibe": "Unable to read encoded vibe file: {0}",
   "references.error.cannot_read_reference_image": "Unable to read reference image: {0}",
   "references.error.asset_protection_requires_encoded_vibe": "Der Kontovermögensschutzmodus ist aktiviert. V4 und spätere Modelle erlauben nur codierte .naiv4vibe-Dateien.",

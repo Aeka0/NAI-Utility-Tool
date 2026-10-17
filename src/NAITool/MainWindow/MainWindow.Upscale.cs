@@ -251,6 +251,7 @@ public sealed partial class MainWindow
 
     private async void OnUpscaleDrop(object sender, DragEventArgs e)
     {
+        if (await TryHandleVibeDropAsync(e)) return;
         if (IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
             return;
 

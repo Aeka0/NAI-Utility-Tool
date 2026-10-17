@@ -999,8 +999,7 @@ public sealed partial class MainWindow
 
         try
         {
-            string src = VibeCacheService.GetVibeFilePath(cacheDir, entry);
-            byte[] bytes = await File.ReadAllBytesAsync(src);
+            byte[] bytes = await Task.Run(() => VibeCacheService.CreateExport(cacheDir, entry));
             await File.WriteAllBytesAsync(file.Path, bytes);
             statusBlock.Text = Lf("dialog.vibe_manager.status.exported", file.Path);
         }

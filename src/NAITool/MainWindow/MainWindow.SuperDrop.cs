@@ -39,12 +39,15 @@ public sealed partial class MainWindow
     private const float SuperDropBackdropBlurSigma = 28f;
 
     private bool IsSuperDropEnabled => _settings.Settings.SuperDropEnabled;
+    private Task<StorageFile?>? _dragFileProbe;
+    private int _dragFileProbeVersion;
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<DragEventArgs, Task<bool>> _vibeDrops = new();
 
     private void ApplyDragDropModeSetting()
     {
         bool useLegacyDrop = !IsSuperDropEnabled;
 
-        RootGrid.AllowDrop = IsSuperDropEnabled;
+        RootGrid.AllowDrop = true;
         GenPreviewArea.AllowDrop = useLegacyDrop;
         InspectPreviewArea.AllowDrop = useLegacyDrop;
         EffectsPreviewArea.AllowDrop = useLegacyDrop;
@@ -396,30 +399,54 @@ public sealed partial class MainWindow
         e.Handled = true;
     }
 
-    private bool TryAcceptSuperDropDrag(DragEventArgs e)
+    private async Task<bool> TryAcceptSuperDropDragAsync(DragEventArgs e)
     {
-        if (!IsSuperDropEnabled || !e.DataView.Contains(StandardDataFormats.StorageItems))
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
             return false;
-
-        _superDropDragVersion++;
-        ShowSuperDropOverlay();
-        e.AcceptedOperation = DataPackageOperation.Copy;
-        e.Handled = true;
-        return true;
+        var deferral = e.GetDeferral();
+        int version = _dragFileProbeVersion;
+        if (IsSuperDropEnabled) e.Handled = true;
+        try
+        {
+            var file = await (_dragFileProbe ??= ReadFirstDropFileAsync(e.DataView));
+            if (version != _dragFileProbeVersion) return false;
+            if (IsVibeFile(file))
+            {
+                HideSuperDropOverlay();
+                e.AcceptedOperation = DataPackageOperation.Copy;
+                e.DragUIOverride.Caption = L("references.imported.vibe_label");
+                e.Handled = true;
+                return false;
+            }
+            if (!IsSuperDropEnabled) return false;
+            _superDropDragVersion++;
+            ShowSuperDropOverlay();
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            return true;
+        }
+        finally { deferral.Complete(); }
     }
 
-    private void OnSuperDropDragEnter(object sender, DragEventArgs e)
+    private async void OnSuperDropDragEnter(object sender, DragEventArgs e)
     {
-        TryAcceptSuperDropDrag(e);
+        _dragFileProbe = null;
+        _dragFileProbeVersion++;
+        await TryAcceptSuperDropDragAsync(e);
     }
 
-    private void OnSuperDropDragOver(object sender, DragEventArgs e)
+    private async void OnSuperDropDragOver(object sender, DragEventArgs e)
     {
-        TryAcceptSuperDropDrag(e);
+        await TryAcceptSuperDropDragAsync(e);
     }
 
     private void OnSuperDropDragLeave(object sender, DragEventArgs e)
     {
+        var position = e.GetPosition(RootGrid);
+        if (position.X < 0 || position.Y < 0 || position.X > RootGrid.ActualWidth || position.Y > RootGrid.ActualHeight)
+        {
+            _dragFileProbe = null;
+            _dragFileProbeVersion++;
+        }
         if (!IsSuperDropEnabled || (SuperDropOverlay.Visibility != Visibility.Visible && !_superDropOverlayOpening))
             return;
 
@@ -436,17 +463,18 @@ public sealed partial class MainWindow
             ScheduleSuperDropDragCancelCheck();
     }
 
-    private void OnSuperDropCardDragOver(object sender, DragEventArgs e)
+    private async void OnSuperDropCardDragOver(object sender, DragEventArgs e)
     {
-        if (TryAcceptSuperDropDrag(e) && sender is Border card)
+        if (await TryAcceptSuperDropDragAsync(e) && sender is Border card)
         {
             ResetSuperDropCardHighlights();
             AnimateSuperDropCardHover(card, true);
         }
     }
 
-    private void OnSuperDropRootDrop(object sender, DragEventArgs e)
+    private async void OnSuperDropRootDrop(object sender, DragEventArgs e)
     {
+        if (await TryHandleVibeDropAsync(e)) return;
         if (!IsSuperDropEnabled)
             return;
 
@@ -456,6 +484,7 @@ public sealed partial class MainWindow
 
     private async void OnSuperDropCardDrop(object sender, DragEventArgs e)
     {
+        if (await TryHandleVibeDropAsync(e)) return;
         if (!IsSuperDropEnabled)
             return;
 
@@ -494,6 +523,43 @@ public sealed partial class MainWindow
         }
 
         return null;
+    }
+
+    private static bool IsVibeFile(StorageFile? file) =>
+        file?.FileType.Equals(".naiv4vibe", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static async Task<StorageFile?> ReadFirstDropFileAsync(DataPackageView data)
+    {
+        try { return (await data.GetStorageItemsAsync()).OfType<StorageFile>().FirstOrDefault(); }
+        catch { return null; }
+    }
+
+    // Routed child/root handlers share one operation, including when Super Drop is disabled.
+    private Task<bool> TryHandleVibeDropAsync(DragEventArgs e) =>
+        _vibeDrops.GetValue(e, HandleVibeDropCoreAsync);
+
+    private async Task<bool> HandleVibeDropCoreAsync(DragEventArgs e)
+    {
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems)) return false;
+        var deferral = e.GetDeferral();
+        _dragFileProbe = null;
+        _dragFileProbeVersion++;
+        try
+        {
+            var file = await ReadFirstDropFileAsync(e.DataView);
+            if (!IsVibeFile(file)) return false;
+            e.Handled = true;
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            HideSuperDropOverlay();
+            await ImportDroppedVibeFileAsync(file!);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            TxtStatus.Text = Lf("superdrop.failed", ex.Message);
+            return true;
+        }
+        finally { deferral.Complete(); }
     }
 
     private static bool IsSupportedSuperDropFile(StorageFile file, SuperDropAction action)

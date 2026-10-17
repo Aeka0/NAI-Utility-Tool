@@ -249,6 +249,8 @@
   "references.compact.character": "Character",
   "references.compact.precise": "Prec. Ref",
   "references.compact.vibe": "Vibe",
+  "references.status.restoring": "Restoring reference images. Please wait.",
+  "references.error.vibe_encoding_unavailable": "No encoding matches this model and information level, and no source image is available.",
   "references.error.cannot_read_encoded_vibe": "Unable to read encoded vibe file: {0}",
   "references.error.cannot_read_reference_image": "Unable to read reference image: {0}",
   "references.error.asset_protection_requires_encoded_vibe": "Account Asset Protection Mode is on. V4 and later models only allow encoded .naiv4vibe files.",

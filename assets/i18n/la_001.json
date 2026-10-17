@@ -249,6 +249,8 @@
   "references.compact.character": "Persona",
   "references.compact.precise": "Rel. prec.",
   "references.compact.vibe": "Vibe",
+  "references.status.restoring": "Imagines referentiae restituuntur. Quaeso exspecta.",
+  "references.error.vibe_encoding_unavailable": "Codificatio huic exemplari et gradui informationis congruens deest; imago originalis quoque deest.",
   "references.error.cannot_read_encoded_vibe": "Fasciculus Vibe encoded legi non potest: {0}",
   "references.error.cannot_read_reference_image": "Imago relata legi non potest: {0}",
   "references.error.asset_protection_requires_encoded_vibe": "Modus tutelae bonorum rationis activus est. Exemplaria V4 et recentiora tantum fasciculos .naiv4vibe encoded admittunt.",
