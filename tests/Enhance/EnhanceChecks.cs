@@ -104,6 +104,8 @@ internal static class EnhanceChecks
                 parametersOverride: parameters, isEnhance: mode.Item1, upscaledEnhance: mode.Item2);
             var payload = handler.Payload;
             var sent = payload.GetProperty("parameters");
+            Check(!sent.TryGetProperty("inpaintImg2ImgStrength", out _) && !sent.TryGetProperty("img2img", out _),
+                "Plain img2img and Enhance omit masked inpainting controls.");
             Check(sent.GetProperty("width").GetInt32() == 1024 && sent.GetProperty("height").GetInt32() == 1024, "Request dimensions preserved.");
             Check(sent.GetProperty("strength").GetDouble() == 0.6 && sent.GetProperty("noise").GetDouble() == 0.2, "Strength/noise reach API.");
             Check(sent.GetProperty("params_version").GetInt32() == (mode.Item1 ? 4 : 3), "Protocol change is scoped to Enhance.");
@@ -130,6 +132,45 @@ internal static class EnhanceChecks
         blocked = await service.ImageToImageAsync("AA==", 512, 512, "test", "",
             parametersOverride: parameters, isEnhance: true, upscaledEnhance: true);
         Check(handler.Count == count && blocked.Error != null, "Unsupported Max model rejected before HTTP.");
+        await CheckInpaintRequestsAsync(settings, service, handler);
+    }
+
+    private static async Task CheckInpaintRequestsAsync(SettingsService settings, NovelAIService service, CaptureHandler handler)
+    {
+        foreach (string model in new[] { "nai-diffusion-4-full-inpainting", "nai-diffusion-4-5-full-inpainting",
+            "nai-diffusion-5-full-inpainting", "nai-diffusion-3-inpainting" })
+        foreach (bool stream in new[] { false, true })
+        foreach (double strength in new[] { 0d, 0.01, 0.5, 1d, -0.5, 1.5 })
+        {
+            var parameters = settings.Settings.InpaintParameters;
+            parameters.Model = model;
+            parameters.Seed = "12345";
+            parameters.InpaintStrength = strength;
+            parameters.InpaintNoise = 0.2;
+            settings.Settings.StreamGeneration = stream;
+            int count = handler.Count;
+            await service.InpaintAsync("AA==", "AA==", 512, 512, "test", "negative");
+            Check(handler.Count == count + 1, "Inpainting request reaches HTTP capture.");
+            var payload = handler.Payload;
+            var sent = payload.GetProperty("parameters");
+            bool supported = model != "nai-diffusion-3-inpainting";
+            double expected = supported ? Math.Clamp(strength, 0, 1) : 1;
+            Check(payload.GetProperty("action").GetString() == "infill" &&
+                payload.GetProperty("model").GetString() == model &&
+                sent.GetProperty("image").GetString() == "AA==" && sent.GetProperty("mask").GetString() == "AA==",
+                "Masked inpainting retains its action, model and source images.");
+            Check(sent.TryGetProperty("stream", out var streamValue) == stream && (!stream || streamValue.GetString() == "sse"),
+                "Inpainting preserves streaming selection.");
+            Check(sent.GetProperty("strength").GetDouble() == expected &&
+                sent.GetProperty("noise").GetDouble() == (supported ? 0.2 : 0), "Legacy top-level image parameters stay compatible.");
+            Check(sent.TryGetProperty("inpaintImg2ImgStrength", out var metadataStrength) == supported &&
+                (!supported || metadataStrength.GetDouble() == expected), "Supported inpainting models retain the selected masked strength.");
+            bool hasImg2Img = sent.TryGetProperty("img2img", out var img2img);
+            Check(hasImg2Img == (supported && expected < 1), "Only partial-strength supported inpainting adds the img2img pass.");
+            if (hasImg2Img)
+                Check(img2img.GetProperty("strength").GetDouble() == expected && img2img.GetProperty("color_correct").GetBoolean(),
+                    "Masked img2img preserves zero and low strengths with color correction.");
+        }
     }
 
     private sealed class CaptureHandler : HttpMessageHandler

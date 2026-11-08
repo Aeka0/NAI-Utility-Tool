@@ -6,6 +6,8 @@ For an isolated app build, set the MSBuild property `NaitoolBuildDirectory` to i
 
 The checks cover settings normalization, scale availability, dimensions, image
 preparation, transparency, request parameters and the Max output cost limit.
+They also check masked inpainting strength, including zero and low values,
+full-strength omission of the img2img pass, legacy models and streaming.
 HTTP is intercepted in memory with a synthetic token. The checks never load or
 save user settings and do not contact NovelAI.
 

@@ -840,6 +840,19 @@ public partial class NovelAIService : IDisposable
             ["qualityToggle"] = naiParams.QualityToggle,
             ["quality_toggle"] = naiParams.QualityToggle,
         };
+        if (isV4Plus)
+        {
+            // Infill uses a separate img2img pass inside the mask. Top-level strength alone
+            // does not control that pass; omit the pass at full strength, as the official client does.
+            double inpaintStrength = Math.Clamp(naiParams.InpaintStrength, 0, 1);
+            parameters["inpaintImg2ImgStrength"] = inpaintStrength;
+            if (inpaintStrength < 1)
+                parameters["img2img"] = new Dictionary<string, object>
+                {
+                    ["strength"] = inpaintStrength,
+                    ["color_correct"] = true,
+                };
+        }
         if (IsV5Model(naiParams.Model))
         {
             parameters["tag_hint_transparent_background"] = naiParams.TagHintTransparentBackground;
