@@ -1478,7 +1478,7 @@ public partial class NovelAIService : IDisposable
     /// <summary>
     /// 将 Win2D RenderTarget 编码为 base64 WEBP。
     /// - 原图：无损 WEBP（Lossless），保证反复迭代零质量损失
-    /// - 遮罩：有损 WEBP quality=50，遮罩仅为区域标记，容忍度极高，最小化体积
+    /// - 遮罩：最近邻缩到 1/8，按 alpha > 155 二值化，再最近邻放回原尺寸，编码为无损 WEBP（Lossless）
     /// API 通信始终使用 WEBP 格式（PNG 导致 NovelAI API 灰色异常）。
     /// </summary>
     public static Task<string> EncodeRenderTargetAsync(CanvasRenderTarget target, bool isMask = false)
@@ -1490,11 +1490,30 @@ public partial class NovelAIService : IDisposable
         using var skBitmap = new SKBitmap(new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul));
         Marshal.Copy(pixels, 0, skBitmap.GetPixels(), pixels.Length);
 
+        return Task.FromResult(EncodeBitmapForRequest(skBitmap, isMask));
+    }
+
+    private static string EncodeBitmapForRequest(SKBitmap skBitmap, bool isMask)
+    {
         byte[] encoded;
         if (isMask)
         {
-            using var image = SKImage.FromBitmap(skBitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Webp, 50);
+            // Build the request mask on a 1/8 grid, then restore the original canvas/generation dimensions.
+            var maskInfo = skBitmap.Info.WithSize(Math.Max(1, skBitmap.Width / 8), Math.Max(1, skBitmap.Height / 8));
+            using var resizedMask = skBitmap.Resize(maskInfo, new SKSamplingOptions(SKFilterMode.Nearest))
+                ?? throw new InvalidOperationException("Failed to resize the inpainting mask.");
+            // Mask coverage is stored in alpha, not RGB. Submit an opaque binary mask.
+            var maskPixels = resizedMask.Pixels;
+            for (int i = 0; i < maskPixels.Length; i++)
+                maskPixels[i] = maskPixels[i].Alpha > 155 ? SKColors.White : SKColors.Black;
+            resizedMask.Pixels = maskPixels;
+            using var fullSizeMask = resizedMask.Resize(skBitmap.Info, new SKSamplingOptions(SKFilterMode.Nearest))
+                ?? throw new InvalidOperationException("Failed to restore the inpainting mask dimensions.");
+            using var pixmap = fullSizeMask.PeekPixels();
+            using var wstream = new SKDynamicMemoryWStream();
+            if (!pixmap.Encode(wstream, new SKWebpEncoderOptions(SKWebpEncoderCompression.Lossless, 75)))
+                throw new InvalidOperationException("Failed to encode the inpainting mask as lossless WebP.");
+            using var data = wstream.DetachAsData();
             encoded = data.ToArray();
         }
         else
@@ -1515,7 +1534,7 @@ public partial class NovelAIService : IDisposable
             }
         }
 
-        return Task.FromResult(Convert.ToBase64String(encoded));
+        return Convert.ToBase64String(encoded);
     }
 
     /// <summary>

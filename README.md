@@ -29,6 +29,7 @@ The current project version is `1.3.0`. The project is still evolving quickly, a
 ### Image-to-Image and Mask Editing
 
 - Supports masked inpainting and denoise-based image-to-image modes.
+- Inpainting requests use nearest-neighbor sampling to reduce the original mask to a 1/8-width, 1/8-height grid (rounded down, minimum one pixel), map alpha > 155 to opaque white and all other pixels to opaque black, then enlarge it back to the exact canvas dimensions with nearest-neighbor sampling before lossless WebP encoding; the source image, generation dimensions, and local mask exports keep their original size.
 - Includes a Win2D canvas with brush, eraser, rectangle mask, undo, redo, zoom, and pan tools.
 - Supports mask preview, invert, expand, shrink, clear, fill transparent area, crop canvas, and image alignment.
 - Can restore parameters from image metadata and send them back to the image-to-image workspace.

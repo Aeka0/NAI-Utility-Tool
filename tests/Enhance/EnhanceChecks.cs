@@ -21,6 +21,7 @@ internal static class EnhanceChecks
     {
         CheckDimensionsAndSettings();
         CheckImagePreparation();
+        CheckInpaintMaskEncoding();
         await CheckRequestsAsync();
         Console.WriteLine($"Passed {_checks} Enhance checks (in-memory HTTP; no account data or network requests).");
     }
@@ -82,6 +83,126 @@ internal static class EnhanceChecks
         { Check(true, "Reject oversized allocation before decoding."); }
     }
 
+    private static string EncodeForRequest(SKBitmap bitmap, bool isMask) =>
+        (string)typeof(NovelAIService).GetMethod("EncodeBitmapForRequest", BindingFlags.Static | BindingFlags.NonPublic)!
+            .Invoke(null, [bitmap, isMask])!;
+
+    private static void CheckInpaintMaskEncoding()
+    {
+        foreach (var (width, height) in new[] { (1024, 1024), (832, 1216), (1216, 832), (3, 5), (1, 1), (1, 8), (8, 1) })
+        {
+            using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
+            bitmap.Erase(new SKColor(70, 90, 120, 128));
+            var originalPixels = bitmap.Pixels;
+            foreach (bool isMask in new[] { true, false, true })
+            {
+                byte[] bytes = Convert.FromBase64String(EncodeForRequest(bitmap, isMask));
+                Check(System.Text.Encoding.ASCII.GetString(bytes, 0, 4) == "RIFF" &&
+                    System.Text.Encoding.ASCII.GetString(bytes, 8, 4) == "WEBP", "Request encoding remains WebP.");
+                using var decoded = SKBitmap.Decode(bytes);
+                Check(decoded.Width == width && decoded.Height == height,
+                    "Mask and source image encoding retain the original generation dimensions.");
+                if (isMask)
+                    Check(decoded.Pixels.All(pixel => pixel == SKColors.Black),
+                        "Alpha below the threshold becomes opaque black throughout the lossless mask.");
+                else
+                {
+                    Check(decoded.GetPixel(0, 0).Alpha == 128, "Source image encoding preserves alpha.");
+                    Check(decoded.Pixels.SequenceEqual(originalPixels), "Source image encoding remains lossless.");
+                }
+                Check(bitmap.Width == width && bitmap.Height == height && bitmap.Pixels.SequenceEqual(originalPixels),
+                    "Encoding never mutates, binarizes, or repeatedly shrinks the original bitmap.");
+            }
+        }
+
+        using var mask = new SKBitmap(new SKImageInfo(64, 48, SKColorType.Bgra8888, SKAlphaType.Premul));
+        for (int y = 0; y < mask.Height; y++)
+        for (int x = 0; x < mask.Width; x++)
+            mask.SetPixel(x, y, y < 24
+                ? (x < 32 ? SKColors.White : SKColors.Transparent)
+                : (x < 32 ? SKColors.Black : new SKColor(255, 255, 255, 155)));
+        using var resized = SKBitmap.Decode(Convert.FromBase64String(EncodeForRequest(mask, true)));
+        Check(resized.Width == 64 && resized.Height == 48, "Non-square mask returns to the exact original dimensions.");
+        Check(resized.GetPixel(16, 12) == SKColors.White && resized.GetPixel(48, 12) == SKColors.Black &&
+            resized.GetPixel(16, 36) == SKColors.White && resized.GetPixel(48, 36) == SKColors.Black,
+            "Mask coverage keeps its relative position and comes from alpha, even for opaque black source pixels.");
+        Check(resized.GetPixel(31, 12) == SKColors.White && resized.GetPixel(32, 12) == SKColors.Black,
+            "Nearest-neighbor resizing and lossless encoding retain the hard binary edge.");
+        Check(resized.Pixels.All(pixel => pixel == SKColors.White || pixel == SKColors.Black),
+            "Every output mask pixel is fully opaque and strictly black or white.");
+
+        // Each 8x8 source block maps to one coarse pixel and back. Cover every alpha value and varied RGB.
+        using var ramp = new SKBitmap(new SKImageInfo(2048, 32, SKColorType.Bgra8888, SKAlphaType.Premul));
+        for (int y = 0; y < ramp.Height; y++)
+        for (int x = 0; x < ramp.Width; x++)
+        {
+            byte alpha = (byte)(x / 8);
+            var color = (y / 8) switch
+            {
+                0 => new SKColor(255, 255, 255, alpha),
+                1 => new SKColor(0, 0, 0, alpha),
+                2 => new SKColor(70, 90, 120, alpha),
+                _ => new SKColor(255, 0, 0, alpha),
+            };
+            ramp.SetPixel(x, y, color);
+        }
+        var rampPixels = ramp.Pixels;
+        using var binaryRamp = SKBitmap.Decode(Convert.FromBase64String(EncodeForRequest(ramp, true)));
+        Check(binaryRamp.Width == 2048 && binaryRamp.Height == 32, "Alpha ramp is restored to full request dimensions.");
+        for (int y = 0; y < binaryRamp.Height; y++)
+        {
+            Check(binaryRamp.GetPixel(155 * 8 + 7, y) == SKColors.Black, "Alpha 155 is opaque black regardless of RGB.");
+            Check(binaryRamp.GetPixel(156 * 8, y) == SKColors.White, "Alpha 156 is opaque white regardless of RGB.");
+            Check(Enumerable.Range(0, binaryRamp.Width).All(x => binaryRamp.GetPixel(x, y) == (x / 8 > 155 ? SKColors.White : SKColors.Black)),
+                "All alpha values obey the strict >155 rule, with no intermediate colors or transparency.");
+        }
+        Check(ramp.Pixels.SequenceEqual(rampPixels), "Binarization leaves the original mask bitmap untouched.");
+        CheckInpaintMaskGrid();
+    }
+
+    private static void CheckInpaintMaskGrid()
+    {
+        using var isolatedSamples = new SKBitmap(new SKImageInfo(32, 24, SKColorType.Bgra8888, SKAlphaType.Premul));
+        isolatedSamples.Erase(SKColors.Transparent);
+        for (int y = 0; y < 3; y++)
+        for (int x = 0; x < 4; x++)
+            if ((x + y) % 2 == 0)
+                isolatedSamples.SetPixel(x * 8 + 3, y * 8 + 3, SKColors.White);
+        // At exact center ties, Skia nearest-neighbor selects the upper/left pixel (3 in each 8-pixel cell).
+        var original = isolatedSamples.Pixels;
+        using var expanded = SKBitmap.Decode(Convert.FromBase64String(EncodeForRequest(isolatedSamples, true)));
+        Check(expanded.Width == 32 && expanded.Height == 24, "Coarse-grid mask restores full dimensions.");
+        Check(Enumerable.Range(0, 32 * 24).All(index => expanded.GetPixel(index % 32, index / 32) ==
+            (((index % 32) / 8 + (index / 32) / 8) % 2 == 0 ? SKColors.White : SKColors.Black)),
+            "Direct 1/8 nearest sampling selects original cell centers and expands to exact 8x8 binary blocks.");
+        Check(isolatedSamples.Pixels.SequenceEqual(original), "Coarse sampling leaves the original fine mask untouched.");
+
+        foreach (var (width, height) in new[] { (65, 49), (17, 25), (9, 9), (7, 3), (1, 8), (8, 1) })
+        {
+            using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
+            for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+                bitmap.SetPixel(x, y, new SKColor(70, 90, 120, (byte)((x * 37 + y * 53) % 256)));
+            var pixels = bitmap.Pixels;
+            using var decoded = SKBitmap.Decode(Convert.FromBase64String(EncodeForRequest(bitmap, true)));
+            int gridWidth = Math.Max(1, width / 8), gridHeight = Math.Max(1, height / 8);
+            bool matches = true;
+            for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                int gridX = Math.Min(gridWidth - 1, (int)Math.Ceiling((x + 0.5) * gridWidth / width) - 1);
+                int gridY = Math.Min(gridHeight - 1, (int)Math.Ceiling((y + 0.5) * gridHeight / height) - 1);
+                int sourceX = Math.Min(width - 1, (int)Math.Ceiling((gridX + 0.5) * width / gridWidth) - 1);
+                int sourceY = Math.Min(height - 1, (int)Math.Ceiling((gridY + 0.5) * height / gridHeight) - 1);
+                var expected = pixels[sourceY * width + sourceX].Alpha > 155 ? SKColors.White : SKColors.Black;
+                matches &= decoded.GetPixel(x, y) == expected;
+            }
+            Check(decoded.Width == width && decoded.Height == height, "Non-multiple and tiny masks retain exact output dimensions.");
+            Check(matches, "Non-multiple masks use floor(W/8), floor(H/8), minimum one, and nearest-center sampling both ways.");
+            Check(bitmap.Pixels.SequenceEqual(pixels), "Non-multiple mask encoding does not modify the input.");
+        }
+    }
+
     private static async Task CheckRequestsAsync()
     {
         var settings = new SettingsService(); // Never load or save real account settings.
@@ -137,6 +258,14 @@ internal static class EnhanceChecks
 
     private static async Task CheckInpaintRequestsAsync(SettingsService settings, NovelAIService service, CaptureHandler handler)
     {
+        using var bitmap = new SKBitmap(new SKImageInfo(512, 512, SKColorType.Bgra8888, SKAlphaType.Premul));
+        bitmap.Erase(SKColors.White);
+        string imageBase64 = EncodeForRequest(bitmap, false);
+        string maskBase64 = EncodeForRequest(bitmap, true);
+        using var encodedImage = SKBitmap.Decode(Convert.FromBase64String(imageBase64));
+        using var encodedMask = SKBitmap.Decode(Convert.FromBase64String(maskBase64));
+        Check(encodedImage.Width == 512 && encodedImage.Height == 512 && encodedMask.Width == 512 && encodedMask.Height == 512,
+            "Inpainting fixture uses full-size image and mask after the 1/8-grid pass.");
         foreach (string model in new[] { "nai-diffusion-4-full-inpainting", "nai-diffusion-4-5-full-inpainting",
             "nai-diffusion-5-full-inpainting", "nai-diffusion-3-inpainting" })
         foreach (bool stream in new[] { false, true })
@@ -149,7 +278,7 @@ internal static class EnhanceChecks
             parameters.InpaintNoise = 0.2;
             settings.Settings.StreamGeneration = stream;
             int count = handler.Count;
-            await service.InpaintAsync("AA==", "AA==", 512, 512, "test", "negative");
+            await service.InpaintAsync(imageBase64, maskBase64, 512, 512, "test", "negative");
             Check(handler.Count == count + 1, "Inpainting request reaches HTTP capture.");
             var payload = handler.Payload;
             var sent = payload.GetProperty("parameters");
@@ -157,8 +286,11 @@ internal static class EnhanceChecks
             double expected = supported ? Math.Clamp(strength, 0, 1) : 1;
             Check(payload.GetProperty("action").GetString() == "infill" &&
                 payload.GetProperty("model").GetString() == model &&
-                sent.GetProperty("image").GetString() == "AA==" && sent.GetProperty("mask").GetString() == "AA==",
+                sent.GetProperty("image").GetString() == imageBase64 && sent.GetProperty("mask").GetString() == maskBase64,
                 "Masked inpainting retains its action, model and source images.");
+            Check(sent.GetProperty("width").GetInt32() == 512 && sent.GetProperty("height").GetInt32() == 512,
+                "Coarse-grid masks do not change the requested generation dimensions.");
+            Check(sent.GetProperty("add_original_image").GetBoolean(), "Binary masks preserve add_original_image.");
             Check(sent.TryGetProperty("stream", out var streamValue) == stream && (!stream || streamValue.GetString() == "sse"),
                 "Inpainting preserves streaming selection.");
             Check(sent.GetProperty("strength").GetDouble() == expected &&
