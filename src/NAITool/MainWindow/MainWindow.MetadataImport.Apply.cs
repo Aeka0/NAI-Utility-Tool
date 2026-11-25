@@ -81,7 +81,7 @@ public sealed partial class MainWindow
         }
 
         ImportSelectedCharacters(meta, options, toI2I: false, notes);
-        if (options.References) await ApplyReferenceDataFromMetadataAsync(meta);
+        if (options.References) await ApplyReferenceDataFromMetadataAsync(meta, notes);
 
         RefreshCharacterPanel();
 
@@ -98,7 +98,6 @@ public sealed partial class MainWindow
         if (options.Settings && presetMatch.UcPresetMatched.HasValue)
             notes.Add(Lf("metadata.note.negative_quality_extracted", GetUcPresetDisplayName(presetMatch.UcPresetMatched.Value)));
         if (skipped.Count > 0) notes.Add(Lf("metadata.note.incompatible_skipped", string.Join(", ", skipped)));
-        if (options.References) AppendReferenceImportNotes(meta, notes);
 
         TxtStatus.Text = notes.Count > 0
             ? Lf("inspect.sent_parameters_with_notes", string.Join("; ", notes))
@@ -169,7 +168,7 @@ public sealed partial class MainWindow
         if (meta.IsNaiParsed)
         {
             ImportSelectedCharacters(meta, options, toI2I: true, notes);
-            if (options.References) await ApplyReferenceDataFromMetadataAsync(meta, AppMode.I2I);
+            if (options.References) await ApplyReferenceDataFromMetadataAsync(meta, notes, AppMode.I2I);
         }
 
         RefreshCharacterPanel();
@@ -181,7 +180,6 @@ public sealed partial class MainWindow
         if (options.Settings && presetMatch.UcPresetMatched.HasValue)
             notes.Add(Lf("metadata.note.negative_quality_extracted", GetUcPresetDisplayName(presetMatch.UcPresetMatched.Value)));
         if (skipped.Count > 0) notes.Add(Lf("metadata.note.skipped", string.Join(", ", skipped)));
-        if (options.References) AppendReferenceImportNotes(meta, notes);
 
         TxtStatus.Text = notes.Count > 0
             ? Lf("metadata.applied_with_notes", fileName, string.Join("; ", notes))

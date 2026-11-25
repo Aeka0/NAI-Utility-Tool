@@ -265,6 +265,7 @@
   "references.imported.precise_label": "가져온 정확한 참조",
   "references.imported.precise_numbered": "Imported precise reference {0}",
   "references.imported.precise_count": "Imported {0} precise references",
+  "references.imported.precise_skipped_limit": "최대 {0}개를 초과한 정밀 참조는 가져오지 않았습니다.",
   "references.imported.vibe_label": "가져온 바이브 참고자료",
   "references.imported.vibe_numbered": "Imported vibe reference {0}",
   "references.imported.vibe_count": "Imported {0} vibe references",

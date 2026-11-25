@@ -7,6 +7,9 @@ internal static class NovelAiAnlasCalculator
 {
     internal const int MaxBaseCost = 140;
 
+    internal static bool IsV45Model(string model) =>
+        model.Contains("4-5", StringComparison.Ordinal);
+
     internal static bool IsV5Model(string model) => model is
         "nai-diffusion-5" or "nai-diffusion-5-full" or "nai-diffusion-5-curated" or
         "nai-diffusion-5-inpainting" or "nai-diffusion-5-full-inpainting" or

@@ -291,25 +291,18 @@ public sealed partial class MainWindow
         _genPreciseReferences.Clear();
     }
 
-    private async Task ApplyReferenceDataFromMetadataAsync(ImageMetadata? meta, AppMode? targetMode = null)
+    private async Task ApplyReferenceDataFromMetadataAsync(
+        ImageMetadata meta, List<string> notes, AppMode? targetMode = null)
     {
         _pendingReferenceImports++;
-        try { await RestoreReferenceDataFromMetadataAsync(meta, targetMode); }
+        try { await RestoreReferenceDataFromMetadataAsync(meta, notes, targetMode ?? _currentMode); }
         finally { _pendingReferenceImports--; }
     }
 
-    private async Task RestoreReferenceDataFromMetadataAsync(ImageMetadata? meta, AppMode? targetMode)
+    private async Task RestoreReferenceDataFromMetadataAsync(ImageMetadata meta, List<string> notes, AppMode mode)
     {
         int version = ++_referenceImportVersion;
         var restoredVibes = new List<VibeTransferEntry>();
-
-        if (meta == null)
-        {
-            ClearReferenceFeatures();
-            return;
-        }
-
-        AppMode mode = targetMode ?? _currentMode;
 
         if (SupportsVibeTransferFeature(mode))
         {
@@ -345,12 +338,19 @@ public sealed partial class MainWindow
         _genPreciseReferences.Clear();
         RecheckVibeTransferCacheState(refreshPanel: false);
 
+        bool skippedPreciseReferences = false;
         if (IsPromptMode(mode))
         {
-            foreach (var reference in meta.PreciseReferences.Take(MaxPreciseReferences))
+            foreach (var reference in meta.PreciseReferences)
             {
                 if (string.IsNullOrWhiteSpace(reference.ImageBase64))
                     continue;
+
+                if (_genPreciseReferences.Count == MaxPreciseReferences)
+                {
+                    skippedPreciseReferences = true;
+                    break;
+                }
 
                 _genPreciseReferences.Add(new PreciseReferenceEntry
                 {
@@ -364,15 +364,13 @@ public sealed partial class MainWindow
                 });
             }
         }
-    }
 
-    private void AppendReferenceImportNotes(ImageMetadata? meta, List<string> notes)
-    {
-        if (meta == null) return;
-        if (meta.VibeTransfers.Count > 0)
-            notes.Add(Lf("references.imported.vibe_count", meta.VibeTransfers.Count));
-        if (meta.PreciseReferences.Count > 0)
-            notes.Add(Lf("references.imported.precise_count", meta.PreciseReferences.Count));
+        if (restoredVibes.Count > 0)
+            notes.Add(Lf("references.imported.vibe_count", restoredVibes.Count));
+        if (_genPreciseReferences.Count > 0)
+            notes.Add(Lf("references.imported.precise_count", _genPreciseReferences.Count));
+        if (skippedPreciseReferences)
+            notes.Add(Lf("references.imported.precise_skipped_limit", MaxPreciseReferences));
     }
 
     private async Task<string?> EnsureVibesEncodedAsync(string model, CancellationToken ct)

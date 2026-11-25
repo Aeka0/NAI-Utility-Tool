@@ -289,9 +289,9 @@ public sealed partial class MainWindow
         }
 
         SyncPromptGenerationInputsToState();
-        if (!TryValidateCharacterCount(out string characterError))
+        if (!TryValidateReferenceRequest(out string referenceError))
         {
-            TxtStatus.Text = characterError;
+            TxtStatus.Text = referenceError;
             return false;
         }
         var options = await ShowGenEnhanceSettingsDialogAsync(width, height);
@@ -394,6 +394,12 @@ public sealed partial class MainWindow
                 {
                     string? encodeError = await EnsureVibesEncodedAsync(enhanceParams.Model, ct);
                     if (encodeError != null) { TxtStatus.Text = encodeError; return false; }
+                }
+
+                if (!TryValidateReferenceRequest(out string referenceError))
+                {
+                    TxtStatus.Text = referenceError;
+                    return false;
                 }
 
                 chars = (CurrentCharacterEntries.Count > 0 && !IsV3ModelKey(enhanceParams.Model)) ? GetCharacterData(wildcardContext) : null;

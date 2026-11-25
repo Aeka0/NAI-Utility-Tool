@@ -265,6 +265,7 @@
   "references.imported.precise_label": "Relatio precisa importata",
   "references.imported.precise_numbered": "Relatio precisa importata {0}",
   "references.imported.precise_count": "{0} relationes precisas importavit",
+  "references.imported.precise_skipped_limit": "Relationes praecisae supra limitem {0} omissae sunt.",
   "references.imported.vibe_label": "Relatio Vibe importata",
   "references.imported.vibe_numbered": "Relatio Vibe importata {0}",
   "references.imported.vibe_count": "{0} relationes Vibe importavit",

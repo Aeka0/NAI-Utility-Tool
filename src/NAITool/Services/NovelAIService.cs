@@ -393,9 +393,6 @@ public partial class NovelAIService : IDisposable
         model.Contains("-4", StringComparison.Ordinal) ||
         model.Contains("-5", StringComparison.Ordinal);
 
-    internal static bool IsV45Model(string model) =>
-        model.Contains("4-5", StringComparison.Ordinal);
-
     internal static bool IsV5Model(string model) => NovelAiAnlasCalculator.IsV5Model(model);
 
     private static bool SupportsVibeTransferModel(string model) =>
@@ -726,7 +723,7 @@ public partial class NovelAIService : IDisposable
 
         object seed = SeedValue.ToRequestValue(SeedValue.Resolve(naiParams.Seed));
         bool isV4Plus = IsV4PlusModel(naiParams.Model);
-        bool isV45 = IsV45Model(naiParams.Model);
+        bool isV45 = NovelAiAnlasCalculator.IsV45Model(naiParams.Model);
         string effectivePrompt = ApplyQualityTags(prompt, naiParams.Model, naiParams.QualityToggle);
         string effectiveNegativePrompt = ApplyUcPreset(negativePrompt, naiParams.Model, naiParams.UcPreset);
 
@@ -993,7 +990,7 @@ public partial class NovelAIService : IDisposable
         string resolvedSeed = SeedValue.Resolve(naiParams.Seed);
         object seed = SeedValue.ToRequestValue(resolvedSeed);
         bool isV4Plus = IsV4PlusModel(naiParams.Model);
-        bool isV45 = IsV45Model(naiParams.Model);
+        bool isV45 = NovelAiAnlasCalculator.IsV45Model(naiParams.Model);
         string effectivePrompt = ApplyQualityTags(prompt, naiParams.Model, naiParams.QualityToggle);
         if (isEnhance && !upscaledEnhance && (isV45 || IsV5Model(naiParams.Model)))
             effectivePrompt = AddEnhancePromptHint(effectivePrompt);
@@ -1221,7 +1218,7 @@ public partial class NovelAIService : IDisposable
 
         object seed = SeedValue.ToRequestValue(SeedValue.Resolve(naiParams.Seed));
         bool isV4Plus = IsV4PlusModel(model);
-        bool isV45 = IsV45Model(model);
+        bool isV45 = NovelAiAnlasCalculator.IsV45Model(model);
         string effectivePrompt = ApplyQualityTags(prompt, model, naiParams.QualityToggle);
         string effectiveNegativePrompt = ApplyUcPreset(negativePrompt, model, naiParams.UcPreset);
 

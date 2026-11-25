@@ -385,6 +385,7 @@
     "references.imported.precise_label":  "已匯入的精確參考",
     "references.imported.precise_numbered":  "已匯入的精確參考 {0}",
     "references.imported.precise_count":  "已匯入 {0} 個精確參考",
+    "references.imported.precise_skipped_limit":  "已略過超出上限的精確參考，最多保留 {0} 張。",
     "references.imported.vibe_label":  "已匯入的氛圍參考",
     "references.imported.vibe_numbered":  "已匯入的氛圍參考 {0}",
     "references.imported.vibe_count":  "已匯入 {0} 個氛圍參考",

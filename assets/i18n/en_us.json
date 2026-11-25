@@ -265,6 +265,7 @@
   "references.imported.precise_label": "Imported precise reference",
   "references.imported.precise_numbered": "Imported precise reference {0}",
   "references.imported.precise_count": "Imported {0} precise references",
+  "references.imported.precise_skipped_limit": "Skipped extra precise references (limit of {0}).",
   "references.imported.vibe_label": "Imported vibe reference",
   "references.imported.vibe_numbered": "Imported vibe reference {0}",
   "references.imported.vibe_count": "Imported {0} vibe references",

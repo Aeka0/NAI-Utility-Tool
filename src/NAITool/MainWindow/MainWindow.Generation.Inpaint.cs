@@ -238,6 +238,7 @@ public sealed partial class MainWindow
 
             var meta = importMetadata ? await Task.Run(() => ImageMetadataService.ReadFromBytes(imageBytes)) : null;
 
+            var referenceNotes = new List<string>();
             string sendPos, sendNeg, sendStyle;
             if (meta != null && (meta.IsNaiParsed || meta.IsSdFormat))
             {
@@ -251,7 +252,7 @@ public sealed partial class MainWindow
                         SetI2ICharactersFromMetadata(meta);
                     else
                         _i2iCharacters.Clear();
-                    await ApplyReferenceDataFromMetadataAsync(meta, AppMode.I2I);
+                    await ApplyReferenceDataFromMetadataAsync(meta, referenceNotes, AppMode.I2I);
                 }
             }
             else
@@ -310,9 +311,10 @@ public sealed partial class MainWindow
 
             UpdatePromptHighlights();
 
-            TxtStatus.Text = sizeApplied
+            string status = sizeApplied
                 ? Lf("i2i.sent_with_synced_size", imgW, imgH)
                 : Lf("i2i.sent_with_canvas_size", imgW, imgH, canvasW, canvasH);
+            TxtStatus.Text = string.Join(" · ", referenceNotes.Prepend(status));
             return true;
         }
         catch (Exception ex)

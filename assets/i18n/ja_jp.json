@@ -385,6 +385,7 @@
     "references.imported.precise_label":  "インポート済み精密参照",
     "references.imported.precise_numbered":  "インポート済み精密参照 {0}",
     "references.imported.precise_count":  "{0} 件の精密参照をインポートしました",
+    "references.imported.precise_skipped_limit":  "上限の {0} 件を超えた精密参照はインポートされませんでした。",
     "references.imported.vibe_label":  "インポート済み Vibe 参照",
     "references.imported.vibe_numbered":  "インポート済み Vibe 参照 {0}",
     "references.imported.vibe_count":  "{0} 件の Vibe 参照をインポートしました",

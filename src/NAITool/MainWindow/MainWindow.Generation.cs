@@ -759,7 +759,7 @@ public sealed partial class MainWindow
             SetGenCharactersFromMetadata(meta);
         else
             _genCharacters.Clear();
-        await ApplyReferenceDataFromMetadataAsync(meta);
+        await ApplyReferenceDataFromMetadataAsync(meta, notes);
         RefreshCharacterPanel();
 
         LoadPromptFromBuffer();
@@ -773,7 +773,6 @@ public sealed partial class MainWindow
             notes.Add(Lf("metadata.note.negative_quality_extracted", GetUcPresetDisplayName(presetMatch.UcPresetMatched.Value)));
         if (skipSeed) notes.Add(L("metadata.note.seed_skipped"));
         if (skipped.Count > 0) notes.Add(Lf("metadata.note.skipped", string.Join(", ", skipped)));
-        AppendReferenceImportNotes(meta, notes);
 
         TxtStatus.Text = notes.Count > 0
             ? Lf("metadata.applied_with_notes", fileName, string.Join("; ", notes))

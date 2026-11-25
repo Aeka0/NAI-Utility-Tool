@@ -385,6 +385,7 @@
     "references.imported.precise_label":  "已导入的精确参考",
     "references.imported.precise_numbered":  "已导入的精确参考 {0}",
     "references.imported.precise_count":  "已导入 {0} 个精确参考",
+    "references.imported.precise_skipped_limit":  "已跳过超出上限的精确参考，最多保留 {0} 张。",
     "references.imported.vibe_label":  "已导入的氛围参考",
     "references.imported.vibe_numbered":  "已导入的氛围参考 {0}",
     "references.imported.vibe_count":  "已导入 {0} 个氛围参考",

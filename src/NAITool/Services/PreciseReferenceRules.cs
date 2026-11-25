@@ -7,7 +7,7 @@ internal static class PreciseReferenceRules
     internal static bool SupportsV5Options(string model) => NovelAiAnlasCalculator.IsV5Model(model);
 
     internal static bool Supports(string model, bool inpainting = false) =>
-        NovelAIService.IsV45Model(model) ||
+        NovelAiAnlasCalculator.IsV45Model(model) ||
         (SupportsV5Options(model) && !inpainting && !model.EndsWith("-inpainting", StringComparison.Ordinal));
 
     internal static bool SupportsType(string model, PreciseReferenceType type) =>
