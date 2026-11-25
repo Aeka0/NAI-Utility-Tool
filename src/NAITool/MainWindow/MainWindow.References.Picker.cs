@@ -51,7 +51,7 @@ public sealed partial class MainWindow
             return;
 
         var newEntry = await CreatePreciseReferenceEntryAsync();
-        if (newEntry == null)
+        if (newEntry == null || TryReportPreciseReferenceUnavailable())
             return;
 
         _genPreciseReferences.Add(newEntry);
@@ -284,7 +284,8 @@ public sealed partial class MainWindow
 
         if (!SupportsPreciseReferenceFeature())
         {
-            TxtStatus.Text = L("references.error.precise_requires_v45_model");
+            TxtStatus.Text = L(IsV5InpaintingReferenceMode()
+                ? "references.error.precise_v5_inpainting" : "references.error.precise_requires_v45_model");
             return true;
         }
 
@@ -351,7 +352,7 @@ public sealed partial class MainWindow
             TxtStatus.Text = L("references.error.vibe_unsupported_model");
             return;
         }
-        if (ActivePreciseReferenceCount() > 0)
+        if (ActivePreciseReferenceCount(targetModel, inpainting: false) > 0)
         {
             TxtStatus.Text = L("references.validation.mixed_reference_types");
             return;
@@ -382,7 +383,7 @@ public sealed partial class MainWindow
             return;
 
         var newEntry = CreatePreciseReferenceEntry(await CreateReferenceImagePickResultAsync(file));
-        if (newEntry == null)
+        if (newEntry == null || TryReportPreciseReferenceUnavailable())
             return;
 
         _genPreciseReferences.Add(newEntry);

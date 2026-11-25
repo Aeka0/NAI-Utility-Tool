@@ -96,6 +96,7 @@ public sealed partial class MainWindow
                 x.ReferenceType,
                 x.Strength,
                 x.Fidelity,
+                x.PreferSameOutfit,
                 ImageHash = ComputeStableHash(x.ImageBase64),
             })
             .Cast<object>()

@@ -67,7 +67,9 @@ public sealed partial class MainWindow
         PreciseReferencePanel.Visibility = ShouldShowPreciseReferencePanel()
             ? Visibility.Visible
             : Visibility.Collapsed;
-        TxtPreciseReferenceHint.Visibility = Visibility.Collapsed;
+        TxtPreciseReferenceHint.Text = L("references.error.precise_v5_inpainting");
+        TxtPreciseReferenceHint.Visibility = IsV5InpaintingReferenceMode()
+            ? Visibility.Visible : Visibility.Collapsed;
 
         UpdateReferenceButtonRowLayout();
         UpdatePromptAreaHeight();

@@ -393,16 +393,13 @@ public partial class NovelAIService : IDisposable
         model.Contains("-4", StringComparison.Ordinal) ||
         model.Contains("-5", StringComparison.Ordinal);
 
-    private static bool IsV45Model(string model) =>
+    internal static bool IsV45Model(string model) =>
         model.Contains("4-5", StringComparison.Ordinal);
 
     internal static bool IsV5Model(string model) => NovelAiAnlasCalculator.IsV5Model(model);
 
     private static bool SupportsVibeTransferModel(string model) =>
         !IsV5Model(model);
-
-    private static bool SupportsPreciseReferenceModel(string model) =>
-        IsV45Model(model);
 
     private static string NormalizeModelKey(string model) =>
         model.EndsWith("-inpainting", StringComparison.Ordinal)
@@ -472,58 +469,6 @@ public partial class NovelAIService : IDisposable
         return string.IsNullOrWhiteSpace(preset) ? negativePrompt : MergePromptSegments(negativePrompt, preset);
     }
 
-    private static string ToApiPreciseReferenceType(PreciseReferenceType type) => type switch
-    {
-        PreciseReferenceType.Character => "character",
-        PreciseReferenceType.Style => "style",
-        _ => "character&style",
-    };
-
-    private static string PrepareDirectorReferenceImage(string base64Image)
-    {
-        const int TargetW = 1024;
-        const int TargetH = 1536;
-
-        byte[] bytes = Convert.FromBase64String(base64Image);
-        using var bitmap = SKBitmap.Decode(bytes);
-        if (bitmap == null)
-            return base64Image;
-
-        if (bitmap.Width == TargetW && bitmap.Height == TargetH
-            && bitmap.ColorType == SKColorType.Rgb888x)
-            return base64Image;
-
-        float srcRatio = (float)bitmap.Width / bitmap.Height;
-        float tgtRatio = (float)TargetW / TargetH;
-
-        int newW, newH;
-        if (srcRatio > tgtRatio)
-        {
-            newW = TargetW;
-            newH = (int)(TargetW / srcRatio);
-        }
-        else
-        {
-            newH = TargetH;
-            newW = (int)(TargetH * srcRatio);
-        }
-
-        using var resized = bitmap.Resize(new SKImageInfo(newW, newH, SKColorType.Rgb888x, SKAlphaType.Opaque), SKSamplingOptions.Default);
-        if (resized == null)
-            return base64Image;
-
-        using var canvas = new SKBitmap(TargetW, TargetH, SKColorType.Rgb888x, SKAlphaType.Opaque);
-        canvas.Erase(SKColors.Black);
-        using var c = new SKCanvas(canvas);
-        int offsetX = (TargetW - newW) / 2;
-        int offsetY = (TargetH - newH) / 2;
-        c.DrawBitmap(resized, offsetX, offsetY);
-
-        using var image = SKImage.FromBitmap(canvas);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        return Convert.ToBase64String(data.ToArray());
-    }
-
     private async Task EncodeUnencodedVibesAsync(
         List<VibeTransferInfo> vibeTransfers, string model, CancellationToken ct)
     {
@@ -557,33 +502,6 @@ public partial class NovelAIService : IDisposable
         parameters["reference_image_multiple"] = vibeTransfers.Select(x => x.ImageBase64).ToList();
         parameters["reference_strength_multiple"] = vibeTransfers.Select(x => x.Strength).ToList();
         parameters["reference_information_extracted_multiple"] = vibeTransfers.Select(x => x.InformationExtracted).ToList();
-    }
-
-    private static void ApplyPreciseReferenceParameters(
-        Dictionary<string, object?> parameters,
-        List<PreciseReferenceInfo> preciseReferences)
-    {
-        if (preciseReferences.Count == 0)
-            return;
-
-        parameters["director_reference_images"] = preciseReferences
-            .Select(x => PrepareDirectorReferenceImage(x.ImageBase64)).ToList();
-        parameters["director_reference_strength_values"] = preciseReferences
-            .Select(x => Math.Clamp(x.Strength, 0, 1)).ToList();
-        parameters["director_reference_secondary_strength_values"] = preciseReferences
-            .Select(x => Math.Round(1.0 - Math.Clamp(x.Fidelity, 0, 1), 2)).ToList();
-        parameters["director_reference_information_extracted"] = preciseReferences
-            .Select(_ => 1.0).ToList();
-        parameters["director_reference_descriptions"] = preciseReferences
-            .Select(x => new Dictionary<string, object?>
-            {
-                ["caption"] = new Dictionary<string, object?>
-                {
-                    ["base_caption"] = ToApiPreciseReferenceType(x.ReferenceType),
-                    ["char_captions"] = new List<object>(),
-                },
-                ["legacy_uc"] = false,
-            }).ToList();
     }
 
     private static object? SanitizeLogValue(object? value)
@@ -925,9 +843,9 @@ public partial class NovelAIService : IDisposable
             parameters["sm_dyn"] = false;
         }
 
-        if (preciseReferences is { Count: > 0 } && SupportsPreciseReferenceModel(naiParams.Model))
-            ApplyPreciseReferenceParameters(parameters, preciseReferences);
-        else if (vibeTransfers is { Count: > 0 } && SupportsVibeTransferModel(naiParams.Model))
+        preciseReferences = PreciseReferenceRules.Filter(naiParams.Model, preciseReferences, inpainting: true);
+        if (preciseReferences is not { Count: > 0 } &&
+            vibeTransfers is { Count: > 0 } && SupportsVibeTransferModel(naiParams.Model))
         {
             if (IsV4PlusModel(naiParams.Model))
                 await EncodeUnencodedVibesAsync(vibeTransfers, naiParams.Model, ct);
@@ -941,17 +859,22 @@ public partial class NovelAIService : IDisposable
             ["action"] = "infill",
             ["parameters"] = parameters,
         };
+        string referenceModel = naiParams.Model;
+        var cost = ApiRequestCost.Image(naiParams.Model, width, height, naiParams.Steps,
+            strength: IsV4PlusModel(naiParams.Model) ? naiParams.InpaintStrength : 1,
+            referenceAnlas: GenerationReferenceAnlas(naiParams.Model, vibeTransfers, preciseReferences));
         var stopwatch = Stopwatch.StartNew();
 
         try
         {
+            if (preciseReferences is { Count: > 0 })
+                await ApplyPreciseReferenceParametersAsync(parameters, referenceModel, preciseReferences, ct);
+
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
             var url = streamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
-            var account = await SelectAccountAsync(ApiRequestCost.Image(naiParams.Model, width, height, naiParams.Steps,
-                    strength: IsV4PlusModel(naiParams.Model) ? naiParams.InpaintStrength : 1,
-                    referenceAnlas: GenerationReferenceAnlas(naiParams.Model, vibeTransfers, preciseReferences)), ct);
+            var account = await SelectAccountAsync(cost, ct);
             using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
             var requestCt = requestTimeoutCts.Token;
             using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
@@ -1187,9 +1110,9 @@ public partial class NovelAIService : IDisposable
             parameters["sm_dyn"] = false;
         }
 
-        if (preciseReferences is { Count: > 0 } && SupportsPreciseReferenceModel(naiParams.Model))
-            ApplyPreciseReferenceParameters(parameters, preciseReferences);
-        else if (vibeTransfers is { Count: > 0 } && SupportsVibeTransferModel(naiParams.Model))
+        preciseReferences = PreciseReferenceRules.Filter(naiParams.Model, preciseReferences);
+        if (preciseReferences is not { Count: > 0 } &&
+            vibeTransfers is { Count: > 0 } && SupportsVibeTransferModel(naiParams.Model))
         {
             if (IsV4PlusModel(naiParams.Model))
                 await EncodeUnencodedVibesAsync(vibeTransfers, naiParams.Model, ct);
@@ -1203,17 +1126,22 @@ public partial class NovelAIService : IDisposable
             ["action"] = "img2img",
             ["parameters"] = parameters,
         };
+        string referenceModel = naiParams.Model;
+        var cost = ApiRequestCost.Image(naiParams.Model, pricedSize.Width, pricedSize.Height, naiParams.Steps,
+            strength: naiParams.DenoiseStrength,
+            referenceAnlas: GenerationReferenceAnlas(naiParams.Model, vibeTransfers, preciseReferences));
         var stopwatch = Stopwatch.StartNew();
 
         try
         {
+            if (preciseReferences is { Count: > 0 })
+                await ApplyPreciseReferenceParametersAsync(parameters, referenceModel, preciseReferences, ct);
+
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
             var url = streamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
-            var account = await SelectAccountAsync(ApiRequestCost.Image(naiParams.Model, pricedSize.Width, pricedSize.Height, naiParams.Steps,
-                    strength: naiParams.DenoiseStrength,
-                    referenceAnlas: GenerationReferenceAnlas(naiParams.Model, vibeTransfers, preciseReferences)), ct);
+            var account = await SelectAccountAsync(cost, ct);
             using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
             var requestCt = requestTimeoutCts.Token;
             using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
@@ -1391,9 +1319,9 @@ public partial class NovelAIService : IDisposable
             parameters["sm_dyn"] = false;
         }
 
-        if (preciseReferences is { Count: > 0 } && SupportsPreciseReferenceModel(model))
-            ApplyPreciseReferenceParameters(parameters, preciseReferences);
-        else if (vibeTransfers is { Count: > 0 } && SupportsVibeTransferModel(model))
+        preciseReferences = PreciseReferenceRules.Filter(model, preciseReferences);
+        if (preciseReferences is not { Count: > 0 } &&
+            vibeTransfers is { Count: > 0 } && SupportsVibeTransferModel(model))
         {
             if (IsV4PlusModel(model))
                 await EncodeUnencodedVibesAsync(vibeTransfers, model, ct);
@@ -1407,16 +1335,20 @@ public partial class NovelAIService : IDisposable
             ["action"] = "generate",
             ["parameters"] = parameters,
         };
+        var cost = ApiRequestCost.Image(model, width, height, naiParams.Steps, sm: naiParams.Sm,
+            referenceAnlas: GenerationReferenceAnlas(model, vibeTransfers, preciseReferences));
         var stopwatch = Stopwatch.StartNew();
 
         try
         {
+            if (preciseReferences is { Count: > 0 })
+                await ApplyPreciseReferenceParametersAsync(parameters, model, preciseReferences, ct);
+
             var json = JsonSerializer.Serialize(payload, JsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var endpoints = GetApiEndpoints();
             var url = streamGeneration ? endpoints.GenerateStreamUrl : endpoints.GenerateUrl;
-            var account = await SelectAccountAsync(ApiRequestCost.Image(model, width, height, naiParams.Steps, sm: naiParams.Sm,
-                    referenceAnlas: GenerationReferenceAnlas(model, vibeTransfers, preciseReferences)), ct);
+            var account = await SelectAccountAsync(cost, ct);
             using var requestTimeoutCts = CreateRequestTimeoutTokenSource(ImageGenerationRequestTimeout, ct);
             var requestCt = requestTimeoutCts.Token;
             using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };

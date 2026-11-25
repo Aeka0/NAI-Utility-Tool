@@ -111,7 +111,7 @@ public partial class NovelAIService
         List<VibeTransferInfo>? vibes, List<PreciseReferenceInfo>? references)
     {
         // Match payload precedence: precise references replace vibes when both are supplied.
-        if (SupportsPreciseReferenceModel(model) && references is { Count: > 0 })
+        if (references is { Count: > 0 })
             return NovelAiAnlasCalculator.ReferenceCost(0, 0, references.Count);
         return NovelAiAnlasCalculator.ReferenceCost(0,
             IsV4PlusModel(model) && SupportsVibeTransferModel(model) ? vibes?.Count ?? 0 : 0, 0);

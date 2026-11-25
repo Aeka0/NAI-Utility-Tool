@@ -55,7 +55,20 @@ public sealed partial class MainWindow
         public string ImageBase64 { get; set; } = "";
         public PreciseReferenceType ReferenceType { get; set; } = PreciseReferenceType.CharacterAndStyle;
         public double Strength { get; set; } = 1.0;
+        public double V5Strength { get; set; } = 1.0;
         public double Fidelity { get; set; }
+        public bool? PreferSameOutfit { get; set; }
+
+        public double GetStrength(bool isV5) => isV5 ? V5Strength : Strength;
+
+        public void SetStrength(bool isV5, double value)
+        {
+            if (isV5)
+                V5Strength = value;
+            else
+                Strength = value;
+        }
+
         public bool IsCollapsed { get; set; }
         public bool IsDisabled { get; set; }
     }
@@ -64,7 +77,16 @@ public sealed partial class MainWindow
         _genVibeTransfers.Count(x => !x.IsDisabled);
 
     private int ActivePreciseReferenceCount() =>
-        _genPreciseReferences.Count(x => !x.IsDisabled);
+        IsPromptMode(_currentMode) ? ActivePreciseReferenceCount(GetCurrentModelKey(), IsInpaintingReferenceMode()) : 0;
+
+    private int ActivePreciseReferenceCount(string model, bool inpainting) =>
+        SupportsPreciseReferenceFeature(model, inpainting)
+            ? GetActivePreciseReferences(model).Count()
+            : 0;
+
+    private IEnumerable<PreciseReferenceEntry> GetActivePreciseReferences(string model) =>
+        _genPreciseReferences.Where(x => !x.IsDisabled && !string.IsNullOrWhiteSpace(x.ImageBase64) &&
+            PreciseReferenceRules.SupportsType(model, x.ReferenceType));
 
     private string GetCurrentModelKey() => GetSelectedComboText(CboModel) ?? CurrentParams.Model;
 
@@ -79,9 +101,6 @@ public sealed partial class MainWindow
     private static bool IsV4PlusModelKey(string model) =>
         model.Contains("-4", StringComparison.Ordinal) ||
         model.Contains("-5", StringComparison.Ordinal);
-
-    private static bool IsV45ModelKey(string model) =>
-        model.Contains("4-5", StringComparison.Ordinal);
 
     private static bool IsV5ModelKey(string model) => NovelAiAnlasCalculator.IsV5Model(model);
 
@@ -113,20 +132,23 @@ public sealed partial class MainWindow
     private bool RequiresEncodedVibeFileOnly() =>
         IsV4PlusModelKey(GetCurrentModelKey()) && IsAssetProtectionPaidFeatureLimitEnabled();
 
+    private bool IsInpaintingReferenceMode() =>
+        _currentMode == AppMode.I2I && _i2iEditMode == I2IEditMode.Inpaint;
+
+    private bool IsV5InpaintingReferenceMode() =>
+        IsInpaintingReferenceMode() && IsV5ModelKey(GetCurrentModelKey());
+
     private bool IsPreciseReferenceBlockedByAssetProtection() =>
-        IsPromptMode(_currentMode) && IsV45ModelKey(GetCurrentModelKey()) && IsAssetProtectionPaidFeatureLimitEnabled();
+        IsPromptMode(_currentMode) &&
+        PreciseReferenceRules.Supports(GetCurrentModelKey(), IsInpaintingReferenceMode()) &&
+        IsAssetProtectionPaidFeatureLimitEnabled();
 
-    private bool SupportsPreciseReferenceFeature()
-    {
-        if (!IsPromptMode(_currentMode)) return false;
-        return IsV45ModelKey(GetCurrentModelKey()) && !IsAssetProtectionPaidFeatureLimitEnabled();
-    }
+    private bool SupportsPreciseReferenceFeature() =>
+        IsPromptMode(_currentMode) &&
+        SupportsPreciseReferenceFeature(GetCurrentModelKey(), IsInpaintingReferenceMode());
 
-    private bool SupportsPreciseReferenceFeature(AppMode mode)
-    {
-        if (!IsPromptMode(mode)) return false;
-        return IsV45ModelKey(GetCurrentModelKey()) && !IsAssetProtectionPaidFeatureLimitEnabled();
-    }
+    private bool SupportsPreciseReferenceFeature(string model, bool inpainting) =>
+        PreciseReferenceRules.Supports(model, inpainting) && !IsAssetProtectionPaidFeatureLimitEnabled();
 
     private bool CanEditVibeTransferFeature() =>
         SupportsVibeTransferFeature() &&
@@ -140,7 +162,9 @@ public sealed partial class MainWindow
         SupportsVibeTransferFeature() && _genVibeTransfers.Count > 0;
 
     private bool ShouldShowPreciseReferencePanel() =>
-        SupportsPreciseReferenceFeature() && _genPreciseReferences.Count > 0;
+        _genPreciseReferences.Count > 0 &&
+        (SupportsPreciseReferenceFeature() ||
+            (IsV5InpaintingReferenceMode() && !IsAssetProtectionPaidFeatureLimitEnabled()));
 
     private int EstimateCurrentRequestAnlasCost()
     {
@@ -196,11 +220,9 @@ public sealed partial class MainWindow
                 activeVibes.Count(v => !v.IsEncodedFile), activeVibes.Count, 0);
         }
 
-        int activePreciseCount = ActivePreciseReferenceCount();
-        if (IsV45ModelKey(model) && !IsAssetProtectionPaidFeatureLimitEnabled() && activePreciseCount > 0)
-        {
-            refCost += NovelAiAnlasCalculator.ReferenceCost(0, 0, activePreciseCount);
-        }
+        bool inpainting = _currentMode == AppMode.I2I && !imageToImage;
+        int activePreciseCount = ActivePreciseReferenceCount(model, inpainting);
+        refCost += NovelAiAnlasCalculator.ReferenceCost(0, 0, activePreciseCount);
 
         return _naiService.EstimateAnlas(cost with { ReferenceAnlas = refCost });
     }
@@ -226,16 +248,19 @@ public sealed partial class MainWindow
         int activeVibeCount = SupportsVibeTransferFeature() ? ActiveVibeTransferCount() : 0;
         int activePreciseCount = ActivePreciseReferenceCount();
 
-        if (activeVibeCount > 0 &&
-            activePreciseCount > 0 &&
-            !IsAssetProtectionPaidFeatureLimitEnabled() &&
-            IsV45ModelKey(GetCurrentModelKey()))
+        if (activeVibeCount > 0 && activePreciseCount > 0)
         {
             error = L("references.validation.mixed_reference_types");
             return false;
         }
 
-        if (RequiresEncodedVibeFileOnly() &&
+        if (activePreciseCount > MaxPreciseReferences)
+        {
+            error = Lf("references.error.precise_count_limit", MaxPreciseReferences);
+            return false;
+        }
+
+        if (activeVibeCount > 0 && RequiresEncodedVibeFileOnly() &&
             _genVibeTransfers.Any(x => !x.IsDisabled && !x.IsEncodedFile))
         {
             error = L("references.error.asset_protection_requires_encoded_vibe");
@@ -320,7 +345,7 @@ public sealed partial class MainWindow
         _genPreciseReferences.Clear();
         RecheckVibeTransferCacheState(refreshPanel: false);
 
-        if (SupportsPreciseReferenceFeature(mode))
+        if (IsPromptMode(mode))
         {
             foreach (var reference in meta.PreciseReferences.Take(MaxPreciseReferences))
             {
@@ -333,7 +358,9 @@ public sealed partial class MainWindow
                     ImageBase64 = reference.ImageBase64,
                     ReferenceType = reference.ReferenceType,
                     Strength = Math.Clamp(reference.Strength, 0, 1),
+                    V5Strength = Math.Clamp(reference.Strength, 0, PreciseReferenceRules.V5StrengthMax),
                     Fidelity = Math.Clamp(reference.Fidelity, 0, 1),
+                    PreferSameOutfit = reference.PreferSameOutfit,
                 });
             }
         }
@@ -430,18 +457,19 @@ public sealed partial class MainWindow
 
     private List<PreciseReferenceInfo>? GetPreciseReferenceData()
     {
-        if (!SupportsPreciseReferenceFeature()) return null;
-        if (ActiveVibeTransferCount() > 0) return null;
+        if (!CanEditPreciseReferenceFeature()) return null;
 
-        var result = _genPreciseReferences
-            .Where(x => !x.IsDisabled && !string.IsNullOrWhiteSpace(x.ImageBase64))
+        string model = GetCurrentModelKey();
+        bool isV5 = IsV5ModelKey(model);
+        var result = GetActivePreciseReferences(model)
             .Select(x => new PreciseReferenceInfo
             {
                 FileName = x.FileName,
                 ImageBase64 = x.ImageBase64,
                 ReferenceType = x.ReferenceType,
-                Strength = Math.Clamp(x.Strength, 0, 1),
-                Fidelity = Math.Clamp(x.Fidelity, 0, 1),
+                Strength = Math.Clamp(x.GetStrength(isV5), 0, PreciseReferenceRules.MaxStrength(model)),
+                Fidelity = isV5 ? 1 : Math.Clamp(x.Fidelity, 0, 1),
+                PreferSameOutfit = isV5 && PreciseReferenceRules.PrefersSameOutfit(x.ReferenceType, x.PreferSameOutfit),
             })
             .ToList();
 

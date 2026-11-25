@@ -1170,14 +1170,18 @@ public static class ImageMetadataService
             dirImageArray.ValueKind == JsonValueKind.Array)
         {
             var strengthValues = TryReadDoubleArray(root, "director_reference_strength_values");
+            if (strengthValues.Count == 0)
+                strengthValues = TryReadDoubleArray(root, "director_reference_strengths");
             var secondaryValues = TryReadDoubleArray(root, "director_reference_secondary_strength_values");
+            if (secondaryValues.Count == 0)
+                secondaryValues = TryReadDoubleArray(root, "director_reference_secondary_strengths");
             bool hasDescriptions = root.TryGetProperty("director_reference_descriptions", out var descArray)
                 && descArray.ValueKind == JsonValueKind.Array;
 
             int index = 0;
             foreach (var item in dirImageArray.EnumerateArray())
             {
-                string imageBase64 = item.GetString() ?? "";
+                string imageBase64 = item.ValueKind == JsonValueKind.String ? item.GetString() ?? "" : "";
                 if (string.IsNullOrWhiteSpace(imageBase64))
                 {
                     index++;
@@ -1185,24 +1189,26 @@ public static class ImageMetadataService
                 }
 
                 string typeValue = "";
-                if (hasDescriptions)
+                if (hasDescriptions && index < descArray.GetArrayLength())
                 {
-                    var descElements = descArray.EnumerateArray().ToList();
-                    if (index < descElements.Count &&
-                        descElements[index].TryGetProperty("caption", out var caption) &&
-                        caption.TryGetProperty("base_caption", out var baseCap))
+                    var description = descArray[index];
+                    if (description.ValueKind == JsonValueKind.Object &&
+                        description.TryGetProperty("caption", out var caption) && caption.ValueKind == JsonValueKind.Object)
                     {
-                        typeValue = baseCap.GetString() ?? "";
+                        typeValue = TryReadString(caption, "base_caption");
                     }
                 }
 
-                double secondaryStrength = index < secondaryValues.Count ? secondaryValues[index] : 0.0;
+                var (type, preferSameOutfit) = PreciseReferenceRules.ParseCaption(typeValue);
+                double secondaryStrength = index < secondaryValues.Count ? secondaryValues[index] ?? 0 : 0;
                 meta.PreciseReferences.Add(new PreciseReferenceInfo
                 {
                     ImageBase64 = imageBase64,
                     FileName = LocalizationService.Instance.Format("references.imported.precise_numbered", index + 1),
-                    ReferenceType = ParsePreciseReferenceType(typeValue),
-                    Strength = Math.Clamp(index < strengthValues.Count ? strengthValues[index] : 1.0, 0, 1),
+                    ReferenceType = type,
+                    PreferSameOutfit = preferSameOutfit,
+                    Strength = Math.Clamp(index < strengthValues.Count ? strengthValues[index] ?? 1 : 1,
+                        0, PreciseReferenceRules.V5StrengthMax),
                     Fidelity = Math.Clamp(Math.Round(1.0 - secondaryStrength, 2), 0, 1),
                 });
                 index++;
@@ -1225,12 +1231,23 @@ public static class ImageMetadataService
                     continue;
                 }
 
+                var (type, preferSameOutfit) = PreciseReferenceRules.ParseCaption(
+                    TryReadString(item, "referenceType", "reference_type", "type", "description"));
+                if ((item.TryGetProperty("preferSameOutfit", out var outfit) ||
+                    item.TryGetProperty("prefer_same_outfit", out outfit)) &&
+                    outfit.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                {
+                    preferSameOutfit = outfit.GetBoolean();
+                }
+
                 meta.PreciseReferences.Add(new PreciseReferenceInfo
                 {
                     ImageBase64 = imageBase64,
                     FileName = TryReadString(item, "fileName", "filename", "name", "label"),
-                    ReferenceType = ParsePreciseReferenceType(TryReadString(item, "referenceType", "reference_type", "type")),
-                    Strength = Math.Clamp(TryReadDouble(item, "strength", 1.0, "reference_strength"), 0, 1),
+                    ReferenceType = type,
+                    PreferSameOutfit = preferSameOutfit,
+                    Strength = Math.Clamp(TryReadDouble(item, "strength", 1.0, "reference_strength"),
+                        0, PreciseReferenceRules.V5StrengthMax),
                     Fidelity = Math.Clamp(TryReadDouble(item, "fidelity", 0.0, "reference_fidelity"), 0, 1),
                 });
                 index++;
@@ -1269,13 +1286,15 @@ public static class ImageMetadataService
             string typeValue = hasTypeArray && typeArray.ValueKind == JsonValueKind.Array
                 ? TryReadStringAt(typeArray, currentIndex)
                 : "";
+            var (type, preferSameOutfit) = PreciseReferenceRules.ParseCaption(typeValue);
             meta.PreciseReferences.Add(new PreciseReferenceInfo
             {
                 ImageBase64 = imageBase64,
                 FileName = fileName,
-                ReferenceType = ParsePreciseReferenceType(typeValue),
-                Strength = Math.Clamp(currentIndex < legacyStrengthValues.Count ? legacyStrengthValues[currentIndex] : 1.0, 0, 1),
-                Fidelity = Math.Clamp(currentIndex < fidelityValues.Count ? fidelityValues[currentIndex] : 0.0, 0, 1),
+                ReferenceType = type,
+                PreferSameOutfit = preferSameOutfit,
+                Strength = Math.Clamp(currentIndex < legacyStrengthValues.Count ? legacyStrengthValues[currentIndex] ?? 1 : 1, 0, 1),
+                Fidelity = Math.Clamp(currentIndex < fidelityValues.Count ? fidelityValues[currentIndex] ?? 0 : 0, 0, 1),
             });
             currentIndex++;
         }
@@ -1306,16 +1325,16 @@ public static class ImageMetadataService
         return "";
     }
 
-    private static List<double> TryReadDoubleArray(JsonElement element, string propertyName)
+    private static List<double?> TryReadDoubleArray(JsonElement element, string propertyName)
     {
-        var result = new List<double>();
+        var result = new List<double?>();
         if (!element.TryGetProperty(propertyName, out var array) || array.ValueKind != JsonValueKind.Array)
             return result;
 
         foreach (var item in array.EnumerateArray())
         {
-            if (item.ValueKind == JsonValueKind.Number)
-                result.Add(item.GetDouble());
+            result.Add(item.ValueKind == JsonValueKind.Number && item.TryGetDouble(out double number) &&
+                double.IsFinite(number) ? number : null);
         }
 
         return result;
@@ -1353,14 +1372,4 @@ public static class ImageMetadataService
         return "";
     }
 
-    private static PreciseReferenceType ParsePreciseReferenceType(string rawType) =>
-        rawType.Trim().ToLowerInvariant() switch
-        {
-            "character" => PreciseReferenceType.Character,
-            "style" => PreciseReferenceType.Style,
-            "character_style" => PreciseReferenceType.CharacterAndStyle,
-            "character&style" => PreciseReferenceType.CharacterAndStyle,
-            "character+style" => PreciseReferenceType.CharacterAndStyle,
-            _ => PreciseReferenceType.CharacterAndStyle,
-        };
 }

@@ -350,7 +350,7 @@ public sealed partial class MainWindow
         CurrentParams.Sampler = NormalizeSamplerForModel(CurrentParams.Sampler, GetCurrentModelKey());
         CurrentParams.Schedule = NormalizeScheduleForModel(CurrentParams.Schedule, GetCurrentModelKey());
         RecheckVibeTransferCacheState();
-        UpdateReferenceButtonAndPanelState();
+        RefreshPreciseReferencePanel();
         ChkVariety.Visibility = Visibility.Visible;
         if (IsAdvancedWindowOpen)
         {

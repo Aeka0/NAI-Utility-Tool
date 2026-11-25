@@ -254,12 +254,29 @@ public sealed partial class MainWindow
         }
     }
 
+    private string GetPreciseReferenceTypeLabel(PreciseReferenceType type) => L(type switch
+    {
+        PreciseReferenceType.Character => "references.precise.type.character",
+        PreciseReferenceType.Style => "references.precise.type.style",
+        PreciseReferenceType.Outfit => "references.precise.type.outfit",
+        _ => "references.precise.type.both",
+    });
+
     private UIElement BuildPreciseReferenceUI(PreciseReferenceEntry entry, int index)
     {
+        string model = GetCurrentModelKey();
+        bool isV5 = IsV5ModelKey(model);
+        bool typeSupported = PreciseReferenceRules.SupportsType(model, entry.ReferenceType);
+        bool showV5Strength = isV5 || !typeSupported;
+        double maxStrength = showV5Strength ? PreciseReferenceRules.V5StrengthMax : 1;
+        double strength = Math.Clamp(entry.GetStrength(showV5Strength), 0, maxStrength);
         var root = new StackPanel { Spacing = 6 };
+        string title = entry.IsCollapsed
+            ? $"{GetPreciseReferenceTypeLabel(entry.ReferenceType)} · {strength:0.00}"
+            : Lf("references.precise.cached", index + 1);
 
         var header = BuildReferenceHeader(
-            Lf("references.precise.cached", index + 1),
+            title,
             entry.IsCollapsed,
             entry.IsDisabled,
             canMoveUp: index > 0,
@@ -285,9 +302,16 @@ public sealed partial class MainWindow
             });
         root.Children.Add(header);
 
+        if (!typeSupported)
+        {
+            var hint = CreateThemedSubLabel(L("references.precise.outfit_requires_v5"));
+            hint.TextWrapping = TextWrapping.Wrap;
+            root.Children.Add(hint);
+        }
+
         if (!entry.IsCollapsed)
         {
-            bool canEdit = CanEditPreciseReferenceFeature() && !entry.IsDisabled;
+            bool canEdit = CanEditPreciseReferenceFeature() && typeSupported && !entry.IsDisabled;
 
             var infoGrid = new Grid { ColumnSpacing = 10, Margin = new Thickness(0, 2, 0, 0) };
             infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -358,51 +382,77 @@ public sealed partial class MainWindow
                 MinHeight = 32,
                 FontFamily = UiTextFontFamily,
             };
-            typeCombo.Items.Add(CreateTextComboBoxItem(L("references.precise.type.both")));
-            typeCombo.Items.Add(CreateTextComboBoxItem(L("references.precise.type.character")));
-            typeCombo.Items.Add(CreateTextComboBoxItem(L("references.precise.type.style")));
-            typeCombo.SelectedIndex = entry.ReferenceType switch
+            var types = new List<PreciseReferenceType>
             {
-                PreciseReferenceType.CharacterAndStyle => 0,
-                PreciseReferenceType.Character => 1,
-                _ => 2,
+                PreciseReferenceType.CharacterAndStyle, PreciseReferenceType.Character, PreciseReferenceType.Style,
             };
-            typeCombo.SelectionChanged += (_, _) =>
-            {
-                entry.ReferenceType = typeCombo.SelectedIndex switch
-                {
-                    1 => PreciseReferenceType.Character,
-                    2 => PreciseReferenceType.Style,
-                    _ => PreciseReferenceType.CharacterAndStyle,
-                };
-            };
+            if (isV5 || entry.ReferenceType == PreciseReferenceType.Outfit)
+                types.Add(PreciseReferenceType.Outfit);
+            foreach (var type in types)
+                typeCombo.Items.Add(CreateTextComboBoxItem(GetPreciseReferenceTypeLabel(type)));
+            typeCombo.SelectedIndex = types.IndexOf(entry.ReferenceType);
             ApplyMenuTypography(typeCombo);
             typeCombo.IsEnabled = canEdit;
             root.Children.Add(typeCombo);
 
-            entry.Strength = Math.Clamp(entry.Strength, 0, 1);
-            entry.Fidelity = Math.Clamp(entry.Fidelity, 0, 1);
+            CheckBox? sameOutfitCheckBox = null;
+            if (isV5)
+            {
+                sameOutfitCheckBox = new CheckBox
+                {
+                    Content = new TextBlock
+                    {
+                        Text = L("references.precise.prefer_same_outfit"),
+                        TextWrapping = TextWrapping.Wrap,
+                    },
+                    MinHeight = 26,
+                    MinWidth = 0,
+                    FontFamily = UiTextFontFamily,
+                    IsEnabled = canEdit,
+                };
+                sameOutfitCheckBox.Click += (_, _) => entry.PreferSameOutfit = sameOutfitCheckBox.IsChecked == true;
+                root.Children.Add(sameOutfitCheckBox);
+            }
+
+            void UpdateSameOutfitCheckBox()
+            {
+                if (sameOutfitCheckBox == null) return;
+                sameOutfitCheckBox.Visibility = PreciseReferenceRules.CanPreferSameOutfit(entry.ReferenceType)
+                    ? Visibility.Visible : Visibility.Collapsed;
+                sameOutfitCheckBox.IsChecked = PreciseReferenceRules.PrefersSameOutfit(
+                    entry.ReferenceType, entry.PreferSameOutfit);
+            }
+            UpdateSameOutfitCheckBox();
+
+            typeCombo.SelectionChanged += (_, _) =>
+            {
+                if (typeCombo.SelectedIndex < 0) return;
+                entry.ReferenceType = types[typeCombo.SelectedIndex];
+                UpdateSameOutfitCheckBox();
+                QueuePromptAreaHeightUpdate();
+            };
 
             var strengthRow = BuildReferenceSliderRow(
                 L("references.precise.strength"),
-                0, 1, entry.Strength,
-                value => entry.Strength = Math.Round(value, 2));
-            strengthRow.IsHitTestVisible = canEdit;
+                0, maxStrength, strength,
+                value => entry.SetStrength(showV5Strength, Math.Round(value, 2)), isEnabled: canEdit);
             strengthRow.Opacity = canEdit ? 1.0 : 0.72;
             root.Children.Add(strengthRow);
 
-            var fidelityRow = BuildReferenceSliderRow(
-                L("references.precise.fidelity"),
-                0, 1, entry.Fidelity,
-                value => entry.Fidelity = Math.Round(value, 2));
-            fidelityRow.IsHitTestVisible = canEdit;
-            fidelityRow.Opacity = canEdit ? 1.0 : 0.72;
-            root.Children.Add(fidelityRow);
+            if (!showV5Strength)
+            {
+                var fidelityRow = BuildReferenceSliderRow(
+                    L("references.precise.fidelity"),
+                    0, 1, entry.Fidelity,
+                    value => entry.Fidelity = Math.Round(value, 2), isEnabled: canEdit);
+                fidelityRow.Opacity = canEdit ? 1.0 : 0.72;
+                root.Children.Add(fidelityRow);
+            }
         }
 
         if (index < _genPreciseReferences.Count - 1)
             root.Children.Add(CreateReferenceSeparator());
-        root.Opacity = entry.IsDisabled ? 0.52 : CanEditPreciseReferenceFeature() ? 1.0 : 0.72;
+        root.Opacity = entry.IsDisabled ? 0.52 : typeSupported && CanEditPreciseReferenceFeature() ? 1.0 : 0.72;
         return root;
     }
 
@@ -458,6 +508,8 @@ public sealed partial class MainWindow
         var label = new TextBlock
         {
             Text = title,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            MaxLines = 1,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
             Style = (Style)((Grid)this.Content).Resources["InspectCaptionStyle"],
@@ -528,6 +580,7 @@ public sealed partial class MainWindow
             Minimum = min,
             Maximum = max,
             StepFrequency = 0.01,
+            SmallChange = 0.01,
             Value = value,
             IsEnabled = isEnabled,
             VerticalAlignment = VerticalAlignment.Center,
