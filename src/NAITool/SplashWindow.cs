@@ -62,7 +62,6 @@ public sealed class SplashWindow : Window
 
         _rootBorder = new Border
         {
-            CornerRadius = new CornerRadius(SplashCornerRadius),
             Background = transparentBrush,
             Child = layerGrid,
         };
@@ -196,11 +195,18 @@ public sealed class SplashWindow : Window
             NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE
             | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_FRAMECHANGED);
 
-        int cornerPref = NativeMethods.DWMWCP_ROUND;
-        NativeMethods.DwmSetWindowAttribute(hwnd,
-            NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE,
-            ref cornerPref, sizeof(int));
+        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+        {
+            int cornerPreference = NativeMethods.DWMWCP_ROUND;
+            int result = NativeMethods.DwmSetWindowAttribute(hwnd,
+                NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE,
+                ref cornerPreference, sizeof(int));
+            if (result >= 0)
+                return;
+        }
 
+        // 自定义窗口区域会阻止 DWM 应用系统圆角，仅在回退时使用。
+        _rootBorder.CornerRadius = new CornerRadius(SplashCornerRadius);
         ApplyRoundedWindowRegion(hwnd);
     }
 
